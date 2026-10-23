@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import ToastContainer from './components/ToastContainer';
 import LoadingScreen from './components/LoadingScreen';
 import { useGame } from './store/useGame';
@@ -30,7 +30,7 @@ export default function App() {
       <Tutorial />
       {loading && <LoadingScreen onDone={() => setLoading(false)} />}
       {!loading && (
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
@@ -50,7 +50,7 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       )}
     </>
   );
