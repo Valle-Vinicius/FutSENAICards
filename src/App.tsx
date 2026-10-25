@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import ToastContainer from './components/ToastContainer';
 import LoadingScreen from './components/LoadingScreen';
 import { useGame } from './store/useGame';
@@ -32,7 +32,7 @@ export default function App() {
       <Tutorial />
       {loading && <LoadingScreen onDone={() => setLoading(false)} />}
       {!loading && (
-        <HashRouter>
+        <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route element={<ProtectedRoute />}>
@@ -55,7 +55,7 @@ export default function App() {
             </Route>
             </Route>
           </Routes>
-        </HashRouter>
+        </BrowserRouter>
       )}
     </>
   );

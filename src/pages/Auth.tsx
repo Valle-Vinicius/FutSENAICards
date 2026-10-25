@@ -84,7 +84,7 @@ export default function Auth() {
     if (!supabase) { setError('Configure o Supabase.'); return; }
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/#/auth' } });
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/' } });
     if (error) { setError(error.message); setLoading(false); }
   };
 
