@@ -35,11 +35,11 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden md:flex md:w-1/2 relative overflow-hidden items-end justify-center" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+    <div className="h-screen overflow-hidden flex">
+      <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
         <img src={playerPose} alt="Jogador" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} />
       </div>
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 bg-white">
+      <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
             <div className="text-3xl font-black text-[#E30613]">FutSENAI</div>
