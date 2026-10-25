@@ -21,6 +21,7 @@ import Shop from './pages/Shop';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Auth from './pages/Auth';
+import ProtectedRoute from './components/ProtectedRoute';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -34,7 +35,8 @@ export default function App() {
         <HashRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route element={<Layout />}>
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
               <Route path="/packs" element={<Packs />} />
               <Route path="/open/:packId" element={<OpenPack />} />
@@ -50,6 +52,7 @@ export default function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
+            </Route>
             </Route>
           </Routes>
         </HashRouter>
