@@ -33,6 +33,7 @@ export default function App() {
       {!loading && (
         <HashRouter>
           <Routes>
+            <Route path="/auth" element={<Auth />} />
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
               <Route path="/packs" element={<Packs />} />
@@ -48,7 +49,6 @@ export default function App() {
               <Route path="/shop" element={<Shop />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
