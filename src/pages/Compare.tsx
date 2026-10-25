@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 
-const isGK = (p: string) => p === 'GK' || p === 'FutsalGK';
+const isGK = (p: string) => p === 'GK';
 
 export default function Compare() {
   const cards = useGame(s => s.cards);

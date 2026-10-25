@@ -1,8 +1,6 @@
-export type Position =
-  | 'GK' | 'LB' | 'CB' | 'RB' | 'CDM' | 'CM' | 'CAM' | 'LW' | 'RW' | 'ST'
-  | 'FutsalGK' | 'Fixo' | 'Ala' | 'Pivo';
+export type Position = 'GK' | 'Fixo' | 'Ala' | 'Pivo';
 
-export type Sport = 'football' | 'futsal';
+export type Sport = 'futsal';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'icon';
 
@@ -31,6 +29,7 @@ export interface PlayerCard {
   playerId: string;
   name: string;
   position: Position;
+  sport: Sport;
   nationality: string;
   age: number;
   club: string;
@@ -71,7 +70,8 @@ export interface PackDef {
   color: string;
   description: string;
   choice?: number; // pick 1 of N
-  position?: string; // for position-specific packs
+  position?: Position; // for position-specific packs
+  sport?: Sport;
 }
 
 export interface Mission {
@@ -110,7 +110,7 @@ export interface SquadSlot {
 }
 
 export interface Squad {
-  sport: 'football' | 'futsal';
+  sport: 'futsal';
   formation: string;
   starters: SquadSlot[];
   bench: (string | null)[];
@@ -119,7 +119,7 @@ export interface Squad {
 export interface SavedSquad {
   id: string;
   name: string;
-  sport: 'football' | 'futsal';
+  sport: 'futsal';
   formation: string;
   starters: (string | null)[];
   bench: (string | null)[];
@@ -161,7 +161,7 @@ export interface GameState {
   missions: Mission[];
   achievements: Achievement[];
   transactions: Transaction[];
-  squads: { football: Squad; futsal: Squad };
+  squads: { futsal: Squad };
   savedSquads: SavedSquad[];
   compareHistory: { aUid: string; bUid: string; at: number }[];
   matchHistory: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string }[];

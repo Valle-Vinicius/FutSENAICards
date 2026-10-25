@@ -2,15 +2,12 @@ import { useState } from 'react';
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 import { squadOverall } from '../store/useGame';
-import { FORMATIONS_FOOTBALL as FF, FORMATIONS_FUTSAL as FS } from '../lib/game';
+import { FORMATIONS_FUTSAL as FS } from '../lib/game';
 
-const footballFormations = Object.keys(FF);
 const futsalFormations = Object.keys(FS);
 
-const FOOTBALL_POS_LABEL: Record<string, string> = { GK:'GOL', LB:'LE', CB:'ZAG', RB:'LD', CM:'MEI', LW:'PE', ST:'ATA', RW:'PD', CDM:'VOL', CAM:'MEI', LM:'ME', RM:'MD', LWB:'ALE', RWB:'ALD' };
-
 export default function Squad() {
-  const [sport, setSport] = useState<'football'|'futsal'>('football');
+  const sport = 'futsal' as const;
   const squads = useGame(s => s.squads);
   const cards = useGame(s => s.cards);
   const savedSquads = useGame(s => s.savedSquads);
@@ -27,15 +24,9 @@ export default function Squad() {
   const [saveName, setSaveName] = useState('');
   const [msg, setMsg] = useState('');
 
-  const isFootball = sport === 'football';
-  const formations = isFootball ? footballFormations : futsalFormations;
+  const formations = futsalFormations;
   const squad = squads[sport];
-  const labels = isFootball ? FOOTBALL_POS_LABEL : { FutsalGK:'GOL', Fixo:'FIXO', Ala:'ALA', Pivo:'PIVÔ' };
-
-  const handleSport = (sp: 'football'|'futsal') => {
-    setSport(sp);
-    setFormationState(squads[sp].formation);
-  };
+  const labels = { GK:'GOL', Fixo:'FIXO', Ala:'ALA', Pivo:'PIVÔ' };
 
   const handleFormation = (f: string) => {
     setFormationState(f);
@@ -141,10 +132,6 @@ export default function Squad() {
     <div className="p-4 md:p-8 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Montar elenco</h1>
-        <div className="flex gap-2">
-          <button onClick={() => handleSport('football')} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${sport==='football' ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>Futebol</button>
-          <button onClick={() => handleSport('futsal')} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${sport==='futsal' ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>Futsal</button>
-        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -170,7 +157,7 @@ export default function Squad() {
         <div className="card-surface p-4">
           <div className="text-sm font-medium mb-3 text-[#858A98]">Campo</div>
           <div className="relative bg-gradient-to-b from-green-50 to-green-100 rounded-xl border-2 border-green-200 p-2">
-            <div className="grid gap-1" style={{ gridTemplateColumns: isFootball ? 'repeat(4, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))' }}>
+            <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
               {squad.starters.map((slot, i) => {
                 const card = slot.uid ? cards.find(c => c.uid === slot.uid) : null;
                 const outPos = card && card.position !== slot.position;

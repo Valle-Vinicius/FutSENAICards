@@ -59,7 +59,7 @@ export default function Collection() {
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por nome..." className={`flex-1 min-w-[160px] ${sel}`} />
         <select value={pos} onChange={e => setPos(e.target.value)} className={sel}>
           <option value="">Posição</option>
-          {['GK', 'LB', 'CB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST', 'FutsalGK', 'Fixo', 'Ala', 'Pivo'].map(p => <option key={p} value={p}>{p}</option>)}
+          {['GK', 'Fixo', 'Ala', 'Pivo'].map(p => <option key={p} value={p}>{p}</option>)}
         </select>
         <select value={rar} onChange={e => setRar(e.target.value)} className={sel}>
           <option value="">Raridade</option>
@@ -77,7 +77,7 @@ export default function Collection() {
       </div>
 
       {album ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {allTemplates().map(t => {
             const owned = cards.find(c => c.name === t.name);
             return owned ? (
@@ -94,7 +94,7 @@ export default function Collection() {
         <div className="text-center text-[#858A98] py-12">Nenhuma carta encontrada.</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filtered.slice(0, visible).map(c => (
               <Card key={c.uid} card={c} size="sm" onClick={() => openCard(c)} isNew={c.isNew} />
             ))}

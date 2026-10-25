@@ -1,7 +1,7 @@
 // src/engine/match.ts
 // Pure, deterministic match simulation engine (no React/DOM).
 
-export type Sport = 'football' | 'futsal';
+export type Sport = 'futsal';
 export type Tactic = 'balanced' | 'possession' | 'highpress' | 'counter' | 'compact';
 
 export interface MatchPlayer {
@@ -114,39 +114,29 @@ const DIFF_MOD = { easy: 0.85, normal: 1.0, hard: 1.15 };
 function clamp(v: number, a: number, b: number) { return Math.max(a, Math.min(b, v)); }
 function dist(x1: number, y1: number, x2: number, y2: number) { return Math.hypot(x1 - x2, y1 - y2); }
 
-function basePositions(sport: Sport, formation: string, side: 'home' | 'away'): { x: number; y: number }[] {
+function basePositions(formation: string, side: 'home' | 'away'): { x: number; y: number }[] {
   // returns array aligned with players order (GK first then outfield)
   const mirror = side === 'away';
   const m = (p: { x: number; y: number }) => mirror ? { x: 100 - p.x, y: 100 - p.y } : p;
-  if (sport === 'futsal') {
-    const f: Record<string, { x: number; y: number }[]> = {
-      '1-2-1': [{ x: 5, y: 50 }, { x: 25, y: 50 }, { x: 45, y: 25 }, { x: 45, y: 75 }, { x: 70, y: 50 }],
-      '2-2': [{ x: 5, y: 50 }, { x: 25, y: 35 }, { x: 25, y: 65 }, { x: 55, y: 30 }, { x: 55, y: 70 }],
-      '3-1': [{ x: 5, y: 50 }, { x: 20, y: 30 }, { x: 20, y: 50 }, { x: 20, y: 70 }, { x: 60, y: 50 }],
-      '4-0': [{ x: 5, y: 50 }, { x: 25, y: 25 }, { x: 25, y: 45 }, { x: 25, y: 55 }, { x: 25, y: 75 }],
-    };
-    return (f[formation] || f['1-2-1']).map(m);
-  }
   const f: Record<string, { x: number; y: number }[]> = {
-    '4-3-3': [{ x: 5, y: 50 }, { x: 20, y: 18 }, { x: 16, y: 38 }, { x: 16, y: 62 }, { x: 20, y: 82 }, { x: 38, y: 28 }, { x: 42, y: 50 }, { x: 38, y: 72 }, { x: 68, y: 20 }, { x: 78, y: 50 }, { x: 68, y: 80 }],
-    '4-4-2': [{ x: 5, y: 50 }, { x: 20, y: 18 }, { x: 16, y: 38 }, { x: 16, y: 62 }, { x: 20, y: 82 }, { x: 40, y: 18 }, { x: 42, y: 40 }, { x: 42, y: 60 }, { x: 40, y: 82 }, { x: 75, y: 35 }, { x: 75, y: 65 }],
-    '4-2-3-1': [{ x: 5, y: 50 }, { x: 20, y: 18 }, { x: 16, y: 38 }, { x: 16, y: 62 }, { x: 20, y: 82 }, { x: 32, y: 40 }, { x: 32, y: 60 }, { x: 50, y: 50 }, { x: 68, y: 22 }, { x: 78, y: 50 }, { x: 68, y: 78 }],
-    '3-5-2': [{ x: 5, y: 50 }, { x: 18, y: 30 }, { x: 16, y: 50 }, { x: 18, y: 70 }, { x: 30, y: 18 }, { x: 38, y: 35 }, { x: 42, y: 50 }, { x: 38, y: 65 }, { x: 30, y: 82 }, { x: 72, y: 35 }, { x: 72, y: 65 }],
-    '4-3-2-1': [{ x: 5, y: 50 }, { x: 20, y: 18 }, { x: 16, y: 38 }, { x: 16, y: 62 }, { x: 20, y: 82 }, { x: 38, y: 28 }, { x: 42, y: 50 }, { x: 38, y: 72 }, { x: 58, y: 35 }, { x: 58, y: 65 }, { x: 78, y: 50 }],
+    '1-2-1': [{ x: 5, y: 50 }, { x: 25, y: 50 }, { x: 45, y: 25 }, { x: 45, y: 75 }, { x: 70, y: 50 }],
+    '2-2': [{ x: 5, y: 50 }, { x: 25, y: 35 }, { x: 25, y: 65 }, { x: 55, y: 30 }, { x: 55, y: 70 }],
+    '3-1': [{ x: 5, y: 50 }, { x: 20, y: 30 }, { x: 20, y: 50 }, { x: 20, y: 70 }, { x: 60, y: 50 }],
+    '4-0': [{ x: 5, y: 50 }, { x: 25, y: 25 }, { x: 25, y: 45 }, { x: 25, y: 55 }, { x: 25, y: 75 }],
   };
-  return (f[formation] || f['4-3-3']).map(m);
+  return (f[formation] || f['1-2-1']).map(m);
 }
 
-export function createPlayersFromCards(cards: { uid: string; name: string; position: string; overall: number; pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; reflexes?: number; positioning?: number; handling?: number }[], team: 'home' | 'away', formation: string, sport: Sport): MatchPlayer[] {
+export function createPlayersFromCards(cards: { uid: string; name: string; position: string; overall: number; pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; reflexes?: number; positioning?: number; handling?: number }[], team: 'home' | 'away', formation: string, _sport: Sport): MatchPlayer[] {
   const side = team;
-  const positions = basePositions(sport, formation, side);
+  const positions = basePositions(formation, side);
   // sort: GK first
-  const gk = cards.find(c => c.position === 'GK' || c.position === 'FutsalGK') || cards[0];
+  const gk = cards.find(c => c.position === 'GK') || cards[0];
   const others = cards.filter(c => c !== gk);
   const ordered = [gk, ...others].slice(0, positions.length);
   return ordered.map((c, i) => {
     const p = positions[i] || { x: 50, y: 50 };
-    const isGK = c.position === 'GK' || c.position === 'FutsalGK';
+    const isGK = c.position === 'GK';
     return {
       id: c.uid + '_' + team,
       name: c.name,
@@ -251,11 +241,11 @@ export function simulateMatch(config: MatchConfig): MatchResult {
       half = 2;
       // reset positions
       homePlayers.forEach((p, i) => {
-        const bp = basePositions(config.sport, config.homeFormation, 'home')[i];
+        const bp = basePositions(config.homeFormation, 'home')[i];
         if (bp) { p.x = bp.x; p.y = bp.y; p.targetX = bp.x; p.targetY = bp.y; }
       });
       awayPlayers.forEach((p, i) => {
-        const bp = basePositions(config.sport, config.awayFormation, 'away')[i];
+        const bp = basePositions(config.awayFormation, 'away')[i];
         if (bp) { p.x = bp.x; p.y = bp.y; p.targetX = bp.x; p.targetY = bp.y; }
       });
       ball = { x: 50, y: 50, holder: homeMid.id };
@@ -436,15 +426,13 @@ export function simulateMatch(config: MatchConfig): MatchResult {
 // We'll patch: homeMid/awayMid computed inside simulateMatch before use. Already referenced; move.
 // Actually homeMid/awayMid need definition. Let's ensure:
 // (handled below by redefining at top)
-export function makeAwayTeam(sport: Sport, difficulty: 'easy'|'normal'|'hard', seed: number): MatchPlayer[] {
+export function makeAwayTeam(_sport: Sport, difficulty: 'easy'|'normal'|'hard', seed: number): MatchPlayer[] {
   const rng = mulberry32(seed);
   const names = ['Silva','Santos','Oliveira','Souza','Lima','Costa','Rocha','Alves','Ferreira','Gomes','Ribeiro','Martins','Carvalho','Araújo','Melo'];
-  const positions = sport === 'futsal'
-    ? ['FutsalGK','Fixo','Ala','Ala','Pivo']
-    : ['GK','LB','CB','CB','RB','CDM','CM','CM','LW','ST','RW'];
+  const positions = ['GK','Fixo','Ala','Ala','Pivo'];
   const baseOvr = difficulty === 'easy' ? 68 : difficulty === 'hard' ? 82 : 75;
   return positions.map((pos, i) => {
-    const isGK = pos === 'GK' || pos === 'FutsalGK';
+    const isGK = pos === 'GK';
     const ovr = Math.round(baseOvr + (rng() * 8 - 4));
     const a = (v: number) => clamp(Math.round(v + (rng() * 10 - 5)), 30, 99);
     return {

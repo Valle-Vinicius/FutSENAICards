@@ -11,7 +11,7 @@ export default function CardDetail() {
   const card = cards.find(c => c.uid === uid);
   if (!card) return <div className="p-8 text-[#252733]">Carta não encontrada. <button onClick={()=>navigate('/collection')} className="text-[#E30613]">Voltar</button></div>;
 
-  const isGK = ['GK','FutsalGK'].includes(card.position);
+  const isGK = card.position === 'GK';
   const attrs = isGK
     ? [['Reflexos', card.reflexes ?? 0], ['Posicionamento', card.positioning ?? 0], ['Defesa', card.handling ?? 0], ['Passe', card.passing], ['Físico', card.physical], ['Velocidade', card.pace]]
     : [['Velocidade', card.pace], ['Chute', card.shooting], ['Passe', card.passing], ['Drible', card.dribbling], ['Defesa', card.defending], ['Físico', card.physical]];

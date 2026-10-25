@@ -1,6 +1,5 @@
 import { nanoid } from 'nanoid';
 import type { Position, PlayerCard, Rarity } from '../types';
-import { RARITY_META } from '../types';
 
 import enzothomas from '../imagens/enzothomas.jpg';
 import gabrielortelan from '../imagens/gabrielortelan.jpg';
@@ -20,91 +19,162 @@ interface PlayerTemplate {
   nationality: string;
   age: number;
   club: string;
-  baseOverall: number;
+  attributes: { pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number };
+  gkAttributes?: { reflexes: number; positioning: number; handling: number };
   image: string;
-  isGK?: boolean;
+  baseRarity: Rarity;
 }
 
 const TEMPLATES: PlayerTemplate[] = [
-  { name: 'Enzo Thomas', position: 'ST', nationality: 'Brasil', age: 19, club: 'Aurora FC', baseOverall: 84, image: enzothomas },
-  { name: 'Gabriel Ortelan', position: 'CAM', nationality: 'Brasil', age: 21, club: 'Estrela do Norte', baseOverall: 86, image: gabrielortelan },
-  { name: 'Gustavo Hyppolito', position: 'CM', nationality: 'Brasil', age: 20, club: 'Fênix SC', baseOverall: 79, image: gustavohyppolito },
-  { name: 'Heitor Barbosa', position: 'CB', nationality: 'Brasil', age: 22, club: 'Tigres FC', baseOverall: 82, image: heitorbarbosa },
-  { name: 'João Marcos', position: 'GK', nationality: 'Brasil', age: 23, club: 'Leões FC', baseOverall: 80, image: joaomarcos, isGK: true },
-  { name: 'Jonas Daniel', position: 'LW', nationality: 'Brasil', age: 18, club: 'Aurora FC', baseOverall: 81, image: jonasdanieldebritolopes },
-  { name: 'Matheus Lopes', position: 'RW', nationality: 'Brasil', age: 19, club: 'Estrela do Norte', baseOverall: 78, image: matheuslopes },
-  { name: 'Pietro Guedes', position: 'LB', nationality: 'Brasil', age: 20, club: 'Fênix SC', baseOverall: 77, image: pietroguedes },
-  { name: 'Rafael Dutra', position: 'RB', nationality: 'Brasil', age: 21, club: 'Tigres FC', baseOverall: 76, image: rafaeldutra },
-  { name: 'Thiago Tavares', position: 'CDM', nationality: 'Brasil', age: 24, club: 'Leões FC', baseOverall: 83, image: thiagotavares },
-  { name: 'Vinícius Assunção', position: 'ST', nationality: 'Brasil', age: 22, club: 'Aurora FC', baseOverall: 88, image: viniciusassuncao },
+  {
+    name: 'Pietro Guedes',
+    position: 'Pivo',
+    nationality: 'Brasil',
+    age: 20,
+    club: 'Aurora Futsal',
+    attributes: { pace: 85, shooting: 92, passing: 75, dribbling: 75, defending: 65, physical: 90 },
+    image: pietroguedes,
+    baseRarity: 'rare',
+  },
+  {
+    name: 'Mateus Lopes',
+    position: 'Pivo',
+    nationality: 'Brasil',
+    age: 19,
+    club: 'Estrela Futsal',
+    attributes: { pace: 40, shooting: 76, passing: 70, dribbling: 83, defending: 65, physical: 73 },
+    image: matheuslopes,
+    baseRarity: 'common',
+  },
+  {
+    name: 'Muzy',
+    position: 'Pivo',
+    nationality: 'Brasil',
+    age: 21,
+    club: 'Fênix Futsal',
+    attributes: { pace: 70, shooting: 78, passing: 75, dribbling: 75, defending: 68, physical: 80 },
+    image: gustavohyppolito,
+    baseRarity: 'common',
+  },
+  {
+    name: 'Thiago Tavares',
+    position: 'Ala',
+    nationality: 'Brasil',
+    age: 24,
+    club: 'Leões Futsal',
+    attributes: { pace: 84, shooting: 84, passing: 85, dribbling: 94, defending: 70, physical: 80 },
+    image: thiagotavares,
+    baseRarity: 'rare',
+  },
+  {
+    name: 'Rafael Dutra',
+    position: 'Ala',
+    nationality: 'Brasil',
+    age: 21,
+    club: 'Tigres Futsal',
+    attributes: { pace: 73, shooting: 90, passing: 84, dribbling: 70, defending: 70, physical: 94 },
+    image: rafaeldutra,
+    baseRarity: 'uncommon',
+  },
+  {
+    name: 'João Marcos',
+    position: 'Ala',
+    nationality: 'Brasil',
+    age: 23,
+    club: 'Leões Futsal',
+    attributes: { pace: 85, shooting: 78, passing: 80, dribbling: 85, defending: 60, physical: 60 },
+    image: joaomarcos,
+    baseRarity: 'uncommon',
+  },
+  {
+    name: 'Enzo Thomas',
+    position: 'Ala',
+    nationality: 'Brasil',
+    age: 19,
+    club: 'Aurora Futsal',
+    attributes: { pace: 82, shooting: 78, passing: 75, dribbling: 90, defending: 55, physical: 60 },
+    image: enzothomas,
+    baseRarity: 'common',
+  },
+  {
+    name: 'Vinícius Assunção',
+    position: 'Ala',
+    nationality: 'Brasil',
+    age: 22,
+    club: 'Aurora Futsal',
+    attributes: { pace: 94, shooting: 72, passing: 76, dribbling: 65, defending: 68, physical: 60 },
+    image: viniciusassuncao,
+    baseRarity: 'common',
+  },
+  {
+    name: 'Heitor Barbosa',
+    position: 'Fixo',
+    nationality: 'Brasil',
+    age: 22,
+    club: 'Tigres Futsal',
+    attributes: { pace: 70, shooting: 75, passing: 80, dribbling: 65, defending: 85, physical: 65 },
+    image: heitorbarbosa,
+    baseRarity: 'common',
+  },
+  {
+    name: 'Jonas Daniel',
+    position: 'GK',
+    nationality: 'Brasil',
+    age: 18,
+    club: 'Aurora Futsal',
+    attributes: { pace: 40, shooting: 60, passing: 60, dribbling: 60, defending: 65, physical: 72 },
+    gkAttributes: { reflexes: 75, positioning: 90, handling: 75 },
+    image: jonasdanieldebritolopes,
+    baseRarity: 'common',
+  },
+  {
+    name: 'Gabriel Ortelan',
+    position: 'Fixo',
+    nationality: 'Brasil',
+    age: 21,
+    club: 'Estrela Futsal',
+    attributes: { pace: 45, shooting: 30, passing: 55, dribbling: 45, defending: 90, physical: 75 },
+    image: gabrielortelan,
+    baseRarity: 'common',
+  },
 ];
-
-const GK_POSITIONS = new Set(['GK','FutsalGK']);
-
-function clamp(v: number, a: number, b: number) { return Math.max(a, Math.min(b, v)); }
-function jitter(base: number, spread = 6) { return base + (Math.random() * spread * 2 - spread); }
-
-function attrsFor(t: PlayerTemplate, ovr: number) {
-  const isGK = t.isGK || GK_POSITIONS.has(t.position);
-  const isDef = ['CB','LB','RB','CDM'].includes(t.position);
-  const isMid = ['CM','CAM','CDM'].includes(t.position);
-  const isAtt = ['ST','LW','RW'].includes(t.position);
-
-  if (isGK) {
-    const reflexes = clamp(Math.round(jitter(ovr, 4)), 40, 99);
-    const positioning = clamp(Math.round(jitter(ovr, 4)), 40, 99);
-    const handling = clamp(Math.round(jitter(ovr, 4)), 40, 99);
-    return {
-      pace: clamp(Math.round(jitter(ovr - 20, 5)), 30, 70),
-      shooting: clamp(Math.round(jitter(ovr - 30, 5)), 20, 60),
-      passing: clamp(Math.round(jitter(ovr - 10, 5)), 40, 80),
-      dribbling: clamp(Math.round(jitter(ovr - 15, 5)), 35, 75),
-      defending: clamp(Math.round(jitter(ovr - 5, 4)), 50, 90),
-      physical: clamp(Math.round(jitter(ovr - 5, 4)), 50, 90),
-      reflexes, positioning, handling,
-    };
-  }
-  let pace = ovr, shooting = ovr, passing = ovr, dribbling = ovr, defending = ovr, physical = ovr;
-  if (isDef) { defending += 8; physical += 5; shooting -= 10; }
-  if (isMid) { passing += 6; dribbling += 4; }
-  if (isAtt) { shooting += 8; pace += 5; defending -= 12; }
-  if (t.position === 'LW' || t.position === 'RW') { pace += 4; dribbling += 6; }
-  if (t.position === 'ST') { shooting += 6; physical += 4; }
-  if (t.position === 'CDM') { defending += 6; passing += 4; }
-  const j = (v: number) => clamp(Math.round(jitter(v, 5)), 30, 99);
-  return {
-    pace: j(pace),
-    shooting: j(shooting),
-    passing: j(passing),
-    dribbling: j(dribbling),
-    defending: j(defending),
-    physical: j(physical),
-  };
-}
 
 const SEASONS = ['2025/26'];
 
+function calculateOverall(t: PlayerTemplate): number {
+  const a = t.attributes;
+  if (t.position === 'GK') {
+    const gk = t.gkAttributes ?? { reflexes: 50, positioning: 50, handling: 50 };
+    return Math.round((a.pace + a.passing + a.defending + a.physical + gk.reflexes + gk.positioning) / 6);
+  }
+  return Math.round((a.pace + a.shooting + a.passing + a.dribbling + a.defending + a.physical) / 6);
+}
+
 export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' = 'none'): PlayerCard {
-  const meta = RARITY_META[rarity];
-  let ovr = clamp(Math.round(jitter(t.baseOverall, 2)), meta.minOvr, meta.maxOvr);
-  ovr = clamp(ovr, meta.minOvr, meta.maxOvr);
-  const attrs = attrsFor(t, ovr);
-  const overall = Math.round((attrs.pace + attrs.shooting + attrs.passing + attrs.dribbling + attrs.defending + attrs.physical) / 6);
-  const finalOvr = clamp(overall, meta.minOvr, meta.maxOvr);
+  const overall = calculateOverall(t);
+  const a = t.attributes;
+  const gk = t.gkAttributes ?? { reflexes: 50, positioning: 50, handling: 50 };
   return {
     uid: nanoid(10),
     playerId: t.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
     name: t.name,
     position: t.position,
+    sport: 'futsal',
     nationality: t.nationality,
     age: t.age,
     club: t.club,
     rarity,
     edition: SEASONS[0],
     special: special as any,
-    overall: finalOvr,
+    overall,
     image: t.image,
-    ...attrs,
+    pace: a.pace,
+    shooting: a.shooting,
+    passing: a.passing,
+    dribbling: a.dribbling,
+    defending: a.defending,
+    physical: a.physical,
+    ...(t.position === 'GK' ? { reflexes: gk.reflexes, positioning: gk.positioning, handling: gk.handling } : {}),
     obtainedAt: Date.now(),
     favorite: false,
     isNew: true,
@@ -114,18 +184,19 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
   };
 }
 
+export function futsalTemplates() { return TEMPLATES; }
 export function allTemplates() { return TEMPLATES; }
 
 export function randomTemplate(positionFilter?: Position): PlayerTemplate {
   const pool = positionFilter ? TEMPLATES.filter(t => t.position === positionFilter) : TEMPLATES;
+  if (pool.length === 0) return TEMPLATES[0];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
 export function generateIconCard(): PlayerCard {
   const t = TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)];
   const rarity: Rarity = Math.random() < 0.5 ? 'icon' : 'legendary';
-  const special: any = rarity === 'icon' ? 'legend' : 'none';
-  const card = generatePlayerCard(t, rarity, special);
-  card.overall = clamp(card.overall + 3, RARITY_META[rarity].minOvr, RARITY_META[rarity].maxOvr);
+  const card = generatePlayerCard(t, rarity, 'none');
+  card.overall = Math.min(99, card.overall + 3);
   return card;
 }

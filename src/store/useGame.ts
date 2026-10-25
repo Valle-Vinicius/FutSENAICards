@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types';
-import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FOOTBALL, FORMATIONS_FUTSAL } from '../lib/game';
+import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL } from '../lib/game';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
 
@@ -17,14 +17,14 @@ interface Actions {
   markSeen: (uids: string[]) => void;
   updateMissionProgress: () => void;
   claimMission: (id: string) => boolean;
-  setSquadSport: (sport: 'football' | 'futsal') => void;
-  assignSlot: (sport: 'football' | 'futsal', index: number, cardUid: string | null, bench?: boolean, benchIndex?: number) => void;
-  clearSlot: (sport: 'football' | 'futsal', index: number, bench?: boolean, benchIndex?: number) => void;
-  setFormation: (sport: 'football' | 'futsal', formation: string) => void;
+  setSquadSport: (sport: 'futsal') => void;
+  assignSlot: (sport: 'futsal', index: number, cardUid: string | null, bench?: boolean, benchIndex?: number) => void;
+  clearSlot: (sport: 'futsal', index: number, bench?: boolean, benchIndex?: number) => void;
+  setFormation: (sport: 'futsal', formation: string) => void;
   resetAll: () => void;
   unlockLegendary: () => void;
   addEvent: () => void;
-  saveSquad: (name: string, sport: 'football' | 'futsal') => string;
+  saveSquad: (name: string, sport: 'futsal') => string;
   deleteSquad: (id: string) => void;
   setPrimarySquad: (id: string) => void;
   loadSquad: (id: string) => void;
@@ -57,36 +57,17 @@ const seedCards = (): PlayerCard[] => {
   }
   return out;
 };
-const initialSquadFootball = (): Squad => ({
-  sport: 'football',
-  formation: '4-3-3',
-  starters: [
-    { position: 'GK', uid: null },
-    { position: 'LB', uid: null },
-    { position: 'CB', uid: null },
-    { position: 'CB', uid: null },
-    { position: 'RB', uid: null },
-    { position: 'CM', uid: null },
-    { position: 'CM', uid: null },
-    { position: 'CM', uid: null },
-    { position: 'LW', uid: null },
-    { position: 'ST', uid: null },
-    { position: 'RW', uid: null },
-  ],
-  bench: [null, null, null, null, null],
-});
-
 const initialSquadFutsal = (): Squad => ({
   sport: 'futsal',
   formation: '1-2-1',
   starters: [
-    { position: 'FutsalGK', uid: null },
+    { position: 'GK', uid: null },
     { position: 'Fixo', uid: null },
     { position: 'Ala', uid: null },
     { position: 'Ala', uid: null },
     { position: 'Pivo', uid: null },
   ],
-  bench: [null, null, null],
+  bench: [null, null, null, null, null],
 });
 
 const initialState: GameState = {
@@ -98,7 +79,7 @@ const initialState: GameState = {
   missions: DEFAULT_MISSIONS.map(m => ({ ...m })),
   achievements: DEFAULT_ACHIEVEMENTS.map(a => ({ ...a })),
   transactions: [],
-  squads: { football: initialSquadFootball(), futsal: initialSquadFutsal() },
+  squads: { futsal: initialSquadFutsal() },
   savedSquads: [],
   compareHistory: [],
   matchHistory: [],
@@ -135,6 +116,11 @@ export const useGame = create<GameState & Actions>()(
       ...initialState,
       init: () => {
         const s = get();
+        // migrate persisted packs: fix goalkeeper pack position
+        const fixedPacks = s.packConfigs.map(p =>
+          p.id === 'position_gk' ? { ...p, position: 'GK' as any, sport: 'futsal' as any } : p
+        );
+        set({ packConfigs: fixedPacks });
         if (s.events.length === 0) {
           const now = Date.now();
           set({
@@ -177,12 +163,7 @@ export const useGame = create<GameState & Actions>()(
         for (let i = 0; i < pack.cards; i++) {
           const rarity = rollRarity(pack.probabilities);
           const special = rollSpecial();
-          let t;
-          if (pack.position) {
-            t = randomTemplate(pack.position as any);
-          } else {
-            t = randomTemplate();
-          }
+          const t = randomTemplate(pack.position as any);
           const card = generatePlayerCard(t, rarity, special === 'none' ? 'none' : special);
           cards.push(card);
         }
@@ -254,11 +235,7 @@ export const useGame = create<GameState & Actions>()(
               });
               progress = has ? 1 : 0;
             }
-            if (m.type === 'squad') {
-              const filled = st.squads.football.starters.filter(s => s.uid).length;
-              progress = filled;
-            }
-            if (m.type === 'futsal_squad') {
+            if (m.type === 'squad' || m.type === 'futsal_squad') {
               const filled = st.squads.futsal.starters.filter(s => s.uid).length;
               progress = filled;
             }
@@ -276,7 +253,7 @@ export const useGame = create<GameState & Actions>()(
           const a = st2.achievements.find(x => x.id === 'a3');
           if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a3' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
         }
-        const fFilled = st2.squads.football.starters.every(s => s.uid);
+        const fFilled = st2.squads.futsal.starters.every(s => s.uid);
         if (fFilled) {
           const a = st2.achievements.find(x => x.id === 'a4');
           if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a4' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
@@ -328,9 +305,7 @@ export const useGame = create<GameState & Actions>()(
         get().updateMissionProgress();
       },
       setFormation: (sport, formation) => {
-        const positions = sport === 'football'
-          ? (FORMATIONS_FOOTBALL[formation] ?? FORMATIONS_FOOTBALL['4-3-3'])
-          : (FORMATIONS_FUTSAL[formation] ?? FORMATIONS_FUTSAL['1-2-1']);
+        const positions = (FORMATIONS_FUTSAL[formation] ?? FORMATIONS_FUTSAL['1-2-1']);
         set(st => {
           const squad = st.squads[sport];
           const oldStarters = squad.starters.map(s => ({ pos: s.position, uid: s.uid }));
@@ -380,11 +355,9 @@ export const useGame = create<GameState & Actions>()(
         if (!saved) return;
         const sport = saved.sport;
         // rebuild squad starters positions based on current formation? Use saved formation
-        const positions = sport === 'football'
-          ? (saved.formation === '4-3-3' ? ['GK','LB','CB','CB','RB','CM','CM','CM','LW','ST','RW'] : ['GK','LB','CB','CB','RB','CM','CM','CM','LW','ST','RW'])
-          : ['FutsalGK','Fixo','Ala','Ala','Pivo'];
+        const positions = (FORMATIONS_FUTSAL[saved.formation] ?? FORMATIONS_FUTSAL['1-2-1']);
         // if saved formation different, keep positions from a map? We'll use saved starters length
-        const starters = saved.starters.map((uid, i) => ({ position: (positions[i] ?? 'CM') as any, uid }));
+        const starters = saved.starters.map((uid, i) => ({ position: (positions[i] ?? 'GK') as any, uid }));
         set(st => ({
           squads: {
             ...st.squads,
@@ -518,7 +491,7 @@ export const useGame = create<GameState & Actions>()(
         const count = pack.choice || pack.cards;
         for (let i = 0; i < count; i++) {
           const rarity = rollRarity(pack.probabilities);
-          const t = randomTemplate();
+          const t = randomTemplate(pack.position as any);
           cards.push(generatePlayerCard(t, rarity, 'none'));
         }
         return cards;
@@ -561,7 +534,7 @@ export const useGame = create<GameState & Actions>()(
         const npcs = ['Trader FC', 'Scout Pro', 'Mercado FC', 'Bola Cheia'];
         const newListings: Listing[] = [];
         for (let i = 0; i < 8; i++) {
-          const t = randomTemplate();
+    const t = randomTemplate();
           const rarity = rollRarity({ common: 0.3, uncommon: 0.3, rare: 0.25, epic: 0.12, legendary: 0.025, icon: 0.005 });
           const card = generatePlayerCard(t, rarity, 'none');
           // add card to a hidden pool? For demo, store card in inventory? We'll store card uid and also add to cards list as NPC-owned (marked)

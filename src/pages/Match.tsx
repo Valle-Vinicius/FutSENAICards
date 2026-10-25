@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid';
 import { useState, useRef, useEffect } from 'react';
 import { useGame } from '../store/useGame';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../engine/match';
-import type { MatchResult, MatchPlayer, Sport, Tactic } from '../engine/match';
+import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import { squadOverall } from '../store/useGame';
 
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
@@ -12,7 +12,7 @@ export default function Match() {
   const cards = useGame(s => s.cards);
   const squads = useGame(s => s.squads);
   const savedSquads = useGame(s => s.savedSquads);
-  const [sport, setSport] = useState<Sport>('football');
+  const sport = 'futsal' as const;
   const [difficulty, setDifficulty] = useState<'easy' | 'normal' | 'hard'>('normal');
   const [homeTactic, setHomeTactic] = useState<Tactic>('balanced');
   const [step, setStep] = useState<'setup' | 'prematch' | 'play' | 'result'>('setup');
@@ -51,7 +51,7 @@ export default function Match() {
       if (ss) { formation = ss.formation; starterUids = ss.starters; }
     }
     const starterCards = starterUids.map(uid => uid ? cards.find(c => c.uid === uid) : null).filter(Boolean) as any[];
-    if (starterCards.length < (sport === 'futsal' ? 5 : 11)) return null;
+    if (starterCards.length < 5) return null;
     const players = createPlayersFromCards(starterCards, 'home', formation, sport);
     return { players, formation };
   };
@@ -123,13 +123,6 @@ export default function Match() {
       <div className="p-4 md:p-8 space-y-6">
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada</h1>
         <div className="card-surface p-4 space-y-4 max-w-2xl">
-          <div>
-            <label className="text-sm text-[#858A98]">Modalidade</label>
-            <div className="flex gap-2 mt-1">
-              <button onClick={() => setSport('football')} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${sport==='football' ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>Futebol</button>
-              <button onClick={() => setSport('futsal')} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${sport==='futsal' ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>Futsal</button>
-            </div>
-          </div>
           <div>
             <label className="text-sm text-[#858A98]">Escalação</label>
             <select value={selectedSquadId ?? ''} onChange={e => setSelectedSquadId(e.target.value || null)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
