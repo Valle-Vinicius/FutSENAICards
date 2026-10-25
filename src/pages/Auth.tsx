@@ -80,6 +80,14 @@ export default function Auth() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
   }, []);
 
+  const signInWithGoogle = async () => {
+    if (!supabase) { setError('Configure o Supabase.'); return; }
+    setLoading(true);
+    setError('');
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/#/auth' } });
+    if (error) { setError(error.message); setLoading(false); }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) { setError('Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.'); return; }
@@ -122,6 +130,9 @@ export default function Auth() {
             {error && <div className="text-xs text-red-600">{error}</div>}
             <button disabled={loading} className="w-full py-3 rounded-xl bg-[#E30613] text-white font-black disabled:opacity-60">
               {loading ? 'Aguarde...' : (mode === 'login' ? 'ENTRAR' : 'CADASTRAR')}
+            </button>
+            <button type="button" onClick={signInWithGoogle} disabled={loading} className="w-full py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
+              <span>Entrar com Google</span>
             </button>
           </form>
           <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
