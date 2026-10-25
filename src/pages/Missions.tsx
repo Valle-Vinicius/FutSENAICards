@@ -46,7 +46,7 @@ export default function Missions() {
             <div key={a.id} className={`card-surface p-4 ${a.unlocked ? '' : 'opacity-40'}`}>
               <div className="font-medium text-[#252733]">{a.title}</div>
               <div className="text-xs text-[#858A98]">{a.description}</div>
-              <div className="mt-2 text-xs">{a.unlocked ? '✅ Desbloqueada' : '🔒 Bloqueada'}</div>
+              <div className="mt-2 text-xs">{a.unlocked ? '✅ Desbloqueado' : '🔒 Bloqueado'}</div>
             </div>
           ))}
         </div>
