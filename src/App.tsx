@@ -20,6 +20,7 @@ import Missions from './pages/Missions';
 import Shop from './pages/Shop';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import Auth from './pages/Auth';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="/shop" element={<Shop />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
