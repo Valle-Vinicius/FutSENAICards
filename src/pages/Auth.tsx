@@ -37,7 +37,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex">
       <div className="hidden md:flex md:w-1/2 relative overflow-hidden items-end justify-center" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
-        <img src={playerPose} alt="Jogador" className="relative z-10 object-contain drop-shadow-2xl" style={{ height: '95vh', width: 'auto', imageRendering: 'auto' }} />
+        <img src={playerPose} alt="Jogador" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} />
       </div>
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 bg-white">
         <div className="w-full max-w-sm space-y-6">
