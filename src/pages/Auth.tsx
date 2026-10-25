@@ -19,8 +19,8 @@ export default function Auth() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    let w = canvas.width = canvas.offsetWidth;
-    let h = canvas.height = canvas.offsetHeight;
+    let w = canvas.width = canvas.clientWidth || canvas.offsetWidth;
+    let h = canvas.height = canvas.clientHeight || canvas.offsetHeight;
     const particles: { x: number; y: number; vx: number; vy: number }[] = [];
     const count = 40;
     for (let i = 0; i < count; i++) {
@@ -58,8 +58,8 @@ export default function Auth() {
     };
     draw();
     const onResize = () => {
-      w = canvas.width = canvas.offsetWidth;
-      h = canvas.height = canvas.offsetHeight;
+      w = canvas.width = canvas.clientWidth || canvas.offsetWidth;
+      h = canvas.height = canvas.clientHeight || canvas.offsetHeight;
     };
     window.addEventListener('resize', onResize);
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
@@ -89,7 +89,7 @@ export default function Auth() {
   return (
     <div className="h-screen overflow-hidden flex">
       <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
-        <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+        <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
         <img src={playerPose} alt="Jogador" className="relative z-10" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} />
       </div>
       <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
