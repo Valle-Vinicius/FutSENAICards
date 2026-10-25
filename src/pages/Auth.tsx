@@ -11,6 +11,8 @@ import assuncaoPose from '../imagens/imagensposes/assuncaologin-removebg-preview
 import matheusPose from '../imagens/imagensposes/matheuslogin-removebg-preview.png';
 import jonasPose from '../imagens/imagensposes/jonaslogin-removebg-preview.png';
 import thiagoPose from '../imagens/imagensposes/thiagologin-removebg-preview.png';
+import enzoPose from '../imagens/imagensposes/enzologin-removebg-preview.png';
+import gustavoPose from '../imagens/imagensposes/gustavologin-removebg-preview.png';
 import { supabase } from '../lib/supabase';
 
 export default function Auth() {
@@ -21,7 +23,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [playerPose] = useState(() => {
-    const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose];
+    const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose, enzoPose, gustavoPose];
     return poses[Math.floor(Math.random() * poses.length)];
   });
   const navigate = useNavigate();
