@@ -2,13 +2,15 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../store/useGame';
-import { playBurst } from '../lib/sound';
+import { playBurst, playCharge, playFlip, playRareReveal } from '../lib/sound';
 import Card from '../components/Card';
-import type { PlayerCard } from '../types';
+import type { PlayerCard, Rarity } from '../types';
 import { RARITY_META } from '../types';
 
-// ---------- Particle canvas ----------
-function ParticleBurst({ fire, color }: { fire: boolean; color: string }) {
+const RARITY_RANK: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
+const RARITY_VALUE: Record<Rarity, number> = { common: 100, uncommon: 250, rare: 600, epic: 1500, legendary: 4000, icon: 10000 };
+
+function ParticleBurst({ fire, color, count }: { fire: boolean; color: string; count: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
   useEffect(() => {
@@ -22,7 +24,7 @@ function ParticleBurst({ fire, color }: { fire: boolean; color: string }) {
     const W = canvas.width, H = canvas.height;
     const particles: { x: number; y: number; vx: number; vy: number; life: number; size: number; hue: string }[] = [];
     const colors = [color, '#ffffff', '#f5c542', '#a855f7', '#3b82f6', '#b6ff3b'];
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < count; i++) {
       const ang = Math.random() * Math.PI * 2;
       const spd = 2 + Math.random() * 6;
       particles.push({
@@ -59,7 +61,7 @@ function ParticleBurst({ fire, color }: { fire: boolean; color: string }) {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [fire, color]);
+  }, [fire, color, count]);
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" />;
 }
 
@@ -70,71 +72,89 @@ export default function OpenPack() {
   const openPack = useGame(s => s.openPack);
   const previewPack = useGame(s => s.previewPack);
   const claimPreviewedCard = useGame(s => s.claimPreviewedCard);
+  const audioOn = useGame(s => s.settings.audio);
+  const animationsOn = useGame(s => s.settings.animations);
   const pack = packs.find(p => p.id === packId);
 
-  const [phase, setPhase] = useState<'idle'|'charging'|'burst'|'reveal'|'summary'|'choice'>('idle');
+  const [phase, setPhase] = useState<'idle'|'charging'|'burst'|'rarity'|'reveal'|'summary'|'choice'>('idle');
   const [cards, setCards] = useState<PlayerCard[]>([]);
   const [choiceCards, setChoiceCards] = useState<PlayerCard[]>([]);
   const [revealed, setRevealed] = useState<boolean[]>([]);
   const [skip, setSkip] = useState(false);
+  const [fast, setFast] = useState(false);
   const [burstFire, setBurstFire] = useState(false);
   const [shake, setShake] = useState(false);
+  const [duplicateUids, setDuplicateUids] = useState<Set<string>>(new Set());
 
   if (!pack) return <div className="p-8">Pacote não encontrado.</div>;
 
   const isChoice = !!pack.choice;
-
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const sortCards = (list: PlayerCard[]) => [...list].sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity] || b.overall - a.overall);
 
   const startOpen = () => {
     if (phase !== 'idle') return;
+    const prevOwned = new Set(useGame.getState().cards.map(c => c.playerId));
     if (isChoice) {
       const res = previewPack(pack.id);
       if (!res) { alert('Saldo insuficiente.'); return; }
-      setChoiceCards(res);
+      const sorted = sortCards(res);
+      setChoiceCards(sorted);
       setPhase('choice');
       return;
     }
     const res = openPack(pack.id);
     if (!res) { alert('Saldo insuficiente.'); return; }
-    setCards(res.cards);
-    setRevealed(new Array(res.cards.length).fill(false));
-    if (skip || reduceMotion) {
-      setRevealed(new Array(res.cards.length).fill(true));
+    const sorted = sortCards(res.cards);
+    setCards(sorted);
+    setRevealed(new Array(sorted.length).fill(false));
+    setDuplicateUids(new Set(sorted.filter(c => prevOwned.has(c.playerId)).map(c => c.uid)));
+    if (skip || reduceMotion || !animationsOn) {
+      setRevealed(new Array(sorted.length).fill(true));
       setPhase('summary');
       return;
     }
     setPhase('charging');
     setShake(true);
-    setTimeout(() => { setShake(false); setPhase('burst'); setBurstFire(true); if (useGame.getState().settings.audio) playBurst(); }, 1100);
-    setTimeout(() => { setBurstFire(false); setPhase('reveal'); }, 2000);
+    const chargeMs = fast ? 450 : 1100;
+    if (audioOn) playCharge(chargeMs / 1000);
+    setTimeout(() => { setShake(false); setBurstFire(true); if (audioOn) playBurst(RARITY_RANK[sorted[0]?.rarity ?? 'common']); setPhase(p => (p === 'charging' ? 'burst' : p)); }, chargeMs);
+    const burstMs = fast ? 500 : 900;
+    setTimeout(() => { setBurstFire(false); setPhase(p => (p === 'burst' ? 'reveal' : p)); }, chargeMs + burstMs);
   };
 
   const revealCard = (i: number) => {
     setRevealed(prev => { const n = [...prev]; n[i] = true; return n; });
+    if (audioOn) {
+      playFlip();
+      if (RARITY_RANK[cards[i]?.rarity ?? 'common'] >= 3) playRareReveal();
+    }
   };
-  const revealAll = () => setRevealed(new Array(cards.length).fill(true));
+  const revealAll = () => { setRevealed(new Array(cards.length).fill(true)); };
   const allRevealed = revealed.length > 0 && revealed.every(Boolean);
   const goToSummary = () => setPhase('summary');
 
   const packColor = pack.color || '#E30613';
+  const maxRank = cards.length ? Math.max(...cards.map(c => RARITY_RANK[c.rarity])) : 0;
+  const particleCount = [40, 55, 70, 85, 105, 130][maxRank];
+  const estimatedValue = cards.reduce((s, c) => s + RARITY_VALUE[c.rarity], 0);
 
   return (
     <div className="min-h-[85vh] flex flex-col items-center justify-center p-4 relative overflow-hidden rounded-2xl">
-      {/* dark stage during animation */}
       <AnimatePresence>
-        {(phase === 'charging' || phase === 'burst' || phase === 'reveal') && (
+        {(phase === 'charging' || phase === 'burst' || phase === 'rarity' || phase === 'reveal') && (
           <motion.div
             key="stage"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: 1, scale: phase === 'burst' ? [1, 1.03, 1] : 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
             className="absolute inset-0 bg-gradient-to-b from-[#05060a] via-[#0a0d14] to-[#05060a]"
           />
         )}
       </AnimatePresence>
 
-      {/* ambient light rays */}
       <AnimatePresence>
         {phase === 'charging' && (
           <motion.div
@@ -150,9 +170,8 @@ export default function OpenPack() {
         )}
       </AnimatePresence>
 
-      <ParticleBurst fire={burstFire} color={packColor} />
+      <ParticleBurst fire={burstFire} color={packColor} count={particleCount} />
 
-      {/* flash */}
       <AnimatePresence>
         {phase === 'burst' && (
           <motion.div
@@ -186,10 +205,16 @@ export default function OpenPack() {
             >
               ABRIR PACOTE
             </motion.button>
-            <label className="flex items-center gap-2 text-xs text-[#858A98]">
-              <input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} />
-              Pular animação
-            </label>
+            <div className="flex items-center gap-4 text-xs text-[#858A98]">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} />
+                Pular animação
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={fast} onChange={e => setFast(e.target.checked)} />
+                Modo rápido
+              </label>
+            </div>
           </motion.div>
         )}
 
@@ -197,7 +222,7 @@ export default function OpenPack() {
           <motion.div key="charging" className="flex flex-col items-center gap-6 relative z-10">
             <motion.div
               animate={shake ? { x: [0,-12,12,-10,10,-6,6,-3,3,0], y: [0,6,-6,4,-4,2,-2,0], rotate: [0,-6,6,-4,4,-2,2,0], scale: [1,1.1,1.05,1.12,1] } : {}}
-              transition={{ duration: 1.1 }}
+              transition={{ duration: fast ? 0.45 : 1.1 }}
               className="text-9xl"
             >
               📦
@@ -214,7 +239,7 @@ export default function OpenPack() {
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: '100%' }}
-                transition={{ duration: 1.1, ease: 'easeInOut' }}
+                transition={{ duration: fast ? 0.45 : 1.1, ease: 'easeInOut' }}
                 className="h-full rounded-full"
                 style={{ background: packColor }}
               />
@@ -227,7 +252,7 @@ export default function OpenPack() {
             <motion.div
               initial={{ scale: 0.2, opacity: 0, rotate: -180 }}
               animate={{ scale: [0.2, 1.8, 1], opacity: [0, 1, 1], rotate: [ -180, 0, 0] }}
-              transition={{ duration: 0.9, ease: 'backOut' }}
+              transition={{ duration: fast ? 0.5 : 0.9, ease: 'backOut' }}
               className="text-9xl"
             >
               💥
@@ -249,26 +274,36 @@ export default function OpenPack() {
             <div className="text-2xl font-black text-[#E30613]">ESCOLHA SUA CARTA</div>
             <div className="flex flex-wrap justify-center gap-5">
               {choiceCards.map(c => (
-                <motion.div key={c.uid} whileHover={{ scale: 1.05 }} onClick={() => { claimPreviewedCard(c); setPhase('summary'); setCards([c]); setRevealed([true]); }} className="cursor-pointer">
+                <motion.div key={c.uid} whileHover={{ scale: 1.05 }} onClick={() => {
+                  const prevOwned = new Set(useGame.getState().cards.map(x => x.playerId));
+                  claimPreviewedCard(c);
+                  setCards([c]);
+                  setRevealed([true]);
+                  setDuplicateUids(new Set(prevOwned.has(c.playerId) ? [c.uid] : []));
+                  setPhase('summary');
+                }} className="cursor-pointer">
                   <Card card={c} size="md" />
                 </motion.div>
               ))}
             </div>
           </motion.div>
         )}
+
         {phase === 'reveal' && (
-          <motion.div key="reveal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-6 w-full relative z-10">
+          <motion.div
+            key="reveal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center gap-6 w-full relative z-10"
+          >
             <div className="text-lg font-bold text-white/80">Clique nas cartas para revelar</div>
             <div className="flex flex-wrap justify-center gap-5">
               {cards.map((c, i) => (
-                <motion.div
-                  key={c.uid}
-                  initial={{ opacity: 0, y: -200, rotate: -30, scale: 0.5 }}
-                  animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
-                  transition={{ delay: i * 0.12, type: 'spring', stiffness: 120, damping: 12 }}
-                >
+                <div key={c.uid}>
                   <FlipCard card={c} revealed={revealed[i]} onReveal={() => revealCard(i)} rarityColor={RARITY_META[c.rarity].color} />
-                </motion.div>
+                </div>
               ))}
             </div>
             <div className="flex gap-3">
@@ -293,15 +328,18 @@ export default function OpenPack() {
         {phase === 'summary' && (
           <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-6 w-full relative z-10">
             <div className="text-3xl font-black" style={{ color: packColor }}>VOCÊ RECEBEU</div>
-            <div className="flex flex-wrap justify-center gap-5">
+            <div className="text-sm text-black/60">Valor estimado: {estimatedValue.toLocaleString('pt-BR')} moedas</div>
+            <div className="flex flex-wrap justify-center gap-5 items-end">
               {cards.map((c, i) => (
                 <motion.div
                   key={c.uid}
-                  initial={{ opacity: 0, scale: 0.5, rotateY: 90 }}
-                  animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-                  transition={{ delay: i * 0.1, type: 'spring' }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.08, duration: 0.4 }}
                 >
-                  <Card card={c} size="md" />
+                  {i === 0 && <div className="text-center text-xs font-black mb-1" style={{ color: RARITY_META[c.rarity].color }}>MELHOR CARTA</div>}
+                  {duplicateUids.has(c.uid) && <span className="absolute bottom-2 left-2 z-30 bg-amber-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow">DUPLICATA</span>}
+                  <Card card={c} size={i === 0 ? 'lg' : 'md'} />
                 </motion.div>
               ))}
             </div>
@@ -309,7 +347,7 @@ export default function OpenPack() {
               <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: packColor }}>
                 VER COLEÇÃO
               </button>
-              <button onClick={() => { setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
+              <button onClick={() => { setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setDuplicateUids(new Set()); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
                 ABRIR OUTRO PACOTE
               </button>
             </div>
@@ -321,6 +359,7 @@ export default function OpenPack() {
 }
 
 function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard; revealed: boolean; onReveal: () => void; rarityColor: string }) {
+  const meta = RARITY_META[card.rarity];
   return (
     <div className="w-44 h-60 cursor-pointer" style={{ perspective: 1000 }} onClick={() => !revealed && onReveal()}>
       <motion.div
@@ -328,17 +367,18 @@ function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard;
         transition={{ duration: 0.7, type: 'spring', stiffness: 120 }}
         style={{ transformStyle: 'preserve-3d', position: 'relative', width: '100%', height: '100%' }}
       >
-        <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0 }} className="rounded-2xl bg-gradient-to-br from-[#1a1f27] to-[#0b0e13] border-2 border-white/20 flex items-center justify-center overflow-hidden">
+        <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0, background: `radial-gradient(circle at center, ${rarityColor}33, #0b0e13)`, border: `2px solid ${rarityColor}` }} className="rounded-2xl flex flex-col items-center justify-center overflow-hidden">
           <motion.div
             animate={{ opacity: [0.3, 0.7, 0.3], scale: [1, 1.05, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="text-6xl"
+            className="text-6xl opacity-60"
           >
-            🃏
+            👤
           </motion.div>
-          <div className="absolute bottom-2 text-xs text-white/40">Clique para revelar</div>
-          {/* shimmer */}
+          <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: rarityColor, color: '#fff' }}>{meta.label}</div>
+          <div className="absolute bottom-2 text-xs font-bold" style={{ color: rarityColor }}>{card.position}</div>
           <div className="absolute inset-0 opacity-30" style={{ background: `linear-gradient(110deg, transparent 30%, ${rarityColor} 50%, transparent 70%)`, backgroundSize: '200% 100%', animation: 'shimmer 2s linear infinite' }} />
+          <div className="absolute bottom-8 text-[10px] text-white/40">Clique para revelar</div>
         </div>
         <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}>
           <Card card={card} size="md" />
