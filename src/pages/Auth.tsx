@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import loginBg from '../imagens/login/Background.png';
 import playerPose from '../imagens/imagensposes/pietrologin-removebg-preview.png';
 import { supabase } from '../lib/supabase';
@@ -87,13 +88,13 @@ export default function Auth() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex">
-      <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="h-screen overflow-hidden flex">
+      <motion.div initial={{ x: -60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8, ease: 'easeOut' }} className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
         <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
-        <img src={playerPose} alt="Jogador" className="relative z-10" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} />
-      </div>
-      <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
-        <div className="w-full max-w-sm space-y-6">
+        <motion.img src={playerPose} alt="Jogador" className="relative z-10" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, delay: 0.2, ease: 'easeOut' }} style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} />
+      </motion.div>
+      <motion.div initial={{ x: 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8, ease: 'easeOut' }} className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.3 }} className="w-full max-w-sm space-y-6">
           <div className="text-center">
             <div className="text-3xl font-black text-[#E30613]">FutSENAI</div>
             <div className="text-sm text-[#858A98] mt-1">{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</div>
@@ -112,8 +113,8 @@ export default function Auth() {
           <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
             {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
           </button>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 }
