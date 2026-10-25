@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import loginBg from '../imagens/login/Background.png';
 import heitorPose from '../imagens/imagensposes/heitorlogin-removebg-preview.png';
 import pietroPose from '../imagens/imagensposes/pietrologin-removebg-preview.png';
+import gabrielPose from '../imagens/imagensposes/gabriellogin-removebg-preview.png';
 import { supabase } from '../lib/supabase';
 
 export default function Auth() {
@@ -13,7 +14,10 @@ export default function Auth() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [playerPose] = useState(() => Math.random() < 0.5 ? heitorPose : pietroPose);
+  const [playerPose] = useState(() => {
+    const poses = [heitorPose, pietroPose, gabrielPose];
+    return poses[Math.floor(Math.random() * poses.length)];
+  });
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
