@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import loginBg from '../imagens/login/Background.png';
-import playerPose from '../imagens/imagensposes/pietrologin-removebg-preview.png';
+import heitorPose from '../imagens/imagensposes/heitorlogin-removebg-preview.png';
+import pietroPose from '../imagens/imagensposes/pietrologin-removebg-preview.png';
 import { supabase } from '../lib/supabase';
 
 export default function Auth() {
@@ -12,6 +13,7 @@ export default function Auth() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [playerPose] = useState(() => Math.random() < 0.5 ? heitorPose : pietroPose);
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -91,7 +93,7 @@ export default function Auth() {
     <div className="h-screen overflow-hidden flex">
       <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
         <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
-        <motion.img src={playerPose} alt="Jogador" className="relative z-10" initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }} style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} />
+        <motion.img src={playerPose} alt="Jogador" className="relative z-10" initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }} style={{ width: '100%', height: '90%', objectFit: 'contain', objectPosition: 'center bottom' }} />
       </div>
       <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
