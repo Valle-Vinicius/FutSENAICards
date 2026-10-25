@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import loginBg from '../imagens/login/Background.png';
 import playerPose from '../imagens/imagensposes/pietrologin-removebg-preview.png';
 import { supabase } from '../lib/supabase';
-import 'particles.js';
 
 export default function Auth() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -13,28 +12,57 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const w = window as any;
-    if (w.particlesJS) {
-      w.particlesJS('particles-js', {
-        particles: {
-          number: { value: 40, density: { enable: true, value_area: 800 } },
-          color: { value: '#dc3847' },
-          shape: { type: 'circle', stroke: { width: 1, color: '#dc3847' }, polygon: { nb_sides: 6 } },
-          opacity: { value: 0.5, random: false, anim: { enable: false, speed: 1, opacity_min: 0.1, sync: false } },
-          size: { value: 3, random: true, anim: { enable: false, speed: 40, size_min: 0.1, sync: false } },
-          line_linked: { enable: true, distance: 150, color: '#dc3847', opacity: 0.4, width: 1 },
-          move: { enable: true, speed: 6, direction: 'none', random: false, straight: false, out_mode: 'out', bounce: false, attract: { enable: false, rotateX: 600, rotateY: 1200 } },
-        },
-        interactivity: {
-          detect_on: 'window',
-          events: { onhover: { enable: false, mode: 'repulse' }, onclick: { enable: false, mode: 'push' }, resize: true },
-          modes: { grab: { distance: 400, line_linked: { opacity: 1 } }, bubble: { distance: 827.17, size: 40, duration: 2, opacity: 8, speed: 3 }, repulse: { distance: 679.32, duration: 0.4 }, push: { particles_nb: 4 }, remove: { particles_nb: 2 } },
-        },
-        retina_detect: true,
-      });
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let w = canvas.width = canvas.offsetWidth;
+    let h = canvas.height = canvas.offsetHeight;
+    const particles: { x: number; y: number; vx: number; vy: number }[] = [];
+    const count = 40;
+    for (let i = 0; i < count; i++) {
+      particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2 });
     }
+    let raf = 0;
+    const draw = () => {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#dc3847';
+        ctx.fill();
+      }
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 150) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(220,56,71,${0.4 * (1 - dist / 150)})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+    const onResize = () => {
+      w = canvas.width = canvas.offsetWidth;
+      h = canvas.height = canvas.offsetHeight;
+    };
+    window.addEventListener('resize', onResize);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -61,8 +89,8 @@ export default function Auth() {
   return (
     <div className="h-screen overflow-hidden flex">
       <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
-        <div id="particles-js" className="absolute inset-0 z-0" />
-        <img src={playerPose} alt="Jogador" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} className="relative z-10" />
+        <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+        <img src={playerPose} alt="Jogador" className="relative z-10" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} />
       </div>
       <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
         <div className="w-full max-w-sm space-y-6">
