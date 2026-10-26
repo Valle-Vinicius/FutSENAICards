@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { getCards, addCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
 import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/squads';
+import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/missions';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
@@ -155,6 +156,12 @@ export const useGame = create<GameState & Actions>()(
             if (squads.length > 0) set({ savedSquads: squads });
             const listings = await getListings();
             if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: 'user', sellerName: 'Mercado', price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any })) });
+            const remoteMissions = await getMissions(uid);
+            if (remoteMissions.length > 0) {
+              set({ missions: remoteMissions });
+            } else {
+              await upsertMissions(uid, get().missions);
+            }
           });
         }
       },
@@ -304,14 +311,27 @@ export const useGame = create<GameState & Actions>()(
           const a = st2.achievements.find(x => x.id === 'a4');
           if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a4' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
         }
+        // sync missions to Supabase
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await upsertMissions(uid, get().missions);
+          });
+        }
       },
       claimMission: (id) => {
         const s = get();
         const m = s.missions.find(x => x.id === id);
         if (!m || !m.completed || m.claimed) return false;
-        get().addCoins(m.reward, `Missão: ${m.title}`);
+        get().addCoins(m.reward, `MissÃ£o: ${m.title}`);
         get().addXp(m.rewardXp);
         set(st => ({ missions: st.missions.map(x => x.id === id ? { ...x, claimed: true } : x) }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await claimMissionDb(uid, id);
+          });
+        }
         return true;
       },
       setSquadSport: () => {},
