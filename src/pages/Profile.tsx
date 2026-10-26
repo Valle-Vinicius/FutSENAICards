@@ -25,6 +25,9 @@ export default function Profile() {
   const [draftName, setDraftName] = useState('');
   const [draftAvatar, setDraftAvatar] = useState('');
   const [saving, setSaving] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [accountMsg, setAccountMsg] = useState('');
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(async ({ data }) => {
@@ -36,9 +39,21 @@ export default function Profile() {
       }
     });
   }, []);
-  const handleLogout = async () => {
-    if (supabase) await supabase.auth.signOut();
-    navigate('/auth');
+  const handleChangeEmail = async () => {
+    if (!supabase || !newEmail) return;
+    setSaving(true);
+    setAccountMsg('');
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    setAccountMsg(error ? error.message : 'Email de confirmação enviado.');
+    setSaving(false);
+  };
+  const handleChangePassword = async () => {
+    if (!supabase || !newPassword) return;
+    setSaving(true);
+    setAccountMsg('');
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setAccountMsg(error ? error.message : 'Senha alterada.');
+    setSaving(false);
   };
   const handleSaveProfile = async () => {
     if (!supabase) return;
@@ -53,6 +68,19 @@ export default function Profile() {
       setEditing(false);
     }
     setSaving(false);
+  };
+  const handleLogout = async () => {
+    if (supabase) await supabase.auth.signOut();
+    navigate('/auth');
+  };
+  const handleDeleteAccount = async () => {
+    if (!supabase) return;
+    if (!confirm('Tem certeza que deseja excluir sua conta? Esta ação é irreversível.')) return;
+    setSaving(true);
+    const { error } = await supabase.functions.invoke('delete-account');
+    if (error) { setAccountMsg(error.message); setSaving(false); return; }
+    await supabase.auth.signOut();
+    navigate('/auth');
   };
 
   return (
@@ -115,9 +143,21 @@ export default function Profile() {
         </div>
       )}
 
+      <div className="card-surface p-4 space-y-3">
+        <div className="text-sm font-medium text-[#858A98]">Segurança da conta</div>
+        <input value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" placeholder="Novo email" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
+        <button onClick={handleChangeEmail} disabled={saving} className="w-full py-2 rounded-xl bg-[#E30613] text-white text-sm font-bold disabled:opacity-60">Alterar email</button>
+        <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type="password" placeholder="Nova senha" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
+        <button onClick={handleChangePassword} disabled={saving} className="w-full py-2 rounded-xl bg-[#E30613] text-white text-sm font-bold disabled:opacity-60">Alterar senha</button>
+        {accountMsg && <div className="text-xs text-[#858A98]">{accountMsg}</div>}
+      </div>
+
       <div className="card-surface p-4">
         <button onClick={handleLogout} className="w-full py-3 rounded-xl bg-white border border-red-200 text-red-600 font-bold">
           Sair da conta
+        </button>
+        <button onClick={handleDeleteAccount} disabled={saving} className="w-full py-3 rounded-xl bg-red-600 text-white font-bold mt-2 disabled:opacity-60">
+          Excluir conta
         </button>
       </div>
     </div>
