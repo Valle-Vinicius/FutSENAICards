@@ -29,7 +29,9 @@ export default function Auth() {
     return poses[Math.floor(Math.random() * poses.length)];
   });
   const navigate = useNavigate();
+  const [started, setStarted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -82,21 +84,26 @@ export default function Auth() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
   }, []);
 
-  useEffect(() => {
+  const startExperience = () => {
+    if (started) return;
+    setStarted(true);
     const audio = new Audio(lofi);
     audio.loop = true;
     audio.volume = 0;
-    const play = async () => {
-      try { await audio.play(); } catch { /* autoplay blocked */ }
-    };
-    play();
+    audioRef.current = audio;
+    audio.play().catch(() => {});
     let vol = 0;
     const fade = setInterval(() => {
       vol = Math.min(0.35, vol + 0.02);
       audio.volume = vol;
       if (vol >= 0.35) clearInterval(fade);
     }, 100);
-    return () => { clearInterval(fade); audio.pause(); audio.src = ''; };
+  };
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+    };
   }, []);
 
   const signInWithGoogle = async () => {
@@ -129,7 +136,13 @@ export default function Auth() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex">
+    <>
+      {!started && (
+        <div onClick={startExperience} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md cursor-pointer">
+          <div className="text-white text-lg font-bold">Clique para entrar</div>
+        </div>
+      )}
+      <div className="h-screen overflow-hidden flex">
       <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
         <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
         <motion.img src={playerPose} alt="Jogador" className="relative z-10" initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }} style={{ width: '100%', height: '90%', objectFit: 'contain', objectPosition: 'center bottom' }} />
@@ -160,5 +173,6 @@ export default function Auth() {
         </motion.div>
       </div>
     </div>
+  </>
   );
 }
