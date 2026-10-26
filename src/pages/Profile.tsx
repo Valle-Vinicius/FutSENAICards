@@ -71,6 +71,7 @@ export default function Profile() {
   };
   const handleLogout = async () => {
     if (supabase) await supabase.auth.signOut();
+    localStorage.removeItem('futsenai-cards-v3');
     navigate('/auth');
   };
   const handleDeleteAccount = async () => {
@@ -80,6 +81,7 @@ export default function Profile() {
     const { error } = await supabase.functions.invoke('delete-account');
     if (error) { setAccountMsg(error.message); setSaving(false); return; }
     await supabase.auth.signOut();
+    localStorage.removeItem('futsenai-cards-v3');
     navigate('/auth');
   };
 
