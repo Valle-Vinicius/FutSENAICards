@@ -1,5 +1,7 @@
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 export default function Profile() {
   const coins = useGame(s => s.coins);
@@ -15,6 +17,11 @@ export default function Profile() {
   const pct = Math.min(100, ((xp - lvlXp) / (nextXp - lvlXp)) * 100);
   const wins = matchHistory.filter(m => m.homeScore > m.awayScore).length;
   const rarest = [...cards].sort((a, b) => b.overall - a.overall)[0];
+  const navigate = useNavigate();
+  const handleLogout = async () => {
+    if (supabase) await supabase.auth.signOut();
+    navigate('/auth');
+  };
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -57,6 +64,12 @@ export default function Profile() {
           <div className="flex justify-center"><Card card={rarest} size="md" /></div>
         </div>
       )}
+
+      <div className="card-surface p-4">
+        <button onClick={handleLogout} className="w-full py-3 rounded-xl bg-white border border-red-200 text-red-600 font-bold">
+          Sair da conta
+        </button>
+      </div>
     </div>
   );
 }

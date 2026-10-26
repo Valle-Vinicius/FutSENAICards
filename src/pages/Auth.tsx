@@ -23,14 +23,6 @@ export default function Auth() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [session, setSession] = useState<any>(null);
-
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
   const [playerPose] = useState(() => {
     const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose, enzoPose, gustavoPose];
     const key = 'auth-pose-idx';
@@ -154,11 +146,6 @@ export default function Auth() {
           <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
             {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
           </button>
-          {session && (
-            <button onClick={async () => { await supabase?.auth.signOut(); setSession(null); }} className="w-full py-3 rounded-xl bg-white border border-red-200 text-red-600 font-bold">
-              Sair da conta
-            </button>
-          )}
         </motion.div>
       </div>
     </div>
