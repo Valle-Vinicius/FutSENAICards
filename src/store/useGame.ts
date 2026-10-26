@@ -10,6 +10,7 @@ import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/s
 import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/missions';
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
 import { recordSBCCompletion } from '../lib/services/sbc';
+import { addTransaction } from '../lib/services/transactions';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
@@ -177,7 +178,10 @@ export const useGame = create<GameState & Actions>()(
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }) => {
             const uid = data.session?.user?.id;
-            if (uid) await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
+            if (uid) {
+              await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
+              await addTransaction(uid, n, reason, 'earn');
+            }
           });
         }
       },
@@ -191,7 +195,10 @@ export const useGame = create<GameState & Actions>()(
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }) => {
             const uid = data.session?.user?.id;
-            if (uid) await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
+            if (uid) {
+              await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
+              await addTransaction(uid, n, reason, 'spend');
+            }
           });
         }
         return true;
