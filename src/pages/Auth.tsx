@@ -25,14 +25,7 @@ export default function Auth() {
   const [error, setError] = useState('');
   const [playerPose] = useState(() => {
     const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose, enzoPose, gustavoPose];
-    const key = 'auth-pose-idx';
-    let idx = sessionStorage.getItem(key);
-    if (idx === null) {
-      idx = String(Math.floor(Math.random() * poses.length));
-      sessionStorage.setItem(key, idx);
-    }
-    const n = Number(idx);
-    return poses[Number.isNaN(n) ? 0 : n % poses.length];
+    return poses[Math.floor(Math.random() * poses.length)];
   });
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
