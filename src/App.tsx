@@ -24,7 +24,11 @@ import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function App() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    const h = window.location.hash.replace('#', '') || '/';
+    const known = ['/', '/packs', '/open/', '/collection', '/card/', '/squad', '/match', '/compare', '/market', '/sbc', '/missions', '/shop', '/profile', '/settings', '/auth'];
+    return !known.some(k => h === k || h.startsWith(k));
+  });
   useEffect(() => { useGame.getState().init(); }, []);
   return (
     <>
