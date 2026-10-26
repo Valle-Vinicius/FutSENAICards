@@ -3,6 +3,7 @@ import Card from '../components/Card';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getProfile, updateProfile, type UserProfile } from '../lib/profile';
+import { updateEmail, updatePassword, signOut, updateMetadata } from '../lib/services/auth';
 import { useEffect, useState } from 'react';
 
 export default function Profile() {
@@ -40,19 +41,19 @@ export default function Profile() {
     });
   }, []);
   const handleChangeEmail = async () => {
-    if (!supabase || !newEmail) return;
+    if (!newEmail) return;
     setSaving(true);
     setAccountMsg('');
-    const { error } = await supabase.auth.updateUser({ email: newEmail });
-    setAccountMsg(error ? error.message : 'Email de confirmação enviado.');
+    const { error } = await updateEmail(newEmail);
+    setAccountMsg(error ? error : 'Email de confirmação enviado.');
     setSaving(false);
   };
   const handleChangePassword = async () => {
-    if (!supabase || !newPassword) return;
+    if (!newPassword) return;
     setSaving(true);
     setAccountMsg('');
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setAccountMsg(error ? error.message : 'Senha alterada.');
+    const { error } = await updatePassword(newPassword);
+    setAccountMsg(error ? error : 'Senha alterada.');
     setSaving(false);
   };
   const handleSaveProfile = async () => {
@@ -64,13 +65,13 @@ export default function Profile() {
     const updated = await updateProfile(uid, { name: draftName.trim() || null, avatar_url: draftAvatar.trim() || null });
     if (updated) {
       setProfile(updated);
-      await supabase.auth.updateUser({ data: { name: draftName.trim() } });
+      await updateMetadata(draftName.trim());
       setEditing(false);
     }
     setSaving(false);
   };
   const handleLogout = async () => {
-    if (supabase) await supabase.auth.signOut();
+    await signOut();
     localStorage.removeItem('futsenai-cards-v3');
     navigate('/auth');
   };
@@ -80,7 +81,7 @@ export default function Profile() {
     setSaving(true);
     const { error } = await supabase.functions.invoke('delete-account');
     if (error) { setAccountMsg(error.message); setSaving(false); return; }
-    await supabase.auth.signOut();
+    await signOut();
     localStorage.removeItem('futsenai-cards-v3');
     navigate('/auth');
   };

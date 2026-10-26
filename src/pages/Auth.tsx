@@ -16,6 +16,7 @@ import thiagoPose from '../imagens/imagensposes/thiagologin-removebg-preview.png
 import enzoPose from '../imagens/imagensposes/enzologin-removebg-preview.png';
 import gustavoPose from '../imagens/imagensposes/gustavologin-removebg-preview.png';
 import { supabase } from '../lib/supabase';
+import { signIn, signUp, resetPassword, updatePassword, signInWithGoogle } from '../lib/services/auth';
 
 export default function Auth() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -115,11 +116,11 @@ export default function Auth() {
     setError('');
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const { error } = await signIn(email, password);
+        if (error) throw new Error(error);
       } else {
-        const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
-        if (error) throw error;
+        const { error } = await signUp(name, email, password);
+        if (error) throw new Error(error);
       }
       navigate('/');
     } catch (err: any) {
@@ -129,31 +130,30 @@ export default function Auth() {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const handleGoogleLogin = async () => {
     if (!supabase) { setError('Configure o Supabase.'); return; }
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/' } });
-    if (error) { setError(error.message); setLoading(false); }
+    const { error } = await signInWithGoogle();
+    if (error) { setError(error); setLoading(false); }
   };
 
   const forgotPassword = async () => {
-    if (!supabase || !email) { setError('Digite seu email.'); return; }
+    if (!email) { setError('Digite seu email.'); return; }
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/' });
-    if (error) setError(error.message);
+    const { error } = await resetPassword(email);
+    if (error) setError(error);
     else setError('Email de recuperação enviado.');
     setLoading(false);
   };
 
-  const resetPassword = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) setError(error.message);
+    const { error } = await updatePassword(newPassword);
+    if (error) setError(error);
     else { setError('Senha atualizada. Faça login.'); setRecovery(false); }
     setLoading(false);
   };
@@ -176,7 +176,7 @@ export default function Auth() {
               <img src={logo} alt="FutSENAI Cards" className="mx-auto h-64 object-contain" />
               <div className="text-sm text-[#858A98] mt-1">{recovery ? 'Redefinir senha' : (mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta')}</div>
             </div>
-            <form onSubmit={recovery ? resetPassword : submit} className="space-y-4">
+            <form onSubmit={recovery ? handleResetPassword : submit} className="space-y-4">
               {recovery ? (
                 <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type="password" placeholder="Nova senha" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
               ) : (
@@ -194,7 +194,7 @@ export default function Auth() {
               </button>
               {!recovery && (
                 <>
-                  <button type="button" onClick={signInWithGoogle} disabled={loading} className="w-full py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
+                  <button type="button" onClick={handleGoogleLogin} disabled={loading} className="w-full py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
                     <span>Entrar com Google</span>
                   </button>
                   {mode === 'login' && (
