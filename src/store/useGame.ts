@@ -49,7 +49,7 @@ interface Actions {
   recordEvolution: (uid: string, attr: string) => void;
   listCard: (cardUid: string, price: number, buyNow: number, hours: number) => string | null;
   cancelListing: (id: string) => void;
-  buyListing: (id: string) => boolean;
+  buyListing: (id: string) => Promise<boolean>;
   bidListing: (id: string, amount: number) => boolean;
   previewPack: (packId: string) => PlayerCard[] | null;
   claimPreviewedCard: (card: PlayerCard) => void;
@@ -672,21 +672,20 @@ export const useGame = create<GameState & Actions>()(
         set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'cancelled' } : l) }));
         if (supabase) cancelListingService(id);
       },
-      buyListing: (id) => {
+      buyListing: async (id) => {
         const listing = get().listings.find(l => l.id === id);
         if (!listing || listing.status !== 'active') return false;
         const cost = listing.buyNow > 0 ? listing.buyNow : listing.price;
         if (get().coins < cost) return false;
         if (supabase) {
-          supabase.functions.invoke('buy-listing', { body: { listingId: id } }).then(({ data, error }) => {
-            if (error || !data?.ok) return;
-            get().spendCoins(cost, `Compra mercado: ${listing.id}`);
-            const existing = get().cards.find(c => c.uid === listing.cardUid);
-            if (existing) {
-              set(st => ({ cards: st.cards.map(c => c.uid === listing.cardUid ? { ...c, isNew: true } : c) }));
-            }
-            set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'sold' } : l) }));
-          });
+          const { data, error } = await supabase.functions.invoke('buy-listing', { body: { listingId: id } });
+          if (error || !data?.ok) return false;
+          get().spendCoins(cost, `Compra mercado: ${listing.id}`);
+          const existing = get().cards.find(c => c.uid === listing.cardUid);
+          if (existing) {
+            set(st => ({ cards: st.cards.map(c => c.uid === listing.cardUid ? { ...c, isNew: true } : c) }));
+          }
+          set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'sold' } : l) }));
           return true;
         }
         get().spendCoins(cost, `Compra mercado: ${listing.id}`);

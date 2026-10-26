@@ -65,8 +65,8 @@ export default function Marketplace() {
     const listing = listings.find(l => l.id === confirmBuy);
     const c = listing ? cardOf(listing.cardUid) : null;
     setBuyingAnim(confirmBuy);
-    setTimeout(() => {
-      const ok = buyListing(confirmBuy);
+    setTimeout(async () => {
+      const ok = await buyListing(confirmBuy);
       if (ok) {
         if (c) { recordTransfer(c.name, listing!.buyNow > 0 ? listing!.buyNow : listing!.price, 'buy'); recordPrice(c.name, listing!.buyNow > 0 ? listing!.buyNow : listing!.price); }
         toast.success('Compra realizada!');
