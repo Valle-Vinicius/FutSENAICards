@@ -134,7 +134,7 @@ export default function Auth() {
       <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
           <div className="text-center">
-            <img src={logo} alt="FutSENAI Cards" className="mx-auto h-32 object-contain" />
+            <img src={logo} alt="FutSENAI Cards" className="mx-auto h-64 object-contain" />
             <div className="text-sm text-[#858A98] mt-1">{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</div>
           </div>
           <form onSubmit={submit} className="space-y-4">
