@@ -6,6 +6,7 @@ import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, leve
 import { supabase } from '../lib/supabase';
 import { getCards, addCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
+import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/squads';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
 
@@ -146,6 +147,8 @@ export const useGame = create<GameState & Actions>()(
               const local = get().cards;
               for (const c of local) await addCard(uid, c);
             }
+            const squads = await getSavedSquads(uid);
+            if (squads.length > 0) set({ savedSquads: squads });
           });
         }
       },
@@ -366,6 +369,17 @@ export const useGame = create<GameState & Actions>()(
           isPrimary: s.savedSquads.filter(x => x.sport === sport).length === 0,
         };
         set(st => ({ savedSquads: [saved, ...st.savedSquads] }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) {
+              const remote = await saveSquadService(uid, squad, name);
+              if (remote) {
+                set(st => ({ savedSquads: st.savedSquads.map(x => x.id === id ? { ...x, id: remote.id } : x) }));
+              }
+            }
+          });
+        }
         return id;
       },
       deleteSquad: (id) => set(st => ({ savedSquads: st.savedSquads.filter(s => s.id !== id) })),
