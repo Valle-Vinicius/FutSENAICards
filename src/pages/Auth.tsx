@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import loginBg from '../imagens/login/Background.png';
 import logo from '../imagens/login/Logo_Fut_SENAI_Cards-removebg-preview.png';
+import lofi from '../audio/lofi.mp3';
 import heitorPose from '../imagens/imagensposes/heitorlogin-removebg-preview.png';
 import pietroPose from '../imagens/imagensposes/pietrologin-removebg-preview.png';
 import gabrielPose from '../imagens/imagensposes/gabriellogin-removebg-preview.png';
@@ -79,6 +80,23 @@ export default function Auth() {
     };
     window.addEventListener('resize', onResize);
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
+  }, []);
+
+  useEffect(() => {
+    const audio = new Audio(lofi);
+    audio.loop = true;
+    audio.volume = 0;
+    const play = async () => {
+      try { await audio.play(); } catch { /* autoplay blocked */ }
+    };
+    play();
+    let vol = 0;
+    const fade = setInterval(() => {
+      vol = Math.min(0.35, vol + 0.02);
+      audio.volume = vol;
+      if (vol >= 0.35) clearInterval(fade);
+    }, 100);
+    return () => { clearInterval(fade); audio.pause(); audio.src = ''; };
   }, []);
 
   const signInWithGoogle = async () => {
