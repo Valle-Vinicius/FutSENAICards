@@ -2,6 +2,8 @@ import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getProfile, type UserProfile } from '../lib/profile';
+import { useEffect, useState } from 'react';
 
 export default function Profile() {
   const coins = useGame(s => s.coins);
@@ -18,6 +20,16 @@ export default function Profile() {
   const wins = matchHistory.filter(m => m.homeScore > m.awayScore).length;
   const rarest = [...cards].sort((a, b) => b.overall - a.overall)[0];
   const navigate = useNavigate();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session?.user?.id) {
+        const p = await getProfile(data.session.user.id);
+        setProfile(p);
+      }
+    });
+  }, []);
   const handleLogout = async () => {
     if (supabase) await supabase.auth.signOut();
     navigate('/auth');
@@ -27,11 +39,11 @@ export default function Profile() {
     <div className="p-4 md:p-8 space-y-6">
       <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Perfil do usuário</h1>
       <div className="card-surface p-6 flex flex-col md:flex-row items-center gap-6">
-        <div className="w-24 h-24 rounded-full bg-[#FFF0F2] flex items-center justify-center text-4xl text-[#E30613] font-bold">
-          {level}
+        <div className="w-24 h-24 rounded-full bg-[#FFF0F2] flex items-center justify-center text-4xl text-[#E30613] font-bold overflow-hidden">
+          {profile?.avatar_url ? <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : level}
         </div>
         <div className="flex-1 space-y-2">
-          <div className="text-xl font-semibold text-[#252733]">Jogador Futsenai</div>
+          <div className="text-xl font-semibold text-[#252733]">{profile?.name || 'Jogador Futsenai'}</div>
           <div className="text-sm text-[#858A98]">Nível {level} · {xp} XP</div>
           <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden">
             <div className="h-full bg-[#E30613]" style={{ width: `${pct}%` }} />
