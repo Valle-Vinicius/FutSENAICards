@@ -3,6 +3,9 @@ import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types';
 import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL } from '../lib/game';
+import { supabase } from '../lib/supabase';
+import { getCards, addCard } from '../lib/services/cards';
+import { addMatch } from '../lib/services/matches';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
 
@@ -132,6 +135,19 @@ export const useGame = create<GameState & Actions>()(
         }
         get().seedMarket();
         get().updateMissionProgress();
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (!uid) return;
+            const remote = await getCards(uid);
+            if (remote.length > 0) {
+              set({ cards: remote });
+            } else {
+              const local = get().cards;
+              for (const c of local) await addCard(uid, c);
+            }
+          });
+        }
       },
       addCoins: (n, reason) => set(st => ({
         coins: st.coins + n,
@@ -166,6 +182,13 @@ export const useGame = create<GameState & Actions>()(
           const t = randomTemplate(pack.position as any);
           const card = generatePlayerCard(t, rarity, special === 'none' ? 'none' : special);
           cards.push(card);
+        }
+        // sync new cards to Supabase
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) for (const c of cards) await addCard(uid, c);
+          });
         }
         // ensure legendary pack has no common
         set(st => ({
@@ -368,9 +391,15 @@ export const useGame = create<GameState & Actions>()(
       addCompareHistory: (aUid, bUid) => set(st => ({
         compareHistory: [{ aUid, bUid, at: Date.now() }, ...st.compareHistory].slice(0, 20),
       })),
-      addMatchHistory: (entry) => set(st => ({
-        matchHistory: [entry, ...st.matchHistory].slice(0, 50),
-      })) ,
+      addMatchHistory: (entry) => {
+        set(st => ({ matchHistory: [entry, ...st.matchHistory].slice(0, 50) }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await addMatch(uid, { sport: entry.sport, homeScore: entry.homeScore, awayScore: entry.awayScore, opponent: entry.opponent });
+          });
+        }
+      },
       updateSettings: (s) => set((st) => ({ settings: { ...st.settings, ...s } })),
       addPlayerXp: (uid, amount) => set(st => ({
         cards: st.cards.map(c => {
