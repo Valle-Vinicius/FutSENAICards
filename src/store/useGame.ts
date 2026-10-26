@@ -182,6 +182,8 @@ export const useGame = create<GameState & Actions>()(
                 newCardUids: prefs.newCardUids ?? st.newCardUids,
                 compareHistory: prefs.compareHistory ?? st.compareHistory,
                 eventHistory: prefs.eventHistory ?? st.eventHistory,
+                events: prefs.events ?? st.events,
+                packConfigs: prefs.unlockedPacks ? st.packConfigs.map(p => prefs.unlockedPacks.includes(p.id) ? { ...p, unlocked: true } : p) : st.packConfigs,
               }));
             }
           });
@@ -377,6 +379,18 @@ export const useGame = create<GameState & Actions>()(
           const packs = st.packConfigs.map(p => p.id === 'legendary' ? { ...p, unlocked: completedCount >= 3 || p.unlocked } : p);
           return { missions, packConfigs: packs };
         });
+        // sync events, newCardUids, unlockedPacks to Supabase
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) {
+              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
+              const prefs = prof?.preferences || {};
+              const unlockedPacks = get().packConfigs.filter(p => p.unlocked).map(p => p.id);
+              await supabase!.from('profiles').update({ preferences: { ...prefs, events: get().events, eventHistory: get().eventHistory, newCardUids: get().newCardUids, unlockedPacks } }).eq('id', uid);
+            }
+          });
+        }
         // achievements coins
         const st2 = get();
         if (st2.coins >= 10000) {
@@ -506,10 +520,26 @@ export const useGame = create<GameState & Actions>()(
         }
         return id;
       },
-      deleteSquad: (id) => set(st => ({ savedSquads: st.savedSquads.filter(s => s.id !== id) })),
-      setPrimarySquad: (id) => set(st => ({
-        savedSquads: st.savedSquads.map(s => ({ ...s, isPrimary: s.id === id ? true : (s.sport === st.savedSquads.find(x=>x.id===id)?.sport ? false : s.isPrimary) }))
-      })),
+      deleteSquad: (id) => {
+        set(st => ({ savedSquads: st.savedSquads.filter(s => s.id !== id) }));
+        if (supabase) {
+          supabase.from('saved_squads').delete().eq('id', id).then(() => {});
+        }
+      },
+      setPrimarySquad: (id) => {
+        set(st => ({
+          savedSquads: st.savedSquads.map(s => ({ ...s, isPrimary: s.id === id ? true : (s.sport === st.savedSquads.find(x=>x.id===id)?.sport ? false : s.isPrimary) }))
+        }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) {
+              await supabase!.from('saved_squads').update({ is_primary: false }).eq('user_id', uid);
+              await supabase!.from('saved_squads').update({ is_primary: true }).eq('id', id);
+            }
+          });
+        }
+      },
       loadSquad: (id) => {
         const s = get();
         const saved = s.savedSquads.find(x => x.id === id);
