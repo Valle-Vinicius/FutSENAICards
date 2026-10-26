@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import loginBg from '../imagens/login/Background.png';
+import logo from '../imagens/login/Logo_Fut_SENAI_Cards-removebg-preview.png';
 import heitorPose from '../imagens/imagensposes/heitorlogin-removebg-preview.png';
 import pietroPose from '../imagens/imagensposes/pietrologin-removebg-preview.png';
 import gabrielPose from '../imagens/imagensposes/gabriellogin-removebg-preview.png';
@@ -125,7 +126,7 @@ export default function Auth() {
       <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
           <div className="text-center">
-            <div className="text-3xl font-black text-[#E30613]">FutSENAI</div>
+            <img src={logo} alt="FutSENAI Cards" className="mx-auto h-16 object-contain" />
             <div className="text-sm text-[#858A98] mt-1">{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</div>
           </div>
           <form onSubmit={submit} className="space-y-4">
