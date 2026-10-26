@@ -21,9 +21,25 @@ export default function NotFound() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    let a = Math.floor(Math.random() * POSES.length);
-    let b = Math.floor(Math.random() * POSES.length);
-    while (b === a) b = Math.floor(Math.random() * POSES.length);
+    const key = 'nf-pose-idx';
+    let stored = sessionStorage.getItem(key);
+    let a = 0, b = 1;
+    if (stored) {
+      const parts = stored.split(',');
+      a = Number(parts[0]);
+      b = Number(parts[1]);
+      if (Number.isNaN(a) || Number.isNaN(b) || a === b || a < 0 || b < 0 || a >= POSES.length || b >= POSES.length) {
+        a = Math.floor(Math.random() * POSES.length);
+        b = Math.floor(Math.random() * POSES.length);
+        while (b === a) b = Math.floor(Math.random() * POSES.length);
+        sessionStorage.setItem(key, `${a},${b}`);
+      }
+    } else {
+      a = Math.floor(Math.random() * POSES.length);
+      b = Math.floor(Math.random() * POSES.length);
+      while (b === a) b = Math.floor(Math.random() * POSES.length);
+      sessionStorage.setItem(key, `${a},${b}`);
+    }
     setLeft(a);
     setRight(b);
   }, []);
