@@ -148,6 +148,9 @@ export const useGame = create<GameState & Actions>()(
               const local = get().cards;
               for (const c of local) await addCard(uid, c);
             }
+            // sync coins from profile
+            const { data: prof } = await supabase!.from('profiles').select('coins').eq('id', uid).single();
+            if (prof) set({ coins: prof.coins });
             const squads = await getSavedSquads(uid);
             if (squads.length > 0) set({ savedSquads: squads });
             const listings = await getListings();
@@ -155,10 +158,18 @@ export const useGame = create<GameState & Actions>()(
           });
         }
       },
-      addCoins: (n, reason) => set(st => ({
-        coins: st.coins + n,
-        transactions: [{ id: nanoid(8), type: 'earn' as const, amount: n, reason, at: Date.now() }, ...st.transactions].slice(0, 50),
-      })),
+      addCoins: (n, reason) => {
+        set(st => ({
+          coins: st.coins + n,
+          transactions: [{ id: nanoid(8), type: 'earn' as const, amount: n, reason, at: Date.now() }, ...st.transactions].slice(0, 50),
+        }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
+          });
+        }
+      },
       spendCoins: (n, reason) => {
         const s = get();
         if (s.coins < n) return false;
@@ -166,6 +177,12 @@ export const useGame = create<GameState & Actions>()(
           coins: st.coins - n,
           transactions: [{ id: nanoid(8), type: 'spend' as const, amount: n, reason, at: Date.now() }, ...st.transactions].slice(0, 50),
         }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
+          });
+        }
         return true;
       },
       addXp: (n) => set(st => {
