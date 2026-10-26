@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 import { getCards, addCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
 import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/squads';
-import { getListings, createListing, cancelListing as cancelListingService, buyListing as buyListingService } from '../lib/services/marketplace';
+import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
 
@@ -528,13 +528,24 @@ export const useGame = create<GameState & Actions>()(
         if (!listing || listing.status !== 'active') return false;
         const cost = listing.buyNow > 0 ? listing.buyNow : listing.price;
         if (get().coins < cost) return false;
+        if (supabase) {
+          supabase.functions.invoke('buy-listing', { body: { listingId: id } }).then(({ data, error }) => {
+            if (error || !data?.ok) return;
+            get().spendCoins(cost, `Compra mercado: ${listing.id}`);
+            const existing = get().cards.find(c => c.uid === listing.cardUid);
+            if (existing) {
+              set(st => ({ cards: st.cards.map(c => c.uid === listing.cardUid ? { ...c, isNew: true } : c) }));
+            }
+            set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'sold' } : l) }));
+          });
+          return true;
+        }
         get().spendCoins(cost, `Compra mercado: ${listing.id}`);
         const existing = get().cards.find(c => c.uid === listing.cardUid);
         if (existing) {
           set(st => ({ cards: st.cards.map(c => c.uid === listing.cardUid ? { ...c, isNew: true } : c) }));
         }
         set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'sold' } : l) }));
-        if (supabase) buyListingService(id);
         return true;
       },
       bidListing: (id, amount) => {
