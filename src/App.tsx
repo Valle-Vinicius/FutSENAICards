@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import ToastContainer from './components/ToastContainer';
 import LoadingScreen from './components/LoadingScreen';
 import { useGame } from './store/useGame';
+import { supabase } from './lib/supabase';
 import Layout from './components/Layout';
 import Tutorial from './components/Tutorial';
 import NotFound from './pages/NotFound';
@@ -29,7 +30,17 @@ export default function App() {
     const known = ['/', '/packs', '/open/', '/collection', '/card/', '/squad', '/match', '/compare', '/market', '/sbc', '/missions', '/shop', '/profile', '/settings', '/auth'];
     return !known.some(k => h === k || h.startsWith(k));
   });
-  useEffect(() => { useGame.getState().init(); }, []);
+  useEffect(() => {
+    useGame.getState().init();
+    if (supabase) {
+      const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session?.user?.id) {
+          useGame.getState().syncUserData(session.user.id);
+        }
+      });
+      return () => sub.subscription.unsubscribe();
+    }
+  }, []);
   return (
     <>
       <ToastContainer />

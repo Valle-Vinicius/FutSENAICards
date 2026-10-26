@@ -18,6 +18,7 @@ import { RARITY_META, SPECIAL_META } from '../types';
 
 interface Actions {
   init: () => void;
+  syncUserData: (userId: string) => Promise<void>;
   addCoins: (n: number, reason: string) => void;
   spendCoins: (n: number, reason: string) => boolean;
   addXp: (n: number) => void;
@@ -145,48 +146,44 @@ export const useGame = create<GameState & Actions>()(
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }) => {
             const uid = data.session?.user?.id;
-            if (!uid) return;
-            const remote = await getCards(uid);
-            if (remote.length > 0) {
-              set({ cards: remote });
-            } else {
-              const local = get().cards;
-              for (const c of local) await addCard(uid, c);
-            }
-            // sync coins from profile
-            const { data: prof } = await supabase!.from('profiles').select('coins').eq('id', uid).single();
-            if (prof) set({ coins: prof.coins });
-            const squads = await getSavedSquads(uid);
-            if (squads.length > 0) set({ savedSquads: squads });
-            const listings = await getListings();
-            if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: 'user', sellerName: 'Mercado', price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any })) });
-            const remoteMissions = await getMissions(uid);
-            if (remoteMissions.length > 0) {
-              set({ missions: remoteMissions });
-            } else {
-              await upsertMissions(uid, get().missions);
-            }
-            const remoteAchievements = await getAchievements(uid);
-            if (remoteAchievements.length > 0) set({ achievements: remoteAchievements });
-            const remoteSettings = await getSettings(uid);
-            if (remoteSettings) set({ settings: remoteSettings });
-            const { data: prof2 } = await supabase!.from('profiles').select('preferences, xp, level, packs_opened, last_daily_claim').eq('id', uid).single();
-            if (prof2) {
-              const prefs = prof2.preferences || {};
-              set(st => ({
-                xp: prof2.xp ?? st.xp,
-                level: prof2.level ?? st.level,
-                packsOpened: prof2.packs_opened ?? st.packsOpened,
-                lastDailyClaim: prof2.last_daily_claim ? new Date(prof2.last_daily_claim).getTime() : st.lastDailyClaim,
-                favorites: prefs.favorites ?? st.favorites,
-                newCardUids: prefs.newCardUids ?? st.newCardUids,
-                compareHistory: prefs.compareHistory ?? st.compareHistory,
-                eventHistory: prefs.eventHistory ?? st.eventHistory,
-                events: prefs.events ?? st.events,
-                packConfigs: prefs.unlockedPacks ? st.packConfigs.map(p => prefs.unlockedPacks.includes(p.id) ? { ...p, unlocked: true } : p) : st.packConfigs,
-              }));
-            }
+            if (uid) await get().syncUserData(uid);
           });
+        }
+      },
+      syncUserData: async (userId) => {
+        const remoteCards = await getCards(userId);
+        if (remoteCards.length > 0) set({ cards: remoteCards });
+        else {
+          const local = get().cards;
+          for (const c of local) await addCard(userId, c);
+        }
+        const squads = await getSavedSquads(userId);
+        if (squads.length > 0) set({ savedSquads: squads });
+        const listings = await getListings();
+        if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: 'user', sellerName: 'Mercado', price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any })) });
+        const remoteMissions = await getMissions(userId);
+        if (remoteMissions.length > 0) set({ missions: remoteMissions });
+        else await upsertMissions(userId, get().missions);
+        const remoteAchievements = await getAchievements(userId);
+        if (remoteAchievements.length > 0) set({ achievements: remoteAchievements });
+        const remoteSettings = await getSettings(userId);
+        if (remoteSettings) set({ settings: remoteSettings });
+        const { data: prof } = await supabase!.from('profiles').select('coins, preferences, xp, level, packs_opened, last_daily_claim').eq('id', userId).single();
+        if (prof) {
+          const prefs = prof.preferences || {};
+          set(st => ({
+            coins: prof.coins ?? st.coins,
+            xp: prof.xp ?? st.xp,
+            level: prof.level ?? st.level,
+            packsOpened: prof.packs_opened ?? st.packsOpened,
+            lastDailyClaim: prof.last_daily_claim ? new Date(prof.last_daily_claim).getTime() : st.lastDailyClaim,
+            favorites: prefs.favorites ?? st.favorites,
+            newCardUids: prefs.newCardUids ?? st.newCardUids,
+            compareHistory: prefs.compareHistory ?? st.compareHistory,
+            eventHistory: prefs.eventHistory ?? st.eventHistory,
+            events: prefs.events ?? st.events,
+            packConfigs: prefs.unlockedPacks ? st.packConfigs.map(p => prefs.unlockedPacks.includes(p.id) ? { ...p, unlocked: true } : p) : st.packConfigs,
+          }));
         }
       },
       addCoins: (n, reason) => {
