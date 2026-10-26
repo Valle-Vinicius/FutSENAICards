@@ -2,7 +2,7 @@ import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { getProfile, type UserProfile } from '../lib/profile';
+import { getProfile, updateProfile, type UserProfile } from '../lib/profile';
 import { useEffect, useState } from 'react';
 
 export default function Profile() {
@@ -21,18 +21,38 @@ export default function Profile() {
   const rarest = [...cards].sort((a, b) => b.overall - a.overall)[0];
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [draftAvatar, setDraftAvatar] = useState('');
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session?.user?.id) {
         const p = await getProfile(data.session.user.id);
         setProfile(p);
+        setDraftName(p?.name || '');
+        setDraftAvatar(p?.avatar_url || '');
       }
     });
   }, []);
   const handleLogout = async () => {
     if (supabase) await supabase.auth.signOut();
     navigate('/auth');
+  };
+  const handleSaveProfile = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return;
+    setSaving(true);
+    const updated = await updateProfile(uid, { name: draftName.trim() || null, avatar_url: draftAvatar.trim() || null });
+    if (updated) {
+      setProfile(updated);
+      await supabase.auth.updateUser({ data: { name: draftName.trim() } });
+      setEditing(false);
+    }
+    setSaving(false);
   };
 
   return (
@@ -42,9 +62,27 @@ export default function Profile() {
         <div className="w-24 h-24 rounded-full bg-[#FFF0F2] flex items-center justify-center text-4xl text-[#E30613] font-bold overflow-hidden">
           {profile?.avatar_url ? <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : level}
         </div>
-        <div className="flex-1 space-y-2">
-          <div className="text-xl font-semibold text-[#252733]">{profile?.name || 'Jogador Futsenai'}</div>
-          <div className="text-sm text-[#858A98]">Nível {level} · {xp} XP</div>
+        <div className="flex-1 space-y-2 w-full">
+          {!editing ? (
+            <>
+              <div className="text-xl font-semibold text-[#252733]">{profile?.name || 'Jogador Futsenai'}</div>
+              <div className="text-sm text-[#858A98]">NÃ­vel {level} Â· {xp} XP</div>
+              <button onClick={() => setEditing(true)} className="text-sm text-[#E30613] font-medium hover:underline">Editar perfil</button>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <input value={draftName} onChange={e => setDraftName(e.target.value)} placeholder="Nome" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
+              <input value={draftAvatar} onChange={e => setDraftAvatar(e.target.value)} placeholder="URL do avatar" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
+              <div className="flex gap-2">
+                <button onClick={handleSaveProfile} disabled={saving} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-bold disabled:opacity-60">
+                  {saving ? 'Salvando...' : 'Salvar'}
+                </button>
+                <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
           <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden">
             <div className="h-full bg-[#E30613]" style={{ width: `${pct}%` }} />
           </div>
