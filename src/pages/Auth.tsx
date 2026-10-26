@@ -23,6 +23,14 @@ export default function Auth() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
   const [playerPose] = useState(() => {
     const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose, enzoPose, gustavoPose];
     const key = 'auth-pose-idx';
@@ -126,7 +134,7 @@ export default function Auth() {
       <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
           <div className="text-center">
-            <img src={logo} alt="FutSENAI Cards" className="mx-auto h-16 object-contain" />
+            <img src={logo} alt="FutSENAI Cards" className="mx-auto h-32 object-contain" />
             <div className="text-sm text-[#858A98] mt-1">{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</div>
           </div>
           <form onSubmit={submit} className="space-y-4">
@@ -146,6 +154,11 @@ export default function Auth() {
           <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
             {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
           </button>
+          {session && (
+            <button onClick={async () => { await supabase?.auth.signOut(); setSession(null); }} className="w-full py-3 rounded-xl bg-white border border-red-200 text-red-600 font-bold">
+              Sair da conta
+            </button>
+          )}
         </motion.div>
       </div>
     </div>
