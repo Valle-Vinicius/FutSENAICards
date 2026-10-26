@@ -9,6 +9,7 @@ import { addMatch } from '../lib/services/matches';
 import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/squads';
 import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/missions';
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
+import { recordSBCCompletion } from '../lib/services/sbc';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
@@ -626,6 +627,15 @@ export const useGame = create<GameState & Actions>()(
         }
         // remove cards
         set(st => ({ cards: st.cards.filter(c => !cardUids.includes(c.uid)) }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) {
+              for (const cu of cardUids) await supabase!.from('cards').delete().eq('id', cu);
+              await recordSBCCompletion(uid, sbcId);
+            }
+          });
+        }
         // reward
         if (sbc.reward.type === 'coins') {
           get().addCoins(Number(sbc.reward.value), `SBC: ${sbc.title}`);
