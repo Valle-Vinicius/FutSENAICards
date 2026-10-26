@@ -8,6 +8,7 @@ import { getCards, addCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
 import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/squads';
 import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/missions';
+import { getAchievements, upsertAchievements } from '../lib/services/achievements';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
@@ -162,6 +163,8 @@ export const useGame = create<GameState & Actions>()(
             } else {
               await upsertMissions(uid, get().missions);
             }
+            const remoteAchievements = await getAchievements(uid);
+            if (remoteAchievements.length > 0) set({ achievements: remoteAchievements });
           });
         }
       },
@@ -310,6 +313,13 @@ export const useGame = create<GameState & Actions>()(
         if (fFilled) {
           const a = st2.achievements.find(x => x.id === 'a4');
           if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a4' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
+        }
+        // sync achievements to Supabase
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await upsertAchievements(uid, get().achievements);
+          });
         }
         // sync missions to Supabase
         if (supabase) {
