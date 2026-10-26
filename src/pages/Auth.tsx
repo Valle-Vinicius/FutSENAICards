@@ -89,15 +89,15 @@ export default function Auth() {
     setStarted(true);
     const audio = new Audio(lofi);
     audio.loop = true;
-    audio.volume = 0;
+    audio.volume = 0.02;
     audioRef.current = audio;
     audio.play().catch(() => {});
-    let vol = 0;
+    let vol = 0.02;
     const fade = setInterval(() => {
-      vol = Math.min(0.35, vol + 0.02);
+      vol = Math.min(0.4, vol + 0.005);
       audio.volume = vol;
-      if (vol >= 0.35) clearInterval(fade);
-    }, 100);
+      if (vol >= 0.4) clearInterval(fade);
+    }, 200);
   };
 
   useEffect(() => {
