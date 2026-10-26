@@ -51,9 +51,9 @@ export default function App() {
               <Route path="/shop" element={<Shop />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<NotFound />} />
             </Route>
             </Route>
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       )}
