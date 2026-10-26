@@ -8,7 +8,7 @@ module.exports = {
   },
   transformIgnorePatterns: ['/node_modules/(?!(nanoid|zustand)/)'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: { module: 'commonjs', esModuleInterop: true, verbatimModuleSyntax: false, lib: ['es2020', 'dom'], types: ['jest'] } }],
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.jest.json' }],
   },
   testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],
 };
