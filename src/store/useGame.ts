@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { getCards, addCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
 import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/squads';
+import { getListings, createListing, cancelListing as cancelListingService, buyListing as buyListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
 
@@ -149,6 +150,8 @@ export const useGame = create<GameState & Actions>()(
             }
             const squads = await getSavedSquads(uid);
             if (squads.length > 0) set({ savedSquads: squads });
+            const listings = await getListings();
+            if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: 'user', sellerName: 'Mercado', price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any })) });
           });
         }
       },
@@ -478,10 +481,9 @@ export const useGame = create<GameState & Actions>()(
       listCard: (cardUid, price, buyNow, hours) => {
         const c = get().cards.find(x => x.uid === cardUid);
         if (!c) return null;
-        // lock card
         const id = nanoid(8);
         const listing: Listing = {
-          id, cardUid, seller: 'user', sellerName: 'Você',
+          id, cardUid, seller: 'user', sellerName: 'VocÃª',
           price, buyNow, bids: [], createdAt: Date.now(),
           expiresAt: Date.now() + hours * 3600000, status: 'active',
         };
@@ -489,28 +491,33 @@ export const useGame = create<GameState & Actions>()(
           listings: [listing, ...st.listings],
           cards: st.cards.map(x => x.uid === cardUid ? { ...x, isNew: false } : x),
         }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) {
+              const remote = await createListing({ sellerId: uid, cardUid, cardName: c.name, price, buyNow, expiresAt: new Date(Date.now() + hours * 3600000).toISOString(), status: 'active' });
+              if (remote) set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, id: remote.id } : l) }));
+            }
+          });
+        }
         return id;
       },
-      cancelListing: (id) => set(st => ({
-        listings: st.listings.map(l => l.id === id ? { ...l, status: 'cancelled' } : l),
-      })),
+      cancelListing: (id) => {
+        set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'cancelled' } : l) }));
+        if (supabase) cancelListingService(id);
+      },
       buyListing: (id) => {
         const listing = get().listings.find(l => l.id === id);
         if (!listing || listing.status !== 'active') return false;
         const cost = listing.buyNow > 0 ? listing.buyNow : listing.price;
         if (get().coins < cost) return false;
         get().spendCoins(cost, `Compra mercado: ${listing.id}`);
-        // find card template by uid prefix? We'll generate a copy if not in inventory
         const existing = get().cards.find(c => c.uid === listing.cardUid);
         if (existing) {
-          // already owned (shouldn't for npc), just mark as new
           set(st => ({ cards: st.cards.map(c => c.uid === listing.cardUid ? { ...c, isNew: true } : c) }));
-        } else {
-          // npc card: already added to cards list during seed; ensure present
         }
-        set(st => ({
-          listings: st.listings.map(l => l.id === id ? { ...l, status: 'sold' } : l),
-        }));
+        set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'sold' } : l) }));
+        if (supabase) buyListingService(id);
         return true;
       },
       bidListing: (id, amount) => {
