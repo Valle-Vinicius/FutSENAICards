@@ -24,14 +24,20 @@ export default function Auth() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [recovery, setRecovery] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [started, setStarted] = useState(false);
   const [playerPose] = useState(() => {
     const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose, enzoPose, gustavoPose];
     return poses[Math.floor(Math.random() * poses.length)];
   });
   const navigate = useNavigate();
-  const [started, setStarted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (window.location.hash.includes('type=recovery')) setRecovery(true);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -41,16 +47,12 @@ export default function Auth() {
     let w = canvas.width = canvas.clientWidth || canvas.offsetWidth;
     let h = canvas.height = canvas.clientHeight || canvas.offsetHeight;
     const particles: { x: number; y: number; vx: number; vy: number }[] = [];
-    const count = 40;
-    for (let i = 0; i < count; i++) {
-      particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2 });
-    }
+    for (let i = 0; i < 40; i++) particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2 });
     let raf = 0;
     const draw = () => {
       ctx.clearRect(0, 0, w, h);
       for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
+        p.x += p.vx; p.y += p.vy;
         if (p.x < 0 || p.x > w) p.vx *= -1;
         if (p.y < 0 || p.y > h) p.vy *= -1;
         ctx.beginPath();
@@ -106,14 +108,6 @@ export default function Auth() {
     };
   }, []);
 
-  const signInWithGoogle = async () => {
-    if (!supabase) { setError('Configure o Supabase.'); return; }
-    setLoading(true);
-    setError('');
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/' } });
-    if (error) { setError(error.message); setLoading(false); }
-  };
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) { setError('Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.'); return; }
@@ -135,6 +129,35 @@ export default function Auth() {
     }
   };
 
+  const signInWithGoogle = async () => {
+    if (!supabase) { setError('Configure o Supabase.'); return; }
+    setLoading(true);
+    setError('');
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/' } });
+    if (error) { setError(error.message); setLoading(false); }
+  };
+
+  const forgotPassword = async () => {
+    if (!supabase || !email) { setError('Digite seu email.'); return; }
+    setLoading(true);
+    setError('');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/' });
+    if (error) setError(error.message);
+    else setError('Email de recuperação enviado.');
+    setLoading(false);
+  };
+
+  const resetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    setLoading(true);
+    setError('');
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) setError(error.message);
+    else { setError('Senha atualizada. Faça login.'); setRecovery(false); }
+    setLoading(false);
+  };
+
   return (
     <>
       {!started && (
@@ -143,36 +166,53 @@ export default function Auth() {
         </div>
       )}
       <div className="h-screen overflow-hidden flex">
-      <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
-        <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
-        <motion.img src={playerPose} alt="Jogador" className="relative z-10" initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }} style={{ width: '100%', height: '90%', objectFit: 'contain', objectPosition: 'center bottom' }} />
-      </div>
-      <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
-        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
-          <div className="text-center">
-            <img src={logo} alt="FutSENAI Cards" className="mx-auto h-64 object-contain" />
-            <div className="text-sm text-[#858A98] mt-1">{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</div>
-          </div>
-          <form onSubmit={submit} className="space-y-4">
-            {mode === 'register' && (
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="Nome" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
+        <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+          <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
+          <motion.img src={playerPose} alt="Jogador" className="relative z-10" initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }} style={{ width: '100%', height: '90%', objectFit: 'contain', objectPosition: 'center bottom' }} />
+        </div>
+        <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
+            <div className="text-center">
+              <img src={logo} alt="FutSENAI Cards" className="mx-auto h-64 object-contain" />
+              <div className="text-sm text-[#858A98] mt-1">{recovery ? 'Redefinir senha' : (mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta')}</div>
+            </div>
+            <form onSubmit={recovery ? resetPassword : submit} className="space-y-4">
+              {recovery ? (
+                <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type="password" placeholder="Nova senha" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
+              ) : (
+                <>
+                  {mode === 'register' && (
+                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Nome" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
+                  )}
+                  <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="Email" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
+                  <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Senha" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
+                </>
+              )}
+              {error && <div className="text-xs text-red-600">{error}</div>}
+              <button disabled={loading} className="w-full py-3 rounded-xl bg-[#E30613] text-white font-black disabled:opacity-60">
+                {loading ? 'Aguarde...' : (recovery ? 'REDEFINIR SENHA' : (mode === 'login' ? 'ENTRAR' : 'CADASTRAR'))}
+              </button>
+              {!recovery && (
+                <>
+                  <button type="button" onClick={signInWithGoogle} disabled={loading} className="w-full py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
+                    <span>Entrar com Google</span>
+                  </button>
+                  {mode === 'login' && (
+                    <button type="button" onClick={forgotPassword} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
+                      Esqueci minha senha
+                    </button>
+                  )}
+                </>
+              )}
+            </form>
+            {!recovery && (
+              <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
+                {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
+              </button>
             )}
-            <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="Email" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
-            <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Senha" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
-            {error && <div className="text-xs text-red-600">{error}</div>}
-            <button disabled={loading} className="w-full py-3 rounded-xl bg-[#E30613] text-white font-black disabled:opacity-60">
-              {loading ? 'Aguarde...' : (mode === 'login' ? 'ENTRAR' : 'CADASTRAR')}
-            </button>
-            <button type="button" onClick={signInWithGoogle} disabled={loading} className="w-full py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
-              <span>Entrar com Google</span>
-            </button>
-          </form>
-          <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
-            {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
-          </button>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
-    </div>
-  </>
+    </>
   );
 }
