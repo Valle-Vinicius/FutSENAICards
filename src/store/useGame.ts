@@ -170,6 +170,20 @@ export const useGame = create<GameState & Actions>()(
             if (remoteAchievements.length > 0) set({ achievements: remoteAchievements });
             const remoteSettings = await getSettings(uid);
             if (remoteSettings) set({ settings: remoteSettings });
+            const { data: prof2 } = await supabase!.from('profiles').select('preferences, xp, level, packs_opened, last_daily_claim').eq('id', uid).single();
+            if (prof2) {
+              const prefs = prof2.preferences || {};
+              set(st => ({
+                xp: prof2.xp ?? st.xp,
+                level: prof2.level ?? st.level,
+                packsOpened: prof2.packs_opened ?? st.packsOpened,
+                lastDailyClaim: prof2.last_daily_claim ? new Date(prof2.last_daily_claim).getTime() : st.lastDailyClaim,
+                favorites: prefs.favorites ?? st.favorites,
+                newCardUids: prefs.newCardUids ?? st.newCardUids,
+                compareHistory: prefs.compareHistory ?? st.compareHistory,
+                eventHistory: prefs.eventHistory ?? st.eventHistory,
+              }));
+            }
           });
         }
       },
@@ -206,10 +220,18 @@ export const useGame = create<GameState & Actions>()(
         }
         return true;
       },
-      addXp: (n) => set(st => {
-        const newXp = st.xp + n;
-        return { xp: newXp, level: levelFromXp(newXp) };
-      }),
+      addXp: (n) => {
+        set(st => {
+          const newXp = st.xp + n;
+          return { xp: newXp, level: levelFromXp(newXp) };
+        });
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await supabase!.from('profiles').update({ xp: get().xp, level: get().level }).eq('id', uid);
+          });
+        }
+      },
       openPack: (packId) => {
         const s = get();
         const pack = s.packConfigs.find(p => p.id === packId);
@@ -240,6 +262,16 @@ export const useGame = create<GameState & Actions>()(
           packsOpened: st.packsOpened + 1,
           newCardUids: [...cards.map(c => c.uid), ...st.newCardUids].slice(0, 50),
         }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) {
+              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
+              const prefs = prof?.preferences || {};
+              await supabase!.from('profiles').update({ packs_opened: get().packsOpened, preferences: { ...prefs, newCardUids: get().newCardUids } }).eq('id', uid);
+            }
+          });
+        }
         get().addXp(pack.cards * 10);
         // mission progress
         get().updateMissionProgress();
@@ -273,6 +305,12 @@ export const useGame = create<GameState & Actions>()(
         get().addCoins(amount, 'Recompensa diária');
         get().addXp(40);
         set({ lastDailyClaim: now });
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await supabase!.from('profiles').update({ last_daily_claim: new Date(now).toISOString() }).eq('id', uid);
+          });
+        }
         // mission daily
         const m = get().missions.find(x => x.id === 'm9');
         if (m && !m.completed) {
@@ -280,13 +318,38 @@ export const useGame = create<GameState & Actions>()(
         }
         return { ok: true, amount };
       },
-      toggleFavorite: (uid) => set(st => ({
-        cards: st.cards.map(c => c.uid === uid ? { ...c, favorite: !c.favorite } : c),
-      })),
-      markSeen: (uids) => set(st => ({
-        cards: st.cards.map(c => uids.includes(c.uid) ? { ...c, isNew: false } : c),
-        newCardUids: st.newCardUids.filter(u => !uids.includes(u)),
-      })),
+      toggleFavorite: (uid) => {
+        set(st => ({
+          cards: st.cards.map(c => c.uid === uid ? { ...c, favorite: !c.favorite } : c),
+        }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const u = data.session?.user?.id;
+            if (u) {
+              const favs = get().cards.filter(c => c.favorite).map(c => c.uid);
+              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', u).single();
+              const prefs = prof?.preferences || {};
+              await supabase!.from('profiles').update({ preferences: { ...prefs, favorites: favs } }).eq('id', u);
+            }
+          });
+        }
+      },
+      markSeen: (uids) => {
+        set(st => ({
+          cards: st.cards.map(c => uids.includes(c.uid) ? { ...c, isNew: false } : c),
+          newCardUids: st.newCardUids.filter(u => !uids.includes(u)),
+        }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const u = data.session?.user?.id;
+            if (u) {
+              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', u).single();
+              const prefs = prof?.preferences || {};
+              await supabase!.from('profiles').update({ preferences: { ...prefs, newCardUids: get().newCardUids } }).eq('id', u);
+            }
+          });
+        }
+      },
       updateMissionProgress: () => {
         set(st => {
           const missions = st.missions.map(m => {
@@ -463,9 +526,19 @@ export const useGame = create<GameState & Actions>()(
           },
         }));
       },
-      addCompareHistory: (aUid, bUid) => set(st => ({
-        compareHistory: [{ aUid, bUid, at: Date.now() }, ...st.compareHistory].slice(0, 20),
-      })),
+      addCompareHistory: (aUid, bUid) => {
+        set(st => ({ compareHistory: [{ aUid, bUid, at: Date.now() }, ...st.compareHistory].slice(0, 20) }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) {
+              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
+              const prefs = prof?.preferences || {};
+              await supabase!.from('profiles').update({ preferences: { ...prefs, compareHistory: get().compareHistory } }).eq('id', uid);
+            }
+          });
+        }
+      },
       addMatchHistory: (entry) => {
         set(st => ({ matchHistory: [entry, ...st.matchHistory].slice(0, 50) }));
         if (supabase) {
