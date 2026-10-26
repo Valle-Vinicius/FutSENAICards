@@ -6,7 +6,7 @@ serve(async (req) => {
   if (!authHeader) return new Response('Unauthorized', { status: 401 });
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    Deno.env.get('SERVICE_ROLE_KEY')!,
     { global: { headers: { Authorization: authHeader } } }
   );
   const { data: { user }, error: userError } = await supabase.auth.getUser();
