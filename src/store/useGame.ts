@@ -11,6 +11,7 @@ import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/mis
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
 import { recordSBCCompletion } from '../lib/services/sbc';
 import { addTransaction } from '../lib/services/transactions';
+import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
@@ -167,6 +168,8 @@ export const useGame = create<GameState & Actions>()(
             }
             const remoteAchievements = await getAchievements(uid);
             if (remoteAchievements.length > 0) set({ achievements: remoteAchievements });
+            const remoteSettings = await getSettings(uid);
+            if (remoteSettings) set({ settings: remoteSettings });
           });
         }
       },
@@ -472,7 +475,15 @@ export const useGame = create<GameState & Actions>()(
           });
         }
       },
-      updateSettings: (s) => set((st) => ({ settings: { ...st.settings, ...s } })),
+      updateSettings: (s) => {
+        set(st => ({ settings: { ...st.settings, ...s } }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) await updateSettingsService(uid, s);
+          });
+        }
+      },
       addPlayerXp: (uid, amount) => set(st => ({
         cards: st.cards.map(c => {
           if (c.uid !== uid) return c;
