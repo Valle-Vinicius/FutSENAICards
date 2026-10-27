@@ -637,8 +637,14 @@ export const useGame = create<GameState & Actions>()(
         });
         if (toRemove.length === 0) return 0;
         const reward = toRemove.length * 200;
-        get().addCoins(reward, `Conversão de ${toRemove.length} duplicatas`);
+        get().addCoins(reward, `ConversÃ£o de ${toRemove.length} duplicatas`);
         set(st => ({ cards: st.cards.filter(c => !toRemove.includes(c.uid)) }));
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }) => {
+            const uid = data.session?.user?.id;
+            if (uid) for (const c of toRemove) await supabase!.from('cards').delete().eq('id', c);
+          });
+        }
         return toRemove.length;
       },
       recordEvolution: (uid, attr) => set(st => ({
