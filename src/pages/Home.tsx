@@ -5,7 +5,6 @@ import { toast } from '../store/toast';
 import { NEWS } from '../data/news';
 import { ExternalLink, Calendar, Trophy, Users, Package, Target, Store } from 'lucide-react';
 import Card from '../components/Card';
-import enzoImg from '../imagens/enzothomas.jpg';
 
 export default function Home() {
   const coins = useGame(s => s.coins);
@@ -63,9 +62,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
-        <div className="hidden md:flex items-center justify-center w-28 h-20 shrink-0">
-          <img src={enzoImg} alt="Jogador" className="h-full object-contain" />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button onClick={handleDaily} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-bold">Recompensa diária</button>
