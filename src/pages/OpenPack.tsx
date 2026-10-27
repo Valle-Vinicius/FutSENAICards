@@ -142,7 +142,7 @@ export default function OpenPack() {
   const estimatedValue = cards.reduce((s, c) => s + RARITY_VALUE[c.rarity], 0);
 
   return (
-    <div className="min-h-[85vh] flex flex-col items-center justify-center p-4 relative overflow-hidden rounded-2xl">
+    <div className="min-h-[85vh] flex flex-col items-center justify-center p-4 relative overflow-y-auto rounded-2xl">
       <AnimatePresence>
         {(phase === 'charging' || phase === 'burst' || phase === 'rarity' || phase === 'reveal') && (
           <motion.div
