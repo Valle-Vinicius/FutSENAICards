@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { NEWS } from '../data/news';
+import { ExternalLink } from 'lucide-react';
 import { Coins, Layers, Sparkles, Trophy, Package } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
@@ -73,6 +75,34 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-[#252733]">Radar do SENAI</h2>
+            <p className="text-xs text-[#858A98]">As últimas notícias, polêmicas e acontecimentos do universo FutSenai.</p>
+          </div>
+          <a href="https://pietro-guedes.github.io/FutSenai-Jornal/" target="_blank" rel="noopener noreferrer" className="text-sm text-[#E30613] font-medium hover:underline flex items-center gap-1">
+            Ver todas as notícias <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+        <div className="grid md:grid-cols-3 gap-3">
+          {NEWS.map(n => (
+            <div key={n.id} className="card-surface p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${n.category === 'BOMBA' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'}`}>{n.category}</span>
+                <span className="text-[10px] text-[#858A98]">{n.date}</span>
+              </div>
+              <div className="text-sm font-semibold text-[#252733] line-clamp-2">{n.title}</div>
+              <div className="text-xs text-[#858A98] line-clamp-3">{n.summary}</div>
+              <div className="text-[10px] text-[#858A98]">Turma: {n.turma} · Fonte: Jornal FutSenai</div>
+              <a href={n.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#E30613] font-medium hover:underline">
+                Ler matéria original <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section>
         <h2 className="text-lg font-semibold mb-3 text-[#252733]">Pacotes disponíveis</h2>
