@@ -1,1 +1,17 @@
-﻿# FutSENAI Cards\n\n> Jogo de cartas de futsal no estilo Ultimate Team.\n\n## Docs\n- [README](/README.md)
+﻿# FutSENAI Cards
+
+> Jogo de cartas de futsal no estilo Ultimate Team, com autenticação, mercado entre jogadores e persistência em Supabase.
+
+## Canonical pages
+- Home: https://fut-senai-cards.vercel.app/
+- Pacotes: https://fut-senai-cards.vercel.app/#/packs
+- Coleção: https://fut-senai-cards.vercel.app/#/collection
+- Mercado: https://fut-senai-cards.vercel.app/#/market
+- Login: https://fut-senai-cards.vercel.app/#/auth
+
+## Intents
+- Abrir pacotes de cartas
+- Montar elenco
+- Comprar/vender no mercado
+- Completar missões e SBCs
+- Acompanhar perfil e estatísticas
