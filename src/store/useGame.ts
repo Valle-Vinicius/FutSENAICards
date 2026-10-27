@@ -667,7 +667,7 @@ export const useGame = create<GameState & Actions>()(
           supabase.auth.getSession().then(async ({ data }) => {
             const uid = data.session?.user?.id;
             if (uid) {
-              const remote = await createListing({ sellerId: uid, cardUid, cardName: c.name, price, buyNow, expiresAt: new Date(Date.now() + hours * 3600000).toISOString(), status: 'active' });
+              const remote = await createListing({ sellerId: uid, cardUid, cardName: c.name, cardOverall: c.overall, cardPosition: c.position, cardRarity: c.rarity, cardImage: c.image, price, buyNow, expiresAt: new Date(Date.now() + hours * 3600000).toISOString(), status: 'active' });
               if (remote) set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, id: remote.id } : l) }));
             }
           });

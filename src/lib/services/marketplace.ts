@@ -20,21 +20,22 @@ export interface ListingRecord {
 
 export async function getListings(): Promise<ListingRecord[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('listings').select('*, cards(*)').eq('status', 'active').order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('listings').select('*, cards(*), profiles:seller_id(name)').eq('status', 'active').order('created_at', { ascending: false });
   if (error) return [];
   return (data || []).map((l: any) => {
     const c = Array.isArray(l.cards) ? l.cards[0] : l.cards;
+    const sellerProfile = Array.isArray(l.profiles) ? l.profiles[0] : l.profiles;
     return {
       id: l.id,
       sellerId: l.seller_id,
       cardUid: l.card_id || '',
       cardName: l.card_name || c?.name || 'Carta',
-      cardOverall: c?.overall,
-      cardPosition: c?.position,
-      cardRarity: c?.rarity,
-      cardImage: c?.image,
+      cardOverall: l.card_overall ?? c?.overall ?? 70,
+      cardPosition: l.card_position || c?.position || 'Ala',
+      cardRarity: l.card_rarity || c?.rarity || 'common',
+      cardImage: l.card_image || c?.image,
       seller: l.seller_id ? 'user' : 'npc',
-      sellerName: l.seller_id ? 'Usuário' : 'NPC',
+      sellerName: sellerProfile?.name || (l.seller_id ? 'Usuário' : 'NPC'),
       price: l.price,
       buyNow: l.buy_now,
       expiresAt: l.expires_at,
@@ -50,6 +51,10 @@ export async function createListing(listing: Omit<ListingRecord, 'id' | 'created
     seller_id: listing.sellerId,
     card_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listing.cardUid) ? listing.cardUid : null,
     card_name: listing.cardName,
+    card_overall: listing.cardOverall,
+    card_position: listing.cardPosition,
+    card_rarity: listing.cardRarity,
+    card_image: listing.cardImage,
     price: listing.price,
     buy_now: listing.buyNow,
     expires_at: listing.expiresAt,
@@ -61,6 +66,10 @@ export async function createListing(listing: Omit<ListingRecord, 'id' | 'created
     sellerId: data.seller_id,
     cardUid: data.card_id,
     cardName: data.card_name,
+    cardOverall: data.card_overall,
+    cardPosition: data.card_position,
+    cardRarity: data.card_rarity,
+    cardImage: data.card_image,
     price: data.price,
     buyNow: data.buy_now,
     expiresAt: data.expires_at,
