@@ -5,6 +5,8 @@ import { toast } from '../store/toast';
 import { NEWS } from '../data/news';
 import { ExternalLink, Calendar, Trophy, Users, Package, Target, Store } from 'lucide-react';
 import Card from '../components/Card';
+import { supabase } from '../lib/supabase';
+import { getProfile } from '../lib/profile';
 
 export default function Home() {
   const coins = useGame(s => s.coins);
@@ -21,6 +23,18 @@ export default function Home() {
   const pct = Math.min(100, ((xp - lvlXp) / (nextXp - lvlXp)) * 100);
   const event = events[0];
   const [countdown, setCountdown] = useState('');
+  const [userName, setUserName] = useState('Jogador');
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(async ({ data }) => {
+      const uid = data.session?.user?.id;
+      if (uid) {
+        const p = await getProfile(uid);
+        if (p?.name) setUserName(p.name);
+      }
+    });
+  }, []);
   const packs = packConfigs.filter(p => p.unlocked).slice(0, 1);
 
   useEffect(() => {
@@ -52,7 +66,7 @@ export default function Home() {
             {level}
           </div>
           <div className="min-w-0">
-            <div className="text-base font-bold text-[#252733] truncate">Jogador Futsenai</div>
+            <div className="text-base font-bold text-[#252733] truncate">{userName}</div>
             <div className="text-[10px] text-[#858A98]">Nível {level}</div>
             <div className="mt-1 w-36">
               <div className="flex justify-between text-[9px] text-[#858A98] mb-0.5"><span>{xp} XP</span><span>{nextXp} XP</span></div>
