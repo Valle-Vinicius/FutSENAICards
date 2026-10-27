@@ -45,7 +45,7 @@ interface Actions {
   addPlayerXp: (uid: string, amount: number) => void;
   upgradePlayer: (uid: string, attr: 'pace' | 'shooting' | 'passing' | 'dribbling' | 'defending' | 'physical') => boolean;
   recordMatchStats: (uid: string, goals: number, assists: number) => void;
-  convertDuplicates: () => number;
+  convertDuplicates: () => Promise<number>;
   recordEvolution: (uid: string, attr: string) => void;
   listCard: (cardUid: string, price: number, buyNow: number, hours: number) => string | null;
   cancelListing: (id: string) => void;
@@ -625,7 +625,7 @@ export const useGame = create<GameState & Actions>()(
         }));
         return true;
       },
-      convertDuplicates: () => {
+      convertDuplicates: async () => {
         const cards = get().cards;
         const byName: Record<string, string[]> = {};
         cards.forEach(c => { (byName[c.name] = byName[c.name] || []).push(c.uid); });
@@ -640,10 +640,15 @@ export const useGame = create<GameState & Actions>()(
         get().addCoins(reward, `ConversÃ£o de ${toRemove.length} duplicatas`);
         set(st => ({ cards: st.cards.filter(c => !toRemove.includes(c.uid)) }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
-            const uid = data.session?.user?.id;
-            if (uid) for (const c of toRemove) await supabase!.from('cards').delete().eq('id', c);
-          });
+          const { data } = await supabase.auth.getSession();
+          const uid = data.session?.user?.id;
+          if (uid) {
+            for (const c of toRemove) {
+              if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) {
+                await supabase.from('cards').delete().eq('id', c);
+              }
+            }
+          }
         }
         return toRemove.length;
       },
