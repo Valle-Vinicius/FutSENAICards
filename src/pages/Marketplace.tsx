@@ -138,8 +138,28 @@ export default function Marketplace() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeListings.map(l => {
-              const c = cardOf(l.cardUid);
-              if (!c) return null;
+              const c = cardOf(l.cardUid) || {
+                uid: l.cardUid || l.id,
+                playerId: l.cardUid || l.id,
+                name: l.cardName || 'Carta',
+                position: l.cardPosition || 'Ala',
+                sport: 'futsal',
+                nationality: 'Brasil',
+                age: 20,
+                club: 'Mercado',
+                rarity: (l.cardRarity || 'common') as any,
+                edition: '2025/26',
+                special: 'none',
+                overall: l.cardOverall || 70,
+                image: l.cardImage,
+                pace: 70, shooting: 70, passing: 70, dribbling: 70, defending: 70, physical: 70,
+                obtainedAt: l.createdAt,
+                favorite: false,
+                isNew: true,
+                xp: 0,
+                evoPoints: 0,
+                upgrades: { pace:0, shooting:0, passing:0, dribbling:0, defending:0, physical:0 },
+              } as any;
               return (
                 <div key={l.id} className={`card-surface p-3 space-y-2 transition ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
                   <Card card={c} size="sm" />

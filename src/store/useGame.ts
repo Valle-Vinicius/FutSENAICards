@@ -162,7 +162,7 @@ export const useGame = create<GameState & Actions>()(
         const squads = await getSavedSquads(userId);
         if (squads.length > 0) set({ savedSquads: squads });
         const listings = await getListings();
-        if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: 'user', sellerName: 'Mercado', price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any })) });
+            if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerName: l.sellerId ? 'Usuário' : 'Mercado', price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage })) });
         const remoteMissions = await getMissions(userId);
         if (remoteMissions.length > 0) set({ missions: remoteMissions });
         else await upsertMissions(userId, get().missions);

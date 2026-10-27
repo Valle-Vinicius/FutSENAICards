@@ -5,6 +5,12 @@ export interface ListingRecord {
   sellerId: string;
   cardUid: string;
   cardName: string;
+  cardOverall?: number;
+  cardPosition?: string;
+  cardRarity?: string;
+  cardImage?: string;
+  seller?: string;
+  sellerName?: string;
   price: number;
   buyNow: number;
   expiresAt: string;
@@ -14,19 +20,28 @@ export interface ListingRecord {
 
 export async function getListings(): Promise<ListingRecord[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('listings').select('*').eq('status', 'active').order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('listings').select('*, cards(*)').eq('status', 'active').order('created_at', { ascending: false });
   if (error) return [];
-  return (data || []).map((l: any) => ({
-    id: l.id,
-    sellerId: l.seller_id,
-    cardUid: l.card_id,
-    cardName: l.card_name,
-    price: l.price,
-    buyNow: l.buy_now,
-    expiresAt: l.expires_at,
-    status: l.status,
-    createdAt: l.created_at,
-  }));
+  return (data || []).map((l: any) => {
+    const c = Array.isArray(l.cards) ? l.cards[0] : l.cards;
+    return {
+      id: l.id,
+      sellerId: l.seller_id,
+      cardUid: l.card_id || '',
+      cardName: l.card_name || c?.name || 'Carta',
+      cardOverall: c?.overall,
+      cardPosition: c?.position,
+      cardRarity: c?.rarity,
+      cardImage: c?.image,
+      seller: l.seller_id ? 'user' : 'npc',
+      sellerName: l.seller_id ? 'Usuário' : 'NPC',
+      price: l.price,
+      buyNow: l.buy_now,
+      expiresAt: l.expires_at,
+      status: l.status,
+      createdAt: l.created_at,
+    };
+  });
 }
 
 export async function createListing(listing: Omit<ListingRecord, 'id' | 'createdAt'>): Promise<ListingRecord | null> {

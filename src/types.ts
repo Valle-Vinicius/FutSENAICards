@@ -138,6 +138,11 @@ export interface Listing {
   createdAt: number;
   expiresAt: number;
   status: 'active' | 'sold' | 'expired' | 'cancelled';
+  cardName?: string;
+  cardOverall?: number;
+  cardPosition?: string;
+  cardRarity?: string;
+  cardImage?: string;
 }
 
 export interface SBC {
