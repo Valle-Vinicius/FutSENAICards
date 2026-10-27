@@ -4,6 +4,7 @@ import { toast } from '../store/toast';
 import Card from '../components/Card';
 import ConfirmModal from '../components/ConfirmModal';
 import { supabase } from '../lib/supabase';
+import { getListings } from '../lib/services/marketplace';
 
 export default function Marketplace() {
   const listings = useGame(s => s.listings);
@@ -12,6 +13,14 @@ export default function Marketplace() {
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
+  }, []);
+
+  useEffect(() => {
+    getListings().then(listings => {
+      if (listings.length > 0) {
+        useGame.setState({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
+      }
+    });
   }, []);
   const buyListing = useGame(s => s.buyListing);
   const bidListing = useGame(s => s.bidListing);
