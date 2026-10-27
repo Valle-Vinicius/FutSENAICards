@@ -46,7 +46,6 @@ export default function Home() {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
-      {/* Banner principal compacto */}
       <div className="card-surface overflow-hidden flex flex-col md:flex-row items-center gap-4 p-4 bg-gradient-to-r from-[#FFF0F2] to-white">
         <div className="flex items-center gap-3 shrink-0">
           <div className="w-14 h-14 rounded-full bg-[#E30613] text-white flex items-center justify-center text-lg font-bold shrink-0">
@@ -63,9 +62,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={handleDaily} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-bold">Recompensa diária</button>
-        </div>
         <div className="w-full md:w-auto flex justify-around md:justify-end md:gap-6 pt-3 md:pt-0 border-t border-[#E9EAF0] md:border-0">
           <div className="text-center">
             <div className="text-[10px] text-[#858A98]">Moedas</div>
@@ -80,11 +76,14 @@ export default function Home() {
             <div className="font-bold text-[#252733] text-sm">{cards.length}</div>
           </div>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={handleDaily} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-bold">Recompensa diária</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Coluna central */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="lg:col-span-4 space-y-4">
           {/* Últimas notícias */}
           <section>
             <div className="flex items-center justify-between mb-2">
