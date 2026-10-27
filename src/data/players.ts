@@ -145,9 +145,20 @@ function calculateOverall(t: PlayerTemplate): number {
   const a = t.attributes;
   if (t.position === 'GK') {
     const gk = t.gkAttributes ?? { reflexes: 50, positioning: 50, handling: 50 };
-    return Math.round((a.pace + a.passing + a.defending + a.physical + gk.reflexes + gk.positioning) / 6);
+    const w = gk.reflexes * 0.30 + gk.positioning * 0.25 + a.defending * 0.20 + a.passing * 0.10 + a.physical * 0.10 + a.pace * 0.05;
+    return Math.round(w);
   }
-  return Math.round((a.pace + a.shooting + a.passing + a.dribbling + a.defending + a.physical) / 6);
+  if (t.position === 'Fixo') {
+    const w = a.defending * 0.35 + a.physical * 0.20 + a.passing * 0.20 + a.pace * 0.10 + a.dribbling * 0.08 + a.shooting * 0.07;
+    return Math.round(w);
+  }
+  if (t.position === 'Ala') {
+    const w = a.pace * 0.25 + a.passing * 0.22 + a.dribbling * 0.20 + a.shooting * 0.13 + a.defending * 0.12 + a.physical * 0.08;
+    return Math.round(w);
+  }
+  // Pivo
+  const w = a.shooting * 0.32 + a.physical * 0.22 + a.dribbling * 0.18 + a.passing * 0.12 + a.pace * 0.10 + a.defending * 0.06;
+  return Math.round(w);
 }
 
 export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' = 'none'): PlayerCard {
