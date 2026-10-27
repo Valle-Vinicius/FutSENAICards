@@ -50,28 +50,25 @@ export default function Home() {
       {/* Banner principal compacto */}
       <div className="card-surface overflow-hidden flex flex-col md:flex-row items-center gap-4 p-4 bg-gradient-to-r from-[#FFF0F2] to-white">
         <div className="flex items-center gap-3 shrink-0">
-          <div className="w-16 h-16 rounded-full bg-[#E30613] text-white flex items-center justify-center text-xl font-bold shrink-0">
+          <div className="w-14 h-14 rounded-full bg-[#E30613] text-white flex items-center justify-center text-lg font-bold shrink-0">
             {level}
           </div>
           <div className="min-w-0">
-            <div className="text-lg font-bold text-[#252733] truncate">Jogador Futsenai</div>
-            <div className="text-xs text-[#858A98]">Nível {level}</div>
-            <div className="mt-1 w-40">
-              <div className="flex justify-between text-[10px] text-[#858A98] mb-0.5"><span>{xp} XP</span><span>{nextXp} XP</span></div>
+            <div className="text-base font-bold text-[#252733] truncate">Jogador Futsenai</div>
+            <div className="text-[10px] text-[#858A98]">Nível {level}</div>
+            <div className="mt-1 w-36">
+              <div className="flex justify-between text-[9px] text-[#858A98] mb-0.5"><span>{xp} XP</span><span>{nextXp} XP</span></div>
               <div className="h-1.5 bg-[#E9EAF0] rounded-full overflow-hidden">
                 <div className="h-full bg-[#E30613] transition-all" style={{ width: `${pct}%` }} />
               </div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={handleDaily} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-bold">Recompensa diária</button>
-        </div>
-        <div className="hidden md:flex items-center justify-center w-32 h-24 shrink-0">
+        <div className="hidden md:flex items-center justify-center w-28 h-20 shrink-0">
           <img src={enzoImg} alt="Jogador" className="h-full object-contain" />
         </div>
-        <div className="hidden md:block text-sm font-semibold text-[#252733] text-right shrink-0 max-w-[180px]">
-          Colecione, monte seu time e mostre o seu talento!
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={handleDaily} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-bold">Recompensa diária</button>
         </div>
         <div className="w-full md:w-auto flex justify-around md:justify-end md:gap-6 pt-3 md:pt-0 border-t border-[#E9EAF0] md:border-0">
           <div className="text-center">
