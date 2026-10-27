@@ -33,7 +33,7 @@ export async function createListing(listing: Omit<ListingRecord, 'id' | 'created
   if (!supabase) return null;
   const { data, error } = await supabase.from('listings').insert({
     seller_id: listing.sellerId,
-    card_id: listing.cardUid,
+    card_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listing.cardUid) ? listing.cardUid : null,
     card_name: listing.cardName,
     price: listing.price,
     buy_now: listing.buyNow,
