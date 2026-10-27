@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
+import { Star } from 'lucide-react';
 import Card from '../components/Card';
 
 export default function CardDetail() {
@@ -24,7 +25,7 @@ export default function CardDetail() {
       <div className="flex-1 space-y-4">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-semibold text-[#252733]">{card.name}</h1>
-          <button onClick={() => toggleFav(card.uid)} className={`text-2xl ${card.favorite ? 'text-[#E30613]' : 'text-[#858A98]'}`}>★</button>
+          <button onClick={() => toggleFav(card.uid)} className={`text-2xl ${card.favorite ? "text-[#E30613]" : "text-[#858A98]"}`}><Star className="w-5 h-5" /></button>
         </div>
         <div className="card-surface p-4 grid grid-cols-2 gap-2 text-sm">
           <Row label="Posição" value={card.position} />

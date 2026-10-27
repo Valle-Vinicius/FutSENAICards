@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
+import { Lock } from 'lucide-react';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
 import { allTemplates } from '../data/players';
@@ -84,7 +85,7 @@ export default function Collection() {
               <Card key={t.name} card={owned} size="sm" onClick={() => openCard(owned)} />
             ) : (
               <div key={t.name} className="w-32 h-44 rounded-2xl border-2 border-dashed border-[#E9EAF0] bg-white/60 flex flex-col items-center justify-center text-xs text-[#858A98]">
-                <div className="text-2xl opacity-30">🔒</div>
+                <div className="text-2xl opacity-30"><Lock className="w-6 h-6" /></div>
                 <div className="mt-1">{t.name}</div>
               </div>
             );

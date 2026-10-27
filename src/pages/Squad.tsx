@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGame } from '../store/useGame';
+import { Star } from 'lucide-react';
 import Card from '../components/Card';
 import { squadOverall } from '../store/useGame';
 import { FORMATIONS_FUTSAL as FS } from '../lib/game';
@@ -235,7 +236,7 @@ export default function Squad() {
           {mySaved.map(s => (
             <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl border border-[#E9EAF0]">
               <div className="text-sm text-[#252733]">
-                {s.isPrimary && <span className="text-[#E30613] mr-1">★</span>}{s.name} <span className="text-[#858A98] text-xs">({s.formation})</span>
+                {s.isPrimary && <Star className="inline text-[#E30613] w-3 h-3 mr-1" />}{s.name} <span className="text-[#858A98] text-xs">({s.formation})</span>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => handleLoad(s.id)} className="px-2 py-1 text-xs rounded-lg bg-white border border-[#E9EAF0]">Carregar</button>

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useGame } from '../store/useGame';
+import { X } from 'lucide-react';
 import Card from '../components/Card';
 
 const isGK = (p: string) => p === 'GK';
@@ -169,7 +170,7 @@ export default function Compare() {
           <div className="card-surface w-full max-w-2xl max-h-[80vh] overflow-auto p-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-[#252733]">Selecionar jogador {pickerFor.toUpperCase()}</h3>
-              <button onClick={() => setPickerFor(null)} className="text-[#858A98]">✕</button>
+              <button onClick={() => setPickerFor(null)} className="text-[#858A98]"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-wrap gap-2 mb-3">
               <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar..." className="flex-1 min-w-[140px] bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />

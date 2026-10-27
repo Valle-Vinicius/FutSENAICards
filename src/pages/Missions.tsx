@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useGame } from '../store/useGame';
+import { Check, Lock } from 'lucide-react';
 
 export default function Missions() {
   const missions = useGame(s => s.missions);
@@ -46,7 +47,7 @@ export default function Missions() {
             <div key={a.id} className={`card-surface p-4 ${a.unlocked ? '' : 'opacity-40'}`}>
               <div className="font-medium text-[#252733]">{a.title}</div>
               <div className="text-xs text-[#858A98]">{a.description}</div>
-              <div className="mt-2 text-xs">{a.unlocked ? '✅ Desbloqueado' : '🔒 Bloqueado'}</div>
+              <div className="mt-2 text-xs">{a.unlocked ? <><Check className="inline w-3 h-3" /> Desbloqueado</> : <><Lock className="inline w-3 h-3" /> Bloqueado</>}</div>
             </div>
           ))}
         </div>

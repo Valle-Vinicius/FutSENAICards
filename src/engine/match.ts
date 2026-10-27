@@ -312,7 +312,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
             stats[holder.id].goals++;
             if (isHome) teamStats.home.goals++; else teamStats.away.goals++;
             // assist: last passer? skip tracking
-            events.push({ minute, type: 'goal', team, playerId: holder.id, description: `⚽ GOL de ${holder.name}!` });
+            events.push({ minute, type: 'goal', team, playerId: holder.id, description: `GOL de ${holder.name}!` });
             // reset ball to center, away/home kickoff
             ball = { x: 50, y: 50, holder: isHome ? awayMid.id : homeMid.id };
           }

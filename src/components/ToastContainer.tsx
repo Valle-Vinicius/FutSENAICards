@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useToast } from '../store/toast';
 
 const COLORS: Record<string, string> = {
@@ -15,7 +16,7 @@ export default function ToastContainer() {
       {toasts.map(t => (
         <div key={t.id} className={`${COLORS[t.type]} text-white px-4 py-2 rounded-xl shadow-lg text-sm flex items-center gap-2 animate-[fadeIn_0.2s_ease]`}>
           <span>{t.message}</span>
-          <button onClick={() => remove(t.id)} className="opacity-70 hover:opacity-100">✕</button>
+          <button onClick={() => remove(t.id)} className="opacity-70 hover:opacity-100"><X className="w-4 h-4" /></button>
         </div>
       ))}
     </div>

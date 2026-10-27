@@ -1,21 +1,22 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell } from 'lucide-react';
 import { useGame } from '../store/useGame';
 
 const NAV = [
-  { to: '/', label: 'Visão geral', icon: '📊' },
-  { to: '/packs', label: 'Abrir pacotes', icon: '📦' },
-  { to: '/collection', label: 'Minhas cartas', icon: '🃏' },
-  { to: '/squad', label: 'Montar elenco', icon: '⚽' },
-  { to: '/compare', label: 'Comparar jogadores', icon: '⚖️' },
-  { to: '/match', label: 'Partida', icon: '🏟️' },
-  { to: '/market', label: 'Mercado', icon: '💱' },
-  { to: '/sbc', label: 'Desafios', icon: '🏆' },
-  { to: '/missions', label: 'Missões', icon: '🎯' },
-  { to: '/shop', label: 'Loja', icon: '🛒' },
-  { to: '/profile', label: 'Perfil', icon: '👤' },
-  { to: '/settings', label: 'Configurações', icon: '⚙️' },
+  { to: '/', label: 'Visão geral', icon: LayoutDashboard },
+  { to: '/packs', label: 'Abrir pacotes', icon: Package },
+  { to: '/collection', label: 'Minhas cartas', icon: CreditCard },
+  { to: '/squad', label: 'Montar elenco', icon: Users },
+  { to: '/compare', label: 'Comparar jogadores', icon: Scale },
+  { to: '/match', label: 'Partida', icon: Trophy },
+  { to: '/market', label: 'Mercado', icon: Store },
+  { to: '/sbc', label: 'Desafios', icon: Target },
+  { to: '/missions', label: 'Missões', icon: Flag },
+  { to: '/shop', label: 'Loja', icon: ShoppingBag },
+  { to: '/profile', label: 'Perfil', icon: User },
+  { to: '/settings', label: 'Configurações', icon: SettingsIcon },
 ];
 
 const TITLES: Record<string, string> = {
@@ -76,8 +77,8 @@ export default function Layout() {
               {({ isActive }) => (
                 <>
                   {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#E30613] rounded-r" />}
-                  <span className="text-base">{n.icon}</span>
-                  <span>{n.label}</span>
+                   <n.icon className="w-4 h-4" />
+                   <span>{n.label}</span>
                   {n.to === '/collection' && newCount > 0 && <span className="ml-auto text-xs bg-[#E30613] text-white rounded-full px-2">{newCount}</span>}
                 </>
               )}
@@ -99,7 +100,7 @@ export default function Layout() {
       </aside>
 
       <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-[#E9EAF0]">
-        <button onClick={() => setDrawerOpen(true)} className="text-2xl text-[#252733]" aria-label="Menu">☰</button>
+        <button onClick={() => setDrawerOpen(true)} className="text-2xl text-[#252733]" aria-label="Menu"><Menu className="w-5 h-5" /></button>
         <div className="text-lg font-bold"><span className="text-[#E30613]">FUT</span>SENAI</div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-[#E30613]">●</span><span className="font-bold">{coins.toLocaleString('pt-BR')}</span>
@@ -132,7 +133,7 @@ export default function Layout() {
               )}
             </div>
             <div className="relative">
-              <button onClick={() => setNotifOpen(o => !o)} className="w-8 h-8 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold" aria-label="Notificações">🔔</button>
+              <button onClick={() => setNotifOpen(o => !o)} className="w-8 h-8 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold" aria-label="Notificações"><Bell className="w-4 h-4" /></button>
               {notifOpen && (
                 <div className="absolute right-0 top-10 w-72 card-surface p-3 z-50 max-h-60 overflow-auto">
                   <div className="text-xs font-semibold text-[#858A98] mb-2">Notificações</div>
@@ -173,8 +174,8 @@ export default function Layout() {
               <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={() => setDrawerOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98]'}`}>
-                <span>{n.icon}</span>{n.label}
-              </NavLink>
+                 <n.icon className="w-4 h-4" /> {n.label}
+               </NavLink>
             ))}
           </div>
         </div>
@@ -185,8 +186,8 @@ export default function Layout() {
           <NavLink key={n.to} to={n.to} end={n.to === '/'}
             className={({ isActive }) =>
               `flex flex-col items-center py-2 px-1 text-[10px] ${isActive ? 'text-[#E30613]' : 'text-[#858A98]'}`}>
-            <span className="text-lg">{n.icon}</span>{n.label}
-          </NavLink>
+             <n.icon className="w-4 h-4" /> {n.label}
+           </NavLink>
         ))}
       </nav>
     </div>

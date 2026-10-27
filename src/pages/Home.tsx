@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Coins, Layers, Sparkles, Trophy, Package } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 
@@ -21,10 +22,10 @@ export default function Home() {
   };
 
   const indicators = [
-    { label: 'Moedas disponíveis', value: coins.toLocaleString('pt-BR'), icon: '💰' },
-    { label: 'Cartas coletadas', value: String(cards.length), icon: '🃏' },
-    { label: 'Cartas raras', value: String(rareCount), icon: '✨' },
-    { label: 'Nível do jogador', value: String(level), icon: '🏆' },
+    { label: 'Moedas disponíveis', value: coins.toLocaleString('pt-BR'), icon: Coins },
+    { label: 'Cartas coletadas', value: String(cards.length), icon: Layers },
+    { label: 'Cartas raras', value: String(rareCount), icon: Sparkles },
+    { label: 'Nível do jogador', value: String(level), icon: Trophy },
   ];
 
   return (
@@ -47,7 +48,7 @@ export default function Home() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {indicators.map(ind => (
           <div key={ind.label} className="card-surface p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#FFF0F2] flex items-center justify-center text-[#E30613] text-lg">{ind.icon}</div>
+            <div className="w-10 h-10 rounded-xl bg-[#FFF0F2] flex items-center justify-center text-[#E30613]"><ind.icon className="w-5 h-5" /></div>
             <div>
               <div className="text-xs text-[#858A98]">{ind.label}</div>
               <div className="text-xl font-bold text-[#252733]">{ind.value}</div>
@@ -77,7 +78,7 @@ export default function Home() {
         <div className="grid md:grid-cols-3 gap-3">
           {useGame.getState().packConfigs.filter(p=>p.unlocked).slice(0,3).map(p => (
             <Link key={p.id} to="/packs" className="card-surface p-4 hover:border-[#E30613]/40 transition">
-              <div className="text-3xl mb-2">📦</div>
+              <div className="text-3xl mb-2"><Package className="w-8 h-8" /></div>
               <div className="font-semibold text-[#252733]">{p.name}</div>
               <div className="text-xs text-[#858A98] mt-1">{p.cards} cartas · {p.price === 0 ? 'Evento' : p.price.toLocaleString('pt-BR') + ' moedas'}</div>
             </Link>

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import type { PlayerCard } from '../types';
 import { RARITY_META, SPECIAL_META } from '../types';
+import { Circle, Star } from 'lucide-react';
 
 export default function Card({ card, size = 'md', onClick, isNew }: { card: PlayerCard; size?: 'sm'|'md'|'lg'; onClick?: () => void; isNew?: boolean }) {
   const meta = RARITY_META[card.rarity];
@@ -29,7 +30,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
       {card.image ? (
         <img src={card.image} alt={card.name} className="absolute inset-0 w-full h-full object-cover object-top" />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-b from-[#F7F7F9] to-[#E9EAF0] flex items-center justify-center text-5xl opacity-20">⚽</div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[#F7F7F9] to-[#E9EAF0] flex items-center justify-center opacity-20"><Circle className="w-12 h-12" /></div>
       )}
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
@@ -63,7 +64,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
         </div>
       </div>
 
-      {card.favorite && <span className="absolute bottom-2 right-2 text-[#f5c542] text-sm z-20">★</span>}
+      {card.favorite && <Star className="absolute bottom-2 right-2 text-[#f5c542] w-4 h-4 z-20" />}
     </motion.div>
   );
 }
