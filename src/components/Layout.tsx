@@ -181,11 +181,11 @@ export default function Layout() {
         </div>
       )}
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex justify-around border-t border-[#E9EAF0] bg-white z-40">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex overflow-x-auto justify-around border-t border-[#E9EAF0] bg-white z-40">
         {NAV.slice(0, 5).map(n => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center py-2 px-1 text-[10px] ${isActive ? 'text-[#E30613]' : 'text-[#858A98]'}`}>
+              `flex flex-col items-center py-2 px-2 text-[10px] shrink-0 min-w-[64px] ${isActive ? 'text-[#E30613]' : 'text-[#858A98]'}`}>
              <n.icon className="w-4 h-4" /> {n.label}
            </NavLink>
         ))}
