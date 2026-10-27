@@ -1,0 +1,1 @@
+﻿# FutSENAI Cards - Full\n\nJogo de cartas de futsal. Veja README.md para detalhes.

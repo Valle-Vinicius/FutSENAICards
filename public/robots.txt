@@ -1,0 +1,1 @@
+﻿User-agent: *\nAllow: /\nSitemap: https://fut-senai-cards.vercel.app/sitemap.xml

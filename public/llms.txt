@@ -1,0 +1,1 @@
+﻿# FutSENAI Cards\n\n> Jogo de cartas de futsal no estilo Ultimate Team.\n\n## Docs\n- [README](/README.md)
