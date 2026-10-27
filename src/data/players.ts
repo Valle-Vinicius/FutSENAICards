@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import type { Position, PlayerCard, Rarity } from '../types';
+import { RARITY_META } from '../types';
 
 import enzothomas from '../imagens/enzothomas.jpg';
 import gabrielortelan from '../imagens/gabrielortelan.jpg';
@@ -141,6 +142,28 @@ const TEMPLATES: PlayerTemplate[] = [
 
 const SEASONS = ['2025/26'];
 
+const RARITY_MODIFIER: Record<Rarity, number> = {
+  common: 0.88,
+  uncommon: 1.0,
+  rare: 1.05,
+  epic: 1.10,
+  legendary: 1.15,
+  icon: 1.20,
+};
+
+const SPECIAL_BONUS: Record<string, number> = {
+  none: 0,
+  totw: 2,
+  potm: 2,
+  revelation: 1,
+  legend: 3,
+  futsal: 2,
+};
+
+function applyModifier(value: number, mod: number): number {
+  return Math.max(0, Math.min(99, Math.round(value * mod)));
+}
+
 function calculateOverall(t: PlayerTemplate): number {
   const a = t.attributes;
   if (t.position === 'GK') {
@@ -162,9 +185,30 @@ function calculateOverall(t: PlayerTemplate): number {
 }
 
 export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' = 'none'): PlayerCard {
-  const overall = calculateOverall(t);
+  const mod = RARITY_MODIFIER[rarity];
   const a = t.attributes;
-  const gk = t.gkAttributes ?? { reflexes: 50, positioning: 50, handling: 50 };
+  const attrs = {
+    pace: applyModifier(a.pace, mod),
+    shooting: applyModifier(a.shooting, mod),
+    passing: applyModifier(a.passing, mod),
+    dribbling: applyModifier(a.dribbling, mod),
+    defending: applyModifier(a.defending, mod),
+    physical: applyModifier(a.physical, mod),
+  };
+  const gk = t.gkAttributes ? {
+    reflexes: applyModifier(t.gkAttributes.reflexes, mod),
+    positioning: applyModifier(t.gkAttributes.positioning, mod),
+    handling: applyModifier(t.gkAttributes.handling, mod),
+  } : undefined;
+
+  const templateWithAttrs: PlayerTemplate = { ...t, attributes: attrs, gkAttributes: gk };
+  let overall = calculateOverall(templateWithAttrs);
+  const bonus = SPECIAL_BONUS[special] ?? 0;
+  overall = Math.min(99, overall + bonus);
+
+  const meta = RARITY_META[rarity];
+  overall = Math.max(meta.minOvr, Math.min(meta.maxOvr, overall));
+
   return {
     uid: nanoid(10),
     playerId: t.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
@@ -179,13 +223,13 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
     special: special as any,
     overall,
     image: t.image,
-    pace: a.pace,
-    shooting: a.shooting,
-    passing: a.passing,
-    dribbling: a.dribbling,
-    defending: a.defending,
-    physical: a.physical,
-    ...(t.position === 'GK' ? { reflexes: gk.reflexes, positioning: gk.positioning, handling: gk.handling } : {}),
+    pace: attrs.pace,
+    shooting: attrs.shooting,
+    passing: attrs.passing,
+    dribbling: attrs.dribbling,
+    defending: attrs.defending,
+    physical: attrs.physical,
+    ...(gk ? { reflexes: gk.reflexes, positioning: gk.positioning, handling: gk.handling } : {}),
     obtainedAt: Date.now(),
     favorite: false,
     isNew: true,
@@ -207,7 +251,7 @@ export function randomTemplate(positionFilter?: Position): PlayerTemplate {
 export function generateIconCard(): PlayerCard {
   const t = TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)];
   const rarity: Rarity = Math.random() < 0.5 ? 'icon' : 'legendary';
-  const card = generatePlayerCard(t, rarity, 'none');
-  card.overall = Math.min(99, card.overall + 3);
+  const special: any = rarity === 'icon' ? 'legend' : 'none';
+  const card = generatePlayerCard(t, rarity, special);
   return card;
 }
