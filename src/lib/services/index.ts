@@ -7,5 +7,6 @@ export * from './achievements';
 export * from './sbc';
 export * from './transactions';
 export * from './settings';
+export * from './leaderboard';
 export * from './auth';
 export * from '../profile';

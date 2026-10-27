@@ -12,6 +12,7 @@ import { getAchievements, upsertAchievements } from '../lib/services/achievement
 import { recordSBCCompletion } from '../lib/services/sbc';
 import { addTransaction } from '../lib/services/transactions';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
+import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
@@ -257,6 +258,12 @@ export const useGame = create<GameState & Actions>()(
               const dbCards = await Promise.all(cards.map(c => addCard(uid, c)));
               const idMap = new Map(cards.map((c, i) => [c.uid, dbCards[i]?.uid]));
               set(st => ({ cards: st.cards.map(c => idMap.get(c.uid) ? { ...c, uid: idMap.get(c.uid)! } : c) }));
+              // sync collector ranking
+              const allCards = get().cards;
+              const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
+              const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
+              const { data: prof } = await supabase!.from('profiles').select('name').eq('id', uid).single();
+              await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
             }
           });
         }
@@ -647,6 +654,12 @@ export const useGame = create<GameState & Actions>()(
                 await supabase.from('cards').delete().eq('id', c);
               }
             }
+            // sync collector ranking
+            const allCards = get().cards;
+            const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
+            const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
+            const { data: prof } = await supabase.from('profiles').select('name').eq('id', uid).single();
+            await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
           }
         }
         return toRemove.length;
