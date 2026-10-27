@@ -1,19 +1,6 @@
 import { supabase } from '../supabase';
 import type { PlayerCard } from '../../types';
 
-function calcOverall(c: any): number {
-  if (c.position === 'GK') {
-    return Math.round((c.reflexes ?? 50) * 0.30 + (c.positioning ?? 50) * 0.25 + (c.defending ?? 0) * 0.20 + (c.passing ?? 0) * 0.10 + (c.physical ?? 0) * 0.10 + (c.pace ?? 0) * 0.05);
-  }
-  if (c.position === 'Fixo') {
-    return Math.round((c.defending ?? 0) * 0.35 + (c.physical ?? 0) * 0.20 + (c.passing ?? 0) * 0.20 + (c.pace ?? 0) * 0.10 + (c.dribbling ?? 0) * 0.08 + (c.shooting ?? 0) * 0.07);
-  }
-  if (c.position === 'Ala') {
-    return Math.round((c.pace ?? 0) * 0.25 + (c.passing ?? 0) * 0.22 + (c.dribbling ?? 0) * 0.20 + (c.shooting ?? 0) * 0.13 + (c.defending ?? 0) * 0.12 + (c.physical ?? 0) * 0.08);
-  }
-  return Math.round((c.shooting ?? 0) * 0.32 + (c.physical ?? 0) * 0.22 + (c.dribbling ?? 0) * 0.18 + (c.passing ?? 0) * 0.12 + (c.pace ?? 0) * 0.10 + (c.defending ?? 0) * 0.06);
-}
-
 export async function getCards(userId: string): Promise<PlayerCard[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false });
@@ -27,7 +14,7 @@ export async function getCards(userId: string): Promise<PlayerCard[]> {
     rarity: c.rarity,
     edition: c.edition,
     special: c.special,
-    overall: calcOverall(c),
+    overall: c.overall,
     pace: c.pace,
     shooting: c.shooting,
     passing: c.passing,
@@ -60,7 +47,7 @@ export async function addCard(userId: string, card: PlayerCard): Promise<PlayerC
     rarity: card.rarity,
     edition: card.edition,
     special: card.special,
-    overall: calcOverall(card),
+    overall: card.overall,
     pace: card.pace,
     shooting: card.shooting,
     passing: card.passing,
