@@ -155,7 +155,9 @@ export const useGame = create<GameState & Actions>()(
         if (remoteCards.length > 0) set({ cards: remoteCards });
         else {
           const local = get().cards;
-          for (const c of local) await addCard(userId, c);
+          const dbCards = await Promise.all(local.map(c => addCard(userId, c)));
+          const idMap = new Map(local.map((c, i) => [c.uid, dbCards[i]?.uid]));
+          set(st => ({ cards: st.cards.map(c => idMap.get(c.uid) ? { ...c, uid: idMap.get(c.uid)! } : c) }));
         }
         const squads = await getSavedSquads(userId);
         if (squads.length > 0) set({ savedSquads: squads });
@@ -252,7 +254,11 @@ export const useGame = create<GameState & Actions>()(
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }) => {
             const uid = data.session?.user?.id;
-            if (uid) for (const c of cards) await addCard(uid, c);
+            if (uid) {
+              const dbCards = await Promise.all(cards.map(c => addCard(uid, c)));
+              const idMap = new Map(cards.map((c, i) => [c.uid, dbCards[i]?.uid]));
+              set(st => ({ cards: st.cards.map(c => idMap.get(c.uid) ? { ...c, uid: idMap.get(c.uid)! } : c) }));
+            }
           });
         }
         // ensure legendary pack has no common
