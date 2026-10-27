@@ -131,6 +131,7 @@ export interface Listing {
   id: string;
   cardUid: string;
   seller: 'user' | 'npc';
+  sellerId?: string;
   sellerName: string;
   price: number;
   buyNow: number;

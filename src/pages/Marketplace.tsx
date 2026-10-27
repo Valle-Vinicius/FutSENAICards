@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
 import ConfirmModal from '../components/ConfirmModal';
+import { supabase } from '../lib/supabase';
 
 export default function Marketplace() {
   const listings = useGame(s => s.listings);
   const cards = useGame(s => s.cards);
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
+  }, []);
   const seedMarket = useGame(s => s.seedMarket);
   const buyListing = useGame(s => s.buyListing);
   const bidListing = useGame(s => s.bidListing);
@@ -192,7 +198,7 @@ export default function Marketplace() {
             <button onClick={handleList} className="w-full px-3 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Publicar</button>
           </div>
           <div className="space-y-2">
-            {listings.filter(l => l.seller === 'user').map(l => {
+            {listings.filter(l => l.sellerId === userId).map(l => {
               const c = cardOf(l.cardUid);
               return (
                 <div key={l.id} className="card-surface p-3 flex items-center justify-between gap-3">

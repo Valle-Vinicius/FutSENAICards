@@ -162,7 +162,7 @@ export const useGame = create<GameState & Actions>()(
         const squads = await getSavedSquads(userId);
         if (squads.length > 0) set({ savedSquads: squads });
         const listings = await getListings();
-            if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerName: l.sellerId ? 'Usuário' : 'Mercado', price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage })) });
+            if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage })) });
         const remoteMissions = await getMissions(userId);
         if (remoteMissions.length > 0) set({ missions: remoteMissions });
         else await upsertMissions(userId, get().missions);
@@ -686,10 +686,13 @@ export const useGame = create<GameState & Actions>()(
         if (supabase) {
           const { data, error } = await supabase.functions.invoke('buy-listing', { body: { listingId: id } });
           if (error || !data?.ok) return false;
-          get().spendCoins(cost, `Compra mercado: ${listing.id}`);
-          const existing = get().cards.find(c => c.uid === listing.cardUid);
-          if (existing) {
-            set(st => ({ cards: st.cards.map(c => c.uid === listing.cardUid ? { ...c, isNew: true } : c) }));
+          // refresh cards and coins from Supabase
+          const uid = (await supabase.auth.getSession()).data.session?.user?.id;
+          if (uid) {
+            const remoteCards = await getCards(uid);
+            if (remoteCards.length > 0) set({ cards: remoteCards });
+            const { data: prof } = await supabase.from('profiles').select('coins').eq('id', uid).single();
+            if (prof) set({ coins: prof.coins });
           }
           set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'sold' } : l) }));
           return true;
