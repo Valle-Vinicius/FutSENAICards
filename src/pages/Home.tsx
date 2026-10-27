@@ -226,16 +226,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Rodapé */}
-      <footer className="card-surface p-4 text-center space-y-1">
-        <div className="text-sm font-bold text-[#252733]">FutSENAI Cards</div>
-        <div className="text-xs text-[#858A98]">Colecione, monte seu time e mostre o seu talento!</div>
-        <div className="flex justify-center gap-4 text-xs text-[#858A98]">
-          <Link to="/settings" className="hover:text-[#E30613]">Termos de uso</Link>
-          <Link to="/settings" className="hover:text-[#E30613]">Privacidade</Link>
-          <Link to="/settings" className="hover:text-[#E30613]">Suporte</Link>
-        </div>
-      </footer>
     </div>
   );
 }
