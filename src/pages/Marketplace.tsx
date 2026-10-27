@@ -13,7 +13,6 @@ export default function Marketplace() {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
   }, []);
-  const seedMarket = useGame(s => s.seedMarket);
   const buyListing = useGame(s => s.buyListing);
   const bidListing = useGame(s => s.bidListing);
   const listCard = useGame(s => s.listCard);
@@ -33,8 +32,6 @@ export default function Marketplace() {
   const [listBuyNow, setListBuyNow] = useState('');
   const [confirmBuy, setConfirmBuy] = useState<string | null>(null);
   const [buyingAnim, setBuyingAnim] = useState<string | null>(null);
-
-  useEffect(() => { seedMarket(); }, [seedMarket]);
 
   const cardOf = (uid: string) => cards.find(c => c.uid === uid);
 

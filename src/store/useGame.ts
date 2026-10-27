@@ -141,7 +141,6 @@ export const useGame = create<GameState & Actions>()(
             ],
           });
         }
-        get().seedMarket();
         get().updateMissionProgress();
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }) => {
@@ -783,34 +782,7 @@ export const useGame = create<GameState & Actions>()(
         get().addXp(100);
         return true;
       },
-      seedMarket: () => {
-        const s = get();
-        if (s.listings.length > 0) return;
-        const npcs = ['Trader FC', 'Scout Pro', 'Mercado FC', 'Bola Cheia'];
-        const newListings: Listing[] = [];
-        for (let i = 0; i < 8; i++) {
-    const t = randomTemplate();
-          const rarity = rollRarity({ common: 0.3, uncommon: 0.3, rare: 0.25, epic: 0.12, legendary: 0.025, icon: 0.005 });
-          const card = generatePlayerCard(t, rarity, 'none');
-          // add card to a hidden pool? For demo, store card in inventory? We'll store card uid and also add to cards list as NPC-owned (marked)
-          const price = Math.round(card.overall * 100 + Math.random() * 500);
-          newListings.push({
-            id: nanoid(8),
-            cardUid: card.uid,
-            seller: 'npc',
-            sellerName: npcs[i % npcs.length],
-            price,
-            buyNow: Math.round(price * 1.3),
-            bids: [],
-            createdAt: Date.now(),
-            expiresAt: Date.now() + 24 * 3600000,
-            status: 'active',
-          });
-          // add the card to global cards list so it can be displayed
-          set(st => ({ cards: [card, ...st.cards] }));
-        }
-        set(st => ({ listings: [...newListings, ...st.listings] }));
-      },
+      seedMarket: () => {},
       recordPrice: (cardName, price) => set(st => ({
         priceHistory: [{ cardName, price, at: Date.now() }, ...st.priceHistory].slice(0, 200),
       })),
