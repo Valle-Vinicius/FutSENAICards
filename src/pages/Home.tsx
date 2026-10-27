@@ -48,7 +48,7 @@ export default function Home() {
   return (
     <div className="p-4 md:p-6 space-y-4">
       {/* Banner principal compacto */}
-      <div className="card-surface overflow-hidden relative flex flex-col md:flex-row items-center gap-4 p-4 bg-gradient-to-r from-[#FFF0F2] to-white">
+      <div className="card-surface overflow-hidden flex flex-col md:flex-row items-center gap-4 p-4 bg-gradient-to-r from-[#FFF0F2] to-white">
         <div className="flex items-center gap-3 shrink-0">
           <div className="w-16 h-16 rounded-full bg-[#E30613] text-white flex items-center justify-center text-xl font-bold shrink-0">
             {level}
@@ -100,28 +100,28 @@ export default function Home() {
                 Ver todas <ExternalLink className="w-3 h-3" />
               </a>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-3">
               {/* Notícia principal (55%) */}
-              <div className="lg:col-span-3 card-surface p-3 space-y-2">
-                <div className="relative">
+              <div className="card-surface p-3 space-y-2 h-full flex flex-col">
+                <div className="relative shrink-0">
                   {NEWS[0].image && <img src={NEWS[0].image} alt={NEWS[0].title} className="w-full h-32 object-cover rounded-xl" />}
                   <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E30613] text-white">DESTAQUE</span>
                 </div>
                 <div className="text-sm font-semibold text-[#252733] line-clamp-2">{NEWS[0].title}</div>
-                <div className="text-xs text-[#858A98] line-clamp-2">{NEWS[0].summary}</div>
+                <div className="text-xs text-[#858A98] line-clamp-2 flex-1">{NEWS[0].summary}</div>
                 <div className="text-[10px] text-[#858A98]">Turma: {NEWS[0].turma} · {NEWS[0].date}</div>
-                <a href={NEWS[0].url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#E30613] font-medium hover:underline">
+                <a href={NEWS[0].url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#E30613] font-medium hover:underline shrink-0">
                   Ler matéria completa <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
               {/* Notícias secundárias (45%) */}
-              <div className="lg:col-span-2 space-y-2">
+              <div className="grid grid-rows-2 gap-3 h-full">
                 {NEWS.slice(1).map(n => (
-                  <div key={n.id} className="card-surface p-2 flex gap-2">
-                    {n.image && <img src={n.image} alt={n.title} className="w-12 h-12 object-cover rounded-lg shrink-0" />}
-                    <div className="min-w-0">
+                  <div key={n.id} className="card-surface p-3 flex gap-2 min-w-0">
+                    {n.image && <img src={n.image} alt={n.title} className="w-16 h-full object-cover rounded-lg shrink-0" />}
+                    <div className="min-w-0 flex flex-col justify-between">
                       <div className="text-xs font-semibold text-[#252733] line-clamp-2">{n.title}</div>
-                      <div className="text-[10px] text-[#858A98] mt-0.5">{n.date} · {n.turma}</div>
+                      <div className="text-[10px] text-[#858A98] mt-1">{n.date} · {n.turma}</div>
                     </div>
                   </div>
                 ))}
