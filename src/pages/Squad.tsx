@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGame } from '../store/useGame';
+import { toast } from '../store/toast';
 import { Star } from 'lucide-react';
 import Card from '../components/Card';
 import { squadOverall } from '../store/useGame';
@@ -88,7 +89,7 @@ export default function Squad() {
   };
 
   const handleSave = () => {
-    if (!saveName.trim()) { alert('Informe um nome.'); return; }
+    if (!saveName.trim()) { toast.alert('Informe um nome.'); return; }
     saveSquad(saveName.trim(), sport);
     setSaveName('');
     setMsg('Escalação salva.');

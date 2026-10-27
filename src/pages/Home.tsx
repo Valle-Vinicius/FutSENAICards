@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Coins, Layers, Sparkles, Trophy, Package } from 'lucide-react';
 import { useGame } from '../store/useGame';
+import { toast } from '../store/toast';
 import Card from '../components/Card';
 
 export default function Home() {
@@ -17,8 +18,8 @@ export default function Home() {
 
   const handleDaily = () => {
     const r = claimDaily();
-    if (r.ok) alert(`Recompensa diária: +${r.amount} moedas`);
-    else alert('Recompensa diária já coletada. Volte mais tarde.');
+    if (r.ok) toast.alert(`Recompensa diária: +${r.amount} moedas`);
+    else toast.alert('Recompensa diária já coletada. Volte mais tarde.');
   };
 
   const indicators = [

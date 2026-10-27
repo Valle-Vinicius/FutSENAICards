@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../store/useGame';
+import { toast } from '../store/toast';
 import { playBurst, playCharge, playFlip, playRareReveal } from '../lib/sound';
 import Card from '../components/Card';
 import type { PlayerCard, Rarity } from '../types';
@@ -98,7 +99,7 @@ export default function OpenPack() {
     const prevOwned = new Set(useGame.getState().cards.map(c => c.playerId));
     if (isChoice) {
       const res = previewPack(pack.id);
-      if (!res) { alert('Saldo insuficiente.'); return; }
+      if (!res) { toast.alert('Saldo insuficiente.'); return; }
       const sorted = sortCards(res);
       setChoiceCards(sorted);
       setPhase('choice');

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
+import { toast } from '../store/toast';
 import { Lock } from 'lucide-react';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
@@ -49,7 +50,7 @@ export default function Collection() {
           <button onClick={() => setAlbum(a => !a)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${album ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
             {album ? 'Álbum' : 'Coleção'}
           </button>
-          <button onClick={async () => { const n = await convertDuplicates(); alert(n > 0 ? `${n} duplicatas convertidas em moedas.` : 'Sem duplicatas.'); }} className="px-3 py-1.5 rounded-xl text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98]">
+          <button onClick={async () => { const n = await convertDuplicates(); toast.alert(n > 0 ? `${n} duplicatas convertidas em moedas.` : 'Sem duplicatas.'); }} className="px-3 py-1.5 rounded-xl text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98]">
             Converter duplicatas
           </button>
           <div className="text-sm text-[#858A98] self-center">{cards.length} cartas · {unique} únicas · {cards.length - unique} duplicadas</div>

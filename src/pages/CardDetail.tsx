@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
+import { toast } from '../store/toast';
 import { Star } from 'lucide-react';
 import Card from '../components/Card';
 
@@ -68,7 +69,7 @@ export default function CardDetail() {
               <button
                 key={a.key}
                 disabled={(card.evoPoints ?? 0) <= 0}
-                onClick={() => { const ok = upgradePlayer(card.uid, a.key as any); if (!ok) alert('Sem pontos ou limite atingido.'); }}
+                onClick={() => { const ok = upgradePlayer(card.uid, a.key as any); if (!ok) toast.alert('Sem pontos ou limite atingido.'); }}
                 className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm disabled:opacity-40"
               >
                 <span className="text-[#252733]">{a.label}</span>

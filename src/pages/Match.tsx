@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { useState, useRef, useEffect } from 'react';
 import { useGame } from '../store/useGame';
+import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../engine/match';
 import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import { squadOverall } from '../store/useGame';
@@ -59,7 +60,7 @@ export default function Match() {
   const homeInfo = buildHomePlayers();
 
   const startMatch = () => {
-    if (!homeInfo) { alert('Escalação incompleta.'); return; }
+    if (!homeInfo) { toast.alert('Escalação incompleta.'); return; }
     const seed = Date.now();
     const awayPlayers = makeAwayTeam(sport, difficulty, seed + 1);
     const homeFormation = homeInfo.formation;
