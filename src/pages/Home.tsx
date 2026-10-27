@@ -7,12 +7,24 @@ import { ExternalLink, Calendar, Trophy, Users, Package, Target, Store } from 'l
 import Card from '../components/Card';
 import { supabase } from '../lib/supabase';
 import { getProfile } from '../lib/profile';
+import { getCollectorRanking, type CollectorRanking } from '../lib/services/leaderboard';
 
 export default function Home() {
   const coins = useGame(s => s.coins);
   const xp = useGame(s => s.xp);
   const level = useGame(s => s.level);
   const cards = useGame(s => s.cards);
+  const [userName, setUserName] = useState('Jogador');
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(async ({ data }) => {
+      const uid = data.session?.user?.id;
+      if (uid) {
+        const p = await getProfile(uid);
+        if (p?.name) setUserName(p.name);
+      }
+    });
+  }, []);
   const missions = useGame(s => s.missions);
   const events = useGame(s => s.events);
   const claimDaily = useGame(s => s.claimDaily);
@@ -23,7 +35,11 @@ export default function Home() {
   const pct = Math.min(100, ((xp - lvlXp) / (nextXp - lvlXp)) * 100);
   const event = events[0];
   const [countdown, setCountdown] = useState('');
-  const [userName, setUserName] = useState('Jogador');
+  const [collectorRanking, setCollectorRanking] = useState<CollectorRanking[]>([]);
+
+  useEffect(() => {
+    getCollectorRanking(5).then(setCollectorRanking);
+  }, []);
 
   useEffect(() => {
     if (!supabase) return;
@@ -236,6 +252,20 @@ export default function Home() {
                 <Link to="/packs" className="block w-full py-2 rounded-xl bg-[#E30613] text-white text-sm font-bold text-center">Comprar</Link>
               </div>
             ))}
+          </div>
+          {/* Ranking de colecionadores */}
+          <div className="card-surface p-4 space-y-2">
+            <h3 className="font-semibold text-[#252733]">Ranking de colecionadores</h3>
+            <div className="space-y-1">
+              {collectorRanking.map((r, i) => (
+                <div key={r.userId} className="flex items-center gap-2 text-xs">
+                  <span className="w-5 text-center font-bold text-[#858A98]">{i + 1}</span>
+                  <span className="flex-1 truncate text-[#252733]">{r.name}</span>
+                  <span className="text-[#858A98]">{r.cardsCount} cartas</span>
+                </div>
+              ))}
+              {collectorRanking.length === 0 && <div className="text-xs text-[#858A98]">Sem dados ainda.</div>}
+            </div>
           </div>
         </div>
       </div>
