@@ -5,7 +5,46 @@ export async function getCards(userId: string): Promise<PlayerCard[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false });
   if (error) return [];
-  return (data || []).map((c: any) => ({
+  const cards = data || [];
+  const migrated: any[] = [];
+  for (const c of cards) {
+    if ((c.schema_version ?? 1) < 2) {
+      // migrate: apply rarity modifier + special bonus
+      const mod = ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 } as any)[c.rarity] ?? 1.0;
+      const bonus = ({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 } as any)[c.special] ?? 0;
+      const attrs = {
+        pace: Math.max(0, Math.min(99, Math.round(c.pace * mod))),
+        shooting: Math.max(0, Math.min(99, Math.round(c.shooting * mod))),
+        passing: Math.max(0, Math.min(99, Math.round(c.passing * mod))),
+        dribbling: Math.max(0, Math.min(99, Math.round(c.dribbling * mod))),
+        defending: Math.max(0, Math.min(99, Math.round(c.defending * mod))),
+        physical: Math.max(0, Math.min(99, Math.round(c.physical * mod))),
+      };
+      const gk = c.reflexes ? {
+        reflexes: Math.max(0, Math.min(99, Math.round(c.reflexes * mod))),
+        positioning: Math.max(0, Math.min(99, Math.round(c.positioning * mod))),
+        handling: Math.max(0, Math.min(99, Math.round(c.handling * mod))),
+      } : null;
+      // calculate overall with weights
+      let overall = 0;
+      if (c.position === 'GK') {
+        overall = Math.round((gk?.reflexes ?? 50) * 0.30 + (gk?.positioning ?? 50) * 0.25 + (attrs.defending) * 0.20 + (attrs.passing) * 0.10 + (attrs.physical) * 0.10 + (attrs.pace) * 0.05);
+      } else if (c.position === 'Fixo') {
+        overall = Math.round(attrs.defending * 0.35 + attrs.physical * 0.20 + attrs.passing * 0.20 + attrs.pace * 0.10 + attrs.dribbling * 0.08 + attrs.shooting * 0.07);
+      } else if (c.position === 'Ala') {
+        overall = Math.round(attrs.pace * 0.25 + attrs.passing * 0.22 + attrs.dribbling * 0.20 + attrs.shooting * 0.13 + attrs.defending * 0.12 + attrs.physical * 0.08);
+      } else {
+        overall = Math.round(attrs.shooting * 0.32 + attrs.physical * 0.22 + attrs.dribbling * 0.18 + attrs.passing * 0.12 + attrs.pace * 0.10 + attrs.defending * 0.06);
+      }
+      overall = Math.min(99, overall + bonus);
+      // update DB
+      await supabase!.from('cards').update({ ...attrs, ...(gk || {}), overall, schema_version: 2 }).eq('id', c.id);
+      migrated.push({ ...c, ...attrs, ...(gk || {}), overall, schema_version: 2 });
+    } else {
+      migrated.push(c);
+    }
+  }
+  return migrated.map((c: any) => ({
     uid: c.id,
     playerId: c.player_id,
     name: c.name,
@@ -66,6 +105,7 @@ export async function addCard(userId: string, card: PlayerCard): Promise<PlayerC
     favorite: card.favorite,
     is_new: card.isNew,
     obtained_at: new Date(card.obtainedAt).toISOString(),
+    schema_version: 2,
   }).select().single();
   if (error) return null;
   return { ...card, uid: data.id };
