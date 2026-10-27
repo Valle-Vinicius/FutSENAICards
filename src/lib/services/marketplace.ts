@@ -6,6 +6,7 @@ export interface ListingRecord {
   cardUid: string;
   cardName: string;
   cardOverall?: number;
+  cardAttributes?: { pace:number; shooting:number; passing:number; dribbling:number; defending:number; physical:number; reflexes?:number; positioning?:number; handling?:number };
   cardPosition?: string;
   cardRarity?: string;
   cardImage?: string;
@@ -34,6 +35,7 @@ export async function getListings(): Promise<ListingRecord[]> {
       cardPosition: l.card_position || c?.position || 'Ala',
       cardRarity: l.card_rarity || c?.rarity || 'common',
       cardImage: l.card_image || c?.image,
+      cardAttributes: l.card_attributes || (c ? { pace:c.pace, shooting:c.shooting, passing:c.passing, dribbling:c.dribbling, defending:c.defending, physical:c.physical, reflexes:c.reflexes, positioning:c.positioning, handling:c.handling } : undefined),
       seller: l.seller_id ? 'user' : 'npc',
       sellerName: sellerProfile?.name || (l.seller_id ? 'Usuário' : 'NPC'),
       price: l.price,
@@ -55,6 +57,7 @@ export async function createListing(listing: Omit<ListingRecord, 'id' | 'created
     card_position: listing.cardPosition,
     card_rarity: listing.cardRarity,
     card_image: listing.cardImage,
+    card_attributes: listing.cardAttributes,
     price: listing.price,
     buy_now: listing.buyNow,
     expires_at: listing.expiresAt,
@@ -70,6 +73,7 @@ export async function createListing(listing: Omit<ListingRecord, 'id' | 'created
     cardPosition: data.card_position,
     cardRarity: data.card_rarity,
     cardImage: data.card_image,
+    cardAttributes: data.card_attributes,
     price: data.price,
     buyNow: data.buy_now,
     expiresAt: data.expires_at,

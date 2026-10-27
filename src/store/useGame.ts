@@ -162,7 +162,7 @@ export const useGame = create<GameState & Actions>()(
         const squads = await getSavedSquads(userId);
         if (squads.length > 0) set({ savedSquads: squads });
         const listings = await getListings();
-            if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage })) });
+            if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
         const remoteMissions = await getMissions(userId);
         if (remoteMissions.length > 0) set({ missions: remoteMissions });
         else await upsertMissions(userId, get().missions);
@@ -667,7 +667,7 @@ export const useGame = create<GameState & Actions>()(
           supabase.auth.getSession().then(async ({ data }) => {
             const uid = data.session?.user?.id;
             if (uid) {
-              const remote = await createListing({ sellerId: uid, cardUid, cardName: c.name, cardOverall: c.overall, cardPosition: c.position, cardRarity: c.rarity, cardImage: c.image, price, buyNow, expiresAt: new Date(Date.now() + hours * 3600000).toISOString(), status: 'active' });
+              const remote = await createListing({ sellerId: uid, cardUid, cardName: c.name, cardOverall: c.overall, cardPosition: c.position, cardRarity: c.rarity, cardImage: c.image, cardAttributes: { pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical, reflexes: c.reflexes, positioning: c.positioning, handling: c.handling }, price, buyNow, expiresAt: new Date(Date.now() + hours * 3600000).toISOString(), status: 'active' });
               if (remote) set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, id: remote.id } : l) }));
             }
           });

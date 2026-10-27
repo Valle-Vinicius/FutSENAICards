@@ -141,6 +141,7 @@ export interface Listing {
   status: 'active' | 'sold' | 'expired' | 'cancelled';
   cardName?: string;
   cardOverall?: number;
+  cardAttributes?: { pace:number; shooting:number; passing:number; dribbling:number; defending:number; physical:number; reflexes?:number; positioning?:number; handling?:number };
   cardPosition?: string;
   cardRarity?: string;
   cardImage?: string;
