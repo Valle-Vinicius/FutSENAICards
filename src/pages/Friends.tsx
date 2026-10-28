@@ -30,6 +30,7 @@ export default function Friends() {
       const uid = data.session?.user?.id;
       if (!uid) return;
       // check table exists
+      if (!supabase) return;
       const { error: tErr } = await supabase.from('friendships').select('id').limit(1);
       if (tErr) { setTableMissing(true); return; }
       setUserId(uid);
