@@ -21,6 +21,7 @@ import Missions from './pages/Missions';
 import Shop from './pages/Shop';
 import Profile from './pages/Profile';
 import FriendProfile from './pages/FriendProfile';
+import Friends from './pages/Friends';
 import Settings from './pages/Settings';
 import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
