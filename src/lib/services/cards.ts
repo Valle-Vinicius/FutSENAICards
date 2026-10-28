@@ -36,7 +36,7 @@ export async function getCards(userId: string): Promise<PlayerCard[]> {
           positioning: Math.max(0, Math.min(99, Math.round(t.gkAttributes.positioning * mod))),
           handling: Math.max(0, Math.min(99, Math.round(t.gkAttributes.handling * mod))),
         } : null;
-        const overall = Math.min(({ common: 69, uncommon: 74, rare: 79, epic: 87, legendary: 94, icon: 99 } as any)[c.rarity] ?? 99, (t.baseOverall ?? c.overall) + (({ common: 0, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 } as any)[c.rarity] ?? 0) + (({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 } as any)[c.special] ?? 0));
+        const overall = Math.min(99, (t.baseOverall ?? c.overall) + (({ common: 0, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 } as any)[c.rarity] ?? 0) + (({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 } as any)[c.special] ?? 0));
         const payload: any = { ...attrs, ...(gk || {}), overall, schema_version: 4 };
         await supabase!.from('cards').update(payload).eq('id', c.id);
         migrated.push({ ...c, ...attrs, ...(gk || {}), overall, schema_version: 4 });

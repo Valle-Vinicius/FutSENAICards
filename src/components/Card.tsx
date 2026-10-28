@@ -23,7 +23,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       aria-label={`${card.name}, overall ${card.overall}, ${card.position}`}
       className={`${dims} relative cursor-pointer select-none rounded-2xl overflow-hidden max-w-full ${card.rarity === 'icon' ? 'rgb-card' : ''}`}
-      style={{ border: card.rarity === 'icon' ? '2px solid #ff0040' : `2px solid ${meta.color}`, boxShadow: `0 8px 24px rgba(37,39,51,0.15)` }}
+      style={{ border: card.rarity === 'icon' ? '4px solid #ff0040' : `2px solid ${meta.color}`, boxShadow: `0 8px 24px rgba(37,39,51,0.15)` }}
     >
       {isNew && <span className="absolute top-16 right-2 z-20 bg-[#E30613] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">NOVA</span>}
 
@@ -36,7 +36,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
 
       <div className="absolute top-2 left-2 flex flex-col items-start gap-1 z-10 max-w-[60%]">
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full truncate max-w-full" style={{ background: meta.color, color: '#fff' }}>{meta.label}</span>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full truncate max-w-full ${card.rarity === 'icon' ? 'rgb-stat' : ''}`} style={{ background: card.rarity === 'icon' ? undefined : meta.color, color: '#fff' }}>{meta.label}</span>
         {card.special !== 'none' && (
           <span className="text-[8px] font-bold px-1.5 py-0.5 rounded line-clamp-2 max-w-full leading-tight" style={{ background: SPECIAL_META[card.special].color, color: '#fff' }}>
             {SPECIAL_META[card.special].label}
