@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import type { PlayerCard } from '../../types';
+import { allTemplates } from '../../data/players';
 
 export async function getCards(userId: string): Promise<PlayerCard[]> {
   if (!supabase) return [];
@@ -42,7 +43,24 @@ export async function getCards(userId: string): Promise<PlayerCard[]> {
         overall = Math.round(attrs.defending * 0.35 + attrs.physical * 0.20 + attrs.passing * 0.20 + attrs.pace * 0.10 + attrs.dribbling * 0.08 + attrs.shooting * 0.07);
       } else if (c.position === 'Ala') {
         overall = Math.round(attrs.pace * 0.25 + attrs.passing * 0.22 + attrs.dribbling * 0.20 + attrs.shooting * 0.13 + attrs.defending * 0.12 + attrs.physical * 0.08);
+    } else if ((c.schema_version ?? 1) < 3) {
+      const t = allTemplates().find((x: any) => x.name === c.name);
+      if (t) {
+        const attrs = t.attributes;
+        const gk = t.gkAttributes ?? null;
+        const payload: any = {
+          pace: attrs.pace, shooting: attrs.shooting, passing: attrs.passing,
+          dribbling: attrs.dribbling, defending: attrs.defending, physical: attrs.physical,
+          overall: t.baseOverall ?? c.overall,
+          schema_version: 3,
+        };
+        if (gk) { payload.reflexes = gk.reflexes; payload.positioning = gk.positioning; payload.handling = gk.handling; }
+        await supabase!.from('cards').update(payload).eq('id', c.id);
+        migrated.push({ ...c, ...payload });
       } else {
+        migrated.push(c);
+      }
+    } else {
         overall = Math.round(attrs.shooting * 0.32 + attrs.physical * 0.22 + attrs.dribbling * 0.18 + attrs.passing * 0.12 + attrs.pace * 0.10 + attrs.defending * 0.06);
       }
       overall = Math.min(99, overall + bonus);

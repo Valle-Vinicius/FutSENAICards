@@ -14,7 +14,7 @@ import { addTransaction } from '../lib/services/transactions';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
-import { generatePlayerCard, randomTemplate } from '../data/players';
+import { generatePlayerCard, randomTemplate, allTemplates } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
 
 interface Actions {
@@ -127,6 +127,31 @@ export const useGame = create<GameState & Actions>()(
     (set, get) => ({
       ...initialState,
       init: () => {
+        // migrate local cards to latest template values
+        const localCards = get().cards;
+        if (localCards.length > 0) {
+          const migrated = localCards.map(c => {
+            const t = allTemplates().find(x => x.name === c.name);
+            if (!t) return c;
+            return {
+              ...c,
+              position: t.position,
+              club: t.club,
+              nationality: t.nationality,
+              age: t.age,
+              pace: t.attributes.pace,
+              shooting: t.attributes.shooting,
+              passing: t.attributes.passing,
+              dribbling: t.attributes.dribbling,
+              defending: t.attributes.defending,
+              physical: t.attributes.physical,
+              ...(t.gkAttributes ? { reflexes: t.gkAttributes.reflexes, positioning: t.gkAttributes.positioning, handling: t.gkAttributes.handling } : {}),
+              overall: t.baseOverall ?? c.overall,
+              image: t.image,
+            };
+          });
+          set({ cards: migrated });
+        }
         const s = get();
         // migrate persisted packs: fix goalkeeper pack position
         const fixedPacks = s.packConfigs.map(p =>
@@ -152,7 +177,27 @@ export const useGame = create<GameState & Actions>()(
       },
       syncUserData: async (userId) => {
         const remoteCards = await getCards(userId);
-        if (remoteCards.length > 0) set({ cards: remoteCards });
+        const migratedRemote = remoteCards.map(c => {
+          const t = allTemplates().find(x => x.name === c.name);
+          if (!t) return c;
+          return {
+            ...c,
+            position: t.position,
+            club: t.club,
+            nationality: t.nationality,
+            age: t.age,
+            pace: t.attributes.pace,
+            shooting: t.attributes.shooting,
+            passing: t.attributes.passing,
+            dribbling: t.attributes.dribbling,
+            defending: t.attributes.defending,
+            physical: t.attributes.physical,
+            ...(t.gkAttributes ? { reflexes: t.gkAttributes.reflexes, positioning: t.gkAttributes.positioning, handling: t.gkAttributes.handling } : {}),
+            overall: t.baseOverall ?? c.overall,
+            image: t.image,
+          };
+        });
+        if (remoteCards.length > 0) set({ cards: migratedRemote });
         else {
           const local = get().cards;
           const dbCards = await Promise.all(local.map(c => addCard(userId, c)));
