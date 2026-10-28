@@ -4,21 +4,9 @@ import { motion } from 'framer-motion';
 import loginBg from '../imagens/login/Background.png';
 import logo from '../imagens/login/Logo_Fut_SENAI_Cards-removebg-preview.png';
 import lofi from '../audio/lofi.mp3';
-import heitorPose from '../imagens/imagensposes/heitorlogin-removebg-preview.png';
-import pietroPose from '../imagens/imagensposes/pietrologin-removebg-preview.png';
-import gabrielPose from '../imagens/imagensposes/gabriellogin-removebg-preview.png';
-import joaoPose from '../imagens/imagensposes/joaologin-removebg-preview.png';
-import dutraPose from '../imagens/imagensposes/dutralogin-removebg-preview.png';
-import assuncaoPose from '../imagens/imagensposes/assuncaologin-removebg-preview.png';
-import matheusPose from '../imagens/imagensposes/matheuslogin-removebg-preview.png';
-import jonasPose from '../imagens/imagensposes/jonaslogin-removebg-preview.png';
-import thiagoPose from '../imagens/imagensposes/thiagologin-removebg-preview.png';
-import enzoPose from '../imagens/imagensposes/enzologin-removebg-preview.png';
-import gustavoPose from '../imagens/imagensposes/gustavologin-removebg-preview.png';
-import rafaelPose from '../imagens/imagensposes/rafael.png';
-import monteiroPose from '../imagens/imagensposes/monteiro.png';
 import { supabase } from '../lib/supabase';
 import { signIn, signUp, resetPassword, updatePassword, signInWithGoogle } from '../lib/services/auth';
+import { POSES } from '../data/poses';
 
 export default function Auth() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -30,10 +18,7 @@ export default function Auth() {
   const [recovery, setRecovery] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [started, setStarted] = useState(false);
-  const [playerPose] = useState(() => {
-    const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose, enzoPose, gustavoPose, rafaelPose, monteiroPose];
-    return poses[Math.floor(Math.random() * poses.length)];
-  });
+  const [playerPose] = useState(() => POSES[Math.floor(Math.random() * POSES.length)]);
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);

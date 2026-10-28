@@ -1,19 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import bg from '../imagens/login/Background.png';
-import assuncao from '../imagens/imagensposes/assuncaologin-removebg-preview.png';
-import dutra from '../imagens/imagensposes/dutralogin-removebg-preview.png';
-import enzo from '../imagens/imagensposes/enzologin-removebg-preview.png';
-import gabriel from '../imagens/imagensposes/gabriellogin-removebg-preview.png';
-import gustavo from '../imagens/imagensposes/gustavologin-removebg-preview.png';
-import heitor from '../imagens/imagensposes/heitorlogin-removebg-preview.png';
-import joao from '../imagens/imagensposes/joaologin-removebg-preview.png';
-import jonas from '../imagens/imagensposes/jonaslogin-removebg-preview.png';
-import matheus from '../imagens/imagensposes/matheuslogin-removebg-preview.png';
-import pietro from '../imagens/imagensposes/pietrologin-removebg-preview.png';
-import thiago from '../imagens/imagensposes/thiagologin-removebg-preview.png';
-
-const POSES = [assuncao, dutra, enzo, gabriel, gustavo, heitor, joao, jonas, matheus, pietro, thiago];
+import { POSES } from '../data/poses';
 
 export default function NotFound() {
   const [left, setLeft] = useState(0);
