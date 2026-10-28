@@ -295,14 +295,20 @@ export const useGame = create<GameState & Actions>()(
           const card = generatePlayerCard(t, rarity, special === 'none' ? 'none' : special);
           cards.push(card);
         }
+        // add to store first
+        set(st => ({
+          cards: [...cards, ...st.cards],
+          packsOpened: st.packsOpened + 1,
+          newCardUids: [...cards.map(c => c.uid), ...st.newCardUids].slice(0, 50),
+        }));
         // sync new cards to Supabase
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               const dbCards = await Promise.all(cards.map(c => addCard(uid, c)));
-              const idMap = new Map(cards.map((c, i) => [c.uid, dbCards[i]?.uid]));
-              set(st => ({ cards: st.cards.map(c => idMap.get(c.uid) ? { ...c, uid: idMap.get(c.uid)! } : c) }));
+              const idMap = new Map(cards.map((c, i) => [c.uid, dbCards[i]?.uid ?? c.uid]));
+              set(st => ({ cards: st.cards.map(c => idMap.has(c.uid) && idMap.get(c.uid) !== c.uid ? { ...c, uid: idMap.get(c.uid)! } : c) }));
               // sync collector ranking
               const allCards = get().cards;
               const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
@@ -312,12 +318,6 @@ export const useGame = create<GameState & Actions>()(
             }
           });
         }
-        // ensure legendary pack has no common
-        set(st => ({
-          cards: [...cards, ...st.cards],
-          packsOpened: st.packsOpened + 1,
-          newCardUids: [...cards.map(c => c.uid), ...st.newCardUids].slice(0, 50),
-        }));
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
@@ -809,6 +809,17 @@ export const useGame = create<GameState & Actions>()(
         }));
         get().addXp(10);
         get().updateMissionProgress();
+        if (supabase) {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
+            const uid = data.session?.user?.id;
+            if (uid) {
+              const dbCard = await addCard(uid, card);
+              if (dbCard) {
+                set(st => ({ cards: st.cards.map(c => c.uid === card.uid ? { ...c, uid: dbCard.uid } : c) }));
+              }
+            }
+          });
+        }
       },
       completeSBC: (sbcId, cardUids) => {
         const sbc = get().sbcs.find(s => s.id === sbcId);
