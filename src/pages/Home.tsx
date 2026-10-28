@@ -117,7 +117,10 @@ export default function Home() {
           {/* Últimas notícias */}
           <section>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold text-[#252733]">Últimas notícias</h2>
+              <div>
+                <h2 className="text-lg font-semibold text-[#252733]">Radar do SENAI</h2>
+                <p className="text-xs text-[#858A98]">As últimas notícias, polêmicas e acontecimentos do universo FutSenai.</p>
+              </div>
               <a href="https://pietro-guedes.github.io/FutSenai-Jornal/" target="_blank" rel="noopener noreferrer" className="text-sm text-[#E30613] font-medium hover:underline flex items-center gap-1">
                 Ver todas <ExternalLink className="w-3 h-3" />
               </a>
