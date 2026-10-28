@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid';
 import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types';
 import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL } from '../lib/game';
 import { supabase } from '../lib/supabase';
-import { getCards, addCard } from '../lib/services/cards';
+import { getCards, addCard, updateCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
 import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/squads';
 import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/missions';
@@ -330,17 +330,16 @@ export const useGame = create<GameState & Actions>()(
         return { ok: true, amount };
       },
       toggleFavorite: (uid) => {
+        const card = get().cards.find(c => c.uid === uid);
+        const newFav = !(card?.favorite);
         set(st => ({
-          cards: st.cards.map(c => c.uid === uid ? { ...c, favorite: !c.favorite } : c),
+          cards: st.cards.map(c => c.uid === uid ? { ...c, favorite: newFav } : c),
         }));
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const u = data.session?.user?.id;
-            if (u) {
-              const favs = get().cards.filter(c => c.favorite).map(c => c.uid);
-              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', u).single();
-              const prefs = prof?.preferences || {};
-              await supabase!.from('profiles').update({ preferences: { ...prefs, favorites: favs } }).eq('id', u);
+            if (u && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
+              await updateCard(uid, { favorite: newFav });
             }
           });
         }
