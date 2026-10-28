@@ -3,7 +3,7 @@ import type { PlayerCard } from '../../types';
 
 export async function getCards(userId: string): Promise<PlayerCard[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10000);
   if (error) return [];
   const cards = data || [];
   const migrated: any[] = [];

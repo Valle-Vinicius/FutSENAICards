@@ -638,8 +638,10 @@ export const useGame = create<GameState & Actions>()(
         const toRemove: string[] = [];
         Object.values(byName).forEach(group => {
           if (group.length <= 1) return;
-          const nonFav = group.filter(c => !c.favorite).sort((a, b) => (rarityRank[b.rarity] ?? 0) - (rarityRank[a.rarity] ?? 0));
-          // keep the best non-favorite; remove the rest (non-favorites only)
+          // skip icon rarity entirely
+          const nonIcon = group.filter(c => c.rarity !== 'icon');
+          if (nonIcon.length <= 1) return;
+          const nonFav = nonIcon.filter(c => !c.favorite).sort((a, b) => (rarityRank[b.rarity] ?? 0) - (rarityRank[a.rarity] ?? 0));
           nonFav.slice(1).forEach(c => toRemove.push(c.uid));
         });
         if (toRemove.length === 0) return 0;
