@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import type { Position, PlayerCard, Rarity } from '../types';
+import { RARITY_META } from '../types';
 
 import enzothomas from '../imagens/enzothomas.jpg';
 import gabrielortelan from '../imagens/gabrielortelan.jpg';
