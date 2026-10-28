@@ -43,7 +43,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
           </span>
         )}
       </div>
-      <div className="absolute top-2 right-2 z-10 text-2xl font-bold leading-none" style={{ color: meta.color, textShadow: '0 2px 4px rgba(0,0,0,0.6)' }}>
+      <div className={`absolute top-2 right-2 z-10 text-2xl font-bold leading-none ${card.rarity === 'icon' ? 'rgb-text' : ''}`} style={{ color: card.rarity === 'icon' ? undefined : meta.color, textShadow: '0 2px 4px rgba(0,0,0,0.6)' }}>
         {card.overall}
       </div>
 
