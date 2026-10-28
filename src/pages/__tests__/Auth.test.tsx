@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Auth from '../Auth';
 
+jest.mock('../../data/poses', () => ({ POSES: ['/pose1.png', '/pose2.png'] }));
 jest.mock('../../lib/supabase', () => ({
   supabase: {
     auth: {
