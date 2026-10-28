@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import * as friendsService from '../lib/services/friends';
@@ -13,7 +14,7 @@ export default function Friends() {
   const [results, setResults] = useState<FriendUser[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [tableMissing, setTableMissing] = useState(false);
-  const [msg, setMsg] = useState('');
+  const navigate = useNavigate();
   const setPendingFriends = useGame(s => s.setPendingFriends);
 
   const load = async (uid: string) => {
@@ -86,7 +87,7 @@ export default function Friends() {
       {tab === 'all' && (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
           {friends.map(f => (
-            <div key={f.id} className="card-surface p-3 flex items-center gap-3">
+            <div key={f.id} onClick={() => navigate(`/profile/${f.id}`)} className="card-surface p-3 flex items-center gap-3 cursor-pointer hover:shadow-md">
               <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold">
                 {f.name.charAt(0)}
               </div>
@@ -104,7 +105,7 @@ export default function Friends() {
         <div className="space-y-2">
           {received.map(r => (
             <div key={r.friendship.id} className="card-surface p-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/profile/${r.user.id}`)}>
                 <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold">{r.user.name.charAt(0)}</div>
                 <div className="text-sm text-[#252733]">{r.user.name}</div>
               </div>
@@ -122,7 +123,7 @@ export default function Friends() {
         <div className="space-y-2">
           {sent.map(s => (
             <div key={s.friendship.id} className="card-surface p-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/profile/${s.user.id}`)}>
                 <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold">{s.user.name.charAt(0)}</div>
                 <div className="text-sm text-[#252733]">{s.user.name}</div>
               </div>
