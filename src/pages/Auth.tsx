@@ -15,6 +15,7 @@ import jonasPose from '../imagens/imagensposes/jonaslogin-removebg-preview.png';
 import thiagoPose from '../imagens/imagensposes/thiagologin-removebg-preview.png';
 import enzoPose from '../imagens/imagensposes/enzologin-removebg-preview.png';
 import gustavoPose from '../imagens/imagensposes/gustavologin-removebg-preview.png';
+import rafaelPose from '../imagens/imagensposes/rafael.png';
 import { supabase } from '../lib/supabase';
 import { signIn, signUp, resetPassword, updatePassword, signInWithGoogle } from '../lib/services/auth';
 
@@ -29,7 +30,7 @@ export default function Auth() {
   const [newPassword, setNewPassword] = useState('');
   const [started, setStarted] = useState(false);
   const [playerPose] = useState(() => {
-    const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose, enzoPose, gustavoPose];
+    const poses = [heitorPose, pietroPose, gabrielPose, joaoPose, dutraPose, assuncaoPose, matheusPose, jonasPose, thiagoPose, enzoPose, gustavoPose, rafaelPose];
     return poses[Math.floor(Math.random() * poses.length)];
   });
   const navigate = useNavigate();
