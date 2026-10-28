@@ -115,8 +115,9 @@ export async function removeFriend(friendshipId: string): Promise<boolean> {
 
 export function subscribeFriends(userId: string, onChange: () => void) {
   if (!supabase) return () => {};
+  const channelName = `friends-changes-${userId}-${Math.random().toString(36).slice(2)}`;
   const channel = supabase
-    .channel('friends-changes')
+    .channel(channelName)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, (payload: any) => {
       const row = payload.new || payload.old;
       if (row && (row.requester_id === userId || row.addressee_id === userId)) {
