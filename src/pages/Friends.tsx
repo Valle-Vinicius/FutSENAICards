@@ -12,7 +12,7 @@ export default function Friends() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FriendUser[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  const [msg, setMsg] = useState('');
+  const [tableMissing, setTableMissing] = useState(false);
   const setPendingFriends = useGame(s => s.setPendingFriends);
 
   const load = async (uid: string) => {
@@ -28,6 +28,9 @@ export default function Friends() {
     supabase.auth.getSession().then(async ({ data }: { data: any }) => {
       const uid = data.session?.user?.id;
       if (!uid) return;
+      // check table exists
+      const { error: tErr } = await supabase.from('friendships').select('id').limit(1);
+      if (tErr) { setTableMissing(true); return; }
       setUserId(uid);
       await load(uid);
       const unsub = friendsService.subscribeFriends(uid, () => load(uid));
@@ -64,6 +67,11 @@ export default function Friends() {
   return (
     <div className="p-4 md:p-8 space-y-4">
       <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Amizades</h1>
+      {tableMissing && (
+        <div className="card-surface p-4 text-sm text-[#252733]">
+          A tabela <code>friendships</code> não existe no Supabase. Rode o SQL de <code>supabase/friends.sql</code> no SQL Editor do Supabase.
+        </div>
+      )}
       <div className="flex gap-2 flex-wrap">
         {(['all', 'received', 'sent', 'add'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${tab === t ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
