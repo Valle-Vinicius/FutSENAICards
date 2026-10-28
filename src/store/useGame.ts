@@ -43,6 +43,7 @@ interface Actions {
   addCompareHistory: (aUid: string, bUid: string) => void;
   addMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string }) => void;
   updateSettings: (s: Partial<{ audio: boolean; animations: boolean; highContrast: boolean }>) => void;
+  setPendingFriends: (n: number) => void;
   addPlayerXp: (uid: string, amount: number) => void;
   upgradePlayer: (uid: string, attr: 'pace' | 'shooting' | 'passing' | 'dribbling' | 'defending' | 'physical') => boolean;
   recordMatchStats: (uid: string, goals: number, assists: number) => void;
@@ -104,6 +105,7 @@ const initialState: GameState = {
   priceHistory: [],
   recentTransfers: [],
   settings: { audio: true, animations: true, highContrast: false },
+  pendingFriends: 0,
   lastDailyClaim: null,
   events: [],
   eventHistory: [],
@@ -640,6 +642,7 @@ export const useGame = create<GameState & Actions>()(
           });
         }
       },
+      setPendingFriends: (n) => set({ pendingFriends: n }),
       addPlayerXp: (uid, amount) => set(st => ({
         cards: st.cards.map(c => {
           if (c.uid !== uid) return c;

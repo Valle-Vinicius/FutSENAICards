@@ -20,6 +20,7 @@ import SBC from './pages/SBC';
 import Missions from './pages/Missions';
 import Shop from './pages/Shop';
 import Profile from './pages/Profile';
+import Friends from './pages/Friends';
 import Settings from './pages/Settings';
 import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -66,6 +67,7 @@ export default function App() {
               <Route path="/shop" element={<Shop />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/friends" element={<Friends />} />
             </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

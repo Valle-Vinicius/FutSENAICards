@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell } from 'lucide-react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus } from 'lucide-react';
 import { useGame } from '../store/useGame';
 
 const NAV = [
@@ -17,6 +17,7 @@ const NAV = [
   { to: '/shop', label: 'Loja', icon: ShoppingBag },
   { to: '/profile', label: 'Perfil', icon: User },
   { to: '/settings', label: 'Configurações', icon: SettingsIcon },
+  { to: '/friends', label: 'Amizades', icon: UserPlus },
 ];
 
 const TITLES: Record<string, string> = {
@@ -32,6 +33,7 @@ const TITLES: Record<string, string> = {
   '/shop': 'Loja',
   '/profile': 'Perfil',
   '/settings': 'Configurações',
+  '/friends': 'Amizades',
 };
 
 export default function Layout() {
@@ -39,6 +41,7 @@ export default function Layout() {
   const xp = useGame(s => s.xp);
   const level = useGame(s => s.level);
   const newCount = useGame(s => s.newCardUids.length);
+  const pendingFriends = useGame(s => s.pendingFriends);
   const transactions = useGame(s => s.transactions);
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,6 +83,7 @@ export default function Layout() {
                    <n.icon className="w-4 h-4" />
                    <span>{n.label}</span>
                   {n.to === '/collection' && newCount > 0 && <span className="ml-auto text-xs bg-[#E30613] text-white rounded-full px-2">{newCount}</span>}
+                  {n.to === '/friends' && pendingFriends > 0 && <span className="ml-auto text-xs bg-[#E30613] text-white rounded-full px-2">{pendingFriends}</span>}
                 </>
               )}
             </NavLink>

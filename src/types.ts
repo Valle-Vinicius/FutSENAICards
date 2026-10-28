@@ -177,6 +177,7 @@ export interface GameState {
   priceHistory: { cardName: string; price: number; at: number }[];
   recentTransfers: { cardName: string; price: number; at: number; type: 'buy' | 'sell' }[];
   settings: { audio: boolean; animations: boolean; highContrast: boolean };
+  pendingFriends: number;
   lastDailyClaim: number | null;
   events: { id: string; name: string; endsAt: number; reward: string }[];
   eventHistory: string[];
