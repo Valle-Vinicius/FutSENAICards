@@ -1,121 +1,51 @@
 # Catálogo de Cartas — Futsenai Cards
 
-## Pietro — Pivô
-Overall: 84
-Velocidade: 85
-Chute: 92
-Passe: 75
-Drible: 75
-Defesa: 65
-Físico: 90
+Valores padrão a partir de agora (carta **Incomum**), com boosts já aplicados.
 
-## Mateus — Pivô
-Overall: 72
-Velocidade: 40
-Chute: 76
-Passe: 70
-Drible: 83
-Defesa: 65
-Físico: 73
+## Pivôs
 
-## Muzy — Pivô
-Overall: 76
-Velocidade: 70
-Chute: 78
-Passe: 75
-Drible: 75
-Defesa: 68
-Físico: 80
+| Jogador       | OVR | Base | Boost | VEL | CHU | PAS | DRI | DEF | FIS |
+| ------------- | --- | ---- | ----- | --- | --- | --- | --- | --- | --- |
+| Pietro Guedes | 86  | 84   | +2    | 81  | 88  | 83  | 78  | 73  | 87  |
+| Muzy          | 75  | 74   | +1    | 78  | 76  | 69  | 66  | 67  | 80  |
+| Mateus Lopes  | 57  | 57   | +0    | 41  | 61  | 63  | 61  | 50  | 55  |
 
-## Thiago — Ala-direito
-Overall: 84
-Velocidade: 84
-Chute: 84
-Passe: 85
-Drible: 94
-Defesa: 70
-Físico: 80
+## Alas
 
-## Dutra — Ala-direito
-Overall: 78
-Velocidade: 73
-Chute: 90
-Passe: 84
-Drible: 70
-Defesa: 70
-Físico: 94
+| Jogador           | OVR | Base | Boost | VEL | CHU | PAS | DRI | DEF | FIS |
+| ----------------- | --- | ---- | ----- | --- | --- | --- | --- | --- | --- |
+| Thiago Tavares    | 86  | 84   | +2    | 83  | 82  | 85  | 92  | 76  | 81  |
+| João Marcos       | 81  | 79   | +2    | 88  | 77  | 75  | 85  | 70  | 67  |
+| Rafael Dutra      | 76  | 75   | +1    | 70  | 83  | 77  | 66  | 74  | 92  |
+| Vinícius Assunção | 76  | 75   | +1    | 91  | 71  | 73  | 68  | 66  | 66  |
+| Enzo Thomas       | 74  | 73   | +1    | 79  | 67  | 70  | 84  | 58  | 65  |
 
-## João — Ala-direito
-Overall: 78
-Velocidade: 85
-Chute: 78
-Passe: 80
-Drible: 85
-Defesa: 60
-Físico: 60
+## Fixos
 
-## Enzo — Ala-esquerdo
-Overall: 77
-Velocidade: 82
-Chute: 78
-Passe: 75
-Drible: 90
-Defesa: 55
-Físico: 60
+| Jogador         | OVR | Base | Boost | VEL | CHU | PAS | DRI | DEF | FIS |
+| --------------- | --- | ---- | ----- | --- | --- | --- | --- | --- | --- |
+| Heitor Barbosa  | 82  | 80   | +2    | 75  | 73  | 78  | 67  | 89  | 77  |
+| Gabriel Ortelan | 70  | 69   | +1    | 58  | 45  | 60  | 52  | 80  | 80  |
 
-## Assunção — Ala-esquerdo
-Overall: 76
-Velocidade: 94
-Chute: 72
-Passe: 76
-Drible: 65
-Defesa: 68
-Físico: 60
+## Goleiros
 
-## Heitor — Fixo
-Overall: 76
-Velocidade: 70
-Chute: 75
-Passe: 80
-Drible: 65
-Defesa: 85
-Físico: 65
+| Jogador      | OVR | Base | Boost | VEL | CHU | PAS | DRI | DEF | FIS | REF | POS | HAN |
+| ------------ | --- | ---- | ----- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Jonas Daniel | 68  | 68   | +0    | 45  | 42  | 57  | 40  | 70  | 75  | 74  | 64  | 72  |
 
-## Jonas — Goleiro
-Overall: 73
-Reflexos: 75
-Posicionamento: 90
-Defesa: 65
-Passe: 60
-Físico: 72
-Velocidade: 40
+## Resumo geral
 
-## Gabriel — Fixo
-Overall: 68
-Velocidade: 45
-Chute: 30
-Passe: 55
-Drible: 45
-Defesa: 90
-Físico: 75
+| Estatística        | Resultado |
+| ------------------ | --------- |
+| Total de jogadores | 11        |
+| Pivôs              | 3         |
+| Alas               | 5         |
+| Fixos              | 2         |
+| Goleiros           | 1         |
+| Maior OVR          | 86        |
+| Menor OVR          | 57        |
 
-## Rafinha — Goleiro
-Overall: 73
-Reflexos: 82
-Posicionamento: 90
-Defesa: 86
-Passe: 70
-Físico: 62
-Velocidade: 60
-
-## Monteiro — Pivô
-Overall: 68
-Velocidade: 55
-Chute: 30
-Passe: 50
-Drible: 20
-Defesa: 60
-Físico: 40
+Observação: valores mantidos exatamente como enviados, inclusive OVRs base e boosts. Não recalculei as notas.
 
 ## Campos de cada carta
 Foto, Nome, Overall, Posição, Nacionalidade, Idade, Clube, Raridade, Edição/Temporada, VEL, CHU, PAS, DRI, DEF, FIS, REF/POS/HAN (GK), ID único, Favorito, Nova, XP, Pontos de evolução, Melhorias, Histórico de evolução, Estatísticas da temporada.
