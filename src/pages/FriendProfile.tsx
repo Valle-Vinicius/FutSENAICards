@@ -19,6 +19,7 @@ export default function FriendProfile() {
       const { data: cs } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100);
       setCards((cs || []).map((c: any) => ({
         uid: c.id, playerId: c.player_id, name: c.name, position: c.position, sport: c.sport,
+        nationality: c.nationality, age: c.age, club: c.club,
         rarity: c.rarity, edition: c.edition, special: c.special, overall: c.overall,
         pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling,
         defending: c.defending, physical: c.physical, reflexes: c.reflexes,
