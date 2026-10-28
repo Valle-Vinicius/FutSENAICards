@@ -239,14 +239,9 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
   } : undefined;
 
   const templateWithAttrs: PlayerTemplate = { ...t, attributes: attrs, gkAttributes: gk };
-  let overall = t.baseOverall !== undefined ? t.baseOverall : calculateOverall(templateWithAttrs);
+  let overall = t.baseOverall !== undefined ? Math.round(t.baseOverall * mod) : calculateOverall(templateWithAttrs);
   const bonus = SPECIAL_BONUS[special] ?? 0;
   overall = Math.min(99, overall + bonus);
-
-  const meta = RARITY_META[rarity];
-  if (t.baseOverall === undefined) {
-    overall = Math.max(meta.minOvr, Math.min(meta.maxOvr, overall));
-  }
 
   return {
     uid: nanoid(10),
