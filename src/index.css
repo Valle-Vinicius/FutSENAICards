@@ -91,7 +91,22 @@ body {
   mix-blend-mode: multiply;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@keyframes rgbBorder {
+  0% { border-color: #ff0040; }
+  25% { border-color: #ff8c00; }
+  50% { border-color: #00c8ff; }
+  75% { border-color: #a855f7; }
+  100% { border-color: #ff0040; }
+}
+@keyframes rgbBg {
+  0% { background-color: rgba(255, 0, 64, 0.45); }
+  25% { background-color: rgba(255, 140, 0, 0.45); }
+  50% { background-color: rgba(0, 200, 255, 0.45); }
+  75% { background-color: rgba(168, 85, 247, 0.45); }
+  100% { background-color: rgba(255, 0, 64, 0.45); }
+}
+.rgb-card { animation: rgbBorder 2.5s linear infinite; }
+.rgb-stat { animation: rgbBg 2.5s linear infinite; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

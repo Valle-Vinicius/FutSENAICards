@@ -22,8 +22,8 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       aria-label={`${card.name}, overall ${card.overall}, ${card.position}`}
-      className={`${dims} relative cursor-pointer select-none rounded-2xl overflow-hidden max-w-full`}
-      style={{ border: `2px solid ${meta.color}`, boxShadow: `0 8px 24px rgba(37,39,51,0.15)` }}
+      className={`${dims} relative cursor-pointer select-none rounded-2xl overflow-hidden max-w-full ${card.rarity === 'icon' ? 'rgb-card' : ''}`}
+      style={{ border: card.rarity === 'icon' ? '2px solid #ff0040' : `2px solid ${meta.color}`, boxShadow: `0 8px 24px rgba(37,39,51,0.15)` }}
     >
       {isNew && <span className="absolute top-16 right-2 z-20 bg-[#E30613] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">NOVA</span>}
 
@@ -56,7 +56,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
         <div className={`${nameFont} font-bold text-white leading-tight line-clamp-2 mt-0.5`}>{card.name}</div>
         <div className={`grid grid-cols-6 gap-1 mt-1.5 ${attrFont}`}>
           {attrs.map(a => (
-            <div key={a.l} className="flex flex-col items-center bg-black/50 rounded py-0.5 px-0.5">
+            <div key={a.l} className={`flex flex-col items-center rounded py-0.5 px-0.5 ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-black/50'}`}>
               <span className="text-white/70 leading-none">{a.l}</span>
               <span className="font-bold text-white leading-none mt-0.5">{a.v}</span>
             </div>
