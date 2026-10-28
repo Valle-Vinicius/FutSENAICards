@@ -146,7 +146,7 @@ export const useGame = create<GameState & Actions>()(
               defending: Math.max(0, Math.min(99, Math.round(t.attributes.defending * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
               physical: Math.max(0, Math.min(99, Math.round(t.attributes.physical * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
               ...(t.gkAttributes ? { reflexes: Math.max(0, Math.min(99, Math.round(t.gkAttributes.reflexes * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))), positioning: Math.max(0, Math.min(99, Math.round(t.gkAttributes.positioning * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))), handling: Math.max(0, Math.min(99, Math.round(t.gkAttributes.handling * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))) } : {}),
-              overall: Math.min(99, (t.baseOverall ?? c.overall) + ({ common: 0, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 }[c.rarity] ?? 0) + ({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 }[c.special] ?? 0)),
+              overall: Math.min(99, (t.baseOverall ?? c.overall) + ({ common: -2, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 }[c.rarity] ?? 0) + ({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 }[c.special] ?? 0)),
               image: t.image,
             };
           });
@@ -193,7 +193,7 @@ export const useGame = create<GameState & Actions>()(
             defending: Math.max(0, Math.min(99, Math.round(t.attributes.defending * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
             physical: Math.max(0, Math.min(99, Math.round(t.attributes.physical * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
             ...(t.gkAttributes ? { reflexes: Math.max(0, Math.min(99, Math.round(t.gkAttributes.reflexes * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))), positioning: Math.max(0, Math.min(99, Math.round(t.gkAttributes.positioning * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))), handling: Math.max(0, Math.min(99, Math.round(t.gkAttributes.handling * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))) } : {}),
-            overall: Math.min(99, (t.baseOverall ?? c.overall) + ({ common: 0, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 }[c.rarity] ?? 0) + ({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 }[c.special] ?? 0)),
+            overall: Math.min(99, (t.baseOverall ?? c.overall) + ({ common: -2, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 }[c.rarity] ?? 0) + ({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 }[c.special] ?? 0)),
             image: t.image,
           };
         });

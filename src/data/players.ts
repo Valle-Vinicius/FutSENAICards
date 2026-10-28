@@ -38,7 +38,7 @@ const RARITY_MODIFIER: Record<Rarity, number> = {
 };
 
 const RARITY_OVR_BONUS: Record<Rarity, number> = {
-  common: 0,
+  common: -2,
   uncommon: 0,
   rare: 2,
   epic: 4,
