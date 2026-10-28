@@ -26,6 +26,7 @@ interface PlayerTemplate {
   gkAttributes?: { reflexes: number; positioning: number; handling: number };
   image: string;
   baseRarity: Rarity;
+  baseOverall?: number;
 }
 
 const TEMPLATES: PlayerTemplate[] = [
@@ -35,19 +36,10 @@ const TEMPLATES: PlayerTemplate[] = [
     nationality: 'Brasil',
     age: 20,
     club: 'Aurora Futsal',
-    attributes: { pace: 85, shooting: 92, passing: 75, dribbling: 75, defending: 65, physical: 90 },
+    attributes: { pace: 81, shooting: 88, passing: 83, dribbling: 78, defending: 73, physical: 87 },
     image: pietroguedes,
-    baseRarity: 'rare',
-  },
-  {
-    name: 'Mateus Lopes',
-    position: 'Pivo',
-    nationality: 'Brasil',
-    age: 19,
-    club: 'Estrela Futsal',
-    attributes: { pace: 40, shooting: 76, passing: 70, dribbling: 83, defending: 65, physical: 73 },
-    image: matheuslopes,
-    baseRarity: 'common',
+    baseRarity: 'uncommon',
+    baseOverall: 86,
   },
   {
     name: 'Muzy',
@@ -55,9 +47,21 @@ const TEMPLATES: PlayerTemplate[] = [
     nationality: 'Brasil',
     age: 21,
     club: 'Fênix Futsal',
-    attributes: { pace: 70, shooting: 78, passing: 75, dribbling: 75, defending: 68, physical: 80 },
+    attributes: { pace: 78, shooting: 76, passing: 69, dribbling: 66, defending: 67, physical: 80 },
     image: gustavohyppolito,
-    baseRarity: 'common',
+    baseRarity: 'uncommon',
+    baseOverall: 75,
+  },
+  {
+    name: 'Mateus Lopes',
+    position: 'Pivo',
+    nationality: 'Brasil',
+    age: 19,
+    club: 'Estrela Futsal',
+    attributes: { pace: 41, shooting: 61, passing: 63, dribbling: 61, defending: 50, physical: 55 },
+    image: matheuslopes,
+    baseRarity: 'uncommon',
+    baseOverall: 57,
   },
   {
     name: 'Thiago Tavares',
@@ -65,19 +69,10 @@ const TEMPLATES: PlayerTemplate[] = [
     nationality: 'Brasil',
     age: 24,
     club: 'Leões Futsal',
-    attributes: { pace: 84, shooting: 84, passing: 85, dribbling: 94, defending: 70, physical: 80 },
+    attributes: { pace: 83, shooting: 82, passing: 85, dribbling: 92, defending: 76, physical: 81 },
     image: thiagotavares,
-    baseRarity: 'rare',
-  },
-  {
-    name: 'Rafael Dutra',
-    position: 'Ala',
-    nationality: 'Brasil',
-    age: 21,
-    club: 'Tigres Futsal',
-    attributes: { pace: 73, shooting: 90, passing: 84, dribbling: 70, defending: 70, physical: 94 },
-    image: rafaeldutra,
     baseRarity: 'uncommon',
+    baseOverall: 86,
   },
   {
     name: 'João Marcos',
@@ -85,19 +80,21 @@ const TEMPLATES: PlayerTemplate[] = [
     nationality: 'Brasil',
     age: 23,
     club: 'Leões Futsal',
-    attributes: { pace: 85, shooting: 78, passing: 80, dribbling: 85, defending: 60, physical: 60 },
+    attributes: { pace: 88, shooting: 77, passing: 75, dribbling: 85, defending: 70, physical: 67 },
     image: joaomarcos,
     baseRarity: 'uncommon',
+    baseOverall: 81,
   },
   {
-    name: 'Enzo Thomas',
+    name: 'Rafael Dutra',
     position: 'Ala',
     nationality: 'Brasil',
-    age: 19,
-    club: 'Aurora Futsal',
-    attributes: { pace: 82, shooting: 78, passing: 75, dribbling: 90, defending: 55, physical: 60 },
-    image: enzothomas,
-    baseRarity: 'common',
+    age: 21,
+    club: 'Tigres Futsal',
+    attributes: { pace: 70, shooting: 83, passing: 77, dribbling: 66, defending: 74, physical: 92 },
+    image: rafaeldutra,
+    baseRarity: 'uncommon',
+    baseOverall: 76,
   },
   {
     name: 'Vinícius Assunção',
@@ -105,9 +102,21 @@ const TEMPLATES: PlayerTemplate[] = [
     nationality: 'Brasil',
     age: 22,
     club: 'Aurora Futsal',
-    attributes: { pace: 94, shooting: 72, passing: 76, dribbling: 65, defending: 68, physical: 60 },
+    attributes: { pace: 91, shooting: 71, passing: 73, dribbling: 68, defending: 66, physical: 66 },
     image: viniciusassuncao,
-    baseRarity: 'common',
+    baseRarity: 'uncommon',
+    baseOverall: 76,
+  },
+  {
+    name: 'Enzo Thomas',
+    position: 'Ala',
+    nationality: 'Brasil',
+    age: 19,
+    club: 'Aurora Futsal',
+    attributes: { pace: 79, shooting: 67, passing: 70, dribbling: 84, defending: 58, physical: 65 },
+    image: enzothomas,
+    baseRarity: 'uncommon',
+    baseOverall: 74,
   },
   {
     name: 'Heitor Barbosa',
@@ -115,20 +124,10 @@ const TEMPLATES: PlayerTemplate[] = [
     nationality: 'Brasil',
     age: 22,
     club: 'Tigres Futsal',
-    attributes: { pace: 70, shooting: 75, passing: 80, dribbling: 65, defending: 85, physical: 65 },
+    attributes: { pace: 75, shooting: 73, passing: 78, dribbling: 67, defending: 89, physical: 77 },
     image: heitorbarbosa,
-    baseRarity: 'common',
-  },
-  {
-    name: 'Jonas Daniel',
-    position: 'GK',
-    nationality: 'Brasil',
-    age: 18,
-    club: 'Aurora Futsal',
-    attributes: { pace: 40, shooting: 60, passing: 60, dribbling: 60, defending: 65, physical: 72 },
-    gkAttributes: { reflexes: 75, positioning: 90, handling: 75 },
-    image: jonasdanieldebritolopes,
-    baseRarity: 'common',
+    baseRarity: 'uncommon',
+    baseOverall: 82,
   },
   {
     name: 'Gabriel Ortelan',
@@ -136,9 +135,22 @@ const TEMPLATES: PlayerTemplate[] = [
     nationality: 'Brasil',
     age: 21,
     club: 'Estrela Futsal',
-    attributes: { pace: 45, shooting: 30, passing: 55, dribbling: 45, defending: 90, physical: 75 },
+    attributes: { pace: 58, shooting: 45, passing: 60, dribbling: 52, defending: 80, physical: 80 },
     image: gabrielortelan,
-    baseRarity: 'common',
+    baseRarity: 'uncommon',
+    baseOverall: 70,
+  },
+  {
+    name: 'Jonas Daniel',
+    position: 'GK',
+    nationality: 'Brasil',
+    age: 18,
+    club: 'Aurora Futsal',
+    attributes: { pace: 45, shooting: 42, passing: 57, dribbling: 40, defending: 70, physical: 75 },
+    gkAttributes: { reflexes: 74, positioning: 64, handling: 72 },
+    image: jonasdanieldebritolopes,
+    baseRarity: 'uncommon',
+    baseOverall: 68,
   },
   {
     name: 'Rafinha',
@@ -149,7 +161,8 @@ const TEMPLATES: PlayerTemplate[] = [
     attributes: { pace: 60, shooting: 30, passing: 70, dribbling: 40, defending: 86, physical: 62 },
     gkAttributes: { reflexes: 82, positioning: 90, handling: 80 },
     image: rafaelteixeira,
-    baseRarity: 'common',
+    baseRarity: 'uncommon',
+    baseOverall: 73,
   },
   {
     name: 'Monteiro',
@@ -159,7 +172,8 @@ const TEMPLATES: PlayerTemplate[] = [
     club: 'Fênix Futsal',
     attributes: { pace: 55, shooting: 30, passing: 50, dribbling: 20, defending: 60, physical: 40 },
     image: viniciusmonteiro,
-    baseRarity: 'common',
+    baseRarity: 'uncommon',
+    baseOverall: 68,
   },
 ];
 
@@ -188,6 +202,7 @@ function applyModifier(value: number, mod: number): number {
 }
 
 function calculateOverall(t: PlayerTemplate): number {
+  if (t.baseOverall !== undefined) return t.baseOverall;
   const a = t.attributes;
   if (t.position === 'GK') {
     const gk = t.gkAttributes ?? { reflexes: 50, positioning: 50, handling: 50 };
@@ -202,7 +217,6 @@ function calculateOverall(t: PlayerTemplate): number {
     const w = a.pace * 0.25 + a.passing * 0.22 + a.dribbling * 0.20 + a.shooting * 0.13 + a.defending * 0.12 + a.physical * 0.08;
     return Math.round(w);
   }
-  // Pivo
   const w = a.shooting * 0.32 + a.physical * 0.22 + a.dribbling * 0.18 + a.passing * 0.12 + a.pace * 0.10 + a.defending * 0.06;
   return Math.round(w);
 }
@@ -225,12 +239,14 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
   } : undefined;
 
   const templateWithAttrs: PlayerTemplate = { ...t, attributes: attrs, gkAttributes: gk };
-  let overall = calculateOverall(templateWithAttrs);
+  let overall = t.baseOverall !== undefined ? t.baseOverall : calculateOverall(templateWithAttrs);
   const bonus = SPECIAL_BONUS[special] ?? 0;
   overall = Math.min(99, overall + bonus);
 
   const meta = RARITY_META[rarity];
-  overall = Math.max(meta.minOvr, Math.min(meta.maxOvr, overall));
+  if (t.baseOverall === undefined) {
+    overall = Math.max(meta.minOvr, Math.min(meta.maxOvr, overall));
+  }
 
   return {
     uid: nanoid(10),
