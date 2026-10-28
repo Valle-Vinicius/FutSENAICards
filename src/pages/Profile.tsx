@@ -31,7 +31,7 @@ export default function Profile() {
   const [accountMsg, setAccountMsg] = useState('');
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(async ({ data }: { data: any }) => {
       if (data.session?.user?.id) {
         const p = await getProfile(data.session.user.id);
         setProfile(p);

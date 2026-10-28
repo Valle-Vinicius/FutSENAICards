@@ -144,7 +144,7 @@ export const useGame = create<GameState & Actions>()(
         }
         get().updateMissionProgress();
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) await get().syncUserData(uid);
           });
@@ -194,7 +194,7 @@ export const useGame = create<GameState & Actions>()(
           transactions: [{ id: nanoid(8), type: 'earn' as const, amount: n, reason, at: Date.now() }, ...st.transactions].slice(0, 50),
         }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
@@ -211,7 +211,7 @@ export const useGame = create<GameState & Actions>()(
           transactions: [{ id: nanoid(8), type: 'spend' as const, amount: n, reason, at: Date.now() }, ...st.transactions].slice(0, 50),
         }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
@@ -227,7 +227,7 @@ export const useGame = create<GameState & Actions>()(
           return { xp: newXp, level: levelFromXp(newXp) };
         });
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) await supabase!.from('profiles').update({ xp: get().xp, level: get().level }).eq('id', uid);
           });
@@ -252,7 +252,7 @@ export const useGame = create<GameState & Actions>()(
         }
         // sync new cards to Supabase
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               const dbCards = await Promise.all(cards.map(c => addCard(uid, c)));
@@ -274,7 +274,7 @@ export const useGame = create<GameState & Actions>()(
           newCardUids: [...cards.map(c => c.uid), ...st.newCardUids].slice(0, 50),
         }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
@@ -317,7 +317,7 @@ export const useGame = create<GameState & Actions>()(
         get().addXp(40);
         set({ lastDailyClaim: now });
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) await supabase!.from('profiles').update({ last_daily_claim: new Date(now).toISOString() }).eq('id', uid);
           });
@@ -334,7 +334,7 @@ export const useGame = create<GameState & Actions>()(
           cards: st.cards.map(c => c.uid === uid ? { ...c, favorite: !c.favorite } : c),
         }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const u = data.session?.user?.id;
             if (u) {
               const favs = get().cards.filter(c => c.favorite).map(c => c.uid);
@@ -351,7 +351,7 @@ export const useGame = create<GameState & Actions>()(
           newCardUids: st.newCardUids.filter(u => !uids.includes(u)),
         }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const u = data.session?.user?.id;
             if (u) {
               const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', u).single();
@@ -390,7 +390,7 @@ export const useGame = create<GameState & Actions>()(
         });
         // sync events, newCardUids, unlockedPacks to Supabase
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
@@ -413,14 +413,14 @@ export const useGame = create<GameState & Actions>()(
         }
         // sync achievements to Supabase
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) await upsertAchievements(uid, get().achievements);
           });
         }
         // sync missions to Supabase
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) await upsertMissions(uid, get().missions);
           });
@@ -434,7 +434,7 @@ export const useGame = create<GameState & Actions>()(
         get().addXp(m.rewardXp);
         set(st => ({ missions: st.missions.map(x => x.id === id ? { ...x, claimed: true } : x) }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) await claimMissionDb(uid, id);
           });
@@ -517,7 +517,7 @@ export const useGame = create<GameState & Actions>()(
         };
         set(st => ({ savedSquads: [saved, ...st.savedSquads] }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               const remote = await saveSquadService(uid, squad, name);
@@ -540,7 +540,7 @@ export const useGame = create<GameState & Actions>()(
           savedSquads: st.savedSquads.map(s => ({ ...s, isPrimary: s.id === id ? true : (s.sport === st.savedSquads.find(x=>x.id===id)?.sport ? false : s.isPrimary) }))
         }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               await supabase!.from('saved_squads').update({ is_primary: false }).eq('user_id', uid);
@@ -568,7 +568,7 @@ export const useGame = create<GameState & Actions>()(
       addCompareHistory: (aUid, bUid) => {
         set(st => ({ compareHistory: [{ aUid, bUid, at: Date.now() }, ...st.compareHistory].slice(0, 20) }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
@@ -581,7 +581,7 @@ export const useGame = create<GameState & Actions>()(
       addMatchHistory: (entry) => {
         set(st => ({ matchHistory: [entry, ...st.matchHistory].slice(0, 50) }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) await addMatch(uid, { sport: entry.sport, homeScore: entry.homeScore, awayScore: entry.awayScore, opponent: entry.opponent });
           });
@@ -590,7 +590,7 @@ export const useGame = create<GameState & Actions>()(
       updateSettings: (s) => {
         set(st => ({ settings: { ...st.settings, ...s } }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) await updateSettingsService(uid, s);
           });
@@ -632,18 +632,20 @@ export const useGame = create<GameState & Actions>()(
         return true;
       },
       convertDuplicates: async () => {
+        const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
         const cards = get().cards;
-        const byName: Record<string, string[]> = {};
-        cards.forEach(c => { (byName[c.name] = byName[c.name] || []).push(c.uid); });
+        const byName: Record<string, typeof cards> = {};
+        cards.forEach(c => { (byName[c.name] = byName[c.name] || []).push(c); });
         const toRemove: string[] = [];
-        Object.values(byName).forEach(uids => {
-          if (uids.length > 1) {
-            uids.slice(1).forEach(u => toRemove.push(u));
-          }
+        Object.values(byName).forEach(group => {
+          if (group.length <= 1) return;
+          const nonFav = group.filter(c => !c.favorite).sort((a, b) => (rarityRank[b.rarity] ?? 0) - (rarityRank[a.rarity] ?? 0));
+          // keep the best non-favorite; remove the rest (non-favorites only)
+          nonFav.slice(1).forEach(c => toRemove.push(c.uid));
         });
         if (toRemove.length === 0) return 0;
         const reward = toRemove.length * 200;
-        get().addCoins(reward, `ConversÃ£o de ${toRemove.length} duplicatas`);
+        get().addCoins(reward, `Conversão de ${toRemove.length} duplicatas`);
         set(st => ({ cards: st.cards.filter(c => !toRemove.includes(c.uid)) }));
         if (supabase) {
           const { data } = await supabase.auth.getSession();
@@ -687,7 +689,7 @@ export const useGame = create<GameState & Actions>()(
           cards: st.cards.map(x => x.uid === cardUid ? { ...x, isNew: false } : x),
         }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               const remote = await createListing({ sellerId: uid, cardUid, cardName: c.name, cardOverall: c.overall, cardPosition: c.position, cardRarity: c.rarity, cardImage: c.image, cardAttributes: { pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical, reflexes: c.reflexes, positioning: c.positioning, handling: c.handling }, price, buyNow, expiresAt: new Date(Date.now() + hours * 3600000).toISOString(), status: 'active' });
@@ -777,7 +779,7 @@ export const useGame = create<GameState & Actions>()(
         // remove cards
         set(st => ({ cards: st.cards.filter(c => !cardUids.includes(c.uid)) }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }) => {
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
               for (const cu of cardUids) await supabase!.from('cards').delete().eq('id', cu);

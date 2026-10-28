@@ -45,8 +45,8 @@ export default function Compare() {
   const samePos = a && b && a.position === b.position;
 
   const lineAttrs = (c: any) => isGK(c.position)
-    ? [{ k:'REF', v: c.reflexes ?? 0 }, { k:'POS', v: c.positioning ?? 0 }, { k:'HAN', v: c.handling ?? 0 }, { k:'PAC', v: c.pace }, { k:'DEF', v: c.defending }, { k:'FIS', v: c.physical }]
-    : [{ k:'PAC', v: c.pace }, { k:'SHO', v: c.shooting }, { k:'PAS', v: c.passing }, { k:'DRI', v: c.dribbling }, { k:'DEF', v: c.defending }, { k:'PHY', v: c.physical }];
+    ? [{ k:'REF', v: c.reflexes ?? 0 }, { k:'POS', v: c.positioning ?? 0 }, { k:'HAN', v: c.handling ?? 0 }, { k:'VEL', v: c.pace }, { k:'DEF', v: c.defending }, { k:'FIS', v: c.physical }]
+    : [{ k:'VEL', v: c.pace }, { k:'CHU', v: c.shooting }, { k:'PAS', v: c.passing }, { k:'DRI', v: c.dribbling }, { k:'DEF', v: c.defending }, { k:'FIS', v: c.physical }];
 
   const attrsA = a ? lineAttrs(a) : [];
   const attrsB = b ? lineAttrs(b) : [];

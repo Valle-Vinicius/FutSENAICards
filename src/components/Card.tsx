@@ -11,8 +11,8 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
   const nameFont = size === 'sm' ? 'text-sm' : 'text-base';
 
   const attrs = isGK
-    ? [{l:'REF',v:card.reflexes ?? 0},{l:'POS',v:card.positioning ?? 0},{l:'HAN',v:card.handling ?? 0},{l:'PAC',v:card.pace},{l:'DEF',v:card.defending},{l:'FIS',v:card.physical}]
-    : [{l:'PAC',v:card.pace},{l:'SHO',v:card.shooting},{l:'PAS',v:card.passing},{l:'DRI',v:card.dribbling},{l:'DEF',v:card.defending},{l:'PHY',v:card.physical}];
+    ? [{l:'REF',v:card.reflexes ?? 0},{l:'POS',v:card.positioning ?? 0},{l:'HAN',v:card.handling ?? 0},{l:'VEL',v:card.pace},{l:'DEF',v:card.defending},{l:'FIS',v:card.physical}]
+    : [{l:'VEL',v:card.pace},{l:'CHU',v:card.shooting},{l:'PAS',v:card.passing},{l:'DRI',v:card.dribbling},{l:'DEF',v:card.defending},{l:'FIS',v:card.physical}];
 
   return (
     <motion.div

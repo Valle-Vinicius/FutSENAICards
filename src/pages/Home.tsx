@@ -17,7 +17,7 @@ export default function Home() {
   const [userName, setUserName] = useState('Jogador');
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(async ({ data }: { data: any }) => {
       const uid = data.session?.user?.id;
       if (uid) {
         const p = await getProfile(uid);
@@ -43,7 +43,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(async ({ data }: { data: any }) => {
       const uid = data.session?.user?.id;
       if (uid) {
         const p = await getProfile(uid);
