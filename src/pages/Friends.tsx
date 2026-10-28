@@ -14,6 +14,7 @@ export default function Friends() {
   const [results, setResults] = useState<FriendUser[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [tableMissing, setTableMissing] = useState(false);
+  const [msg, setMsg] = useState('');
   const navigate = useNavigate();
   const setPendingFriends = useGame(s => s.setPendingFriends);
 
