@@ -13,6 +13,8 @@ import pietroguedes from '../imagens/pietroguedes.jpg';
 import rafaeldutra from '../imagens/rafaeldutra.jpg';
 import thiagotavares from '../imagens/thiagotavares.jpg';
 import viniciusassuncao from '../imagens/viniciusassuncao.jpg';
+import rafaelteixeira from '../imagens/rafaelteixeira.png';
+import viniciusmonteiro from '../imagens/viniciusmonteiro.png';
 
 interface PlayerTemplate {
   name: string;
@@ -136,6 +138,27 @@ const TEMPLATES: PlayerTemplate[] = [
     club: 'Estrela Futsal',
     attributes: { pace: 45, shooting: 30, passing: 55, dribbling: 45, defending: 90, physical: 75 },
     image: gabrielortelan,
+    baseRarity: 'common',
+  },
+  {
+    name: 'Rafinha',
+    position: 'GK',
+    nationality: 'Brasil',
+    age: 22,
+    club: 'Aurora Futsal',
+    attributes: { pace: 60, shooting: 30, passing: 70, dribbling: 40, defending: 86, physical: 62 },
+    gkAttributes: { reflexes: 82, positioning: 90, handling: 80 },
+    image: rafaelteixeira,
+    baseRarity: 'common',
+  },
+  {
+    name: 'Monteiro',
+    position: 'Pivo',
+    nationality: 'Brasil',
+    age: 20,
+    club: 'Fênix Futsal',
+    attributes: { pace: 55, shooting: 30, passing: 50, dribbling: 20, defending: 60, physical: 40 },
+    image: viniciusmonteiro,
     baseRarity: 'common',
   },
 ];
