@@ -106,7 +106,7 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
     handling: applyModifier(t.gkAttributes.handling, mod),
   } : undefined;
 
-  const overall = Math.min(99, (t.baseOverall ?? calculateOverall(t)) + (RARITY_OVR_BONUS[rarity] ?? 0) + (SPECIAL_OVR_BONUS[special] ?? 0));
+  const overall = Math.min(RARITY_META[rarity].maxOvr, (t.baseOverall ?? calculateOverall(t)) + (RARITY_OVR_BONUS[rarity] ?? 0) + (SPECIAL_OVR_BONUS[special] ?? 0));
 
   return {
     uid: nanoid(10),

@@ -19,12 +19,11 @@ export async function getCards(userId: string): Promise<PlayerCard[]> {
   const migrated: any[] = [];
   for (const c of cards) {
     const schemaVersion = c.schema_version ?? 1;
-    if (schemaVersion < 3) {
+    if (schemaVersion < 4) {
       const t = allTemplates().find((x: any) => x.name === c.name);
       if (t) {
-        const mod = ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 } as any)[c.rarity] ?? 1.0;
-        const bonus = ({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 } as any)[c.special] ?? 0;
-        const attrs = {
+      const mod = ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 } as any)[c.rarity] ?? 1.0;
+      const attrs = {
           pace: Math.max(0, Math.min(99, Math.round(t.attributes.pace * mod))),
           shooting: Math.max(0, Math.min(99, Math.round(t.attributes.shooting * mod))),
           passing: Math.max(0, Math.min(99, Math.round(t.attributes.passing * mod))),
@@ -37,10 +36,10 @@ export async function getCards(userId: string): Promise<PlayerCard[]> {
           positioning: Math.max(0, Math.min(99, Math.round(t.gkAttributes.positioning * mod))),
           handling: Math.max(0, Math.min(99, Math.round(t.gkAttributes.handling * mod))),
         } : null;
-        const overall = Math.min(99, Math.round((t.baseOverall ?? c.overall) * mod + bonus));
-        const payload: any = { ...attrs, ...(gk || {}), overall, schema_version: 3 };
+        const overall = Math.min(({ common: 69, uncommon: 74, rare: 79, epic: 87, legendary: 94, icon: 99 } as any)[c.rarity] ?? 99, (t.baseOverall ?? c.overall) + (({ common: 0, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 } as any)[c.rarity] ?? 0) + (({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 } as any)[c.special] ?? 0));
+        const payload: any = { ...attrs, ...(gk || {}), overall, schema_version: 4 };
         await supabase!.from('cards').update(payload).eq('id', c.id);
-        migrated.push({ ...c, ...attrs, ...(gk || {}), overall, schema_version: 3 });
+        migrated.push({ ...c, ...attrs, ...(gk || {}), overall, schema_version: 4 });
       } else {
         migrated.push(c);
       }
@@ -109,7 +108,7 @@ export async function addCard(userId: string, card: PlayerCard): Promise<PlayerC
     favorite: card.favorite,
     is_new: card.isNew,
     obtained_at: new Date(card.obtainedAt).toISOString(),
-    schema_version: 3,
+    schema_version: 4,
   }).select().single();
   if (error) return null;
   return { ...card, uid: data.id };
