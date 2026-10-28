@@ -107,6 +107,8 @@ body {
 }
 .rgb-card { animation: rgbBorder 2.5s linear infinite; }
 .rgb-stat { animation: rgbBg 2.5s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
