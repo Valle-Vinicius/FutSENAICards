@@ -3,9 +3,18 @@ import type { PlayerCard } from '../../types';
 
 export async function getCards(userId: string): Promise<PlayerCard[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10000);
-  if (error) return [];
-  const cards = data || [];
+  const all: any[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).range(from, from + pageSize - 1);
+    if (error) break;
+    const batch = data || [];
+    all.push(...batch);
+    if (batch.length < pageSize) break;
+    from += pageSize;
+  }
+  const cards = all;
   const migrated: any[] = [];
   for (const c of cards) {
     if ((c.schema_version ?? 1) < 2) {
