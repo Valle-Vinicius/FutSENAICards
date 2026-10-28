@@ -12,7 +12,7 @@ export default function Friends() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FriendUser[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  const [tableMissing, setTableMissing] = useState(false);
+  const [msg, setMsg] = useState('');
   const setPendingFriends = useGame(s => s.setPendingFriends);
 
   const load = async (uid: string) => {
