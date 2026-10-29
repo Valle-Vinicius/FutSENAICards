@@ -7,6 +7,7 @@ import { playBurst, playCharge, playFlip, playRareReveal } from '../lib/sound';
 import Card from '../components/Card';
 import type { PlayerCard, Rarity } from '../types';
 import { RARITY_META } from '../types';
+import { Coins, Trophy, Copy } from 'lucide-react';
 import cardBackCommon from '../imagens/cartas/comum.png';
 import cardBackUncommon from '../imagens/cartas/incomum.png';
 import cardBackRare from '../imagens/cartas/raro.png';
@@ -96,6 +97,7 @@ export default function OpenPack() {
   const [cards, setCards] = useState<PlayerCard[]>([]);
   const [choiceCards, setChoiceCards] = useState<PlayerCard[]>([]);
   const [revealed, setRevealed] = useState<boolean[]>([]);
+  const [duplicateCount, setDuplicateCount] = useState(0);
   const [skip, setSkip] = useState(false);
   const [fast, setFast] = useState(false);
   const [burstFire, setBurstFire] = useState(false);
@@ -123,6 +125,8 @@ export default function OpenPack() {
     const sorted = sortCards(res.cards);
     setCards(sorted);
     setRevealed(new Array(sorted.length).fill(false));
+    const prevOwned = new Set(useGame.getState().cards.map(c => c.playerId));
+    setDuplicateCount(sorted.filter(c => prevOwned.has(c.playerId)).length);
     if (skip || reduceMotion || !animationsOn) {
       setRevealed(new Array(sorted.length).fill(true));
       setPhase('summary');
@@ -288,9 +292,11 @@ export default function OpenPack() {
             <div className="flex flex-wrap justify-center gap-5">
               {choiceCards.map(c => (
                 <motion.div key={c.uid} whileHover={{ scale: 1.05 }} onClick={() => {
+                  const prevOwned = new Set(useGame.getState().cards.map(x => x.playerId));
                   claimPreviewedCard(c);
                   setCards([c]);
                   setRevealed([true]);
+                  setDuplicateCount(prevOwned.has(c.playerId) ? 1 : 0);
                   setPhase('summary');
                 }} className="cursor-pointer">
                   <Card card={c} size="md" />
@@ -356,11 +362,28 @@ export default function OpenPack() {
                 </motion.div>
               ))}
             </div>
+            <div className="flex gap-3 w-full max-w-2xl">
+              <div className="flex-1 card-surface p-3 text-center space-y-1">
+                <Coins className="w-6 h-6 mx-auto text-[#EF4444]" />
+                <div className="text-lg font-bold text-[#252733]">{estimatedValue.toLocaleString('pt-BR')}</div>
+                <div className="text-[10px] text-[#858A98]">Valor total</div>
+              </div>
+              <div className="flex-1 card-surface p-3 text-center space-y-1">
+                <Trophy className="w-6 h-6 mx-auto text-[#EF4444]" />
+                <div className="text-lg font-bold text-[#252733]">{cards[0]?.overall ?? 0}</div>
+                <div className="text-[10px] text-[#858A98]">Melhor carta</div>
+              </div>
+              <div className="flex-1 card-surface p-3 text-center space-y-1">
+                <Copy className="w-6 h-6 mx-auto text-[#EF4444]" />
+                <div className="text-lg font-bold text-[#252733]">{duplicateCount}</div>
+                <div className="text-[10px] text-[#858A98]">Duplicatas</div>
+              </div>
+            </div>
             <div className="flex gap-3 flex-wrap justify-center">
               <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: '#E30613' }}>
                 VER COLEÇÃO
               </button>
-              <button onClick={() => { setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
+              <button onClick={() => { setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setDuplicateCount(0); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
                 ABRIR OUTRO PACOTE
               </button>
             </div>
