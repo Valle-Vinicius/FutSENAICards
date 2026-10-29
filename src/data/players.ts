@@ -13,6 +13,7 @@ import rafaeldutra from '../imagens/rafaeldutra.jpg';
 import thiagotavares from '../imagens/thiagotavares.jpg';
 import viniciusassuncao from '../imagens/viniciusassuncao.jpg';
 import eduardo from '../imagens/eduardo.png';
+import enzoantonio from '../imagens/enzoantonio.png';
 import rafaelteixeira from '../imagens/rafaelteixeira.png';
 import viniciusmonteiro from '../imagens/viniciusmonteiro.png';
 
@@ -71,6 +72,7 @@ const TEMPLATES: PlayerTemplate[] = [
   { name: 'Rafinha', position: 'GK', nationality: 'Brasil', age: 22, club: 'Aurora Futsal', attributes: { pace: 60, shooting: 30, passing: 70, dribbling: 40, defending: 86, physical: 62 }, gkAttributes: { reflexes: 82, positioning: 90, handling: 80 }, image: rafaelteixeira, baseRarity: 'uncommon', baseOverall: 73 },
   { name: 'Monteiro', position: 'Pivo', nationality: 'Brasil', age: 20, club: 'Fênix Futsal', attributes: { pace: 55, shooting: 30, passing: 50, dribbling: 20, defending: 60, physical: 40 }, image: viniciusmonteiro, baseRarity: 'uncommon', baseOverall: 68 },
   { name: 'Eduardo', position: 'Ala', nationality: 'Brasil', age: 21, club: 'Aurora Futsal', attributes: { pace: 80, shooting: 80, passing: 70, dribbling: 70, defending: 60, physical: 85 }, image: eduardo, baseRarity: 'common', baseOverall: 77 },
+  { name: 'Enzo Antonio', position: 'GK', nationality: 'Brasil', age: 20, club: 'Aurora Futsal', attributes: { pace: 60, shooting: 30, passing: 70, dribbling: 40, defending: 70, physical: 70 }, gkAttributes: { reflexes: 78, positioning: 80, handling: 75 }, image: enzoantonio, baseRarity: 'common', baseOverall: 73 },
 ];
 
 const SEASONS = ['2025/26'];
