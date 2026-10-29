@@ -7,6 +7,21 @@ import { playBurst, playCharge, playFlip, playRareReveal } from '../lib/sound';
 import Card from '../components/Card';
 import type { PlayerCard, Rarity } from '../types';
 import { RARITY_META } from '../types';
+import cardBackCommon from '../imagens/cartas/comum.png';
+import cardBackUncommon from '../imagens/cartas/incomum.png';
+import cardBackRare from '../imagens/cartas/raro.png';
+import cardBackEpic from '../imagens/cartas/epico.png';
+import cardBackLegendary from '../imagens/cartas/lendario.png';
+import cardBackIcon from '../imagens/cartas/icone.png';
+
+const CARD_BACKS: Record<string, string> = {
+  common: cardBackCommon,
+  uncommon: cardBackUncommon,
+  rare: cardBackRare,
+  epic: cardBackEpic,
+  legendary: cardBackLegendary,
+  icon: cardBackIcon,
+};
 
 const RARITY_RANK: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
 const RARITY_VALUE: Record<Rarity, number> = { common: 100, uncommon: 250, rare: 600, epic: 1500, legendary: 4000, icon: 10000 };
@@ -360,7 +375,6 @@ export default function OpenPack() {
 }
 
 function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard; revealed: boolean; onReveal: () => void; rarityColor: string }) {
-  const meta = RARITY_META[card.rarity];
   return (
     <div className="w-44 h-60 cursor-pointer" style={{ perspective: 1000 }} onClick={() => !revealed && onReveal()}>
       <motion.div
@@ -368,18 +382,9 @@ function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard;
         transition={{ duration: 0.7, type: 'spring', stiffness: 120 }}
         style={{ transformStyle: 'preserve-3d', position: 'relative', width: '100%', height: '100%' }}
       >
-        <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0, background: `radial-gradient(circle at center, ${rarityColor}33, #0b0e13)`, border: `2px solid ${rarityColor}` }} className="rounded-2xl flex flex-col items-center justify-center overflow-hidden">
-          <motion.div
-            animate={{ opacity: [0.3, 0.7, 0.3], scale: [1, 1.05, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="text-6xl opacity-60"
-          >
-            👤
-          </motion.div>
-          <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: rarityColor, color: '#fff' }}>{meta.label}</div>
-          <div className="absolute bottom-2 text-xs font-bold" style={{ color: rarityColor }}>{card.position}</div>
-          <div className="absolute inset-0 opacity-30" style={{ background: `linear-gradient(110deg, transparent 30%, ${rarityColor} 50%, transparent 70%)`, backgroundSize: '200% 100%', animation: 'shimmer 2s linear infinite' }} />
-          <div className="absolute bottom-8 text-[10px] text-white/40">Clique para revelar</div>
+        <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0, border: `2px solid ${rarityColor}` }} className="rounded-2xl overflow-hidden">
+          <img src={CARD_BACKS[card.rarity] || CARD_BACKS.common} alt="Verso da carta" className="w-full h-full object-cover" />
+          <div className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/70 font-bold">Clique para revelar</div>
         </div>
         <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}>
           <Card card={card} size="md" />
