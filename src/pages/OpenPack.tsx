@@ -385,10 +385,15 @@ function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard;
         <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0, border: `2px solid ${rarityColor}` }} className="rounded-2xl overflow-hidden">
           <img src={CARD_BACKS[card.rarity] || CARD_BACKS.common} alt="Verso da carta" className="w-full h-full object-contain" />
           <motion.div
-            animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute inset-0 bg-gradient-to-t from-black/70 via-gray-500/20 to-transparent pointer-events-none"
-            style={{ mixBlendMode: 'screen' }}
+            animate={{ x: ['-100%', '100%'] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
+            className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none"
+            style={{ transform: 'skewX(-20deg)' }}
+          />
+          <motion.div
+            animate={{ opacity: [0.4, 0.8, 0.4] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none"
           />
           <div className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/70 font-bold">Clique para revelar</div>
         </div>
