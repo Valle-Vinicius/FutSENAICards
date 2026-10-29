@@ -156,7 +156,7 @@ export const useGame = create<GameState & Actions>()(
         }
         const s = get();
         // migrate persisted packs: fix goalkeeper pack position
-        const fixedPacks = s.packConfigs.map(p =>
+        const fixedPacks = s.packConfigs.filter(p => !p.id.startsWith('futsal_')).map(p =>
           p.id === 'position_gk' ? { ...p, position: 'GK' as any, sport: 'futsal' as any } : p
         );
         set({ packConfigs: fixedPacks });
