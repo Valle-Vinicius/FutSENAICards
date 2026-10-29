@@ -100,7 +100,6 @@ export default function OpenPack() {
   const [fast, setFast] = useState(false);
   const [burstFire, setBurstFire] = useState(false);
   const [shake, setShake] = useState(false);
-  const [duplicateUids, setDuplicateUids] = useState<Set<string>>(new Set());
 
   if (!pack) return <div className="p-8">Pacote não encontrado.</div>;
 
@@ -111,7 +110,6 @@ export default function OpenPack() {
 
   const startOpen = () => {
     if (phase !== 'idle') return;
-    const prevOwned = new Set(useGame.getState().cards.map(c => c.playerId));
     if (isChoice) {
       const res = previewPack(pack.id);
       if (!res) { toast.alert('Saldo insuficiente.'); return; }
@@ -125,7 +123,6 @@ export default function OpenPack() {
     const sorted = sortCards(res.cards);
     setCards(sorted);
     setRevealed(new Array(sorted.length).fill(false));
-    setDuplicateUids(new Set(sorted.filter(c => prevOwned.has(c.playerId)).map(c => c.uid)));
     if (skip || reduceMotion || !animationsOn) {
       setRevealed(new Array(sorted.length).fill(true));
       setPhase('summary');
@@ -291,11 +288,9 @@ export default function OpenPack() {
             <div className="flex flex-wrap justify-center gap-5">
               {choiceCards.map(c => (
                 <motion.div key={c.uid} whileHover={{ scale: 1.05 }} onClick={() => {
-                  const prevOwned = new Set(useGame.getState().cards.map(x => x.playerId));
                   claimPreviewedCard(c);
                   setCards([c]);
                   setRevealed([true]);
-                  setDuplicateUids(new Set(prevOwned.has(c.playerId) ? [c.uid] : []));
                   setPhase('summary');
                 }} className="cursor-pointer">
                   <Card card={c} size="md" />
@@ -343,8 +338,10 @@ export default function OpenPack() {
 
         {phase === 'summary' && (
           <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-6 w-full relative z-10">
-            <div className="text-3xl font-black" style={{ color: packColor }}>VOCÊ RECEBEU</div>
-            <div className="text-sm text-black/60">Valor estimado: {estimatedValue.toLocaleString('pt-BR')} moedas</div>
+            <div className="text-3xl font-black text-[#E30613]">PACOTE ABERTO COM SUCESSO!</div>
+            <div className="text-sm text-[#252733]">Valor total: {estimatedValue.toLocaleString('pt-BR')} moedas</div>
+            <div className="text-sm text-[#252733]">Cartas recebidas: {cards.length}</div>
+            <div className="text-sm text-[#252733]">Melhor carta: {cards[0]?.name} (OVR {cards[0]?.overall})</div>
             <div className="flex flex-wrap justify-center gap-5 items-end">
               {cards.map((c, i) => (
                 <motion.div
@@ -354,16 +351,16 @@ export default function OpenPack() {
                   transition={{ delay: i * 0.08, duration: 0.4 }}
                 >
                   {i === 0 && <div className="text-center text-xs font-black mb-1" style={{ color: RARITY_META[c.rarity].color }}>MELHOR CARTA</div>}
-                  {duplicateUids.has(c.uid) && <span className="absolute bottom-2 left-2 z-30 bg-amber-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow">DUPLICATA</span>}
+                  
                   <Card card={c} size={i === 0 ? 'lg' : 'md'} />
                 </motion.div>
               ))}
             </div>
             <div className="flex gap-3 flex-wrap justify-center">
-              <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: packColor }}>
+              <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: '#E30613' }}>
                 VER COLEÇÃO
               </button>
-              <button onClick={() => { setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setDuplicateUids(new Set()); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
+              <button onClick={() => { setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
                 ABRIR OUTRO PACOTE
               </button>
             </div>
