@@ -114,7 +114,7 @@ export default function OpenPack() {
     let w = canvas.width = canvas.clientWidth || canvas.offsetWidth || 800;
     let h = canvas.height = canvas.clientHeight || canvas.offsetHeight || 600;
     const particles: { x: number; y: number; vx: number; vy: number }[] = [];
-    for (let i = 0; i < 30; i++) particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 1.5, vy: (Math.random() - 0.5) * 1.5 });
+    for (let i = 0; i < 60; i++) particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 1.2, vy: (Math.random() - 0.5) * 1.2 });
     let raf = 0;
     const draw = () => {
       ctx.clearRect(0, 0, w, h);
@@ -123,8 +123,8 @@ export default function OpenPack() {
         if (p.x < 0 || p.x > w) p.vx *= -1;
         if (p.y < 0 || p.y > h) p.vy *= -1;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(220,56,71,0.3)';
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.fill();
       }
       for (let i = 0; i < particles.length; i++) {
@@ -132,11 +132,11 @@ export default function OpenPack() {
           const dx = particles[i].x - particles[j].x;
           const dy = particles[i].y - particles[j].y;
           const dist = Math.hypot(dx, dy);
-          if (dist < 120) {
+          if (dist < 150) {
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(220,56,71,${0.15 * (1 - dist / 120)})`;
+            ctx.strokeStyle = `rgba(255,255,255,${0.2 * (1 - dist / 150)})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
