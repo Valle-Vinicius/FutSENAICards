@@ -345,9 +345,6 @@ export default function OpenPack() {
         {phase === 'summary' && (
           <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-6 w-full relative z-10">
             <div className="text-3xl font-black text-[#E30613]">PACOTE ABERTO COM SUCESSO!</div>
-            <div className="text-sm text-[#252733]">Valor total: {estimatedValue.toLocaleString('pt-BR')} moedas</div>
-            <div className="text-sm text-[#252733]">Cartas recebidas: {cards.length}</div>
-            <div className="text-sm text-[#252733]">Melhor carta: {cards[0]?.name} (OVR {cards[0]?.overall})</div>
             <div className="flex flex-wrap justify-center gap-5 items-end">
               {cards.map((c, i) => (
                 <motion.div
