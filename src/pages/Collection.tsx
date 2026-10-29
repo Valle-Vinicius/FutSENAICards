@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import { Lock } from 'lucide-react';
+import bgWhite from '../imagens/background/backgroundbranco.png';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
 import { allTemplates } from '../data/players';
@@ -43,7 +44,7 @@ export default function Collection() {
   const sel = 'bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]';
 
   return (
-    <div className="p-4 md:p-8 space-y-4">
+    <div className="p-4 md:p-8 space-y-4 min-h-screen" style={{ backgroundImage: `url(${bgWhite})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Minhas cartas</h1>
         <div className="flex gap-2">
@@ -96,7 +97,7 @@ export default function Collection() {
         <div className="text-center text-[#858A98] py-12">Nenhuma carta encontrada.</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {filtered.slice(0, visible).map(c => (
               <Card key={c.uid} card={c} size="sm" onClick={() => openCard(c)} isNew={c.isNew} />
             ))}
