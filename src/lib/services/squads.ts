@@ -49,8 +49,8 @@ export async function upsertPrimarySquad(userId: string, squad: Squad): Promise<
   });
   return !error;
 }
+export async function getSavedSquads(userId: string): Promise<SavedSquad[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('saved_squads').select('*').eq('user_id', userId).order('created_at', { ascending: false });
   if (error) return [];
   return (data || []).map((s: any) => ({
     id: s.id,
