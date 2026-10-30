@@ -1,15 +1,16 @@
-import { nanoid } from 'nanoid';
 import { useState, useRef, useEffect } from 'react';
 import { useGame } from '../store/useGame';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../engine/match';
 import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import { squadOverall } from '../store/useGame';
+import * as challengesService from '../lib/services/challenges';
+import { nanoid } from 'nanoid';
 
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
-const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressão alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
+const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressao alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
 
 export default function Match() {
   const cards = useGame(s => s.cards);
@@ -25,27 +26,27 @@ export default function Match() {
   const addMatchHistory = useGame(s => s.addMatchHistory);
   const addPlayerXp = useGame(s => s.addPlayerXp);
   const recordMatchStats = useGame(s => s.recordMatchStats);
-  useEffect(() => {
-    if (step === 'result' && result) {
-      addMatchHistory({ id: nanoid(), date: Date.now(), sport, homeScore: result.homeScore, awayScore: result.awayScore, opponent: result.config.awayName });
-      result.config.homePlayers.forEach(p => {
-        const uid = p.id.replace(/_home$/, '');
-        addPlayerXp(uid, 50 + (result.homeScore > result.awayScore ? 30 : 0));
-        const ps = result.playerStats[p.id];
-        recordMatchStats(uid, ps?.goals ?? 0, ps?.assists ?? 0);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
 
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const opponentId = searchParams.get('opponent');
+  const challengeId = searchParams.get('challenge');
+  const [opponentName, setOpponentName] = useState<string>('IA');
+  const [opponentPlayers, setOpponentPlayers] = useState<MatchPlayer[] | null>(null);
+  const [opponentFormation, setOpponentFormation] = useState<string>('1-2-1');
+  const [loadingOpp, setLoadingOpp] = useState(false);
+  const [challenge, setChallenge] = useState<any>(null);
+  const [challengeSquads, setChallengeSquads] = useState<{ home: any; away: any; homeCards: any[]; awayCards: any[] } | null>(null);
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
   const squad = squads[sport];
   const mySaved = savedSquads.filter(s => s.sport === sport);
 
-  // build home players from current or saved squad
   const buildHomePlayers = (): { players: MatchPlayer[]; formation: string } | null => {
     let formation = squad.formation;
     let starterUids = squad.starters.map(s => s.uid);
@@ -59,13 +60,67 @@ export default function Match() {
     return { players, formation };
   };
 
-  const [searchParams] = useSearchParams();
-  const opponentId = searchParams.get('opponent');
-  const [opponentName, setOpponentName] = useState<string>('IA');
-  const [opponentPlayers, setOpponentPlayers] = useState<MatchPlayer[] | null>(null);
-  const [opponentFormation, setOpponentFormation] = useState<string>('1-2-1');
-  const [loadingOpp, setLoadingOpp] = useState(false);
+  const homeInfo = buildHomePlayers();
 
+  const startMatch = () => {
+    if (!homeInfo && !challengeSquads) { toast.error('Escalação incompleta.'); return; }
+    const seed = challengeId ? (challenge?.seed || Date.now()) : Date.now();
+    let awayPlayers: MatchPlayer[];
+    let awayFormation: string;
+    let awayName: string;
+    let homePlayers: MatchPlayer[];
+    let homeFormation: string;
+    let homeName: string;
+    if (challengeSquads) {
+      homePlayers = challengeSquads.home;
+      awayPlayers = challengeSquads.away;
+      homeFormation = challenge?.home_formation || '1-2-1';
+      awayFormation = challenge?.away_formation || '1-2-1';
+      homeName = 'Desafiante';
+      awayName = 'Desafiado';
+    } else if (opponentId && opponentPlayers) {
+      homePlayers = homeInfo!.players;
+      awayPlayers = opponentPlayers;
+      homeFormation = homeInfo!.formation;
+      awayFormation = opponentFormation;
+      homeName = 'Futsenai FC';
+      awayName = opponentName;
+    } else {
+      homePlayers = homeInfo!.players;
+      awayPlayers = makeAwayTeam('futsal', difficulty, seed + 1);
+      homeFormation = homeInfo!.formation;
+      awayFormation = '1-2-1';
+      homeName = 'Futsenai FC';
+      awayName = `IA (${difficulty})`;
+    }
+    const res = simulateMatch({
+      sport: 'futsal',
+      homeName,
+      awayName,
+      homePlayers,
+      awayPlayers,
+      homeFormation,
+      awayFormation,
+      homeTactic: 'balanced',
+      awayTactic: 'balanced',
+      awayDifficulty: difficulty,
+      seed,
+      minutes: 40,
+    });
+    if (challengeId) {
+      challengesService.saveChallengeResult(challengeId, { ...res, seed, homeFormation, awayFormation });
+    }
+    setResult(res);
+    setFrameIndex(0);
+    setStep('prematch');
+  };
+
+  const startPlay = () => {
+    setStep('play');
+    setPlaying(true);
+  };
+
+  // opponent fetch
   useEffect(() => {
     if (!opponentId || !supabase) return;
     setLoadingOpp(true);
@@ -92,48 +147,46 @@ export default function Match() {
     })();
   }, [opponentId]);
 
-  const startMatch = () => {
-    if (!homeInfo) { toast.error('Escalação incompleta.'); return; }
-    const seed = Date.now();
-    let awayPlayers: MatchPlayer[];
-    let awayFormation: string;
-    let awayName: string;
-    let awayTactic: Tactic = 'balanced';
-    if (opponentId && opponentPlayers) {
-      awayPlayers = opponentPlayers;
-      awayFormation = opponentFormation;
-      awayName = opponentName;
-    } else {
-      awayPlayers = makeAwayTeam(sport, difficulty, seed + 1);
-      awayFormation = sport === 'futsal' ? '1-2-1' : '4-3-3';
-      awayName = `IA (${difficulty})`;
-    }
-    const homeFormation = homeInfo.formation;
-    const res = simulateMatch({
-      sport,
-      homeName: 'Futsenai FC',
-      awayName,
-      homePlayers: homeInfo.players,
-      awayPlayers,
-      homeFormation,
-      awayFormation,
-      homeTactic,
-      awayTactic,
-      awayDifficulty: difficulty,
-      seed,
-      minutes: sport === 'futsal' ? 40 : 90,
-    });
-    setResult(res);
-    setFrameIndex(0);
-    setStep('prematch');
-  };
+  // challenge fetch
+  useEffect(() => {
+    if (!challengeId || !supabase) return;
+    setChallengeLoading(true);
+    (async () => {
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        setCurrentUserId(data.session?.user?.id ?? null);
+      }
+      const ch = await challengesService.getChallenge(challengeId);
+      setChallenge(ch);
+      if (ch && (ch.status === 'accepted' || ch.status === 'completed')) {
+        const fetchSide = async (uid: string) => {
+          const { data: sq } = await supabase!.from('squads').select('*').eq('user_id', uid).eq('is_primary', true).maybeSingle();
+          const formation = sq?.formation || '1-2-1';
+          const starterUids: (string | null)[] = sq?.starters || [];
+          const { data: cs } = await supabase!.from('cards').select('*').eq('user_id', uid);
+          const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
+          const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter(Boolean) as any[];
+          const mapped = starterCards.map((c: any) => ({
+            uid: c.id, name: c.name, position: c.position, overall: c.overall,
+            pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
+            reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
+          }));
+          return { formation, cards: mapped };
+        };
+        const home = await fetchSide(ch.challenger_id);
+        const away = await fetchSide(ch.challenged_id);
+        const homePlayers = createPlayersFromCards(home.cards, 'home', home.formation, 'futsal');
+        const awayPlayers = createPlayersFromCards(away.cards, 'away', away.formation, 'futsal');
+        setChallengeSquads({ home: homePlayers, away: awayPlayers, homeCards: home.cards, awayCards: away.cards });
+        if (ch.status === 'completed' && ch.result) {
+          setResult(ch.result);
+          setStep('result');
+        }
+      }
+      setChallengeLoading(false);
+    })();
+  }, [challengeId]);
 
-  const startPlay = () => {
-    setStep('play');
-    setPlaying(true);
-  };
-
-  // playback
   useEffect(() => {
     if (step !== 'play' || !result) return;
     if (!playing) { cancelAnimationFrame(rafRef.current); return; }
@@ -141,9 +194,7 @@ export default function Match() {
     const tick = (now: number) => {
       const dt = (now - lastTimeRef.current) / 1000;
       lastTimeRef.current = now;
-      // advance frames based on speed: 1 game minute per (X seconds real)
-      const framesPerSec = speed * 2; // 2 frames/sec at 1x
-      // We'll advance by time accumulator
+      const framesPerSec = speed * 2;
       setFrameIndex(prev => {
         const next = prev + dt * framesPerSec;
         if (next >= result.frames.length) {
@@ -159,18 +210,56 @@ export default function Match() {
     return () => cancelAnimationFrame(rafRef.current);
   }, [step, playing, speed, result]);
 
-  const currentFrame = result ? result.frames[Math.min(Math.floor(frameIndex), result.frames.length - 1)] : null;
+  useEffect(() => {
+    if (step === 'result' && result) {
+      addMatchHistory({ id: nanoid(), date: Date.now(), sport, homeScore: result.homeScore, awayScore: result.awayScore, opponent: result.config.awayName });
+      result.config.homePlayers.forEach(p => {
+        const uid = p.id.replace(/_home$/, '');
+        addPlayerXp(uid, 50 + (result.homeScore > result.awayScore ? 30 : 0));
+        const ps = result.playerStats[p.id];
+        recordMatchStats(uid, ps?.goals ?? 0, ps?.assists ?? 0);
+      });
+      if (challengeId) {
+        challengesService.saveChallengeResult(challengeId, { ...result, seed: result.config.seed, homeFormation: result.config.homeFormation, awayFormation: result.config.awayFormation });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   const toSvgY = (v: number) => (v / 100) * 64;
 
-  const homeInfo = buildHomePlayers();
+  const currentFrame = result ? result.frames[Math.min(Math.floor(frameIndex), result.frames.length - 1)] : null;
 
-  if (loadingOpp) return <div className="p-8 text-[#858A98]">Carregando adversário...</div>;
+  if (challengeLoading || loadingOpp) return <div className="p-8 text-[#858A98]">Carregando...</div>;
+
+  if (challengeId && challenge && challenge.status === 'pending') {
+    const isChallenger = currentUserId === challenge.challenger_id;
+    if (isChallenger) {
+      return (
+        <div className="p-4 md:p-8 space-y-4">
+          <h1 className="text-2xl font-semibold text-[#252733]">Desafio enviado</h1>
+          <div className="card-surface p-4 text-sm text-[#858A98]">Aguardando o adversario aceitar...</div>
+        </div>
+      );
+    }
+    return (
+      <div className="p-4 md:p-8 space-y-4">
+        <h1 className="text-2xl font-semibold text-[#252733]">Desafio PvP</h1>
+        <div className="card-surface p-4 space-y-3">
+          <div className="text-sm text-[#252733]">Voce foi desafiado!</div>
+          <div className="flex gap-2">
+            <button onClick={async () => { await challengesService.acceptChallenge(challengeId); const ch = await challengesService.getChallenge(challengeId); setChallenge(ch); }} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Aceitar</button>
+            <button onClick={async () => { await challengesService.rejectChallenge(challengeId); navigate('/'); }} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Recusar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 'setup') {
     return (
       <div className="p-4 md:p-8 space-y-6">
-        <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada{opponentId ? ` vs ${opponentName}` : ''}</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada{opponentId ? ` vs ${opponentName}` : challengeId ? ' (PvP)' : ''}</h1>
         <div className="card-surface p-4 space-y-4 max-w-2xl">
           <div>
             <label className="text-sm text-[#858A98]">Escalação</label>
@@ -178,10 +267,10 @@ export default function Match() {
               <option value="">Escalação atual</option>
               {mySaved.map(s => <option key={s.id} value={s.id}>{s.name} ({s.formation})</option>)}
             </select>
-            {!homeInfo && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
+            {!homeInfo && !challengeSquads && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
             {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {squadOverall(squads[sport], cards)}</div>}
           </div>
-          {!opponentId && (
+          {!opponentId && !challengeId && (
             <div>
               <label className="text-sm text-[#858A98]">Dificuldade</label>
               <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
@@ -197,7 +286,7 @@ export default function Match() {
               {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
             </select>
           </div>
-          <button onClick={startMatch} disabled={!homeInfo || (opponentId ? !opponentPlayers : false)} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
+          <button onClick={startMatch} disabled={!homeInfo && !challengeSquads} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
             Iniciar partida
           </button>
         </div>
@@ -240,23 +329,20 @@ export default function Match() {
           <div className="text-sm text-[#858A98]">{Math.floor(currentFrame.minute)}' · {currentFrame.half === 1 ? '1º tempo' : '2º tempo'}</div>
           <div className="flex gap-2">
             <button onClick={() => setPlaying(p => !p)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">{playing ? 'Pausar' : 'Retomar'}</button>
-            {[1,2,4].map(s => (
-              <button key={s} onClick={() => setSpeed(s)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${speed===s ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>{s}x</button>
+            {[1, 2, 4].map(s => (
+              <button key={s} onClick={() => setSpeed(s)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${speed === s ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>{s}x</button>
             ))}
           </div>
         </div>
 
         <div className="card-surface p-2">
           <svg viewBox="0 0 100 64" className="w-full h-auto">
-            {/* field */}
             <rect x="0" y="0" width="100" height="64" fill="#4ade80" />
             <rect x="2" y="2" width="96" height="60" fill="none" stroke="#fff" strokeWidth="0.5" />
             <line x1="50" y1="2" x2="50" y2="62" stroke="#fff" strokeWidth="0.5" />
             <circle cx="50" cy="32" r="6" fill="none" stroke="#fff" strokeWidth="0.5" />
-            {/* goals */}
             <rect x="0" y="26" width="2" height="12" fill="#fff" />
             <rect x="98" y="26" width="2" height="12" fill="#fff" />
-            {/* players */}
             {currentFrame.players.map(p => (
               <g key={p.id}>
                 <circle cx={p.x} cy={toSvgY(p.y)} r="2.2" fill={p.team === 'home' ? '#E30613' : '#1f2937'} stroke="#fff" strokeWidth="0.4" />
@@ -265,7 +351,6 @@ export default function Match() {
                 </text>
               </g>
             ))}
-            {/* ball */}
             <circle cx={currentFrame.ball.x} cy={toSvgY(currentFrame.ball.y)} r="1.2" fill="#fff" stroke="#000" strokeWidth="0.3" />
           </svg>
         </div>
@@ -325,7 +410,7 @@ export default function Match() {
             <div key={i} className="text-xs text-[#252733] py-0.5">{e.minute}' - {e.description}</div>
           ))}
         </div>
-        <button onClick={() => { setStep('setup'); setResult(null); }} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
+        <button onClick={() => { setStep('setup'); setResult(null); setChallengeSquads(null); }} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
           Nova partida
         </button>
       </div>
