@@ -1,6 +1,8 @@
 import { nanoid } from 'nanoid';
 import { useState, useRef, useEffect } from 'react';
 import { useGame } from '../store/useGame';
+import { useSearchParams } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../engine/match';
 import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
@@ -57,24 +59,66 @@ export default function Match() {
     return { players, formation };
   };
 
-  const homeInfo = buildHomePlayers();
+  const [searchParams] = useSearchParams();
+  const opponentId = searchParams.get('opponent');
+  const [opponentName, setOpponentName] = useState<string>('IA');
+  const [opponentPlayers, setOpponentPlayers] = useState<MatchPlayer[] | null>(null);
+  const [opponentFormation, setOpponentFormation] = useState<string>('1-2-1');
+  const [loadingOpp, setLoadingOpp] = useState(false);
+
+  useEffect(() => {
+    if (!opponentId || !supabase) return;
+    setLoadingOpp(true);
+    (async () => {
+      const { data: prof } = await supabase.from('profiles').select('name').eq('id', opponentId).single();
+      setOpponentName(prof?.name || 'Amigo');
+      const { data: sq } = await supabase.from('squads').select('*').eq('user_id', opponentId).eq('is_primary', true).maybeSingle();
+      const formation = sq?.formation || '1-2-1';
+      setOpponentFormation(formation);
+      const starterUids: (string | null)[] = sq?.starters || [];
+      const { data: cs } = await supabase.from('cards').select('*').eq('user_id', opponentId);
+      const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
+      const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter(Boolean) as any[];
+      if (starterCards.length >= 5) {
+        const mapped = starterCards.map((c: any) => ({
+          uid: c.id, name: c.name, position: c.position, overall: c.overall,
+          pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
+          reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
+        }));
+        const players = createPlayersFromCards(mapped, 'away', formation, 'futsal');
+        setOpponentPlayers(players);
+      }
+      setLoadingOpp(false);
+    })();
+  }, [opponentId]);
 
   const startMatch = () => {
-    if (!homeInfo) { toast.alert('Escalação incompleta.'); return; }
+    if (!homeInfo) { toast.error('Escalação incompleta.'); return; }
     const seed = Date.now();
-    const awayPlayers = makeAwayTeam(sport, difficulty, seed + 1);
+    let awayPlayers: MatchPlayer[];
+    let awayFormation: string;
+    let awayName: string;
+    let awayTactic: Tactic = 'balanced';
+    if (opponentId && opponentPlayers) {
+      awayPlayers = opponentPlayers;
+      awayFormation = opponentFormation;
+      awayName = opponentName;
+    } else {
+      awayPlayers = makeAwayTeam(sport, difficulty, seed + 1);
+      awayFormation = sport === 'futsal' ? '1-2-1' : '4-3-3';
+      awayName = `IA (${difficulty})`;
+    }
     const homeFormation = homeInfo.formation;
-    const awayFormation = sport === 'futsal' ? '1-2-1' : '4-3-3';
     const res = simulateMatch({
       sport,
       homeName: 'Futsenai FC',
-      awayName: `IA (${difficulty})`,
+      awayName,
       homePlayers: homeInfo.players,
       awayPlayers,
       homeFormation,
       awayFormation,
       homeTactic,
-      awayTactic: 'balanced',
+      awayTactic,
       awayDifficulty: difficulty,
       seed,
       minutes: sport === 'futsal' ? 40 : 90,
@@ -119,10 +163,14 @@ export default function Match() {
 
   const toSvgY = (v: number) => (v / 100) * 64;
 
+  const homeInfo = buildHomePlayers();
+
+  if (loadingOpp) return <div className="p-8 text-[#858A98]">Carregando adversário...</div>;
+
   if (step === 'setup') {
     return (
       <div className="p-4 md:p-8 space-y-6">
-        <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada{opponentId ? ` vs ${opponentName}` : ''}</h1>
         <div className="card-surface p-4 space-y-4 max-w-2xl">
           <div>
             <label className="text-sm text-[#858A98]">Escalação</label>
@@ -133,21 +181,23 @@ export default function Match() {
             {!homeInfo && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
             {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {squadOverall(squads[sport], cards)}</div>}
           </div>
-          <div>
-            <label className="text-sm text-[#858A98]">Dificuldade</label>
-            <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-              <option value="easy">Fácil</option>
-              <option value="normal">Normal</option>
-              <option value="hard">Difícil</option>
-            </select>
-          </div>
+          {!opponentId && (
+            <div>
+              <label className="text-sm text-[#858A98]">Dificuldade</label>
+              <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+                <option value="easy">Fácil</option>
+                <option value="normal">Normal</option>
+                <option value="hard">Difícil</option>
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-sm text-[#858A98]">Tática</label>
             <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
               {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
             </select>
           </div>
-          <button onClick={startMatch} disabled={!homeInfo} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
+          <button onClick={startMatch} disabled={!homeInfo || (opponentId ? !opponentPlayers : false)} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
             Iniciar partida
           </button>
         </div>
