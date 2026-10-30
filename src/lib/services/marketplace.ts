@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { getPlayerImage } from '../data/players';
+import { getPlayerImage } from '../../data/players';
 
 export interface ListingRecord {
   id: string;
