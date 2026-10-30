@@ -164,7 +164,7 @@ export default function Marketplace() {
                 edition: '2025/26',
                 special: 'none',
                 overall: l.cardOverall || 70,
-                image: getPlayerImage(l.cardName) || l.cardImage,
+                image: getPlayerImage(l.cardName || '') || l.cardImage,
                 pace: l.cardAttributes?.pace ?? l.cardOverall ?? 70,
                 shooting: l.cardAttributes?.shooting ?? l.cardOverall ?? 70,
                 passing: l.cardAttributes?.passing ?? l.cardOverall ?? 70,
