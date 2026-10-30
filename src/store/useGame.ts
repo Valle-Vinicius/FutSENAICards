@@ -6,7 +6,7 @@ import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, leve
 import { supabase } from '../lib/supabase';
 import { getCards, addCard, updateCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
-import { saveSquad as saveSquadService, getSavedSquads } from '../lib/services/squads';
+import { saveSquad as saveSquadService, getSavedSquads, getSquad as getPrimarySquadService, upsertPrimarySquad } from '../lib/services/squads';
 import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/missions';
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
 import { recordSBCCompletion } from '../lib/services/sbc';
@@ -208,6 +208,13 @@ export const useGame = create<GameState & Actions>()(
         }
         const squads = await getSavedSquads(userId);
         if (squads.length > 0) set({ savedSquads: squads });
+        // load primary squad into active squad
+        const primary = await getPrimarySquadService(userId);
+        if (primary) {
+          const positions = (FORMATIONS_FUTSAL as any)[primary.formation] || (FORMATIONS_FUTSAL as any)['1-2-1'];
+          const starters = positions.map((pos: string, i: number) => ({ position: pos, uid: primary.starters[i] ?? null }));
+          set(st => ({ squads: { ...st.squads, futsal: { sport: 'futsal', formation: primary.formation, starters, bench: primary.bench } } }));
+        }
         const listings = await getListings();
             if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
         const remoteMissions = await getMissions(userId);
@@ -570,6 +577,7 @@ export const useGame = create<GameState & Actions>()(
               if (remote) {
                 set(st => ({ savedSquads: st.savedSquads.map(x => x.id === id ? { ...x, id: remote.id } : x) }));
               }
+              await upsertPrimarySquad(uid, squad);
             }
           });
         }

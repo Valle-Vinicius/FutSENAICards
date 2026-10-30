@@ -36,7 +36,19 @@ export async function saveSquad(userId: string, squad: Squad, name = 'Elenco pri
   };
 }
 
-export async function getSavedSquads(userId: string): Promise<SavedSquad[]> {
+export async function upsertPrimarySquad(userId: string, squad: Squad): Promise<boolean> {
+  if (!supabase) return false;
+  // delete existing primary
+  await supabase.from('squads').delete().eq('user_id', userId).eq('is_primary', true);
+  const { error } = await supabase.from('squads').insert({
+    user_id: userId,
+    formation: squad.formation,
+    starters: squad.starters.map(s => s.uid),
+    bench: squad.bench,
+    is_primary: true,
+  });
+  return !error;
+}
   if (!supabase) return [];
   const { data, error } = await supabase.from('saved_squads').select('*').eq('user_id', userId).order('created_at', { ascending: false });
   if (error) return [];
