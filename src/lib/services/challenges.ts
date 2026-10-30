@@ -5,7 +5,8 @@ export interface Challenge {
   challenger_id: string;
   challenged_id: string;
   status: 'pending' | 'accepted' | 'rejected' | 'completed';
-  seed?: number;
+  challenger_ready?: boolean;
+  challenged_ready?: boolean;
   home_formation?: string;
   away_formation?: string;
   home_score?: number;
@@ -33,14 +34,22 @@ export async function createChallenge(challengerId: string, challengedId: string
 
 export async function acceptChallenge(id: string): Promise<boolean> {
   if (!supabase) return false;
+  const seed = Math.floor(Math.random() * 1000000);
   const { data, error } = await supabase
     .from('challenges')
-    .update({ status: 'accepted', updated_at: new Date().toISOString() })
+    .update({ status: 'accepted', seed, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('status', 'pending')
     .select();
   if (error) return false;
   return Array.isArray(data) && data.length === 1;
+}
+
+export async function setReady(id: string, side: 'challenger' | 'challenged'): Promise<boolean> {
+  if (!supabase) return false;
+  const field = side === 'challenger' ? 'challenger_ready' : 'challenged_ready';
+  const { error } = await supabase.from('challenges').update({ [field]: true, updated_at: new Date().toISOString() }).eq('id', id);
+  return !error;
 }
 
 export async function rejectChallenge(id: string): Promise<boolean> {

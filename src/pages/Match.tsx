@@ -43,6 +43,9 @@ export default function Match() {
   const [challengeSquads, setChallengeSquads] = useState<{ home: any; away: any; homeCards: any[]; awayCards: any[] } | null>(null);
   const [challengeLoading, setChallengeLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [challengerReady, setChallengerReady] = useState(false);
+  const [challengedReady, setChallengedReady] = useState(false);
+  const [fade, setFade] = useState(false);
 
   const squad = squads[sport];
   const mySaved = savedSquads.filter(s => s.sport === sport);
@@ -158,6 +161,8 @@ export default function Match() {
       }
       const ch = await challengesService.getChallenge(challengeId);
       setChallenge(ch);
+      setChallengerReady(!!ch?.challenger_ready);
+      setChallengedReady(!!ch?.challenged_ready);
       if (ch && (ch.status === 'accepted' || ch.status === 'completed')) {
         const fetchSide = async (uid: string) => {
           const { data: sq } = await supabase!.from('squads').select('*').eq('user_id', uid).eq('is_primary', true).maybeSingle();
@@ -234,6 +239,8 @@ export default function Match() {
         const row = payload.new;
         if (!row) return;
         setChallenge(row);
+        setChallengerReady(!!row.challenger_ready);
+        setChallengedReady(!!row.challenged_ready);
         if (row.status === 'accepted' && !result) {
           // reload squads if needed
           if (!challengeSquads) {
@@ -299,6 +306,47 @@ export default function Match() {
             <button onClick={async () => { await challengesService.rejectChallenge(challengeId); navigate('/'); }} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Recusar</button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (challengeId && challenge && challenge.status === 'accepted' && !result && step === 'setup') {
+    const isChallenger = currentUserId === challenge.challenger_id;
+    const myReady = isChallenger ? challengerReady : challengedReady;
+    const oppReady = isChallenger ? challengedReady : challengerReady;
+    const bothReady = challengerReady && challengedReady;
+    if (bothReady && !fade) {
+      setFade(true);
+      setTimeout(() => { setFade(false); startMatch(); }, 1500);
+    }
+    return (
+      <div className="p-4 md:p-8 space-y-6">
+        {fade && <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center text-white text-2xl font-bold">Preparando partida...</div>}
+        <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Pré-jogo (PvP)</h1>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="card-surface p-4">
+            <div className="text-sm font-medium text-[#858A98] mb-2">Seu time</div>
+            <div className="text-sm text-[#252733]">Formação: {challengeSquads?.home ? 'ok' : '—'}</div>
+          </div>
+          <div className="card-surface p-4">
+            <div className="text-sm font-medium text-[#858A98] mb-2">Adversário</div>
+            <div className="text-sm text-[#252733]">Formação: {challengeSquads?.away ? 'ok' : '—'}</div>
+          </div>
+        </div>
+        <div className="text-sm text-[#858A98]">
+          Você: {myReady ? 'Pronto ✓' : 'Aguardando...'} · Adversário: {oppReady ? 'Pronto ✓' : 'Aguardando...'}
+        </div>
+        <button
+          onClick={async () => {
+            if (!challengeId) return;
+            const side = isChallenger ? 'challenger' : 'challenged';
+            await challengesService.setReady(challengeId, side);
+          }}
+          disabled={myReady}
+          className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40"
+        >
+          {myReady ? 'Aguardando adversário...' : 'Estou pronto'}
+        </button>
       </div>
     );
   }

@@ -4,6 +4,8 @@ create table if not exists public.challenges (
   challenged_id uuid not null references auth.users(id) on delete cascade,
   status text not null check (status in ('pending','accepted','rejected','completed')) default 'pending',
   seed bigint,
+  challenger_ready boolean not null default false,
+  challenged_ready boolean not null default false,
   home_formation text,
   away_formation text,
   home_score int,
@@ -31,3 +33,8 @@ create policy "challenges_update_parties" on public.challenges
 grant all on public.challenges to authenticated;
 
 alter publication supabase_realtime add table public.challenges;
+
+-- Add columns if table already exists
+alter table public.challenges add column if not exists challenger_ready boolean not null default false;
+alter table public.challenges add column if not exists challenged_ready boolean not null default false;
+alter table public.challenges add column if not exists seed bigint;
