@@ -226,6 +226,53 @@ export default function Match() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
+  // realtime challenge updates
+  useEffect(() => {
+    if (!challengeId || !supabase) return;
+    const channel = supabase.channel(`match-challenge-${challengeId}-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'challenges', filter: `id=eq.${challengeId}` }, (payload: any) => {
+        const row = payload.new;
+        if (!row) return;
+        setChallenge(row);
+        if (row.status === 'accepted' && !result) {
+          // reload squads if needed
+          if (!challengeSquads) {
+            (async () => {
+              const fetchSide = async (uid: string) => {
+                const { data: sq } = await supabase!.from('squads').select('*').eq('user_id', uid).eq('is_primary', true).maybeSingle();
+                const formation = sq?.formation || '1-2-1';
+                const starterUids: (string | null)[] = sq?.starters || [];
+                const { data: cs } = await supabase!.from('cards').select('*').eq('user_id', uid);
+                const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
+                const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter(Boolean) as any[];
+                const mapped = starterCards.map((c: any) => ({
+                  uid: c.id, name: c.name, position: c.position, overall: c.overall,
+                  pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
+                  reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
+                }));
+                return { formation, cards: mapped };
+              };
+              const home = await fetchSide(row.challenger_id);
+              const away = await fetchSide(row.challenged_id);
+              const homePlayers = createPlayersFromCards(home.cards, 'home', home.formation, 'futsal');
+              const awayPlayers = createPlayersFromCards(away.cards, 'away', away.formation, 'futsal');
+              setChallengeSquads({ home: homePlayers, away: awayPlayers, homeCards: home.cards, awayCards: away.cards });
+            })();
+          }
+        }
+        if (row.status === 'completed' && row.result && !result) {
+          setResult(row.result);
+          setStep('result');
+        }
+        if (row.status === 'rejected') {
+          toast.error('Desafio recusado.');
+          navigate('/');
+        }
+      })
+      .subscribe();
+    return () => { if (supabase) supabase.removeChannel(channel); };
+  }, [challengeId]);
+
   const toSvgY = (v: number) => (v / 100) * 64;
 
   const currentFrame = result ? result.frames[Math.min(Math.floor(frameIndex), result.frames.length - 1)] : null;

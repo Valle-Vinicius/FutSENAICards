@@ -61,25 +61,32 @@ export default function Layout() {
   useEffect(() => {
     if (!supabase) return;
     let channel: any;
+    let interval: any;
     (async () => {
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id;
       if (!uid) return;
-      // load existing pending challenges
-      const { data: pendings } = await supabase.from('challenges').select('id').eq('challenged_id', uid).eq('status', 'pending');
-      if (pendings && pendings.length > 0) setPendingChallengeId(pendings[0].id);
+      const checkPending = async () => {
+        const { data: pendings } = await supabase!.from('challenges').select('id').eq('challenged_id', uid).eq('status', 'pending');
+        if (pendings && pendings.length > 0) setPendingChallengeId(pendings[0].id);
+      };
+      await checkPending();
+      interval = setInterval(checkPending, 5000);
       channel = supabase
         .channel(`challenges-notify-${uid}-${Math.random().toString(36).slice(2)}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'challenges' }, (payload: any) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, (payload: any) => {
           const row = payload.new;
           if (row && row.challenged_id === uid && row.status === 'pending') {
             setPendingChallengeId(row.id);
             toast.info('Você foi desafiado para um X1!');
           }
+          if (row && row.challenged_id === uid && (row.status === 'rejected' || row.status === 'completed')) {
+            setPendingChallengeId(null);
+          }
         })
         .subscribe();
     })();
-    return () => { if (channel && supabase) supabase.removeChannel(channel); };
+    return () => { if (channel && supabase) supabase.removeChannel(channel); if (interval) clearInterval(interval); };
   }, []);
 
   return (
