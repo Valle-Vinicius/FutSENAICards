@@ -227,7 +227,7 @@ export default function Match() {
 
   useEffect(() => {
     if (step === 'result' && result) {
-      addMatchHistory({ id: nanoid(), date: Date.now(), sport, homeScore: result.homeScore, awayScore: result.awayScore, opponent: result.config.awayName });
+      addMatchHistory({ id: nanoid(), date: Date.now(), sport, homeScore: result.homeScore, awayScore: result.awayScore, opponent: result.config.awayName, challengeId: challengeId ?? undefined });
       result.config.homePlayers.forEach(p => {
         const uid = p.id.replace(/_home$/, '');
         addPlayerXp(uid, 50 + (result.homeScore > result.awayScore ? 30 : 0));

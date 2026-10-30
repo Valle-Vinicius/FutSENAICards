@@ -41,7 +41,7 @@ interface Actions {
   setPrimarySquad: (id: string) => void;
   loadSquad: (id: string) => void;
   addCompareHistory: (aUid: string, bUid: string) => void;
-  addMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string }) => void;
+  addMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string; challengeId?: string }) => void;
   updateSettings: (s: Partial<{ audio: boolean; animations: boolean; highContrast: boolean }>) => void;
   setPendingFriends: (n: number) => void;
   addPlayerXp: (uid: string, amount: number) => void;
@@ -629,7 +629,7 @@ export const useGame = create<GameState & Actions>()(
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
-            if (uid) await addMatch(uid, { sport: entry.sport, homeScore: entry.homeScore, awayScore: entry.awayScore, opponent: entry.opponent });
+            if (uid) await addMatch(uid, { sport: entry.sport, homeScore: entry.homeScore, awayScore: entry.awayScore, opponent: entry.opponent, matchType: entry.challengeId ? 'pvp' : 'friendly', challengeId: entry.challengeId, status: 'completed' });
           });
         }
       },

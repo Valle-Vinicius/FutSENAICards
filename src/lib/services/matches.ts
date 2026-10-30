@@ -4,6 +4,9 @@ export interface MatchRecord {
   id: string;
   userId: string;
   sport: string;
+  matchType?: string;
+  challengeId?: string;
+  status?: string;
   homeScore: number;
   awayScore: number;
   opponent: string;
@@ -25,6 +28,9 @@ export async function getMatches(userId: string): Promise<MatchRecord[]> {
     id: m.id,
     userId: m.user_id,
     sport: m.sport ?? 'futsal',
+    matchType: m.match_type,
+    challengeId: m.challenge_id,
+    status: m.status,
     homeScore: m.home_score,
     awayScore: m.away_score,
     opponent: m.opponent,
@@ -36,6 +42,10 @@ export async function addMatch(userId: string, match: Omit<MatchRecord, 'id' | '
   if (!supabase) return null;
   const payload: any = {
     user_id: userId,
+    sport: match.sport,
+    match_type: match.matchType ?? 'friendly',
+    challenge_id: match.challengeId ?? null,
+    status: match.status ?? 'completed',
     home_score: match.homeScore,
     away_score: match.awayScore,
     opponent: match.opponent,
@@ -46,6 +56,9 @@ export async function addMatch(userId: string, match: Omit<MatchRecord, 'id' | '
     id: data.id,
     userId: data.user_id,
     sport: data.sport ?? match.sport,
+    matchType: data.match_type,
+    challengeId: data.challenge_id,
+    status: data.status,
     homeScore: data.home_score,
     awayScore: data.away_score,
     opponent: data.opponent,

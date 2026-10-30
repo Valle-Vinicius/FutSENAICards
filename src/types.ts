@@ -171,7 +171,7 @@ export interface GameState {
   squads: { futsal: Squad };
   savedSquads: SavedSquad[];
   compareHistory: { aUid: string; bUid: string; at: number }[];
-  matchHistory: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string }[];
+  matchHistory: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string; challengeId?: string }[];
   listings: Listing[];
   sbcs: SBC[];
   priceHistory: { cardName: string; price: number; at: number }[];
