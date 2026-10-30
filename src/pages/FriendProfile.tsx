@@ -122,7 +122,7 @@ export default function FriendProfile() {
             {isFriend && (
               <>
                 <button onClick={handleRemove} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium text-[#252733]">Remover amigo</button>
-                <button disabled className="px-4 py-2 rounded-xl bg-[#F7F7F9] text-[#858A98] text-sm font-medium cursor-not-allowed" title="Em breve">Desafiar</button>
+                <button onClick={() => navigate(`/match?opponent=${userId}`)} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Desafiar</button>
               </>
             )}
             {isPendingReceived && (
