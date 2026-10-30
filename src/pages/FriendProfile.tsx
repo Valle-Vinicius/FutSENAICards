@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import * as friendsService from '../lib/services/friends';
+import * as challengesService from '../lib/services/challenges';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
 
@@ -10,7 +11,6 @@ export default function FriendProfile() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [cards, setCards] = useState<PlayerCard[]>([]);
-  const [squad, setSquad] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,11 +24,9 @@ export default function FriendProfile() {
       const { data: sess } = await supabase.auth.getSession();
       const me = sess.session?.user?.id ?? null;
       setCurrentUserId(me);
-
       const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).single();
       setProfile(prof);
-
-      const { data: cs } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100);
+      const { data: cs } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
       setCards((cs || []).map((c: any) => ({
         uid: c.id, playerId: c.player_id, name: c.name, position: c.position, sport: c.sport,
         nationality: c.nationality, age: c.age, club: c.club,
@@ -38,41 +36,37 @@ export default function FriendProfile() {
         positioning: c.positioning, handling: c.handling, image: c.image,
         favorite: c.favorite, isNew: c.is_new, obtainedAt: new Date(c.obtained_at).getTime(),
       })));
-
-      const { data: sq } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
-      setSquad(sq);
-
-      const { data: ms } = await supabase.from('matches').select('*').eq('user_id', userId).order('played_at', { ascending: false }).limit(20);
+      const { data: ms } = await supabase.from('matches').select('*').eq('user_id', userId).order('played_at', { ascending: false }).limit(10);
       setMatches(ms || []);
-
       const { data: ach } = await supabase.from('achievements').select('*').eq('user_id', userId).eq('unlocked', true);
       setAchievements(ach || []);
-
-      // friendship status
       if (me && me !== userId) {
         const { data: f } = await supabase.from('friendships').select('*')
           .or(`and(requester_id.eq.${me},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${me})`);
         setFriendship(f && f.length > 0 ? f[0] : null);
       }
-
       setLoading(false);
     })();
   }, [userId]);
+
+  const reloadFriendship = async () => {
+    if (!currentUserId || !userId || !supabase) return;
+    const { data: f } = await supabase.from('friendships').select('*')
+      .or(`and(requester_id.eq.${currentUserId},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${currentUserId})`);
+    setFriendship(f && f.length > 0 ? f[0] : null);
+  };
 
   const handleAdd = async () => {
     if (!currentUserId || !userId) return;
     const ok = await friendsService.sendRequest(currentUserId, userId);
     setActionMsg(ok ? 'Solicitação enviada!' : 'Já existe uma solicitação ou amizade.');
-    // reload friendship
-    const { data: f } = await supabase!.from('friendships').select('*').or(`and(requester_id.eq.${currentUserId},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${currentUserId})`);
-    setFriendship(f && f.length > 0 ? f[0] : null);
+    await reloadFriendship();
     setTimeout(() => setActionMsg(''), 2000);
   };
   const handleAccept = async () => {
     if (!friendship) return;
     await friendsService.acceptRequest(friendship.id);
-    const { data: f } = await supabase!.from('friendships').select('*').eq('id', friendship.id).single();
-    setFriendship(f);
+    await reloadFriendship();
   };
   const handleCancel = async () => {
     if (!friendship) return;
@@ -83,6 +77,12 @@ export default function FriendProfile() {
     if (!friendship) return;
     await friendsService.removeFriend(friendship.id);
     setFriendship(null);
+  };
+  const handleChallenge = async () => {
+    if (!currentUserId || !userId) return;
+    const ch = await challengesService.createChallenge(currentUserId, userId);
+    if (ch) navigate(`/match?challenge=${ch.id}`);
+    else setActionMsg('Não foi possível criar o desafio.');
   };
 
   if (loading) return <div className="p-8 text-[#858A98]">Carregando...</div>;
@@ -109,20 +109,15 @@ export default function FriendProfile() {
         </div>
         <div className="flex-1 space-y-1">
           <div className="text-2xl font-semibold text-[#252733]">{profile.name}</div>
-          <div className="text-sm text-[#858A98]">
-            Nível {profile.level ?? 1} · {profile.xp ?? 0} XP · {profile.coins ?? 0} moedas
-          </div>
-          <div className="text-xs text-[#858A98]">
-            Entrou em: {profile.created_at ? new Date(profile.created_at).toLocaleDateString('pt-BR') : '—'}
-          </div>
-          <div className="text-xs text-[#858A98]">{profile.online ? 'Online' : 'Offline'}</div>
+          <div className="text-sm text-[#858A98]">Nível {profile.level ?? 1} · {profile.xp ?? 0} XP · {profile.coins ?? 0} moedas</div>
+          <div className="text-xs text-[#858A98]">Entrou em: {profile.created_at ? new Date(profile.created_at).toLocaleDateString('pt-BR') : '—'}</div>
         </div>
         {!isSelf && (
           <div className="flex flex-col gap-2">
             {isFriend && (
               <>
                 <button onClick={handleRemove} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium text-[#252733]">Remover amigo</button>
-                <button onClick={() => navigate(`/match?opponent=${userId}`)} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Desafiar</button>
+                <button onClick={handleChallenge} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Desafiar</button>
               </>
             )}
             {isPendingReceived && (
@@ -159,14 +154,6 @@ export default function FriendProfile() {
           </div>
         ))}
       </div>
-
-      {squad && (
-        <div className="card-surface p-4 space-y-2">
-          <h2 className="text-lg font-semibold text-[#252733]">Elenco principal</h2>
-          <div className="text-sm text-[#858A98]">Formação: {squad.formation}</div>
-          <div className="text-sm text-[#252733]">Overall: <span className="font-bold text-[#E30613]">{Math.round((squad.starters || []).filter((s: any) => s).map((uid: string) => cards.find(c => c.uid === uid)?.overall ?? 0).reduce((a: number, b: number) => a + b, 0) / Math.max(1, (squad.starters || []).filter(Boolean).length)) || 0}</span></div>
-        </div>
-      )}
 
       <div>
         <h2 className="text-lg font-semibold text-[#252733] mb-3">Coleção ({cards.length})</h2>
