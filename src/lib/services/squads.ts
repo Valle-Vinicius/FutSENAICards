@@ -3,7 +3,7 @@ import type { Squad, SavedSquad } from '../../types';
 
 export async function getSquad(userId: string): Promise<Squad | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).single();
+  const { data, error } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
   if (error) return null;
   return {
     sport: 'futsal',
