@@ -130,7 +130,8 @@ export default function Match() {
     (async () => {
       const { data: prof } = await supabase.from('profiles').select('name').eq('id', opponentId).single();
       setOpponentName(prof?.name || 'Amigo');
-      const { data: sq } = await supabase.from('squads').select('*').eq('user_id', opponentId).eq('is_primary', true).maybeSingle();
+      const { data: sqs } = await supabase.from('squads').select('*').eq('user_id', opponentId);
+      const sq = (sqs && sqs.length > 0) ? (sqs.find((s: any) => s.is_primary) || sqs[0]) : null;
       const formation = sq?.formation || '1-2-1';
       setOpponentFormation(formation);
       const starterUids: (string | null)[] = sq?.starters || [];
@@ -165,17 +166,26 @@ export default function Match() {
       setChallengedReady(!!ch?.challenged_ready);
       if (ch && (ch.status === 'accepted' || ch.status === 'completed')) {
         const fetchSide = async (uid: string) => {
-          const { data: sq } = await supabase!.from('squads').select('*').eq('user_id', uid).eq('is_primary', true).maybeSingle();
+          let sq: any = null;
+          const { data: sqs } = await supabase!.from('squads').select('*').eq('user_id', uid);
+          if (sqs && sqs.length > 0) sq = sqs.find((s: any) => s.is_primary) || sqs[0];
           const formation = sq?.formation || '1-2-1';
           const starterUids: (string | null)[] = sq?.starters || [];
           const { data: cs } = await supabase!.from('cards').select('*').eq('user_id', uid);
           const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
           const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter(Boolean) as any[];
-          const mapped = starterCards.map((c: any) => ({
-            uid: c.id, name: c.name, position: c.position, overall: c.overall,
-            pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
-            reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
-          }));
+          const mapped = starterCards
+            .filter((c: any) => c && c.position)
+            .map((c: any) => ({
+              uid: c.id, name: c.name, position: c.position, overall: c.overall ?? 70,
+              pace: c.pace ?? 50, shooting: c.shooting ?? 50, passing: c.passing ?? 50, dribbling: c.dribbling ?? 50, defending: c.defending ?? 50, physical: c.physical ?? 50,
+              reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
+            }));
+          // fallback: if not enough, use makeAwayTeam
+          if (mapped.length < 5) {
+            const fallback = makeAwayTeam('futsal', 'normal', Date.now());
+            return { formation: '1-2-1', cards: fallback.map((p: any) => ({ uid: p.id, name: p.name, position: p.position, overall: 70, pace: p.attrs.pace, shooting: p.attrs.shooting, passing: p.attrs.passing, dribbling: p.attrs.dribbling, defending: p.attrs.defending, physical: p.attrs.physical, reflexes: p.attrs.reflexes, positioning: p.attrs.positioning, handling: p.attrs.handling })) };
+          }
           return { formation, cards: mapped };
         };
         const home = await fetchSide(ch.challenger_id);

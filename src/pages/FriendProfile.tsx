@@ -36,7 +36,7 @@ export default function FriendProfile() {
         positioning: c.positioning, handling: c.handling, image: c.image,
         favorite: c.favorite, isNew: c.is_new, obtainedAt: new Date(c.obtained_at).getTime(),
       })));
-      const { data: ms } = await supabase.from('matches').select('*').eq('user_id', userId).order('played_at', { ascending: false }).limit(10);
+      const { data: ms } = await supabase.from('matches').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10);
       setMatches(ms || []);
       const { data: ach } = await supabase.from('achievements').select('*').eq('user_id', userId).eq('unlocked', true);
       setAchievements(ach || []);
