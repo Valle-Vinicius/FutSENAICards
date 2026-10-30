@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { getPlayerImage } from '../data/players';
 
 export interface ListingRecord {
   id: string;
@@ -34,7 +35,7 @@ export async function getListings(): Promise<ListingRecord[]> {
       cardOverall: l.card_overall ?? c?.overall ?? 70,
       cardPosition: l.card_position || c?.position || 'Ala',
       cardRarity: l.card_rarity || c?.rarity || 'common',
-      cardImage: l.card_image || c?.image,
+      cardImage: getPlayerImage(l.card_name) || l.card_image || c?.image,
       cardAttributes: l.card_attributes || (c ? { pace:c.pace, shooting:c.shooting, passing:c.passing, dribbling:c.dribbling, defending:c.defending, physical:c.physical, reflexes:c.reflexes, positioning:c.positioning, handling:c.handling } : undefined),
       seller: l.seller_id ? 'user' : 'npc',
       sellerName: sellerProfile?.name || (l.seller_id ? 'Usuário' : 'NPC'),

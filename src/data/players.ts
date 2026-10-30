@@ -147,6 +147,11 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
 export function futsalTemplates() { return TEMPLATES; }
 export function allTemplates() { return TEMPLATES; }
 
+export function getPlayerImage(name: string): string | undefined {
+  const t = TEMPLATES.find(x => x.name === name);
+  return t?.image;
+}
+
 export function randomTemplate(positionFilter?: Position): PlayerTemplate {
   const pool = positionFilter ? TEMPLATES.filter(t => t.position === positionFilter) : TEMPLATES;
   if (pool.length === 0) return TEMPLATES[0];

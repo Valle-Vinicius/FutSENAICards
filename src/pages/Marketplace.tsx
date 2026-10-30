@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
+import { getPlayerImage } from '../data/players';
 import ConfirmModal from '../components/ConfirmModal';
 import { supabase } from '../lib/supabase';
 import { getListings } from '../lib/services/marketplace';
@@ -163,7 +164,7 @@ export default function Marketplace() {
                 edition: '2025/26',
                 special: 'none',
                 overall: l.cardOverall || 70,
-                image: l.cardImage,
+                image: getPlayerImage(l.cardName) || l.cardImage,
                 pace: l.cardAttributes?.pace ?? l.cardOverall ?? 70,
                 shooting: l.cardAttributes?.shooting ?? l.cardOverall ?? 70,
                 passing: l.cardAttributes?.passing ?? l.cardOverall ?? 70,

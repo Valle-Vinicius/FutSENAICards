@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import type { PlayerCard } from '../../types';
-import { allTemplates } from '../../data/players';
+import { allTemplates, getPlayerImage } from '../../data/players';
 
 export async function getCards(userId: string): Promise<PlayerCard[]> {
   if (!supabase) return [];
@@ -71,7 +71,7 @@ export async function getCards(userId: string): Promise<PlayerCard[]> {
     upgrades: c.upgrades,
     evolutionLog: c.evolution_log,
     seasonStats: c.season_stats,
-    image: c.image,
+    image: getPlayerImage(c.name) || c.image,
     favorite: c.favorite,
     isNew: c.is_new,
     obtainedAt: new Date(c.obtained_at).getTime(),

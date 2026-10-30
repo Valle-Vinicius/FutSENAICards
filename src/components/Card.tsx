@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
 import type { PlayerCard } from '../types';
 import { RARITY_META, SPECIAL_META } from '../types';
+import { getPlayerImage } from '../data/players';
 import { Circle, Star } from 'lucide-react';
 
 export default function Card({ card, size = 'md', onClick, isNew }: { card: PlayerCard; size?: 'sm'|'md'|'lg'; onClick?: () => void; isNew?: boolean }) {
   const meta = RARITY_META[card.rarity];
+  const img = getPlayerImage(card.name) || card.image;
   const isGK = card.position === 'GK';
   const dims = size === 'sm' ? 'w-36 h-52' : size === 'lg' ? 'w-60 h-84' : 'w-48 h-64';
   const attrFont = size === 'sm' ? 'text-[10px]' : 'text-[11px]';
@@ -27,8 +29,8 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
     >
       {isNew && <span className="absolute top-16 right-2 z-20 bg-[#E30613] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">NOVA</span>}
 
-      {card.image ? (
-        <img src={card.image} alt={card.name} className="absolute inset-0 w-full h-full object-cover object-top" />
+      {img ? (
+        <img src={img} alt={card.name} className="absolute inset-0 w-full h-full object-cover object-top" />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-b from-[#F7F7F9] to-[#E9EAF0] flex items-center justify-center opacity-20"><Circle className="w-12 h-12" /></div>
       )}
