@@ -165,31 +165,11 @@ export default function Match() {
       setChallengerReady(!!ch?.challenger_ready);
       setChallengedReady(!!ch?.challenged_ready);
       if (ch && (ch.status === 'accepted' || ch.status === 'completed')) {
-        const fetchSide = async (uid: string) => {
-          let sq: any = null;
-          const { data: sqs } = await supabase!.from('squads').select('*').eq('user_id', uid);
-          if (sqs && sqs.length > 0) sq = sqs.find((s: any) => s.is_primary) || sqs[0];
-          const formation = sq?.formation || '1-2-1';
-          const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
-          const { data: cs } = await supabase!.from('cards').select('*').eq('user_id', uid);
-          const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
-          const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
-          const mapped = starterCards
-            .filter((c: any) => c && c.position)
-            .map((c: any) => ({
-              uid: c.id, name: c.name, position: c.position, overall: c.overall ?? 70,
-              pace: c.pace ?? 50, shooting: c.shooting ?? 50, passing: c.passing ?? 50, dribbling: c.dribbling ?? 50, defending: c.defending ?? 50, physical: c.physical ?? 50,
-              reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
-            }));
-          // fallback: if not enough, use makeAwayTeam
-          if (mapped.length < 5) {
-            const fallback = makeAwayTeam('futsal', 'normal', Date.now());
-            return { formation: '1-2-1', cards: fallback.map((p: any) => ({ uid: p.id, name: p.name, position: p.position, overall: 70, pace: p.attrs.pace, shooting: p.attrs.shooting, passing: p.attrs.passing, dribbling: p.attrs.dribbling, defending: p.attrs.defending, physical: p.attrs.physical, reflexes: p.attrs.reflexes, positioning: p.attrs.positioning, handling: p.attrs.handling })) };
-          }
-          return { formation, cards: mapped };
-        };
-        const home = await fetchSide(ch.challenger_id);
-        const away = await fetchSide(ch.challenged_id);
+        const { data, error } = await supabase!.functions.invoke('get-challenge-data', { body: { challengeId } });
+        if (error || !data) { console.error('get-challenge-data failed', error); setChallengeLoading(false); return; }
+        const home = data.home;
+        const away = data.away;
+        if (!home?.cards?.length || !away?.cards?.length) { setChallengeLoading(false); return; }
         const homePlayers = createPlayersFromCards(home.cards, 'home', home.formation, 'futsal');
         const awayPlayers = createPlayersFromCards(away.cards, 'away', away.formation, 'futsal');
         setChallengeSquads({ home: homePlayers, away: awayPlayers, homeCards: home.cards, awayCards: away.cards });
@@ -255,22 +235,11 @@ export default function Match() {
           // reload squads if needed
           if (!challengeSquads) {
             (async () => {
-              const fetchSide = async (uid: string) => {
-                const { data: sq } = await supabase!.from('squads').select('*').eq('user_id', uid).eq('is_primary', true).maybeSingle();
-                const formation = sq?.formation || '1-2-1';
-                const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
-                const { data: cs } = await supabase!.from('cards').select('*').eq('user_id', uid);
-                const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
-                const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
-                const mapped = starterCards.map((c: any) => ({
-                  uid: c.id, name: c.name, position: c.position, overall: c.overall,
-                  pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
-                  reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
-                }));
-                return { formation, cards: mapped };
-              };
-              const home = await fetchSide(row.challenger_id);
-              const away = await fetchSide(row.challenged_id);
+              const { data, error } = await supabase!.functions.invoke('get-challenge-data', { body: { challengeId } });
+              if (error || !data) return;
+              const home = data.home;
+              const away = data.away;
+              if (!home?.cards?.length || !away?.cards?.length) return;
               const homePlayers = createPlayersFromCards(home.cards, 'home', home.formation, 'futsal');
               const awayPlayers = createPlayersFromCards(away.cards, 'away', away.formation, 'futsal');
               setChallengeSquads({ home: homePlayers, away: awayPlayers, homeCards: home.cards, awayCards: away.cards });
