@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
@@ -17,7 +17,8 @@ export default function Collection() {
   const [rar, setRar] = useState('');
   const [club, setClub] = useState('');
   const [sort, setSort] = useState('overall');
-  const [visible, setVisible] = useState(12);
+  const PAGE_SIZE = 12;
+  const [page, setPage] = useState(1);
   const [album, setAlbum] = useState(false);
   const navigate = useNavigate();
 
@@ -35,6 +36,7 @@ export default function Collection() {
 
   const unique = new Set(cards.map(c => c.playerId.split('-')[0])).size;
   const clubs = [...new Set(cards.map(c => c.club))];
+  useEffect(() => { setPage(1); }, [q, pos, rar, club, sort]);
 
   const openCard = (c: PlayerCard) => {
     if (c.isNew) markSeen([c.uid]);
@@ -44,7 +46,7 @@ export default function Collection() {
   const sel = 'bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]';
 
   return (
-    <div className="p-4 md:p-8 space-y-4 min-h-screen" style={{ backgroundImage: `url(${bgWhite})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+    <div className="p-4 md:p-8 space-y-4 min-h-screen" style={{ backgroundImage: `url(${bgWhite})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Minhas cartas</h1>
         <div className="flex gap-2">
@@ -98,13 +100,17 @@ export default function Collection() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-            {filtered.slice(0, visible).map(c => (
+            {filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(c => (
               <Card key={c.uid} card={c} size="sm" onClick={() => openCard(c)} isNew={c.isNew} />
             ))}
           </div>
-          {visible < filtered.length && (
-            <div className="text-center mt-4">
-              <button onClick={() => setVisible(v => v + 12)} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] text-sm font-medium">Carregar mais</button>
+          {Math.ceil(filtered.length / PAGE_SIZE) > 1 && (
+            <div className="flex justify-center gap-2 mt-4 flex-wrap">
+              {Array.from({ length: Math.ceil(filtered.length / PAGE_SIZE) }, (_, i) => i + 1).map(p => (
+                <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg text-sm font-medium ${p === page ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
+                  {p}
+                </button>
+              ))}
             </div>
           )}
         </>
