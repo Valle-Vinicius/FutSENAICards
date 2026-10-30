@@ -134,10 +134,10 @@ export default function Match() {
       const sq = (sqs && sqs.length > 0) ? (sqs.find((s: any) => s.is_primary) || sqs[0]) : null;
       const formation = sq?.formation || '1-2-1';
       setOpponentFormation(formation);
-      const starterUids: (string | null)[] = sq?.starters || [];
+      const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
       const { data: cs } = await supabase.from('cards').select('*').eq('user_id', opponentId);
       const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
-      const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter(Boolean) as any[];
+      const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
       if (starterCards.length >= 5) {
         const mapped = starterCards.map((c: any) => ({
           uid: c.id, name: c.name, position: c.position, overall: c.overall,
@@ -170,10 +170,10 @@ export default function Match() {
           const { data: sqs } = await supabase!.from('squads').select('*').eq('user_id', uid);
           if (sqs && sqs.length > 0) sq = sqs.find((s: any) => s.is_primary) || sqs[0];
           const formation = sq?.formation || '1-2-1';
-          const starterUids: (string | null)[] = sq?.starters || [];
+          const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
           const { data: cs } = await supabase!.from('cards').select('*').eq('user_id', uid);
           const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
-          const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter(Boolean) as any[];
+          const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
           const mapped = starterCards
             .filter((c: any) => c && c.position)
             .map((c: any) => ({
@@ -258,10 +258,10 @@ export default function Match() {
               const fetchSide = async (uid: string) => {
                 const { data: sq } = await supabase!.from('squads').select('*').eq('user_id', uid).eq('is_primary', true).maybeSingle();
                 const formation = sq?.formation || '1-2-1';
-                const starterUids: (string | null)[] = sq?.starters || [];
+                const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
                 const { data: cs } = await supabase!.from('cards').select('*').eq('user_id', uid);
                 const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
-                const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter(Boolean) as any[];
+                const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
                 const mapped = starterCards.map((c: any) => ({
                   uid: c.id, name: c.name, position: c.position, overall: c.overall,
                   pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
