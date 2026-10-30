@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus } from 'lucide-react';
 import { useGame } from '../store/useGame';
+import { supabase } from '../lib/supabase';
+import { toast } from '../store/toast';
 
 const NAV = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard },
@@ -53,14 +55,31 @@ export default function Layout() {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [pendingChallengeId, setPendingChallengeId] = useState<string | null>(null);
   const cards = useGame(s => s.cards);
   const searchResults = search.trim().length < 2 ? [] : cards.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setDrawerOpen(false); setNotifOpen(false); setSearchOpen(false); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    if (!supabase) return;
+    let channel: any;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user?.id;
+      if (!uid) return;
+      // load existing pending challenges
+      const { data: pendings } = await supabase.from('challenges').select('id').eq('challenged_id', uid).eq('status', 'pending');
+      if (pendings && pendings.length > 0) setPendingChallengeId(pendings[0].id);
+      channel = supabase
+        .channel(`challenges-notify-${uid}-${Math.random().toString(36).slice(2)}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'challenges' }, (payload: any) => {
+          const row = payload.new;
+          if (row && row.challenged_id === uid && row.status === 'pending') {
+            setPendingChallengeId(row.id);
+            toast.info('Você foi desafiado para um X1!');
+          }
+        })
+        .subscribe();
+    })();
+    return () => { if (channel && supabase) supabase.removeChannel(channel); };
   }, []);
 
   return (
@@ -156,6 +175,15 @@ export default function Layout() {
         </div>
 
         <main className="flex-1 min-w-0 overflow-auto pb-20 md:pb-0">
+          {pendingChallengeId && (
+            <div className="m-4 card-surface p-3 flex items-center justify-between gap-3">
+              <div className="text-sm text-[#252733]">Você foi desafiado para um X1!</div>
+              <div className="flex gap-2">
+                <button onClick={() => { navigate(`/match?challenge=${pendingChallengeId}`); setPendingChallengeId(null); }} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Aceitar</button>
+                <button onClick={() => setPendingChallengeId(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Depois</button>
+              </div>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
