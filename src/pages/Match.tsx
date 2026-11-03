@@ -9,6 +9,19 @@ import { squadOverall } from '../store/useGame';
 import * as challengesService from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
 
+type ChallengeSquads = {
+  home: MatchPlayer[];
+  away: MatchPlayer[];
+  homeCards: any[];
+  awayCards: any[];
+  homeFormation: string;
+  awayFormation: string;
+  homeName: string;
+  awayName: string;
+};
+
+const MIN_STARTERS = 5;
+
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
 const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressao alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
 
@@ -40,12 +53,22 @@ export default function Match() {
   const [opponentFormation, setOpponentFormation] = useState<string>('1-2-1');
   const [loadingOpp, setLoadingOpp] = useState(false);
   const [challenge, setChallenge] = useState<any>(null);
-  const [challengeSquads, setChallengeSquads] = useState<{ home: any; away: any; homeCards: any[]; awayCards: any[] } | null>(null);
-  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [challengeSquads, setChallengeSquads] = useState<ChallengeSquads | null>(null);
+  const [challengeLoading, setChallengeLoading] = useState(!!challengeId);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [challengerReady, setChallengerReady] = useState(false);
   const [challengedReady, setChallengedReady] = useState(false);
   const [fade, setFade] = useState(false);
+  const matchHistory = useGame(s => s.matchHistory);
+
+  // refs so async callbacks / timers / realtime handlers never read stale state
+  const resultRef = useRef<MatchResult | null>(null);
+  const startedRef = useRef(false);
+  const loadingSquadsRef = useRef(false);
+  const recordedRef = useRef(false);
+  const startMatchRef = useRef<() => void>(() => {});
+  resultRef.current = result;
 
   const squad = squads[sport];
   const mySaved = savedSquads.filter(s => s.sport === sport);
@@ -65,35 +88,123 @@ export default function Match() {
 
   const homeInfo = buildHomePlayers();
 
-  const startMatch = () => {
-    if (!homeInfo && !challengeSquads) { toast.error('Escalação incompleta.'); return; }
-    const seed = challengeId ? (challenge?.seed || Date.now()) : Date.now();
+  // Loads both squads of the challenge from the edge function (service role, so it can
+  // read the opponent's cards). Never falls back to AI: on failure it exposes challengeError.
+  const loadChallengeSquads = async (): Promise<boolean> => {
+    if (!challengeId || !supabase || loadingSquadsRef.current) return false;
+    loadingSquadsRef.current = true;
+    setChallengeError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-challenge-data', { body: { challengeId } });
+      if (error || !data || data.error) {
+        let msg = data?.error as string | undefined;
+        if (!msg && error) {
+          try { msg = (await (error as any).context?.json?.())?.error; } catch { /* ignore */ }
+        }
+        throw new Error(msg || 'Não foi possível carregar os elencos do desafio.');
+      }
+      const home = data.home;
+      const away = data.away;
+      if (!Array.isArray(home?.cards) || home.cards.length < MIN_STARTERS) {
+        throw new Error('O elenco do desafiante está incompleto (mínimo de 5 titulares no elenco principal).');
+      }
+      if (!Array.isArray(away?.cards) || away.cards.length < MIN_STARTERS) {
+        throw new Error('O elenco do desafiado está incompleto (mínimo de 5 titulares no elenco principal).');
+      }
+      const homeFormation = home.formation || '1-2-1';
+      const awayFormation = away.formation || '1-2-1';
+      setChallengeSquads({
+        home: createPlayersFromCards(home.cards, 'home', homeFormation, 'futsal'),
+        away: createPlayersFromCards(away.cards, 'away', awayFormation, 'futsal'),
+        homeCards: home.cards,
+        awayCards: away.cards,
+        homeFormation,
+        awayFormation,
+        homeName: home.name || 'Desafiante',
+        awayName: away.name || 'Desafiado',
+      });
+      return true;
+    } catch (e: any) {
+      console.error('get-challenge-data failed', e);
+      setChallengeError(e?.message || 'Erro ao carregar os elencos do desafio.');
+      return false;
+    } finally {
+      loadingSquadsRef.current = false;
+    }
+  };
+
+  // Single entry point for every challenges row we receive (initial fetch, realtime, polling).
+  const applyChallengeRow = (row: any, landOnCompleted: 'prematch' | 'result' = 'prematch') => {
+    if (!row) return;
+    setChallenge(row);
+    setChallengerReady(!!row.challenger_ready);
+    setChallengedReady(!!row.challenged_ready);
+    if (row.status === 'completed' && row.result && !resultRef.current) {
+      // Official saved result: both players see the same match.
+      // 'result' when revisiting an old challenge, 'prematch' (watch the replay) when it just finished.
+      setResult(row.result);
+      setFrameIndex(0);
+      setStep(landOnCompleted);
+    }
+    if (row.status === 'rejected') {
+      toast.error('Desafio recusado.');
+      navigate('/');
+    }
+  };
+
+  const startMatch = async () => {
+    // ---------- PvP (challenge): ALWAYS uses both real squads, never the AI fallback ----------
+    if (challengeId) {
+      if (startedRef.current) return;
+      if (!challengeSquads) { toast.error('Os elencos do desafio ainda não foram carregados.'); return; }
+      if (challenge?.seed == null) { toast.error('Desafio sem seed definida. Recarregue a página.'); return; }
+      startedRef.current = true;
+      const seed = Number(challenge.seed);
+      const cs = challengeSquads;
+      const res = simulateMatch({
+        sport: 'futsal',
+        homeName: cs.homeName,
+        awayName: cs.awayName,
+        homePlayers: cs.home,
+        awayPlayers: cs.away,
+        homeFormation: cs.homeFormation,
+        awayFormation: cs.awayFormation,
+        // fixed values: both clients must simulate with identical inputs
+        homeTactic: 'balanced',
+        awayTactic: 'balanced',
+        awayDifficulty: 'normal',
+        seed,
+        minutes: 40,
+      });
+      let finalRes: MatchResult = res;
+      const saved = await challengesService.saveChallengeResult(challengeId, { ...res, seed, homeFormation: cs.homeFormation, awayFormation: cs.awayFormation });
+      if (!saved) {
+        // someone already saved the official result: use it so both players see the same match
+        const ch = await challengesService.getChallenge(challengeId);
+        if (ch?.status === 'completed' && ch.result?.frames?.length) finalRes = ch.result as MatchResult;
+      }
+      setResult(finalRes);
+      setFrameIndex(0);
+      setStep('prematch');
+      return;
+    }
+
+    // ---------- friend (opponent) / AI ----------
+    if (!homeInfo) { toast.error('Escalação incompleta.'); return; }
+    const seed = Date.now();
     let awayPlayers: MatchPlayer[];
     let awayFormation: string;
     let awayName: string;
-    let homePlayers: MatchPlayer[];
-    let homeFormation: string;
-    let homeName: string;
-    if (challengeSquads) {
-      homePlayers = challengeSquads.home;
-      awayPlayers = challengeSquads.away;
-      homeFormation = challenge?.home_formation || '1-2-1';
-      awayFormation = challenge?.away_formation || '1-2-1';
-      homeName = 'Desafiante';
-      awayName = 'Desafiado';
-    } else if (opponentId && opponentPlayers) {
-      homePlayers = homeInfo!.players;
+    const homePlayers = homeInfo.players;
+    const homeFormation = homeInfo.formation;
+    const homeName = 'Futsenai FC';
+    if (opponentId && opponentPlayers) {
       awayPlayers = opponentPlayers;
-      homeFormation = homeInfo!.formation;
       awayFormation = opponentFormation;
-      homeName = 'Futsenai FC';
       awayName = opponentName;
     } else {
-      homePlayers = homeInfo!.players;
       awayPlayers = makeAwayTeam('futsal', difficulty, seed + 1);
-      homeFormation = homeInfo!.formation;
       awayFormation = '1-2-1';
-      homeName = 'Futsenai FC';
       awayName = `IA (${difficulty})`;
     }
     const res = simulateMatch({
@@ -110,13 +221,11 @@ export default function Match() {
       seed,
       minutes: 40,
     });
-    if (challengeId) {
-      challengesService.saveChallengeResult(challengeId, { ...res, seed, homeFormation, awayFormation });
-    }
     setResult(res);
     setFrameIndex(0);
     setStep('prematch');
   };
+  startMatchRef.current = startMatch;
 
   const startPlay = () => {
     setStep('play');
@@ -151,36 +260,54 @@ export default function Match() {
     })();
   }, [opponentId]);
 
-  // challenge fetch
+  // challenge fetch (initial): session + challenge row. Squads are loaded by the effect below.
   useEffect(() => {
-    if (!challengeId || !supabase) return;
+    if (!challengeId || !supabase) { setChallengeLoading(false); return; }
+    let cancelled = false;
     setChallengeLoading(true);
     (async () => {
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        setCurrentUserId(data.session?.user?.id ?? null);
-      }
+      const { data } = await supabase!.auth.getSession();
+      if (cancelled) return;
+      setCurrentUserId(data.session?.user?.id ?? null);
       const ch = await challengesService.getChallenge(challengeId);
-      setChallenge(ch);
-      setChallengerReady(!!ch?.challenger_ready);
-      setChallengedReady(!!ch?.challenged_ready);
-      if (ch && (ch.status === 'accepted' || ch.status === 'completed')) {
-        const { data, error } = await supabase!.functions.invoke('get-challenge-data', { body: { challengeId } });
-        if (error || !data) { console.error('get-challenge-data failed', error); setChallengeLoading(false); return; }
-        const home = data.home;
-        const away = data.away;
-        if (!home?.cards?.length || !away?.cards?.length) { setChallengeLoading(false); return; }
-        const homePlayers = createPlayersFromCards(home.cards, 'home', home.formation, 'futsal');
-        const awayPlayers = createPlayersFromCards(away.cards, 'away', away.formation, 'futsal');
-        setChallengeSquads({ home: homePlayers, away: awayPlayers, homeCards: home.cards, awayCards: away.cards });
-        if (ch.status === 'completed' && ch.result) {
-          setResult(ch.result);
-          setStep('result');
-        }
-      }
+      if (cancelled) return;
+      if (ch) applyChallengeRow(ch, 'result');
       setChallengeLoading(false);
     })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId]);
+
+  // load both squads as soon as the challenge is accepted (covers: page load, accept click, realtime, polling)
+  useEffect(() => {
+    if (!challengeId || challenge?.status !== 'accepted') return;
+    if (challengeSquads || challengeError || result) return;
+    loadChallengeSquads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challengeId, challenge?.status, challengeSquads, challengeError, result]);
+
+  // fallback polling in case realtime is not enabled for the table
+  useEffect(() => {
+    if (!challengeId || !supabase) return;
+    const st = challenge?.status;
+    if ((st !== 'pending' && st !== 'accepted') || result) return;
+    const t = setInterval(async () => {
+      const ch = await challengesService.getChallenge(challengeId);
+      if (ch) applyChallengeRow(ch);
+    }, 4000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challengeId, challenge?.status, result]);
+
+  // auto start once BOTH are ready AND both squads are loaded (never from render, never stale)
+  const bothReady = challengerReady && challengedReady;
+  useEffect(() => {
+    if (!challengeId || challenge?.status !== 'accepted') return;
+    if (!bothReady || !challengeSquads || result || step !== 'setup' || startedRef.current) return;
+    setFade(true);
+    const t = setTimeout(() => { setFade(false); startMatchRef.current(); }, 1500);
+    return () => { clearTimeout(t); setFade(false); };
+  }, [challengeId, challenge?.status, bothReady, challengeSquads, result, step]);
 
   useEffect(() => {
     if (step !== 'play' || !result) return;
@@ -206,57 +333,40 @@ export default function Match() {
   }, [step, playing, speed, result]);
 
   useEffect(() => {
-    if (step === 'result' && result) {
-      addMatchHistory({ id: nanoid(), date: Date.now(), sport, homeScore: result.homeScore, awayScore: result.awayScore, opponent: result.config.awayName, challengeId: challengeId ?? undefined });
-      result.config.homePlayers.forEach(p => {
-        const uid = p.id.replace(/_home$/, '');
-        addPlayerXp(uid, 50 + (result.homeScore > result.awayScore ? 30 : 0));
-        const ps = result.playerStats[p.id];
-        recordMatchStats(uid, ps?.goals ?? 0, ps?.assists ?? 0);
-      });
-      if (challengeId) {
-        challengesService.saveChallengeResult(challengeId, { ...result, seed: result.config.seed, homeFormation: result.config.homeFormation, awayFormation: result.config.awayFormation });
-      }
+    if (step !== 'result' || !result || recordedRef.current) return;
+    recordedRef.current = true;
+    // challenge already recorded (page revisited / other tab): do not duplicate history or XP
+    if (challengeId && matchHistory.some(m => m.challengeId === challengeId)) return;
+    // in PvP the challenged user plays as AWAY: credit their own cards and see the score from their side
+    const mySide: 'home' | 'away' = challengeId && challenge && currentUserId === challenge.challenged_id ? 'away' : 'home';
+    const myScore = mySide === 'home' ? result.homeScore : result.awayScore;
+    const oppScore = mySide === 'home' ? result.awayScore : result.homeScore;
+    const oppName = mySide === 'home' ? result.config.awayName : result.config.homeName;
+    addMatchHistory({ id: nanoid(), date: Date.now(), sport, homeScore: myScore, awayScore: oppScore, opponent: oppName, challengeId: challengeId ?? undefined });
+    const myPlayers = mySide === 'home' ? result.config.homePlayers : result.config.awayPlayers;
+    myPlayers.forEach(p => {
+      const uid = p.id.replace(new RegExp(`_${mySide}$`), '');
+      addPlayerXp(uid, 50 + (myScore > oppScore ? 30 : 0));
+      const ps = result.playerStats[p.id];
+      recordMatchStats(uid, ps?.goals ?? 0, ps?.assists ?? 0);
+    });
+    // safety net: if the save done at simulation time failed, try again (guarded server-side)
+    if (challengeId && challenge?.status !== 'completed') {
+      challengesService.saveChallengeResult(challengeId, { ...result, seed: result.config.seed, homeFormation: result.config.homeFormation, awayFormation: result.config.awayFormation });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, result]);
 
   // realtime challenge updates
   useEffect(() => {
     if (!challengeId || !supabase) return;
     const channel = supabase.channel(`match-challenge-${challengeId}-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'challenges', filter: `id=eq.${challengeId}` }, (payload: any) => {
-        const row = payload.new;
-        if (!row) return;
-        setChallenge(row);
-        setChallengerReady(!!row.challenger_ready);
-        setChallengedReady(!!row.challenged_ready);
-        if (row.status === 'accepted' && !result) {
-          // reload squads if needed
-          if (!challengeSquads) {
-            (async () => {
-              const { data, error } = await supabase!.functions.invoke('get-challenge-data', { body: { challengeId } });
-              if (error || !data) return;
-              const home = data.home;
-              const away = data.away;
-              if (!home?.cards?.length || !away?.cards?.length) return;
-              const homePlayers = createPlayersFromCards(home.cards, 'home', home.formation, 'futsal');
-              const awayPlayers = createPlayersFromCards(away.cards, 'away', away.formation, 'futsal');
-              setChallengeSquads({ home: homePlayers, away: awayPlayers, homeCards: home.cards, awayCards: away.cards });
-            })();
-          }
-        }
-        if (row.status === 'completed' && row.result && !result) {
-          setResult(row.result);
-          setStep('result');
-        }
-        if (row.status === 'rejected') {
-          toast.error('Desafio recusado.');
-          navigate('/');
-        }
+        if (payload.new) applyChallengeRow(payload.new);
       })
       .subscribe();
     return () => { if (supabase) supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId]);
 
   const toSvgY = (v: number) => (v / 100) * 64;
@@ -281,7 +391,7 @@ export default function Match() {
         <div className="card-surface p-4 space-y-3">
           <div className="text-sm text-[#252733]">Voce foi desafiado!</div>
           <div className="flex gap-2">
-            <button onClick={async () => { await challengesService.acceptChallenge(challengeId); const ch = await challengesService.getChallenge(challengeId); setChallenge(ch); }} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Aceitar</button>
+            <button onClick={async () => { const ok = await challengesService.acceptChallenge(challengeId); const ch = await challengesService.getChallenge(challengeId); if (!ok && ch?.status !== 'accepted') toast.error('Não foi possível aceitar o desafio.'); if (ch) applyChallengeRow(ch); }} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Aceitar</button>
             <button onClick={async () => { await challengesService.rejectChallenge(challengeId); navigate('/'); }} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Recusar</button>
           </div>
         </div>
@@ -293,11 +403,6 @@ export default function Match() {
     const isChallenger = currentUserId === challenge.challenger_id;
     const myReady = isChallenger ? challengerReady : challengedReady;
     const oppReady = isChallenger ? challengedReady : challengerReady;
-    const bothReady = challengerReady && challengedReady;
-    if (bothReady && !fade) {
-      setFade(true);
-      setTimeout(() => { setFade(false); startMatch(); }, 1500);
-    }
     return (
       <div className="p-4 md:p-8 space-y-6">
         {fade && <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center text-white text-2xl font-bold">Preparando partida...</div>}
@@ -305,13 +410,19 @@ export default function Match() {
         <div className="grid md:grid-cols-2 gap-4">
           <div className="card-surface p-4">
             <div className="text-sm font-medium text-[#858A98] mb-2">Seu time</div>
-            <div className="text-sm text-[#252733]">Formação: {challengeSquads?.home ? 'ok' : '—'}</div>
+            <div className="text-sm text-[#252733]">{challengeSquads ? `${isChallenger ? challengeSquads.homeName : challengeSquads.awayName} · ${isChallenger ? challengeSquads.homeFormation : challengeSquads.awayFormation}` : 'Carregando elenco...'}</div>
           </div>
           <div className="card-surface p-4">
             <div className="text-sm font-medium text-[#858A98] mb-2">Adversário</div>
-            <div className="text-sm text-[#252733]">Formação: {challengeSquads?.away ? 'ok' : '—'}</div>
+            <div className="text-sm text-[#252733]">{challengeSquads ? `${isChallenger ? challengeSquads.awayName : challengeSquads.homeName} · ${isChallenger ? challengeSquads.awayFormation : challengeSquads.homeFormation}` : 'Carregando elenco...'}</div>
           </div>
         </div>
+        {challengeError && (
+          <div className="card-surface p-4 text-sm text-red-600 space-y-2">
+            <div>{challengeError}</div>
+            <button onClick={() => setChallengeError(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] text-xs font-medium">Tentar novamente</button>
+          </div>
+        )}
         <div className="text-sm text-[#858A98]">
           Você: {myReady ? 'Pronto ✓' : 'Aguardando...'} · Adversário: {oppReady ? 'Pronto ✓' : 'Aguardando...'}
         </div>
@@ -321,7 +432,7 @@ export default function Match() {
             const side = isChallenger ? 'challenger' : 'challenged';
             await challengesService.setReady(challengeId, side);
           }}
-          disabled={myReady}
+          disabled={myReady || !challengeSquads}
           className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40"
         >
           {myReady ? 'Aguardando adversário...' : 'Estou pronto'}
@@ -484,9 +595,15 @@ export default function Match() {
             <div key={i} className="text-xs text-[#252733] py-0.5">{e.minute}' - {e.description}</div>
           ))}
         </div>
-        <button onClick={() => { setStep('setup'); setResult(null); setChallengeSquads(null); }} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
-          Nova partida
-        </button>
+        {challengeId ? (
+          <button onClick={() => navigate('/friends')} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
+            Voltar
+          </button>
+        ) : (
+          <button onClick={() => { recordedRef.current = false; setStep('setup'); setResult(null); setChallengeSquads(null); }} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
+            Nova partida
+          </button>
+        )}
       </div>
     );
   }
