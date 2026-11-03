@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../engine/match';
 import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
-import { squadOverall } from '../store/useGame';
 import * as challengesService from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
 
@@ -25,7 +24,7 @@ const MIN_STARTERS = 5;
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
 const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressao alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
 
-export default function Match() {
+function MatchInner() {
   const cards = useGame(s => s.cards);
   const squads = useGame(s => s.squads);
   const savedSquads = useGame(s => s.savedSquads);
@@ -35,6 +34,8 @@ export default function Match() {
   const [step, setStep] = useState<'setup' | 'prematch' | 'play' | 'result'>('setup');
   const [selectedSquadId, setSelectedSquadId] = useState<string | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
+  const [resultConfirmed, setResultConfirmed] = useState(false);
+  const resultConfirmedRef = useRef(false);
   const [frameIndex, setFrameIndex] = useState(0);
   const addMatchHistory = useGame(s => s.addMatchHistory);
   const addPlayerXp = useGame(s => s.addPlayerXp);
@@ -56,10 +57,13 @@ export default function Match() {
   const [challengeSquads, setChallengeSquads] = useState<ChallengeSquads | null>(null);
   const [challengeLoading, setChallengeLoading] = useState(!!challengeId);
   const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [readyLoading, setReadyLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [challengerReady, setChallengerReady] = useState(false);
   const [challengedReady, setChallengedReady] = useState(false);
   const [fade, setFade] = useState(false);
+  useEffect(() => { resultConfirmedRef.current = resultConfirmed; }, [resultConfirmed]);
   const matchHistory = useGame(s => s.matchHistory);
 
   // refs so async callbacks / timers / realtime handlers never read stale state
@@ -67,13 +71,14 @@ export default function Match() {
   const startedRef = useRef(false);
   const loadingSquadsRef = useRef(false);
   const recordedRef = useRef(false);
+  const cancelledByMeRef = useRef(false);
   const startMatchRef = useRef<() => void>(() => {});
   resultRef.current = result;
 
   const squad = squads[sport];
   const mySaved = savedSquads.filter(s => s.sport === sport);
 
-  const buildHomePlayers = (): { players: MatchPlayer[]; formation: string } | null => {
+  const buildHomePlayers = (): { players: MatchPlayer[]; formation: string; cards: any[] } | null => {
     let formation = squad.formation;
     let starterUids = squad.starters.map(s => s.uid);
     if (selectedSquadId) {
@@ -83,7 +88,7 @@ export default function Match() {
     const starterCards = starterUids.map(uid => uid ? cards.find(c => c.uid === uid) : null).filter(Boolean) as any[];
     if (starterCards.length < 5) return null;
     const players = createPlayersFromCards(starterCards, 'home', formation, sport);
-    return { players, formation };
+    return { players, formation, cards: starterCards };
   };
 
   const homeInfo = buildHomePlayers();
@@ -139,58 +144,86 @@ export default function Match() {
     setChallenge(row);
     setChallengerReady(!!row.challenger_ready);
     setChallengedReady(!!row.challenged_ready);
-    if (row.status === 'completed' && row.result && !resultRef.current) {
+    if (row.status === 'completed' && row.result && (!resultConfirmedRef.current || !result)) {
       // Official saved result: both players see the same match.
       // 'result' when revisiting an old challenge, 'prematch' (watch the replay) when it just finished.
-      setResult(row.result);
+      setResult(row.result as MatchResult);
+      setResultConfirmed(true);
       setFrameIndex(0);
       setStep(landOnCompleted);
     }
     if (row.status === 'rejected') {
-      toast.error('Desafio recusado.');
-      navigate('/');
+      if (!cancelledByMeRef.current) toast.error('Desafio recusado ou cancelado.');
+      navigate(cancelledByMeRef.current ? '/friends' : '/');
     }
   };
 
   const startMatch = async () => {
+    setResultConfirmed(false);
     // ---------- PvP (challenge): ALWAYS uses both real squads, never the AI fallback ----------
     if (challengeId) {
       if (startedRef.current) return;
       if (!challengeSquads) { toast.error('Os elencos do desafio ainda não foram carregados.'); return; }
       if (challenge?.seed == null) { toast.error('Desafio sem seed definida. Recarregue a página.'); return; }
       startedRef.current = true;
+      setStartError(null);
       const seed = Number(challenge.seed);
       const cs = challengeSquads;
-      const res = simulateMatch({
-        sport: 'futsal',
-        homeName: cs.homeName,
-        awayName: cs.awayName,
-        homePlayers: cs.home,
-        awayPlayers: cs.away,
-        homeFormation: cs.homeFormation,
-        awayFormation: cs.awayFormation,
-        // fixed values: both clients must simulate with identical inputs
-        homeTactic: 'balanced',
-        awayTactic: 'balanced',
-        awayDifficulty: 'normal',
-        seed,
-        minutes: 40,
-      });
-      let finalRes: MatchResult = res;
-      const saved = await challengesService.saveChallengeResult(challengeId, { ...res, seed, homeFormation: cs.homeFormation, awayFormation: cs.awayFormation });
-      if (!saved) {
-        // someone already saved the official result: use it so both players see the same match
-        const ch = await challengesService.getChallenge(challengeId);
-        if (ch?.status === 'completed' && ch.result?.frames?.length) finalRes = ch.result as MatchResult;
+      try {
+        const res = simulateMatch({
+          sport: 'futsal',
+          homeName: cs.homeName,
+          awayName: cs.awayName,
+          homePlayers: cs.home,
+          awayPlayers: cs.away,
+          homeFormation: cs.homeFormation,
+          awayFormation: cs.awayFormation,
+          // fixed values: both clients must simulate with identical inputs
+          homeTactic: 'balanced',
+          awayTactic: 'balanced',
+          awayDifficulty: 'normal',
+          seed,
+          minutes: 40,
+        });
+        let finalRes: MatchResult = res;
+        const saved = await challengesService.saveChallengeResult(challengeId, { ...res, seed, homeFormation: cs.homeFormation, awayFormation: cs.awayFormation });
+        if (!saved) {
+          const ch = await challengesService.getChallenge(challengeId);
+          if (ch?.status === 'completed' && ch.result?.frames?.length) {
+            finalRes = ch.result as MatchResult;
+          } else {
+            toast.error('Não foi possível confirmar o resultado. Tente novamente.');
+            return;
+          }
+        }
+        setResult(finalRes);
+        setResultConfirmed(true);
+        setFrameIndex(0);
+        setStep('prematch');
+      } catch (e) {
+        console.error('startMatch failed', e);
+        // never start a second match blindly: look for the official result first
+        let recovered = false;
+        try {
+          const ch = await challengesService.getChallenge(challengeId);
+          if (ch?.status === 'completed' && ch.result?.frames?.length) {
+            setResult(ch.result as MatchResult); setFrameIndex(0); setStep('prematch'); recovered = true;
+          }
+        } catch { /* still offline */ }
+        if (!recovered) {
+          startedRef.current = false;
+          setStartError('Não foi possível sincronizar a partida. Verifique a conexão e tente de novo.');
+        }
       }
-      setResult(finalRes);
-      setFrameIndex(0);
-      setStep('prematch');
       return;
     }
 
     // ---------- friend (opponent) / AI ----------
     if (!homeInfo) { toast.error('Escalação incompleta.'); return; }
+    if (opponentId && !opponentPlayers) {
+      toast.error('Não foi possível carregar o elenco do amigo (ele precisa ter 5 titulares salvos).');
+      return;
+    }
     const seed = Date.now();
     let awayPlayers: MatchPlayer[];
     let awayFormation: string;
@@ -215,7 +248,7 @@ export default function Match() {
       awayPlayers,
       homeFormation,
       awayFormation,
-      homeTactic: 'balanced',
+      homeTactic,
       awayTactic: 'balanced',
       awayDifficulty: difficulty,
       seed,
@@ -235,28 +268,31 @@ export default function Match() {
   // opponent fetch
   useEffect(() => {
     if (!opponentId || !supabase) return;
+    let cancelled = false;
     setLoadingOpp(true);
     (async () => {
-      const { data: prof } = await supabase.from('profiles').select('name').eq('id', opponentId).single();
-      setOpponentName(prof?.name || 'Amigo');
-      const { data: sqs } = await supabase.from('squads').select('*').eq('user_id', opponentId);
-      const sq = (sqs && sqs.length > 0) ? (sqs.find((s: any) => s.is_primary) || sqs[0]) : null;
-      const formation = sq?.formation || '1-2-1';
-      setOpponentFormation(formation);
-      const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
-      const { data: cs } = await supabase.from('cards').select('*').eq('user_id', opponentId);
-      const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
-      const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
-      if (starterCards.length >= 5) {
-        const mapped = starterCards.map((c: any) => ({
-          uid: c.id, name: c.name, position: c.position, overall: c.overall,
-          pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
-          reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
-        }));
-        const players = createPlayersFromCards(mapped, 'away', formation, 'futsal');
-        setOpponentPlayers(players);
-      }
-      setLoadingOpp(false);
+      try {
+        const { data: prof } = await supabase.from('profiles').select('name').eq('id', opponentId).single();
+        if (cancelled) return;
+        setOpponentName(prof?.name || 'Amigo');
+        const { data: sqs } = await supabase.from('squads').select('*').eq('user_id', opponentId);
+        const sq = (sqs && sqs.length > 0) ? (sqs.find((s: any) => s.is_primary) || sqs[0]) : null;
+        const formation = sq?.formation || '1-2-1';
+        setOpponentFormation(formation);
+        const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
+        const { data: cs } = await supabase.from('cards').select('*').eq('user_id', opponentId);
+        const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
+        const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
+        if (starterCards.length >= 5) {
+          const mapped = starterCards.map((c: any) => ({
+            uid: c.id, name: c.name, position: c.position, overall: c.overall,
+            pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
+            reflexes: c.reflexes, positioning: c.positioning, handling: c.handling,
+          }));
+          const players = createPlayersFromCards(mapped, 'away', formation, 'futsal');
+          setOpponentPlayers(players);
+        }
+      } catch (e) { console.error('opponent fetch failed', e); } finally { setLoadingOpp(false); }
     })();
   }, [opponentId]);
 
@@ -266,13 +302,18 @@ export default function Match() {
     let cancelled = false;
     setChallengeLoading(true);
     (async () => {
-      const { data } = await supabase!.auth.getSession();
-      if (cancelled) return;
-      setCurrentUserId(data.session?.user?.id ?? null);
-      const ch = await challengesService.getChallenge(challengeId);
-      if (cancelled) return;
-      if (ch) applyChallengeRow(ch, 'result');
-      setChallengeLoading(false);
+      try {
+        const { data } = await supabase!.auth.getSession();
+        if (cancelled) return;
+        setCurrentUserId(data.session?.user?.id ?? null);
+        const ch = await challengesService.getChallenge(challengeId);
+        if (cancelled) return;
+        if (ch) applyChallengeRow(ch, 'result');
+      } catch (e) {
+        console.error('challenge fetch failed', e);
+      } finally {
+        if (!cancelled) setChallengeLoading(false);
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,8 +333,12 @@ export default function Match() {
     const st = challenge?.status;
     if ((st !== 'pending' && st !== 'accepted') || result) return;
     const t = setInterval(async () => {
-      const ch = await challengesService.getChallenge(challengeId);
-      if (ch) applyChallengeRow(ch);
+      try {
+        const ch = await challengesService.getChallenge(challengeId);
+        if (ch) applyChallengeRow(ch);
+      } catch (e) {
+        console.error('polling failed', e);
+      }
     }, 4000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -303,11 +348,11 @@ export default function Match() {
   const bothReady = challengerReady && challengedReady;
   useEffect(() => {
     if (!challengeId || challenge?.status !== 'accepted') return;
-    if (!bothReady || !challengeSquads || result || step !== 'setup' || startedRef.current) return;
+    if (!bothReady || !challengeSquads || result || step !== 'setup' || startedRef.current || startError) return;
     setFade(true);
     const t = setTimeout(() => { setFade(false); startMatchRef.current(); }, 1500);
     return () => { clearTimeout(t); setFade(false); };
-  }, [challengeId, challenge?.status, bothReady, challengeSquads, result, step]);
+  }, [challengeId, challenge?.status, bothReady, challengeSquads, result, step, startError]);
 
   useEffect(() => {
     if (step !== 'play' || !result) return;
@@ -382,6 +427,7 @@ export default function Match() {
         <div className="p-4 md:p-8 space-y-4">
           <h1 className="text-2xl font-semibold text-[#252733]">Desafio enviado</h1>
           <div className="card-surface p-4 text-sm text-[#858A98]">Aguardando o adversario aceitar...</div>
+          <button onClick={async () => { cancelledByMeRef.current = true; await challengesService.rejectChallenge(challengeId); navigate('/friends'); }} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Cancelar desafio</button>
         </div>
       );
     }
@@ -426,16 +472,36 @@ export default function Match() {
         <div className="text-sm text-[#858A98]">
           Você: {myReady ? 'Pronto ✓' : 'Aguardando...'} · Adversário: {oppReady ? 'Pronto ✓' : 'Aguardando...'}
         </div>
+        {startError && (
+          <div className="card-surface p-4 text-sm text-red-600 space-y-2">
+            <div>{startError}</div>
+            <button onClick={() => setStartError(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] text-xs font-medium">Tentar novamente</button>
+          </div>
+        )}
         <button
           onClick={async () => {
-            if (!challengeId) return;
+            if (!challengeId || readyLoading) return;
             const side = isChallenger ? 'challenger' : 'challenged';
-            await challengesService.setReady(challengeId, side);
+            setReadyLoading(true);
+            try {
+              const ok = await challengesService.setReady(challengeId, side);
+              if (!ok) toast.error('Não foi possível confirmar. Tente de novo.');
+              const ch = await challengesService.getChallenge(challengeId);
+              if (ch) applyChallengeRow(ch);
+            } finally {
+              setReadyLoading(false);
+            }
           }}
-          disabled={myReady || !challengeSquads}
+          disabled={myReady || !challengeSquads || readyLoading}
           className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40"
         >
-          {myReady ? 'Aguardando adversário...' : 'Estou pronto'}
+          {readyLoading ? 'Enviando...' : myReady ? 'Aguardando adversário...' : 'Estou pronto'}
+        </button>
+        <button
+          onClick={async () => { cancelledByMeRef.current = true; await challengesService.rejectChallenge(challengeId!); navigate('/friends'); }}
+          className="w-full px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium text-[#252733]"
+        >
+          Cancelar desafio
         </button>
       </div>
     );
@@ -453,7 +519,7 @@ export default function Match() {
               {mySaved.map(s => <option key={s.id} value={s.id}>{s.name} ({s.formation})</option>)}
             </select>
             {!homeInfo && !challengeSquads && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
-            {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {squadOverall(squads[sport], cards)}</div>}
+            {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {Math.round(homeInfo.cards.reduce((a: number, c: any) => a + (c.overall ?? 0), 0) / homeInfo.cards.length)}</div>}
           </div>
           {!opponentId && !challengeId && (
             <div>
@@ -471,7 +537,7 @@ export default function Match() {
               {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
             </select>
           </div>
-          <button onClick={startMatch} disabled={!homeInfo && !challengeSquads} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
+          <button onClick={startMatch} disabled={!homeInfo || (!!opponentId && !opponentPlayers)} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
             Iniciar partida
           </button>
         </div>
@@ -493,6 +559,16 @@ export default function Match() {
             <div className="text-center">
               <div className="font-bold text-[#252733]">{result.config.awayName}</div>
               <div className="text-xs text-[#858A98]">{result.config.awayFormation}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
+            <div>
+              <div className="font-semibold text-[#858A98] mb-1">Seu time</div>
+              {result.config.homePlayers.map(p => <div key={p.id} className="text-[#252733]">{p.number}. {p.name} ({p.position})</div>)}
+            </div>
+            <div>
+              <div className="font-semibold text-[#858A98] mb-1">Adversário</div>
+              {result.config.awayPlayers.map(p => <div key={p.id} className="text-[#252733]">{p.number}. {p.name} ({p.position})</div>)}
             </div>
           </div>
           <button onClick={startPlay} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
@@ -609,4 +685,11 @@ export default function Match() {
   }
 
   return null;
+}
+
+// key => ao trocar de desafio/adversario o componente remonta: nenhum estado, ref ou resposta
+// atrasada da partida anterior contamina a nova.
+export default function Match() {
+  const [sp] = useSearchParams();
+  return <MatchInner key={`${sp.get('challenge') ?? ''}|${sp.get('opponent') ?? ''}`} />;
 }
