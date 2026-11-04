@@ -118,28 +118,38 @@ Deno.serve(async req => {
 
     const hasHomeSnapshot = challenge.home_snapshot !== null;
     const hasAwaySnapshot = challenge.away_snapshot !== null;
-    if (hasHomeSnapshot !== hasAwaySnapshot) {
-      throw new RequestError('Os snapshots do desafio estão inconsistentes.', 409);
+    if (
+      (hasHomeSnapshot && (!Array.isArray(challenge.home_snapshot?.cards) || challenge.home_snapshot.cards.length !== 5))
+      || (hasAwaySnapshot && (!Array.isArray(challenge.away_snapshot?.cards) || challenge.away_snapshot.cards.length !== 5))
+      || (hasHomeSnapshot && !challenge.challenger_ready)
+      || (hasAwaySnapshot && !challenge.challenged_ready)
+      || (hasHomeSnapshot && !hasAwaySnapshot && challenge.challenged_ready)
+      || (!hasHomeSnapshot && hasAwaySnapshot && challenge.challenger_ready)
+    ) {
+      throw new RequestError('Os snapshots congelados do desafio estão inconsistentes.', 409);
+    }
+    if (challenge.status === 'completed' && (!hasHomeSnapshot || !hasAwaySnapshot)) {
+      throw new RequestError('A partida concluída não possui snapshots oficiais.', 409);
     }
 
     let home = challenge.home_snapshot;
     let away = challenge.away_snapshot;
-    if (hasHomeSnapshot && hasAwaySnapshot) {
-      if (!Array.isArray(home?.cards) || !Array.isArray(away?.cards)) {
-        throw new RequestError('Os snapshots do desafio são inválidos.', 409);
-      }
-    } else if (challenge.status === 'completed') {
-      throw new RequestError('A partida concluída não possui snapshots oficiais.', 409);
-    } else {
+    if (challenge.status !== 'completed' && (!hasHomeSnapshot || !hasAwaySnapshot)) {
       const [homeRoster, awayRoster, profiles] = await Promise.all([
-        loadTeam(challenge.challenger_id),
-        loadTeam(challenge.challenged_id),
+        hasHomeSnapshot ? Promise.resolve(null) : loadTeam(challenge.challenger_id),
+        hasAwaySnapshot ? Promise.resolve(null) : loadTeam(challenge.challenged_id),
         supabase.from('profiles').select('id,name').in('id', [challenge.challenger_id, challenge.challenged_id]),
       ]);
       if (profiles.error) throw profiles.error;
       const names = new Map((profiles.data ?? []).map((profile: any) => [profile.id, profile.name]));
-      home = { ...homeRoster, name: names.get(challenge.challenger_id) || 'Desafiante' };
-      away = { ...awayRoster, name: names.get(challenge.challenged_id) || 'Desafiado' };
+      home ??= {
+        ...homeRoster!,
+        name: names.get(challenge.challenger_id) || 'Desafiante',
+      };
+      away ??= {
+        ...awayRoster!,
+        name: names.get(challenge.challenged_id) || 'Desafiado',
+      };
     }
 
     const snapshotCards = [...(home?.cards ?? []), ...(away?.cards ?? [])];

@@ -121,16 +121,21 @@ Cada cliente chama
 `balanced | possession | highpress | counter | compact`
 
 A RPC bloqueia a linha do desafio com `FOR UPDATE`, identifica o lado pelo
-`auth.uid()`, grava sua flag `challenger_ready`/`challenged_ready` e sua tática.
-Quando ambos estão prontos, constrói e grava `home_snapshot` e `away_snapshot`
-na mesma transação. No caso de A desafiar B, A é o lado `home`/challenger e B é
-o lado `away`/challenged.
+`auth.uid()`, constrói o snapshot completo daquele jogador e grava sua flag
+`challenger_ready`/`challenged_ready`, tática e snapshot na mesma transação.
+Assim, o elenco e a tática ficam congelados no primeiro clique em “Estou
+pronto”; a segunda prontidão congela o outro lado. No caso de A desafiar B, A
+é o lado `home`/challenger e B é o lado `away`/challenged.
 
 O trigger `challenges_snapshot_immutable` rejeita UPDATEs que tentem trocar um
-snapshot já preenchido. A RPC de claim também cria snapshots se ambos estiverem
-prontos e ambos ainda forem nulos; se apenas um existir, aborta por
-inconsistência. Depois da preparação, a Edge Function usa os snapshots e as
-táticas congeladas, não recarrega os elencos atuais.
+snapshot já preenchido. Durante a prévia, é válido haver somente o snapshot do
+jogador que já confirmou prontidão; `get-challenge-data` combina esse snapshot
+congelado com uma prévia do elenco ainda não confirmado. A RPC de claim exige
+ambos os snapshots quando ambos estão prontos. Para compatibilidade de
+recuperação com desafios legados que tenham ambos prontos e nenhum snapshot,
+o claim mantém a reconstrução dos dois; um snapshot parcial com ambos prontos
+é tratado como inconsistência. Depois da preparação, a Edge Function usa os
+snapshots e as táticas congeladas, não recarrega os elencos atuais.
 
 ## 3. Matemática do confronto
 
@@ -313,8 +318,11 @@ replay.
 | `supabase/functions/simulate-challenge/index.ts` | Autentica o participante, adquire a trava, simula snapshots congelados e pede conclusão oficial. |
 | `src/engine/match.ts` | Motor puro: valida times, usa seed, produz placar, eventos, frames e estatísticas. |
 | `supabase/pvp_authority.sql` | Define colunas, snapshots, RPCs, locks, permissões, playback e recompensas. |
+| `supabase/migrations/20261104150000_competitive_leaderboard.sql` | Congela cada elenco ao confirmar prontidão e adiciona rating competitivo transacional e RPCs de leitura. |
 | `public.challenges` | Estado do desafio, snapshots, seed, resultado e playback compartilhado. |
 | `public.challenge_rewards` | Chave única `(challenge_id, user_id)` que protege a distribuição por jogador. |
+| `public.player_competitive_ratings` | Rating global, estatísticas competitivas, sequência e pico. |
+| `public.competitive_rating_events` | Ledger imutável de rating, por jogador e desafio. |
 
 ## 6. Trava de simulação e tokens
 
@@ -348,6 +356,174 @@ as operações privilegiadas com o cliente administrativo.
 token da linha. A alteração do desafio, a criação das linhas
 `challenge_rewards`, as atualizações de cartas e os registros em `matches`
 ocorrem dentro da mesma execução SQL/transação.
+
+Na migration competitiva, um trigger executado na transição oficial
+`accepted` → `completed` atualiza os ratings dos dois participantes e grava
+dois eventos de ELO na mesma transação da conclusão. O ELO inicial é 1000, o
+K-factor é 32 e o resultado de empate é 0,5. O delta do desafiante é
+arredondado uma vez e o delta do adversário é seu oposto, mantendo soma zero.
+O ledger tem unicidade `(challenge_id, user_id)`; qualquer evento preexistente
+num desafio que ainda esteja sendo concluído interrompe e reverte a operação,
+em vez de tentar reparar uma inconsistência. O trigger também exige
+`result.config.mode = 'pvp'`; partidas simuladas contra IA não são elegíveis,
+mesmo que um cliente antigo tenha tentado associá-las a um desafio.
+
+O ranking competitivo é separado do `public.leaderboard` de coleção. A tabela
+de configuração guarda K-factor, ELO inicial, versão do algoritmo e limites de
+divisão. As tabelas competitivas não dão acesso direto de leitura ou escrita a
+`authenticated`; RPCs autenticadas expõem somente dados de ranking/perfil e
+resultados permitidos. Não há importação automática de partidas anteriores nem
+reset ou temporada nesta versão. O ELO e o histórico competitivo são
+determinados exclusivamente por `challenges` e
+`competitive_rating_events`; `matches` não participa do cálculo de resultado,
+rating, divisão ou posição.
+
+O histórico oficial em `matches` continua sendo escrito por `complete_challenge`
+na mesma transação da conclusão e somente quando a inserção de
+`challenge_rewards (challenge_id, user_id)` é nova. A chave primária dessa
+tabela faz com que um retry de conclusão não grave outra linha oficial para o
+mesmo participante. O ledger competitivo possui sua própria restrição única
+`(challenge_id, user_id)`, que protege o rating independentemente do histórico
+legado. A trigger de integridade também valida que o challenge esteja concluído
+em modo PvP, que o usuário seja participante e que o placar esteja orientado
+corretamente para aquele participante.
+
+`matches` continua contendo histórico de partidas locais/IA e suas permissões
+de leitura/escrita legadas são preservadas para esses casos. Seus registros não
+são fonte de resultado competitivo. O serviço de escrita do cliente recusa
+entradas PvP, mas a trigger no banco é a proteção autoritativa contra chamadas
+diretas à API. Nenhuma linha antiga é corrigida, removida ou usada para
+backfill.
+
+O fluxo PvP inicial usava o fallback local de IA quando a escalação de desafio
+não estava carregada e salvava o resultado no cliente com o `challengeId`.
+Além disso, retries da tela podiam inserir novamente no histórico. Isso explica
+as linhas legadas com `IA (normal)`, mas não prova que sejam descartáveis; elas
+permanecem intactas. Hoje o cliente PvP apenas mantém uma cópia local para
+exibição, e o histórico oficial é gravado pelo backend com a chave única de
+`challenge_rewards`.
+
+A migration competitiva cria `challenges.completed_at` para registrar o
+instante da conclusão, sem confundi-lo com `updated_at`, que continua mudando
+durante o playback. Há duas séries intencionalmente separadas:
+
+- **Histórico PvP total / H2H:** consulta os challenges concluídos em modo PvP,
+  prontos e com snapshots congelados. Pode incluir confrontos oficiais
+  anteriores ao ELO, não faz backfill e retorna `historyType =
+  historical_pvp`. A busca de adversários consulta essa mesma série, inclusive
+  jogadores que ainda não têm rating competitivo; a tela o rotula como
+  histórico PvP total.
+- **Histórico competitivo:** consulta o ledger por `challenge_id` e só mostra
+  eventos quando ambos os participantes têm evento correspondente para o mesmo
+  challenge. Os totais do perfil e leaderboard vêm das atualizações de rating,
+  não do H2H legado.
+
+Challenges com modo IA/friendly, sem conclusão ou sem prontidão/snapshots ficam
+fora do H2H histórico. A tabela `matches` e seu campo textual `opponent` não são
+usados para identificar participantes em nenhuma das séries.
+
+## 7.1 Permissões e matriz de escrita
+
+| Operação | Antes desta correção | `anon` depois | `authenticated` depois | `service_role` / fluxo oficial depois |
+|---|---|---|---|---|
+| INSERT em `matches` local/IA sem `challenge_id` | Permitido no caminho legado | Sujeito às permissões existentes | Preservado conforme RLS existente | Permitido conforme grants da aplicação |
+| INSERT PvP ou com `challenge_id` em `matches` | INSERT próprio confirmado em auditoria remota anterior | Sem permissão; trigger também valida | Bloqueado por permissão e trigger | DML direto revogado; `complete_challenge` grava após validação |
+| UPDATE de linha PvP ou transformação local→PvP | Grants efetivos não confirmados | Sem permissão | Bloqueado por permissão e trigger | DML direto revogado; anonimização só pode substituir nome por rótulo genérico |
+| DELETE de histórico PvP em `matches` | DELETE próprio confirmado em auditoria remota anterior | Sem permissão | Bloqueado por permissão e trigger | DML direto revogado; RPC remove linhas próprias e preserva as do adversário |
+| TRUNCATE em `matches` | Grants efetivos não confirmados | Revogado | Revogado | Revogado |
+| DML direto em `challenges` | Script-base concedia tudo; reconciliação já revogava INSERT/UPDATE, mas não DELETE explicitamente | Revogado | Revogado; transições por RPC autorizada | DML direto revogado; RPCs SECURITY DEFINER fazem transições validadas |
+| DML direto em `challenge_rewards` | RLS sem policies no SQL consultado; grants efetivos não confirmados | Revogado explicitamente | Revogado explicitamente | DML direto revogado; conclusão e anonimização escrevem via funções SECURITY DEFINER |
+| DML direto em ratings/eventos competitivos | Já revogado pela migration competitiva | Revogado | Revogado | DML direto revogado; trigger da conclusão atualiza atomicamente |
+| `complete_challenge` | Já sem EXECUTE para usuários | Sem EXECUTE | Sem EXECUTE | EXECUTE concedido à Edge Function |
+
+Os SELECT e os grants de partidas locais/IA não são removidos por essa
+correção. A autorização efetiva no projeto remoto continua exigindo conferência
+após aplicação das migrations; esta alteração local não prova o estado
+implantado. A migration corrige o estado de grants para futuras instalações e
+deploys, mas não foi aplicada remotamente.
+
+A trigger bloqueia o challenge com `FOR UPDATE` antes de validar e inserir
+histórico oficial, e recusa um segundo registro do mesmo par
+`(challenge_id, user_id)`. Isso torna os novos writes oficiais idempotentes sem
+índice global que colidiria com os registros legados. Os grants diretos de
+escrita e `TRUNCATE` também são revogados de `service_role` nas tabelas PvP;
+as Edge Functions continuam usando as RPCs SECURITY DEFINER autorizadas.
+
+## 7.2 Testes PostgreSQL de concorrência e segurança
+
+`supabase/tests/pvp_integrity.sql` verifica grants, funções privilegiadas e os
+contratos das RPCs. O harness
+`tests/postgres/competitive-concurrency.mjs` usa duas conexões PostgreSQL
+independentes pelo driver `pg` e só libera cada par quando ambas estão
+aguardando um lock observado em `pg_stat_activity`. Ele cobre conclusão simultânea do mesmo
+challenge, partidas simultâneas com jogador compartilhado, retries,
+cardinalidade de eventos/recompensas/histórico, falha no segundo evento,
+challenges IA/incompletos/cancelados, operações de escrita sob os papéis reais
+`anon`, `authenticated` e `service_role`, `TRUNCATE`, anonimização de conta e
+preservação do rating do adversário.
+
+Execute somente em banco local descartável, depois de aplicar as migrations
+locais e criar os papéis/tabelas Supabase:
+
+```powershell
+$env:DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+$env:PVP_TEST_ALLOW_RESET = "1"
+npm run test:postgres
+```
+
+O harness apaga e recria somente UUIDs fixos de teste e recusa hosts fora de
+localhost. Não o execute em produção. Os nove registros históricos remotos
+conflitantes não são referenciados pelos fixtures e permanecem sem alterações;
+nenhum backfill ou reconciliação automática é realizado.
+
+Para uma instância PostgreSQL descartável sem Supabase CLI, a variável
+`PVP_TEST_BOOTSTRAP=1` aplica um esquema mínimo compatível e as migrations PvP
+locais antes dos testes. Não é uma simulação: os SQLs e as conexões concorrentes
+executam em PostgreSQL real. A validação ainda não confirma grants, extensões ou
+estado do projeto Supabase remoto.
+
+## 7.3 Exclusão, anonimização e retenção competitiva
+
+A migration `20261104165000_competitive_account_anonymization.sql` substitui a
+exclusão em cascata das referências bilaterais por uma identidade UUID aleatória.
+Na mesma transação, ela preserva os challenges concluídos elegíveis ao H2H e
+todos os challenges que já tenham eventos competitivos, atualiza os dois lados
+do ledger e das recompensas para o pseudônimo, remove o rating agregado do
+titular e apaga as linhas pessoais de `matches`. O rating e as estatísticas do
+adversário não são recalculados nem alterados.
+
+As escalações, IDs/atributos de cartas, nomes, avatares e frames do playback
+são eliminados dos challenges preservados. Os resultados mantêm somente modo,
+placar e rótulos genéricos; desafios sem conclusão oficial e sem ledger são
+removidos. O H2H continua podendo localizar um adversário anonimizado como
+`Jogador removido`, sem rating, e ele não volta ao leaderboard. Eventos de ELO
+anteriores continuam vinculados ao `challenge_id` canônico, sem associação
+retroativa por nomes.
+
+A RPC mantém temporariamente uma associação entre o UUID de Auth e o pseudônimo,
+invisível a clientes, para permitir retry idempotente se a limpeza transacional
+terminar mas `auth.admin.deleteUser` falhar. A exclusão da linha Auth usa
+`ON DELETE SET NULL` nessa associação, apagando o vínculo reversível e mantendo
+somente a identidade pseudônima. A identidade da conta continua sendo obtida
+exclusivamente do token validado pela Edge Function.
+entrega. A tentativa de instalar PostgreSQL 17 pelo WinGet também falhou porque
+o download oficial retornou HTTP 403 (`0x80190193`). O harness está preparado
+para ser chamado em CI depois que o job iniciar um banco Supabase isolado e
+aplicar o schema/migrations necessários; o build e os testes de frontend não
+substituem essa validação.
+
+A Function `delete-account` valida o bearer token com `auth.getUser(token)`,
+obtém a identidade exclusivamente do JWT validado e chama a RPC
+`delete_account_owned_data` (somente `service_role`) para remover dados públicos
+em uma transação. Em seguida usa a Admin API para excluir a conta Auth. Se essa
+última chamada falhar após a limpeza, retorna erro explícito e permite retry
+com o token ainda válido.
+Há uma pendência de integridade no desenho atual: as FKs de challenges e do
+ledger competitivo usam `ON DELETE CASCADE`. Excluir um usuário pode remover os
+eventos bilaterais e challenges do adversário, mas deixar o rating agregado do
+adversário contando essas partidas. Definir anonimização/retenção ou replay
+transacional de ratings antes de produção; esta correção não altera esse modelo
+nem os dados existentes.
 
 Para cada jogador:
 
@@ -430,9 +606,8 @@ registra prêmio em moedas nem alteração de nível global.
 2. B aceita. `accept_challenge` verifica que B é o destinatário e muda o estado
    para `accepted`, atribuindo uma seed, por exemplo `314159`.
 3. A e B veem os elencos principais atualmente salvos no servidor. A seleciona
-   `counter`; B seleciona `compact`. Cada um confirma prontidão. O segundo
-   `set_challenge_ready` grava ambos os snapshots e as táticas na linha do
-   desafio.
+   `counter`; B seleciona `compact`. Ao confirmar, cada jogador congela seu
+   próprio snapshot e tática; o segundo `set_challenge_ready` completa o par.
 4. Suponha que o portador de A tenha `shooting = 80`, esteja no terço ofensivo,
    que A use `counter` (`shoot = 1,2`) e a pressão seja `1,0`:
 
@@ -471,9 +646,8 @@ registra prêmio em moedas nem alteração de nível global.
 ## 9. Limitações e cobertura
 
 - **Seleção de escalação no PvP:** a sala não envia uma escalação alternativa.
-  O snapshot usa o `squads` principal remoto. A prévia antes de os dois estarem
-  prontos pode mostrar elencos atuais e depois ser substituída pelos snapshots
-  congelados.
+  O snapshot usa o `squads` principal remoto. Antes de um jogador confirmar,
+  sua prévia pode refletir o elenco atual; após confirmar, o snapshot não muda.
 - **Táticas parciais:** somente `shoot` e `passRisk` alteram decisões hoje.
   `press` e `defendLine` existem na tabela de modificadores, mas não são usados
   pelo loop do motor.

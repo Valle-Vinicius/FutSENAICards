@@ -193,9 +193,11 @@
   as $$
   declare
     v_challenge public.challenges%rowtype;
-    v_home_snapshot jsonb;
-    v_away_snapshot jsonb;
+    v_snapshot jsonb;
   begin
+    if auth.uid() is null then
+      raise exception 'Authentication required';
+    end if;
     if p_tactic is null or p_tactic not in ('balanced', 'possession', 'highpress', 'counter', 'compact') then
       raise exception 'Unsupported tactic';
     end if;
@@ -207,28 +209,39 @@
     for update;
     if not found then return false; end if;
 
-    if auth.uid() = v_challenge.challenger_id and not v_challenge.challenger_ready then
-      update public.challenges
-      set challenger_ready = true, challenger_tactic = p_tactic, updated_at = now()
-      where id = p_challenge_id;
-    elsif auth.uid() = v_challenge.challenged_id and not v_challenge.challenged_ready then
-      update public.challenges
-      set challenged_ready = true, challenged_tactic = p_tactic, updated_at = now()
-      where id = p_challenge_id;
-    end if;
-
-    select * into v_challenge from public.challenges where id = p_challenge_id;
-    if v_challenge.challenger_ready and v_challenge.challenged_ready then
-      if (v_challenge.home_snapshot is null) <> (v_challenge.away_snapshot is null) then
-        raise exception 'Challenge snapshots are inconsistent';
+    if auth.uid() = v_challenge.challenger_id then
+      if v_challenge.challenger_ready then
+        if v_challenge.home_snapshot is null then
+          raise exception 'Ready challenger is missing its frozen snapshot';
+        end if;
+        return true;
       end if;
-    end if;
-    if v_challenge.challenger_ready and v_challenge.challenged_ready
-       and v_challenge.home_snapshot is null and v_challenge.away_snapshot is null then
-      v_home_snapshot := public.build_challenge_team_snapshot(v_challenge.challenger_id);
-      v_away_snapshot := public.build_challenge_team_snapshot(v_challenge.challenged_id);
+      v_snapshot := public.build_challenge_team_snapshot(v_challenge.challenger_id);
+      if v_challenge.challenged_ready and v_challenge.away_snapshot is null then
+        raise exception 'Ready challenged player is missing its frozen snapshot';
+      end if;
       update public.challenges
-      set home_snapshot = v_home_snapshot, away_snapshot = v_away_snapshot, updated_at = now()
+      set challenger_ready = true,
+          challenger_tactic = p_tactic,
+          home_snapshot = v_snapshot,
+          updated_at = now()
+      where id = p_challenge_id;
+    else
+      if v_challenge.challenged_ready then
+        if v_challenge.away_snapshot is null then
+          raise exception 'Ready challenged player is missing its frozen snapshot';
+        end if;
+        return true;
+      end if;
+      v_snapshot := public.build_challenge_team_snapshot(v_challenge.challenged_id);
+      if v_challenge.challenger_ready and v_challenge.home_snapshot is null then
+        raise exception 'Ready challenger is missing its frozen snapshot';
+      end if;
+      update public.challenges
+      set challenged_ready = true,
+          challenged_tactic = p_tactic,
+          away_snapshot = v_snapshot,
+          updated_at = now()
       where id = p_challenge_id;
     end if;
     return true;

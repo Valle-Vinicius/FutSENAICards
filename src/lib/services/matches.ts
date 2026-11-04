@@ -40,6 +40,7 @@ export async function getMatches(userId: string): Promise<MatchRecord[]> {
 
 export async function addMatch(userId: string, match: Omit<MatchRecord, 'id' | 'userId' | 'playedAt'>): Promise<MatchRecord | null> {
   if (!supabase) return null;
+  if (match.matchType === 'pvp' || match.challengeId) return null;
   const payload: any = {
     user_id: userId,
     sport: match.sport,

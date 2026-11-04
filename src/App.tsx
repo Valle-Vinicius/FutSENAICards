@@ -25,11 +25,13 @@ import Friends from './pages/Friends';
 import Settings from './pages/Settings';
 import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
+import Leaderboard from './pages/Leaderboard';
+import CompetitiveProfile from './pages/CompetitiveProfile';
 
 export default function App() {
   const [loading, setLoading] = useState(() => {
     const h = window.location.hash.replace('#', '') || '/';
-    const known = ['/', '/packs', '/open/', '/collection', '/card/', '/squad', '/match', '/compare', '/market', '/sbc', '/missions', '/shop', '/profile', '/settings', '/auth'];
+    const known = ['/', '/packs', '/open/', '/collection', '/card/', '/squad', '/match', '/compare', '/market', '/sbc', '/missions', '/shop', '/profile', '/settings', '/auth', '/leaderboard'];
     return !known.some(k => h === k || h.startsWith(k));
   });
   useEffect(() => {
@@ -70,6 +72,8 @@ export default function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/friends" element={<Friends />} />
               <Route path="/profile/:userId" element={<FriendProfile />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
             </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

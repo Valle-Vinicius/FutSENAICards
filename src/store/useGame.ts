@@ -634,11 +634,17 @@ export const useGame = create<GameState & Actions>()(
         }
       },
       addMatchHistory: (entry) => {
+        if (entry.challengeId) {
+          set(st => st.matchHistory.some(match => match.challengeId === entry.challengeId)
+            ? st
+            : { matchHistory: [entry, ...st.matchHistory].slice(0, 50) });
+          return;
+        }
         set(st => ({ matchHistory: [entry, ...st.matchHistory].slice(0, 50) }));
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
-            if (uid) await addMatch(uid, { sport: entry.sport, homeScore: entry.homeScore, awayScore: entry.awayScore, opponent: entry.opponent, matchType: entry.challengeId ? 'pvp' : 'friendly', challengeId: entry.challengeId, status: 'completed' });
+            if (uid) await addMatch(uid, { sport: entry.sport, homeScore: entry.homeScore, awayScore: entry.awayScore, opponent: entry.opponent, matchType: 'friendly', status: 'completed' });
           });
         }
       },

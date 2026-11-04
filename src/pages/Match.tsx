@@ -191,6 +191,27 @@ function MatchInner() {
         homeName: homeSnapshot.name,
         awayName: awaySnapshot.name,
       });
+    } else if (row.home_snapshot?.cards || row.away_snapshot?.cards) {
+      setChallengeSquads(current => {
+        if (!current) return current;
+        const homeSnapshot = row.home_snapshot;
+        const awaySnapshot = row.away_snapshot;
+        return {
+          ...current,
+          ...(homeSnapshot?.cards ? {
+            home: createPlayersFromCards(homeSnapshot.cards, 'home', homeSnapshot.formation, 'futsal'),
+            homeCards: homeSnapshot.cards,
+            homeFormation: homeSnapshot.formation,
+            homeName: homeSnapshot.name,
+          } : {}),
+          ...(awaySnapshot?.cards ? {
+            away: createPlayersFromCards(awaySnapshot.cards, 'away', awaySnapshot.formation, 'futsal'),
+            awayCards: awaySnapshot.cards,
+            awayFormation: awaySnapshot.formation,
+            awayName: awaySnapshot.name,
+          } : {}),
+        };
+      });
     }
     if (row.playback_state) {
       const state = row.playback_state as MatchPlaybackState;
@@ -759,6 +780,7 @@ function MatchInner() {
               if (!ok) toast.error('Não foi possível confirmar. Tente de novo.');
               const ch = await challengesService.getChallenge(challengeId);
               if (ch) applyChallengeRow(ch);
+              if (ok) await loadChallengeSquads();
             } finally {
               setReadyLoading(false);
             }

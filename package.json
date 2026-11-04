@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "jest",
+    "test:postgres": "node tests/postgres/competitive-concurrency.mjs",
     "test:watch": "jest --watch",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -37,6 +38,7 @@
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
     "oxlint": "^1.88.0",
+    "pg": "^8.23.1",
     "ts-jest": "^29.4.15",
     "typescript": "~6.0.3",
     "vite": "^8.3.4"
