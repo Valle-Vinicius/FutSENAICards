@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createPlayersFromCards, simulateMatch } from '../../../src/engine/match.ts';
+import { createPlayersFromCards, MATCH_DURATION_MINUTES, simulateMatch } from '../../../src/engine/match.ts';
 import type { Tactic } from '../../../src/engine/match.ts';
 
 const corsHeaders = {
@@ -113,7 +113,7 @@ Deno.serve(async req => {
       awayTactic,
       awayDifficulty: 'normal',
       seed,
-      minutes: 40,
+      minutes: MATCH_DURATION_MINUTES,
     });
 
     const { data: officialResult, error: completeError } = await supabase.rpc('complete_challenge', {

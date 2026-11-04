@@ -4,6 +4,7 @@
 export type Sport = 'futsal';
 export type Tactic = 'balanced' | 'possession' | 'highpress' | 'counter' | 'compact';
 export type MatchMode = 'friendly' | 'pvp';
+export const MATCH_DURATION_MINUTES = 90;
 
 export interface MatchPlayer {
   id: string;

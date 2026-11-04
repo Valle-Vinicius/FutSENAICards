@@ -1,4 +1,4 @@
-import { simulateMatch, createPlayersFromCards } from '../match';
+import { simulateMatch, createPlayersFromCards, MATCH_DURATION_MINUTES } from '../match';
 import type { MatchConfig } from '../match';
 
 const card = (id: string, position: string, base: number) => ({
@@ -17,7 +17,7 @@ const runClient = (seed: number) => {
     homePlayers: createPlayersFromCards(payload.home.cards, 'home', payload.home.formation, 'futsal'),
     awayPlayers: createPlayersFromCards(payload.away.cards, 'away', payload.away.formation, 'futsal'),
     homeFormation: payload.home.formation, awayFormation: payload.away.formation,
-    homeTactic: 'balanced', awayTactic: 'balanced',     awayDifficulty: 'hard', mode: 'pvp', seed, minutes: 40,
+    homeTactic: 'balanced', awayTactic: 'balanced',     awayDifficulty: 'hard', mode: 'pvp', seed, minutes: MATCH_DURATION_MINUTES,
   };
   return simulateMatch(config);
 };
@@ -25,6 +25,9 @@ const runClient = (seed: number) => {
 describe('PvP challenge simulation', () => {
   it('uses the real squads of both players (no AI placeholders)', () => {
     const r = runClient(4242);
+    expect(r.durationMinutes).toBe(90);
+    expect(r.events.find(event => event.type === 'halftime')?.minute).toBe(45);
+    expect(r.events[r.events.length - 1]).toMatchObject({ type: 'fulltime', minute: 90 });
     expect(r.config.homePlayers.map(p => p.id)).toEqual(['h1_home', 'h2_home', 'h3_home', 'h4_home', 'h5_home']);
     expect(r.config.awayPlayers.map(p => p.id)).toEqual(['a1_away', 'a2_away', 'a3_away', 'a4_away', 'a5_away']);
     expect(r.config.awayName).toBe('Bia');

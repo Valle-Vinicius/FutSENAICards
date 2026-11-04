@@ -379,6 +379,49 @@ snapshots congelados. A validação e a trava são proteções adicionais; a
 fronteira de confiança continua sendo a Edge Function publicada com acesso
 `service_role`, que é o único chamador autorizado a concluir.
 
+### Tela de pós-partida, identidade das cartas e notas
+
+`src/components/PvpResultScreen.tsx` usa o `result` confirmado e os snapshots
+da linha do desafio. O motor cria IDs no formato `<UUID da carta>_home` ou
+`<UUID da carta>_away`; a interface remove somente o sufixo do lado e exige um
+UUID válido, depois procura essa UUID em `home_snapshot.cards` ou
+`away_snapshot.cards`. Nome do atleta e escalação atual não são usados para
+escolher uma carta.
+
+O snapshot PvP preserva a UUID da instância, nome, posição, overall e atributos
+usados na partida. Não preserva raridade, edição, arte, clube ou nacionalidade.
+Para recuperar essas informações disponíveis, `get-challenge-data` executa
+uma consulta em lote a `public.cards` filtrada pelo conjunto de UUIDs extraído
+dos snapshots, retornando `cardDetailsById`. O cliente exibe a arte somente
+quando veio da mesma UUID; se a instância ou arte não existir, mostra a
+indisponibilidade, sem selecionar outra carta. As estatísticas da carta vêm do
+snapshot; detalhes visuais ausentes do snapshot vêm do registro atual daquela
+instância exata, portanto não há garantia de que raridade/arte reflitam uma
+versão histórica caso esses campos mudem ou o registro seja removido. Para
+congelar também a aparência futura, o snapshot precisa passar a incluir esses
+campos; snapshots antigos não devem ser reescritos.
+
+A tela calcula notas de 0 a 10 de forma determinística usando somente os
+campos de `PlayerStats` disponíveis: base `6,0`; `+1,4` por gol, `+0,8` por
+assistência, `+0,35` por defesa, `+0,18` por desarme, `+0,025` por passe
+completo, `+0,1` por chute no alvo, `-0,08` por passe incompleto, `-0,15` por
+chute para fora, `-0,2` por falta e `-0,5` por amarelo. O valor é limitado a
+`[0, 10]` e arredondado a uma casa. MVP é o maior rating; a menor nota é exibida
+como destaque negativo. Empates são resolvidos deterministicamente pelos
+critérios de ações registradas e pelo ID do jogador.
+
+Há prêmios para goleiro com defesas, artilheiro, passes completos e desarmes
+quando há ao menos uma ação correspondente. Não há prêmio de drible porque o
+motor não mantém contador individual de dribles. Embora `PlayerStats` tenha
+campo de assistências, o loop atual do motor não atribui assistências; faltas
+ou cartões também não são atualmente emitidos como eventos pelo loop.
+
+O resultado oficial atual não inclui um recibo de XP recebido por jogador. A
+tela solicita a sincronização dos dados e pode exibir o XP total atual das
+mesmas instâncias retornadas pela conta, identificando-o explicitamente como
+total após a sincronização, não como ganho desta partida. O PvP atual não
+registra prêmio em moedas nem alteração de nível global.
+
 ## 8. Exemplo: A contra B
 
 1. A, autenticado, escolhe o perfil de B e envia o desafio. `create_challenge`

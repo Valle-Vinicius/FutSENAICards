@@ -142,7 +142,23 @@ Deno.serve(async req => {
       away = { ...awayRoster, name: names.get(challenge.challenged_id) || 'Desafiado' };
     }
 
-    return json({ challenge, home, away });
+    const snapshotCards = [...(home?.cards ?? []), ...(away?.cards ?? [])];
+    const cardIds = [...new Set(snapshotCards
+      .map((card: any) => card?.uid)
+      .filter((id: unknown): id is string => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)))];
+    const cardDetailsById: Record<string, unknown> = {};
+    if (cardIds.length > 0) {
+      const { data: cardDetails, error: cardDetailsError } = await supabase
+        .from('cards')
+        .select('id,nationality,age,club,rarity,edition,special,image,xp')
+        .in('id', cardIds);
+      if (cardDetailsError) throw cardDetailsError;
+      for (const card of cardDetails ?? []) {
+        cardDetailsById[card.id] = card;
+      }
+    }
+
+    return json({ challenge, home, away, cardDetailsById });
   } catch (error) {
     if (error instanceof RequestError) return json({ error: error.message }, error.status);
     console.error('get-challenge-data failed', error);

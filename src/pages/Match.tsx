@@ -3,8 +3,9 @@ import { useGame } from '../store/useGame';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
-import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../engine/match';
+import { simulateMatch, createPlayersFromCards, makeAwayTeam, MATCH_DURATION_MINUTES } from '../engine/match';
 import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
+import PvpResultScreen, { type SnapshotCardDetails } from '../components/PvpResultScreen';
 import * as challengesService from '../lib/services/challenges';
 import type { MatchPlaybackState } from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
@@ -62,8 +63,14 @@ function MatchInner() {
   const [challengeSquads, setChallengeSquads] = useState<ChallengeSquads | null>(null);
   const [challengeLoading, setChallengeLoading] = useState(!!challengeId);
   const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [officialSnapshotCardDetails, setOfficialSnapshotCardDetails] = useState<{
+    key: string;
+    byId: Record<string, SnapshotCardDetails>;
+  } | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [readyLoading, setReadyLoading] = useState(false);
+  const [rematchLoading, setRematchLoading] = useState(false);
+  const [rewardsSyncStatus, setRewardsSyncStatus] = useState<'syncing' | 'synced' | 'unavailable'>('syncing');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
   const [challengerReady, setChallengerReady] = useState(false);
@@ -76,6 +83,8 @@ function MatchInner() {
   const startedRef = useRef(false);
   const loadingSquadsRef = useRef(false);
   const recordedRef = useRef(false);
+  const rewardSyncStartedRef = useRef(false);
+  const snapshotCardDetailsKeyRef = useRef<string | null>(null);
   const finishingPlaybackRef = useRef(false);
   const cancelledByMeRef = useRef(false);
   const startMatchRef = useRef<() => void>(() => {});
@@ -302,7 +311,7 @@ function MatchInner() {
       awayTactic: 'balanced',
       awayDifficulty: difficulty,
       seed,
-      minutes: 40,
+      minutes: MATCH_DURATION_MINUTES,
     });
     setResult(res);
     setFrameIndex(0);
@@ -347,6 +356,34 @@ function MatchInner() {
     if (action === 'play') { setStep('play'); setPlaying(true); }
     if (action === 'pause') setPlaying(value => !value);
     if (action === 'speed' && nextSpeed) setSpeed(nextSpeed);
+  };
+
+  const startPvpRematch = async () => {
+    if (!challenge || !currentUserId || !challengeId || rematchLoading) return;
+    const opponentId = currentUserId === challenge.challenger_id
+      ? challenge.challenged_id
+      : currentUserId === challenge.challenged_id
+        ? challenge.challenger_id
+        : null;
+    if (!opponentId) {
+      toast.error('Não foi possível identificar o adversário desta partida.');
+      return;
+    }
+
+    setRematchLoading(true);
+    try {
+      const newChallenge = await challengesService.createChallenge(currentUserId, opponentId);
+      if (!newChallenge) {
+        toast.info('Já existe um desafio ativo entre vocês.');
+        return;
+      }
+      navigate(`/match?challenge=${newChallenge.id}`);
+    } catch (error) {
+      console.error('PvP rematch creation failed', error);
+      toast.error('Não foi possível criar a revanche. Confirme se vocês ainda são amigos.');
+    } finally {
+      setRematchLoading(false);
+    }
   };
 
   // opponent fetch
@@ -422,6 +459,36 @@ function MatchInner() {
     loadChallengeSquads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId, challenge?.status, challengeSquads, challengeError, result]);
+
+  const snapshotCardIds = [
+    ...(Array.isArray(challenge?.home_snapshot?.cards) ? challenge.home_snapshot.cards : []).map((card: { uid: string }) => card.uid),
+    ...(Array.isArray(challenge?.away_snapshot?.cards) ? challenge.away_snapshot.cards : []).map((card: { uid: string }) => card.uid),
+  ].sort();
+  const snapshotCardDetailsKey = challengeId
+    && challenge?.status === 'completed'
+    && snapshotCardIds.length > 0
+    ? `${challengeId}:${snapshotCardIds.join(',')}`
+    : '';
+
+  useEffect(() => {
+    if (!snapshotCardDetailsKey || !supabase || snapshotCardDetailsKeyRef.current === snapshotCardDetailsKey) return;
+    snapshotCardDetailsKeyRef.current = snapshotCardDetailsKey;
+    let cancelled = false;
+    void supabase.functions.invoke('get-challenge-data', { body: { challengeId } })
+      .then(({ data, error }) => {
+        if (error || !data || data.error) {
+          throw error ?? new Error(data?.error || 'Não foi possível carregar os detalhes das cartas da partida.');
+        }
+        if (!cancelled)         setOfficialSnapshotCardDetails({
+          key: snapshotCardDetailsKey,
+          byId: data.cardDetailsById ?? {},
+        });
+      })
+      .catch(error => {
+        if (!cancelled) console.error('challenge snapshot card details failed', error);
+      });
+    return () => { cancelled = true; };
+  }, [challengeId, snapshotCardDetailsKey]);
 
   // fallback polling in case realtime is not enabled for the table
   useEffect(() => {
@@ -520,13 +587,21 @@ function MatchInner() {
   }, [challengeId, resultConfirmed, result, playbackState]);
 
   useEffect(() => {
+    if (!challengeId || step !== 'result' || !resultConfirmed || !currentUserId || rewardSyncStartedRef.current) return;
+    rewardSyncStartedRef.current = true;
+    setRewardsSyncStatus('syncing');
+    void syncUserData(currentUserId).then(
+      () => setRewardsSyncStatus('synced'),
+      error => {
+        setRewardsSyncStatus('unavailable');
+        console.error('challenge reward refresh failed', error);
+      },
+    );
+  }, [challengeId, currentUserId, resultConfirmed, step, syncUserData]);
+
+  useEffect(() => {
     if (step !== 'result' || !result || recordedRef.current) return;
     recordedRef.current = true;
-    if (challengeId && currentUserId) {
-      void syncUserData(currentUserId).catch(error => {
-        console.error('challenge reward refresh failed', error);
-      });
-    }
     // challenge already recorded (page revisited / other tab): do not duplicate history or XP
     if (challengeId && matchHistory.some(m => m.challengeId === challengeId)) return;
     // in PvP the challenged user plays as AWAY: credit their own cards and see the score from their side
@@ -855,6 +930,30 @@ function MatchInner() {
   }
 
   if (step === 'result' && result) {
+    if (challengeId) {
+      if (!resultConfirmed) {
+        return (
+          <div className="flex min-h-[50vh] items-center justify-center bg-[#080b12] px-4 text-center text-sm text-white/65">
+            Aguardando a confirmação oficial do resultado pelo servidor…
+          </div>
+        );
+      }
+
+      return (
+        <PvpResultScreen
+          result={result}
+          mySide={myMatchSide}
+          homeSnapshot={challenge?.home_snapshot ?? null}
+          awaySnapshot={challenge?.away_snapshot ?? null}
+          cardDetailsById={officialSnapshotCardDetails?.key === snapshotCardDetailsKey ? officialSnapshotCardDetails.byId : {}}
+          rewardsSyncStatus={rewardsSyncStatus}
+          onRematch={() => { void startPvpRematch(); }}
+          rematchLoading={rematchLoading}
+          onMenu={() => navigate('/')}
+        />
+      );
+    }
+
     const homeStats = myMatchSide === 'home' ? result.teamStats.home : result.teamStats.away;
     const awayStats = myMatchSide === 'home' ? result.teamStats.away : result.teamStats.home;
     const possessionTicks = homeStats.possession + awayStats.possession;
