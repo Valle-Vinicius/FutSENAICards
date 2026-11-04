@@ -110,14 +110,32 @@ function PvpPlayerCard({
   compact?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
-  const [imageUnavailable, setImageUnavailable] = useState(false);
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const rarity = isRarity(details?.rarity) ? details.rarity : null;
   const rarityMeta = rarity ? RARITY_META[rarity] : null;
   const special = isSpecial(details?.special) ? details.special : null;
   const displayName = snapshotCard?.name ?? playerName;
-  const exactImage = snapshotCard ? getPlayerImage(displayName) || details?.image || null : null;
+  const localImage = snapshotCard ? getPlayerImage(displayName) || null : null;
+  const instanceImage = details?.image || null;
+  const image = snapshotCard
+    ? instanceImage && instanceImage !== failedImageUrl
+      ? instanceImage
+      : localImage && localImage !== failedImageUrl
+        ? localImage
+        : null
+    : null;
+  const isGoalkeeper = playerPosition === 'GK';
   const attributes = snapshotCard
-    ? [
+    ? isGoalkeeper
+      ? [
+        ['REF', snapshotCard.reflexes ?? 0],
+        ['POS', snapshotCard.positioning ?? 0],
+        ['HAN', snapshotCard.handling ?? 0],
+        ['VEL', snapshotCard.pace],
+        ['DEF', snapshotCard.defending],
+        ['FIS', snapshotCard.physical],
+      ] as const
+      : [
       ['VEL', snapshotCard.pace],
       ['CHU', snapshotCard.shooting],
       ['PAS', snapshotCard.passing],
@@ -126,40 +144,42 @@ function PvpPlayerCard({
       ['FIS', snapshotCard.physical],
     ] as const
     : [];
-  const accentClasses = accent === 'gold'
-    ? 'border-[#f5c542] shadow-[0_0_24px_rgba(245,197,66,0.18)]'
-    : accent === 'red'
-      ? 'border-[#E30613]/40'
-      : 'border-[#E9EAF0]';
+  const cardBorder = rarity === 'icon'
+    ? '4px solid #ff0040'
+    : `2px solid ${rarityMeta?.color ?? '#E9EAF0'}`;
+  const cardGlow = accent === 'gold'
+    ? '0 0 24px rgba(245,197,66,0.18)'
+    : '0 2px 12px rgba(37,39,51,0.06)';
 
   return (
     <motion.article
       initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: reduceMotion ? 0 : 0.4 }}
-      className={`relative w-full overflow-hidden rounded-2xl border bg-white shadow-[0_2px_12px_rgba(37,39,51,0.06)] ${accentClasses} ${compact ? 'max-w-[155px]' : 'max-w-[230px]'}`}
+      className={`relative w-full overflow-hidden rounded-2xl bg-white ${rarity === 'icon' ? 'rgb-card' : ''} ${compact ? 'max-w-[155px]' : 'max-w-[230px]'}`}
+      style={{ border: cardBorder, boxShadow: cardGlow }}
       aria-label={`Carta de ${displayName}${rating === undefined ? '' : `, nota ${rating.toFixed(1)}`}`}
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-[#F7F7F9]">
-        {snapshotCard && exactImage && !imageUnavailable ? (
+        {snapshotCard && image ? (
           <img
-            src={exactImage}
+            src={image}
             alt={`Arte da carta de ${displayName}`}
             className="absolute inset-0 h-full w-full object-cover object-top"
-            onError={() => setImageUnavailable(true)}
+            onError={() => setFailedImageUrl(image)}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#F7F7F9] px-3 text-center">
             {snapshotCard ? <UserRound className="h-10 w-10 text-[#858A98]/50" aria-hidden="true" /> : <ShieldAlert className="h-10 w-10 text-[#E30613]/60" aria-hidden="true" />}
             <span className="text-[9px] font-semibold tracking-[0.12em] text-[#858A98]">
-              {!snapshotCard ? 'IDENTIDADE DO SNAPSHOT INDISPONÍVEL' : 'ARTE DA INSTÂNCIA INDISPONÍVEL'}
+              {!snapshotCard ? 'IDENTIDADE DO SNAPSHOT INDISPONÍVEL' : 'IMAGEM INDISPONÍVEL'}
             </span>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
         <div className="absolute left-3 top-3 flex max-w-[70%] flex-col gap-1">
           {rarityMeta ? (
-            <span className="w-fit rounded-full px-2 py-0.5 text-[9px] font-bold uppercase text-white" style={{ backgroundColor: rarityMeta.color }}>
+            <span className={`w-fit max-w-full truncate rounded-full px-2 py-0.5 text-[9px] font-bold uppercase text-white ${rarity === 'icon' ? 'rgb-stat' : ''}`} style={{ backgroundColor: rarity === 'icon' ? undefined : rarityMeta.color }}>
               {rarityMeta.label}
             </span>
           ) : (
@@ -168,12 +188,15 @@ function PvpPlayerCard({
             </span>
           )}
           {special && special !== 'none' && (
-            <span className="w-fit rounded bg-black/65 px-1.5 py-0.5 text-[8px] font-bold text-[#f5c542]">
+            <span className="w-fit max-w-full rounded px-1.5 py-0.5 text-[8px] font-bold leading-tight text-white" style={{ backgroundColor: SPECIAL_META[special].color }}>
               {SPECIAL_META[special].label}
             </span>
           )}
         </div>
-        <div className={`absolute right-3 top-3 text-3xl font-black ${accent === 'gold' ? 'text-[#f5c542]' : 'text-white'}`}>
+        <div
+          className={`absolute right-3 top-3 z-10 text-3xl font-black leading-none ${rarity === 'icon' ? 'rgb-text' : ''}`}
+          style={{ color: rarity === 'icon' ? undefined : rarityMeta?.color ?? '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.6)' }}
+        >
           {snapshotCard ? snapshotCard.overall : overall ?? '—'}
         </div>
         {details?.edition && (
@@ -212,9 +235,6 @@ function PvpPlayerCard({
             </div>
           )}
         </div>
-      </div>
-      <div className="truncate border-t border-white/10 px-2 py-1 text-center font-mono text-[8px] text-white/40" title={snapshotCard?.uid}>
-        {snapshotCard ? `INSTÂNCIA ${snapshotCard.uid}` : 'SEM CORRESPONDÊNCIA EXATA NO SNAPSHOT'}
       </div>
     </motion.article>
   );
@@ -279,7 +299,7 @@ export default function PvpResultScreen({
 }: PvpResultScreenProps) {
   const reduceMotion = useReducedMotion();
   const [showRatingFormula, setShowRatingFormula] = useState(false);
-  const [unavailableRewardImages, setUnavailableRewardImages] = useState<Set<string>>(new Set());
+  const [failedRewardImages, setFailedRewardImages] = useState<Record<string, string>>({});
   const { mvp, worst, awards } = getPvpAwards(result, { home: homeSnapshot, away: awaySnapshot });
   const homeStats = { ...EMPTY_STATS, ...(result.teamStats?.home ?? {}) };
   const awayStats = { ...EMPTY_STATS, ...(result.teamStats?.away ?? {}) };
@@ -511,26 +531,38 @@ export default function PvpResultScreen({
             </div>
             <div className="mt-4 space-y-2">
               {rewardedCards.map(snapshotCard => {
-                const exactImage = cardDetailsById[snapshotCard.uid]?.image;
+                const instanceImage = cardDetailsById[snapshotCard.uid]?.image || null;
+                const localImage = getPlayerImage(snapshotCard.name) || null;
+                const failedImage = failedRewardImages[snapshotCard.uid];
+                const cardImage = instanceImage && instanceImage !== failedImage
+                  ? instanceImage
+                  : localImage && localImage !== failedImage
+                    ? localImage
+                    : null;
                 return (
                   <div key={snapshotCard.uid} className="flex items-center justify-between gap-3 rounded-lg border border-[#E9EAF0] bg-white px-3 py-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <div
                         className="flex h-11 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-[#E9EAF0] bg-[#F7F7F9]"
-                        title={!exactImage || unavailableRewardImages.has(snapshotCard.uid) ? 'Arte da instância indisponível' : undefined}
+                        title={!cardImage ? 'Foto do jogador indisponível' : undefined}
                       >
-                        {exactImage && !unavailableRewardImages.has(snapshotCard.uid)
+                        {cardImage
                           ? <img
-                            src={exactImage}
-                            alt={`Arte da carta de ${snapshotCard.name}`}
+                            src={cardImage}
+                            alt={`Foto de ${snapshotCard.name}`}
                             className="h-full w-full object-cover object-top"
-                            onError={() => setUnavailableRewardImages(current => new Set(current).add(snapshotCard.uid))}
+                            onError={() => setFailedRewardImages(current => ({ ...current, [snapshotCard.uid]: cardImage }))}
                           />
                           : <UserRound className="h-4 w-4 text-[#858A98]/50" aria-hidden="true" />}
                       </div>
                       <div className="min-w-0">
                         <div className="truncate text-xs font-semibold text-[#252733]">{snapshotCard.name}</div>
-                        <div className="font-mono text-[8px] text-[#858A98]">{snapshotCard.uid}</div>
+                        <div className="text-[9px] text-[#858A98]">
+                          {snapshotCard.position} · OVR {snapshotCard.overall}
+                          {cardDetailsById[snapshotCard.uid]?.rarity && isRarity(cardDetailsById[snapshotCard.uid].rarity)
+                            ? ` · ${RARITY_META[cardDetailsById[snapshotCard.uid].rarity as Rarity].label}`
+                            : ''}
+                        </div>
                       </div>
                     </div>
                     <div className="shrink-0 text-right">

@@ -4,7 +4,9 @@ import type { ChallengeTeamSnapshot } from '../../lib/services/challenges';
 import PvpResultScreen from '../../components/PvpResultScreen';
 import { getPvpAwards, getRatedPvpPlayers, ratePvpPlayer, snapshotCardIdForPlayer } from '../pvp-result';
 
-jest.mock('../../data/players', () => ({ getPlayerImage: () => null }));
+jest.mock('../../data/players', () => ({
+  getPlayerImage: (name: string) => name === 'Casa 2' ? '/local-casa2.jpg' : null,
+}));
 
 const cardIds = {
   home: [
@@ -214,22 +216,51 @@ describe('PvP result screen', () => {
     expect(screen.getByText('VITÓRIA')).toBeTruthy();
     expect(screen.getByText('Números da partida')).toBeTruthy();
     expect(screen.getByText('GOL de Casa 2!')).toBeTruthy();
-    expect(screen.getAllByText(`INSTÂNCIA ${cardIds.home[1]}`).length).toBeGreaterThan(0);
+    expect(screen.queryByText(`INSTÂNCIA ${cardIds.home[1]}`)).toBeNull();
+    expect(screen.queryByText(cardIds.home[1])).toBeNull();
     expect(screen.queryByText('Destaque em dribles')).toBeNull();
   });
 
   it('uses art returned for the exact snapshot card ID', () => {
     renderScreen({
       cardDetailsById: {
-        [cardIds.home[1]]: { id: cardIds.home[1], rarity: 'rare', image: '/exact-instance-art.png' },
+        [cardIds.home[1]]: {
+          id: cardIds.home[1],
+          rarity: 'rare',
+          special: 'totw',
+          edition: '2025/26',
+          image: '/exact-instance-art.png',
+        },
       },
     });
 
     const cardImages = screen.getAllByAltText('Arte da carta de Casa 2');
     expect(cardImages.length).toBeGreaterThan(0);
     expect(cardImages.every(image => image.getAttribute('src') === '/exact-instance-art.png')).toBe(true);
+    expect(screen.getAllByText('Time da Semana').length).toBeGreaterThan(0);
+    const playerCard = screen.getAllByRole('article').find(card => card.getAttribute('aria-label')?.startsWith('Carta de Casa 2'));
+    expect(playerCard?.getAttribute('style')).toContain('border: 2px solid rgb(59, 130, 246)');
     fireEvent.error(cardImages[0]);
-    expect(screen.getAllByText('ARTE DA INSTÂNCIA INDISPONÍVEL').length).toBeGreaterThan(0);
+    expect(screen.getAllByAltText('Arte da carta de Casa 2').some(image => image.getAttribute('src') === '/local-casa2.jpg')).toBe(true);
+  });
+
+  it('uses the local player photo in rewards when the exact card has no stored image', () => {
+    renderScreen();
+    expect(screen.getAllByAltText('Foto de Casa 2').some(image => image.getAttribute('src') === '/local-casa2.jpg')).toBe(true);
+    expect(screen.queryByText(cardIds.home[1])).toBeNull();
+  });
+
+  it('falls back to the same player photo when the stored instance image fails', () => {
+    renderScreen({
+      cardDetailsById: {
+        [cardIds.home[1]]: { id: cardIds.home[1], image: '/broken-instance-photo.jpg' },
+      },
+    });
+
+    const rewardImage = screen.getAllByAltText('Foto de Casa 2').find(image => image.getAttribute('src') === '/broken-instance-photo.jpg');
+    expect(rewardImage).toBeTruthy();
+    fireEvent.error(rewardImage!);
+    expect(screen.getAllByAltText('Foto de Casa 2').some(image => image.getAttribute('src') === '/local-casa2.jpg')).toBe(true);
   });
 
   it('shows defeat from the other player perspective and supports details and rematch actions', () => {
