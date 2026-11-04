@@ -3,6 +3,7 @@
 
 export type Sport = 'futsal';
 export type Tactic = 'balanced' | 'possession' | 'highpress' | 'counter' | 'compact';
+export type MatchMode = 'friendly' | 'pvp';
 
 export interface MatchPlayer {
   id: string;
@@ -29,13 +30,14 @@ export interface MatchConfig {
   homeTactic: Tactic;
   awayTactic: Tactic;
   awayDifficulty: 'easy' | 'normal' | 'hard';
+  mode?: MatchMode;
   seed: number;
   minutes: number; // total (45? 90?)
 }
 
 export interface MatchEvent {
   minute: number;
-  type: 'kickoff' | 'pass' | 'shot' | 'goal' | 'save' | 'miss' | 'tackle' | 'foul' | 'yellow' | 'halftime' | 'fulltime';
+  type: 'kickoff' | 'pass' | 'dribble' | 'shot' | 'goal' | 'save' | 'miss' | 'tackle' | 'foul' | 'yellow' | 'halftime' | 'fulltime';
   team: 'home' | 'away' | 'neutral';
   playerId?: string;
   assistId?: string;
@@ -127,7 +129,7 @@ function basePositions(formation: string, side: 'home' | 'away'): { x: number; y
   return (f[formation] || f['1-2-1']).map(m);
 }
 
-export function createPlayersFromCards(cards: { uid: string; name: string; position: string; overall: number; pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; reflexes?: number; positioning?: number; handling?: number }[], team: 'home' | 'away', formation: string, _sport: Sport): MatchPlayer[] {
+export function createPlayersFromCards(cards: { uid: string; name: string; position: string; overall: number; pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; reflexes?: number | null; positioning?: number | null; handling?: number | null }[], team: 'home' | 'away', formation: string, _sport: Sport): MatchPlayer[] {
   const side = team;
   const positions = basePositions(formation, side);
   // sort: GK first
@@ -142,7 +144,17 @@ export function createPlayersFromCards(cards: { uid: string; name: string; posit
       name: c.name,
       position: c.position,
       isGK,
-      attrs: { pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical, reflexes: c.reflexes, positioning: c.positioning, handling: c.handling },
+      attrs: {
+        pace: c.pace,
+        shooting: c.shooting,
+        passing: c.passing,
+        dribbling: c.dribbling,
+        defending: c.defending,
+        physical: c.physical,
+        ...(typeof c.reflexes === 'number' ? { reflexes: c.reflexes } : {}),
+        ...(typeof c.positioning === 'number' ? { positioning: c.positioning } : {}),
+        ...(typeof c.handling === 'number' ? { handling: c.handling } : {}),
+      },
       team,
       number: i + 1,
       x: p.x, y: p.y,
@@ -153,6 +165,45 @@ export function createPlayersFromCards(cards: { uid: string; name: string; posit
 }
 
 export function simulateMatch(config: MatchConfig): MatchResult {
+  const validateTeam = (players: MatchPlayer[], side: 'home' | 'away') => {
+    if (players.length !== 5) throw new Error(`O time ${side} precisa ter exatamente cinco jogadores.`);
+    if (players.some(player => player.team !== side)) throw new Error(`Há jogadores atribuídos ao lado incorreto (${side}).`);
+    if (new Set(players.map(player => player.id)).size !== players.length) throw new Error(`O time ${side} possui jogadores duplicados.`);
+    const goalkeepers = players.filter(player => player.isGK && player.position === 'GK');
+    if (goalkeepers.length !== 1 || players.some(player => player.isGK !== (player.position === 'GK'))) {
+      throw new Error(`O time ${side} precisa ter exatamente um goleiro válido.`);
+    }
+    const requiredAttributes: (keyof Pick<MatchPlayer['attrs'], 'pace' | 'shooting' | 'passing' | 'dribbling' | 'defending' | 'physical'>)[] = [
+      'pace',
+      'shooting',
+      'passing',
+      'dribbling',
+      'defending',
+      'physical',
+    ];
+    if (players.some(player => requiredAttributes.some(attribute => {
+      const value = player.attrs[attribute];
+      return !Number.isFinite(value) || value < 0 || value > 100;
+    }) || ['reflexes', 'positioning', 'handling'].some(attribute => {
+      const value = player.attrs[attribute as keyof MatchPlayer['attrs']];
+      return value !== undefined && (!Number.isFinite(value) || value < 0 || value > 100);
+    }))) {
+      throw new Error(`O time ${side} possui atributos inválidos.`);
+    }
+  };
+  validateTeam(config.homePlayers, 'home');
+  validateTeam(config.awayPlayers, 'away');
+  if (!Number.isSafeInteger(config.seed) || !Number.isFinite(config.minutes) || config.minutes <= 0) {
+    throw new Error('A seed e a duração da partida precisam ser válidas.');
+  }
+  if (
+    !Object.prototype.hasOwnProperty.call(TACTIC_MOD, config.homeTactic)
+    || !Object.prototype.hasOwnProperty.call(TACTIC_MOD, config.awayTactic)
+    || !Object.prototype.hasOwnProperty.call(DIFF_MOD, config.awayDifficulty)
+  ) {
+    throw new Error('A partida contém uma tática inválida.');
+  }
+
   const rng = mulberry32(config.seed);
   const homeTactic = TACTIC_MOD[config.homeTactic];
   const awayTactic = TACTIC_MOD[config.awayTactic];
@@ -162,16 +213,18 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   const homePlayers = config.homePlayers.map(p => ({ ...p, attrs: { ...p.attrs } }));
   const awayPlayers = config.awayPlayers.map(p => ({ ...p, attrs: { ...p.attrs } }));
   // boost away by difficulty
-  awayPlayers.forEach(p => {
-    Object.keys(p.attrs).forEach(k => {
-      const key = k as keyof MatchPlayer['attrs'];
-      const v = p.attrs[key];
-      if (typeof v === 'number') (p.attrs as any)[key] = Math.round(v * awayDiff);
+  if (config.mode !== 'pvp') {
+    awayPlayers.forEach(p => {
+      Object.keys(p.attrs).forEach(k => {
+        const key = k as keyof MatchPlayer['attrs'];
+        const v = p.attrs[key];
+        if (typeof v === 'number') (p.attrs as any)[key] = Math.round(v * awayDiff);
+      });
     });
-  });
+  }
 
-  const homeMid = homePlayers[Math.floor(homePlayers.length / 2)];
-  const awayMid = awayPlayers[Math.floor(awayPlayers.length / 2)];
+  const homeMid = homePlayers.find(p => !p.isGK)!;
+  const awayMid = awayPlayers.find(p => !p.isGK)!;
   const allPlayers = [...homePlayers, ...awayPlayers];
   const byId = (id: string) => allPlayers.find(p => p.id === id)!;
 
@@ -193,8 +246,8 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   let half: 1 | 2 = 1;
   let ball = { x: 50, y: 50, holder: null as string | null };
   // kickoff: home gets ball at center
-  const homeGK = homePlayers[0];
-  const awayGK = awayPlayers[0];
+  const homeGK = homePlayers.find(p => p.isGK)!;
+  const awayGK = awayPlayers.find(p => p.isGK)!;
   // start with a home midfielder holding ball
   ball.holder = homeMid.id;
 
@@ -369,7 +422,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
         holder.x = clamp(holder.x + advance, 5, 95);
         holder.y = clamp(holder.y + (rng() - 0.5) * 4, 5, 95);
         ball.x = holder.x; ball.y = holder.y;
-        events.push({ minute, type: 'pass', team, playerId: holder.id, description: `${holder.name} conduz a bola.` });
+        events.push({ minute, type: 'dribble', team, playerId: holder.id, description: `${holder.name} conduz a bola.` });
       } else {
         // lose ball
         const tackler = nearestPlayer(isHome ? 'away' : 'home');

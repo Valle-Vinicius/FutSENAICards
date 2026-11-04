@@ -80,9 +80,14 @@ export default function FriendProfile() {
   };
   const handleChallenge = async () => {
     if (!currentUserId || !userId) return;
-    const ch = await challengesService.createChallenge(currentUserId, userId);
-    if (ch) navigate(`/match?challenge=${ch.id}`);
-    else setActionMsg('Não foi possível criar o desafio.');
+    try {
+      const ch = await challengesService.createChallenge(currentUserId, userId);
+      if (ch) navigate(`/match?challenge=${ch.id}`);
+      else setActionMsg('Já existe um desafio ativo entre vocês.');
+    } catch (error) {
+      console.error('challenge creation failed', error);
+      setActionMsg('Não foi possível criar o desafio. Verifique a amizade e tente novamente.');
+    }
   };
 
   if (loading) return <div className="p-8 text-[#858A98]">Carregando...</div>;

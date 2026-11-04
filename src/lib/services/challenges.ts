@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import type { Tactic } from '../../engine/match';
 
 export interface Challenge {
   id: string;
@@ -12,68 +13,95 @@ export interface Challenge {
   home_score?: number;
   away_score?: number;
   result?: any;
+  playback_state?: MatchPlaybackState;
+  challenger_tactic?: Tactic;
+  challenged_tactic?: Tactic;
+  home_snapshot?: ChallengeTeamSnapshot;
+  away_snapshot?: ChallengeTeamSnapshot;
   created_at: string;
+}
+
+export interface ChallengeTeamSnapshot {
+  name: string;
+  formation: string;
+  cards: {
+    uid: string;
+    name: string;
+    position: string;
+    overall: number;
+    pace: number;
+    shooting: number;
+    passing: number;
+    dribbling: number;
+    defending: number;
+    physical: number;
+    reflexes?: number | null;
+    positioning?: number | null;
+    handling?: number | null;
+  }[];
+}
+
+export interface MatchPlaybackState {
+  status: 'waiting' | 'playing' | 'paused' | 'finished';
+  currentFrame: number;
+  speed: 1 | 2 | 4;
+  startedAt: string | null;
+  pausedAt: string | null;
+  serverNow?: string | null;
+  receivedAt?: number;
 }
 
 export async function createChallenge(challengerId: string, challengedId: string): Promise<Challenge | null> {
   if (!supabase || challengerId === challengedId) return null;
-  // require accepted friendship
-  const { data: fr } = await supabase.from('friendships').select('id').eq('status', 'accepted').or(`and(requester_id.eq.${challengerId},addressee_id.eq.${challengedId}),and(requester_id.eq.${challengedId},addressee_id.eq.${challengerId})`);
-  if (!fr || fr.length === 0) return null;
-  // check existing pending/accepted
-  const { data: existing } = await supabase.from('challenges').select('id').or(`and(challenger_id.eq.${challengerId},challenged_id.eq.${challengedId}),and(challenger_id.eq.${challengedId},challenged_id.eq.${challengerId})`).in('status', ['pending', 'accepted']);
-  if (existing && existing.length > 0) return null;
-  const { data, error } = await supabase.from('challenges').insert({
-    challenger_id: challengerId,
-    challenged_id: challengedId,
-    status: 'pending',
-  }).select().single();
-  if (error) return null;
+  const { data, error } = await supabase.rpc('create_challenge', {
+    p_challenged_id: challengedId,
+  });
+  if (error) throw error;
   return data;
 }
 
 export async function acceptChallenge(id: string): Promise<boolean> {
   if (!supabase) return false;
-  const seed = Math.floor(Math.random() * 1000000);
-  const { data, error } = await supabase
-    .from('challenges')
-    .update({ status: 'accepted', seed, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .eq('status', 'pending')
-    .select();
+  const { data, error } = await supabase.rpc('accept_challenge', { p_challenge_id: id });
   if (error) return false;
-  return Array.isArray(data) && data.length === 1;
+  return data === true;
 }
 
-export async function setReady(id: string, side: 'challenger' | 'challenged'): Promise<boolean> {
+export async function setReady(id: string, tactic: Tactic): Promise<boolean> {
   if (!supabase) return false;
-  const field = side === 'challenger' ? 'challenger_ready' : 'challenged_ready';
-  const { error } = await supabase.from('challenges').update({ [field]: true, updated_at: new Date().toISOString() }).eq('id', id);
-  return !error;
+  const { data, error } = await supabase.rpc('set_challenge_ready', { p_challenge_id: id, p_tactic: tactic });
+  return !error && data === true;
 }
 
 export async function rejectChallenge(id: string): Promise<boolean> {
   if (!supabase) return false;
-  const { error } = await supabase.from('challenges').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('id', id);
-  return !error;
+  const { data, error } = await supabase.rpc('reject_challenge', { p_challenge_id: id });
+  return !error && data === true;
 }
 
-export async function saveChallengeResult(id: string, result: any): Promise<boolean> {
-  if (!supabase) return false;
-  // guard: only if accepted and no result yet
-  const { data: existing } = await supabase.from('challenges').select('status, result').eq('id', id).single();
-  if (!existing || existing.status !== 'accepted' || existing.result) return false;
-  const { error } = await supabase.from('challenges').update({
-    status: 'completed',
-    seed: result.seed,
-    home_formation: result.homeFormation,
-    away_formation: result.awayFormation,
-    home_score: result.homeScore,
-    away_score: result.awayScore,
-    result,
-    updated_at: new Date().toISOString(),
-  }).eq('id', id).eq('status', 'accepted');
-  return !error;
+export async function simulateChallenge(id: string): Promise<{ result: any | null; pending: boolean }> {
+  if (!supabase) throw new Error('Serviço de partidas indisponível.');
+  const { data, error } = await supabase.functions.invoke('simulate-challenge', { body: { challengeId: id } });
+  if (error) throw error;
+  if (!data || (!data.pending && !data.result)) {
+    throw new Error(data?.error || 'O servidor não retornou o resultado oficial.');
+  }
+  return { result: data.result ?? null, pending: !!data.pending };
+}
+
+export async function updateChallengePlayback(
+  id: string,
+  action: 'play' | 'pause' | 'speed' | 'finish',
+  speed?: 1 | 2 | 4,
+): Promise<MatchPlaybackState> {
+  if (!supabase) throw new Error('Serviço de partidas indisponível.');
+  const { data, error } = await supabase.rpc('update_challenge_playback', {
+    p_challenge_id: id,
+    p_action: action,
+    p_speed: speed ?? null,
+  });
+  if (error) throw error;
+  return data as MatchPlaybackState;
 }
 
 export async function getChallenge(id: string): Promise<Challenge | null> {

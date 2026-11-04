@@ -42,6 +42,7 @@ interface Actions {
   loadSquad: (id: string) => void;
   addCompareHistory: (aUid: string, bUid: string) => void;
   addMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string; challengeId?: string }) => void;
+  addLocalMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string; challengeId?: string }) => void;
   updateSettings: (s: Partial<{ audio: boolean; animations: boolean; highContrast: boolean }>) => void;
   setPendingFriends: (n: number) => void;
   addPlayerXp: (uid: string, amount: number) => void;
@@ -640,6 +641,12 @@ export const useGame = create<GameState & Actions>()(
             if (uid) await addMatch(uid, { sport: entry.sport, homeScore: entry.homeScore, awayScore: entry.awayScore, opponent: entry.opponent, matchType: entry.challengeId ? 'pvp' : 'friendly', challengeId: entry.challengeId, status: 'completed' });
           });
         }
+      },
+      addLocalMatchHistory: (entry) => {
+        set(st => {
+          if (entry.challengeId && st.matchHistory.some(match => match.challengeId === entry.challengeId)) return st;
+          return { matchHistory: [entry, ...st.matchHistory].slice(0, 50) };
+        });
       },
       updateSettings: (s) => {
         set(st => ({ settings: { ...st.settings, ...s } }));

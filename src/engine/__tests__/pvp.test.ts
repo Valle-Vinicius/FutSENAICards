@@ -17,7 +17,7 @@ const runClient = (seed: number) => {
     homePlayers: createPlayersFromCards(payload.home.cards, 'home', payload.home.formation, 'futsal'),
     awayPlayers: createPlayersFromCards(payload.away.cards, 'away', payload.away.formation, 'futsal'),
     homeFormation: payload.home.formation, awayFormation: payload.away.formation,
-    homeTactic: 'balanced', awayTactic: 'balanced', awayDifficulty: 'normal', seed, minutes: 40,
+    homeTactic: 'balanced', awayTactic: 'balanced',     awayDifficulty: 'hard', mode: 'pvp', seed, minutes: 40,
   };
   return simulateMatch(config);
 };
@@ -30,6 +30,60 @@ describe('PvP challenge simulation', () => {
     expect(r.config.awayName).toBe('Bia');
     expect(r.frames.length).toBeGreaterThan(0);
     expect(r.frames[0].players).toHaveLength(10);
+  });
+
+  it('does not apply AI difficulty modifiers to a PvP team', () => {
+    const config = runClient(9191).config;
+    const easy = simulateMatch({ ...config, awayDifficulty: 'easy' });
+    const hard = simulateMatch({ ...config, awayDifficulty: 'hard' });
+    expect(hard.frames).toEqual(easy.frames);
+    expect(hard.playerStats).toEqual(easy.playerStats);
+  });
+
+  it('accepts database snapshots with null goalkeeper-only attributes on outfield players', () => {
+    const cardsWithNullGoalkeeperAttrs = payload.home.cards.map(player => ({
+      ...player,
+      reflexes: player.position === 'GK' ? player.reflexes : null,
+      positioning: player.position === 'GK' ? player.positioning : null,
+      handling: player.position === 'GK' ? player.handling : null,
+    }));
+    const players = createPlayersFromCards(cardsWithNullGoalkeeperAttrs, 'home', '2-2', 'futsal');
+    const config = runClient(8181).config;
+    expect(() => simulateMatch({ ...config, homePlayers: players })).not.toThrow();
+  });
+
+  it('rejects lineups without exactly five players and one goalkeeper', () => {
+    const result = runClient(5150);
+    expect(() => simulateMatch({
+      ...result.config,
+      homePlayers: result.config.homePlayers.slice(1),
+    })).toThrow(/exatamente cinco jogadores/);
+    expect(() => simulateMatch({
+      ...result.config,
+      awayPlayers: result.config.awayPlayers.map(player => ({ ...player, isGK: false })),
+    })).toThrow(/goleiro válido/);
+  });
+
+  it('rejects missing and out-of-range player attributes', () => {
+    const config = runClient(6060).config;
+    const missingPace = config.homePlayers.map(player => ({ ...player, attrs: { ...player.attrs } }));
+    Object.defineProperty(missingPace[1].attrs, 'pace', { value: undefined });
+    const excessiveShooting = config.awayPlayers.map((player, index) => index === 1
+      ? { ...player, attrs: { ...player.attrs, shooting: 101 } }
+      : player);
+
+    expect(() => simulateMatch({ ...config, homePlayers: missingPace })).toThrow(/atributos inválidos/);
+    expect(() => simulateMatch({ ...config, awayPlayers: excessiveShooting })).toThrow(/atributos inválidos/);
+  });
+
+  it('generates reward-compatible player IDs from UUID card IDs', () => {
+    const uuidCards = payload.home.cards.map((player, index) => ({
+      ...player,
+      uid: `00000000-0000-4000-8000-00000000000${index}`,
+    }));
+    const players = createPlayersFromCards(uuidCards, 'home', '2-2', 'futsal');
+
+    expect(players.every(player => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_home$/i.test(player.id))).toBe(true);
   });
 
   it('both clients get the exact same result for the same seed', () => {

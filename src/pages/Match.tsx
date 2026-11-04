@@ -6,6 +6,7 @@ import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../engine/match';
 import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import * as challengesService from '../lib/services/challenges';
+import type { MatchPlaybackState } from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
 
 type ChallengeSquads = {
@@ -31,17 +32,20 @@ function MatchInner() {
   const sport = 'futsal' as const;
   const [difficulty, setDifficulty] = useState<'easy' | 'normal' | 'hard'>('normal');
   const [homeTactic, setHomeTactic] = useState<Tactic>('balanced');
+  const [challengeTactic, setChallengeTactic] = useState<Tactic>('balanced');
   const [step, setStep] = useState<'setup' | 'prematch' | 'play' | 'result'>('setup');
   const [selectedSquadId, setSelectedSquadId] = useState<string | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [resultConfirmed, setResultConfirmed] = useState(false);
-  const resultConfirmedRef = useRef(false);
   const [frameIndex, setFrameIndex] = useState(0);
   const addMatchHistory = useGame(s => s.addMatchHistory);
+  const addLocalMatchHistory = useGame(s => s.addLocalMatchHistory);
+  const syncUserData = useGame(s => s.syncUserData);
   const addPlayerXp = useGame(s => s.addPlayerXp);
   const recordMatchStats = useGame(s => s.recordMatchStats);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [playbackState, setPlaybackState] = useState<MatchPlaybackState | null>(null);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
 
@@ -51,6 +55,7 @@ function MatchInner() {
   const challengeId = searchParams.get('challenge');
   const [opponentName, setOpponentName] = useState<string>('IA');
   const [opponentPlayers, setOpponentPlayers] = useState<MatchPlayer[] | null>(null);
+  const [opponentPlayersOwner, setOpponentPlayersOwner] = useState<string | null>(null);
   const [opponentFormation, setOpponentFormation] = useState<string>('1-2-1');
   const [loadingOpp, setLoadingOpp] = useState(false);
   const [challenge, setChallenge] = useState<any>(null);
@@ -60,21 +65,20 @@ function MatchInner() {
   const [startError, setStartError] = useState<string | null>(null);
   const [readyLoading, setReadyLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
   const [challengerReady, setChallengerReady] = useState(false);
   const [challengedReady, setChallengedReady] = useState(false);
   const [fade, setFade] = useState(false);
-  useEffect(() => { resultConfirmedRef.current = resultConfirmed; }, [resultConfirmed]);
   const matchHistory = useGame(s => s.matchHistory);
 
   // refs so async callbacks / timers / realtime handlers never read stale state
-  const resultRef = useRef<MatchResult | null>(null);
+  const officialResultAppliedRef = useRef(false);
   const startedRef = useRef(false);
   const loadingSquadsRef = useRef(false);
   const recordedRef = useRef(false);
+  const finishingPlaybackRef = useRef(false);
   const cancelledByMeRef = useRef(false);
   const startMatchRef = useRef<() => void>(() => {});
-  resultRef.current = result;
-
   const squad = squads[sport];
   const mySaved = savedSquads.filter(s => s.sport === sport);
 
@@ -92,6 +96,22 @@ function MatchInner() {
   };
 
   const homeInfo = buildHomePlayers();
+  const isChallengedPlayer = !!challengeId && !!challenge && currentUserId === challenge.challenged_id;
+  const myMatchSide: 'home' | 'away' = isChallengedPlayer ? 'away' : 'home';
+
+  const receivePlaybackState = (state: MatchPlaybackState) => {
+    setPlaybackState(current => {
+      if (
+        current?.status === state.status
+        && current.currentFrame === state.currentFrame
+        && current.speed === state.speed
+        && current.startedAt === state.startedAt
+        && current.pausedAt === state.pausedAt
+        && current.serverNow === state.serverNow
+      ) return current;
+      return { ...state, receivedAt: Date.now() };
+    });
+  };
 
   // Loads both squads of the challenge from the edge function (service role, so it can
   // read the opponent's cards). Never falls back to AI: on failure it exposes challengeError.
@@ -144,13 +164,49 @@ function MatchInner() {
     setChallenge(row);
     setChallengerReady(!!row.challenger_ready);
     setChallengedReady(!!row.challenged_ready);
-    if (row.status === 'completed' && row.result && (!resultConfirmedRef.current || !result)) {
-      // Official saved result: both players see the same match.
-      // 'result' when revisiting an old challenge, 'prematch' (watch the replay) when it just finished.
-      setResult(row.result as MatchResult);
+    if (row.challenger_ready && currentUserIdRef.current === row.challenger_id) {
+      setChallengeTactic(row.challenger_tactic || 'balanced');
+    } else if (row.challenged_ready && currentUserIdRef.current === row.challenged_id) {
+      setChallengeTactic(row.challenged_tactic || 'balanced');
+    }
+    if (row.home_snapshot?.cards && row.away_snapshot?.cards) {
+      const homeSnapshot = row.home_snapshot;
+      const awaySnapshot = row.away_snapshot;
+      setChallengeSquads({
+        home: createPlayersFromCards(homeSnapshot.cards, 'home', homeSnapshot.formation, 'futsal'),
+        away: createPlayersFromCards(awaySnapshot.cards, 'away', awaySnapshot.formation, 'futsal'),
+        homeCards: homeSnapshot.cards,
+        awayCards: awaySnapshot.cards,
+        homeFormation: homeSnapshot.formation,
+        awayFormation: awaySnapshot.formation,
+        homeName: homeSnapshot.name,
+        awayName: awaySnapshot.name,
+      });
+    }
+    if (row.playback_state) {
+      const state = row.playback_state as MatchPlaybackState;
+      receivePlaybackState(state);
+      if (state.status === 'paused') setFrameIndex(state.currentFrame);
+    }
+    if (row.status === 'completed' && row.result && !officialResultAppliedRef.current) {
+      const official = row.result as MatchResult;
+      officialResultAppliedRef.current = true;
+      setResult(official);
       setResultConfirmed(true);
-      setFrameIndex(0);
-      setStep(landOnCompleted);
+      const playback = row.playback_state as MatchPlaybackState | undefined;
+      setFrameIndex(playback?.currentFrame ?? 0);
+      setStep(
+        playback?.status === 'playing' || playback?.status === 'paused'
+          ? 'play'
+          : playback?.status === 'finished'
+            ? 'result'
+            : landOnCompleted,
+      );
+    }
+    if (row.status === 'completed' && officialResultAppliedRef.current && row.playback_state) {
+      const state = row.playback_state as MatchPlaybackState;
+      if (state.status === 'playing' || state.status === 'paused') setStep('play');
+      if (state.status === 'finished') setStep('result');
     }
     if (row.status === 'rejected') {
       if (!cancelledByMeRef.current) toast.error('Desafio recusado ou cancelado.');
@@ -159,7 +215,6 @@ function MatchInner() {
   };
 
   const startMatch = async () => {
-    setResultConfirmed(false);
     // ---------- PvP (challenge): ALWAYS uses both real squads, never the AI fallback ----------
     if (challengeId) {
       if (startedRef.current) return;
@@ -167,60 +222,55 @@ function MatchInner() {
       if (challenge?.seed == null) { toast.error('Desafio sem seed definida. Recarregue a página.'); return; }
       startedRef.current = true;
       setStartError(null);
-      const seed = Number(challenge.seed);
-      const cs = challengeSquads;
       try {
-        const res = simulateMatch({
-          sport: 'futsal',
-          homeName: cs.homeName,
-          awayName: cs.awayName,
-          homePlayers: cs.home,
-          awayPlayers: cs.away,
-          homeFormation: cs.homeFormation,
-          awayFormation: cs.awayFormation,
-          // fixed values: both clients must simulate with identical inputs
-          homeTactic: 'balanced',
-          awayTactic: 'balanced',
-          awayDifficulty: 'normal',
-          seed,
-          minutes: 40,
-        });
-        let finalRes: MatchResult = res;
-        const saved = await challengesService.saveChallengeResult(challengeId, { ...res, seed, homeFormation: cs.homeFormation, awayFormation: cs.awayFormation });
-        if (!saved) {
-          const ch = await challengesService.getChallenge(challengeId);
-          if (ch?.status === 'completed' && ch.result?.frames?.length) {
-            finalRes = ch.result as MatchResult;
-          } else {
-            toast.error('Não foi possível confirmar o resultado. Tente novamente.');
-            return;
+        let official: MatchResult | null = null;
+        for (let attempt = 0; attempt < 30 && !official; attempt++) {
+          const response = await challengesService.simulateChallenge(challengeId);
+          official = response.result as MatchResult | null;
+          if (!official && response.pending) {
+            await new Promise(resolve => window.setTimeout(resolve, 1000));
           }
         }
-        setResult(finalRes);
+        if (!official?.frames?.length) {
+          const latest = await challengesService.getChallenge(challengeId);
+          if (latest?.status === 'completed' && latest.result?.frames?.length) {
+            official = latest.result as MatchResult;
+            applyChallengeRow(latest);
+          } else {
+            throw new Error('O servidor ainda não confirmou o resultado. Tente novamente.');
+          }
+        }
+        officialResultAppliedRef.current = true;
+        setResult(official);
         setResultConfirmed(true);
         setFrameIndex(0);
         setStep('prematch');
+        const latest = await challengesService.getChallenge(challengeId);
+        if (latest?.status === 'completed') applyChallengeRow(latest);
       } catch (e) {
         console.error('startMatch failed', e);
-        // never start a second match blindly: look for the official result first
         let recovered = false;
         try {
           const ch = await challengesService.getChallenge(challengeId);
           if (ch?.status === 'completed' && ch.result?.frames?.length) {
-            setResult(ch.result as MatchResult); setFrameIndex(0); setStep('prematch'); recovered = true;
+            applyChallengeRow(ch);
+            recovered = true;
           }
-        } catch { /* still offline */ }
+        } catch (recoveryError) {
+          console.error('challenge result recovery failed', recoveryError);
+        }
         if (!recovered) {
           startedRef.current = false;
-          setStartError('Não foi possível sincronizar a partida. Verifique a conexão e tente de novo.');
+          setStartError(e instanceof Error ? e.message : 'Não foi possível sincronizar a partida. Verifique a conexão e tente de novo.');
         }
       }
       return;
     }
 
     // ---------- friend (opponent) / AI ----------
+    setResultConfirmed(false);
     if (!homeInfo) { toast.error('Escalação incompleta.'); return; }
-    if (opponentId && !opponentPlayers) {
+    if (opponentId && (!opponentPlayers || opponentPlayersOwner !== opponentId)) {
       toast.error('Não foi possível carregar o elenco do amigo (ele precisa ter 5 titulares salvos).');
       return;
     }
@@ -231,7 +281,7 @@ function MatchInner() {
     const homePlayers = homeInfo.players;
     const homeFormation = homeInfo.formation;
     const homeName = 'Futsenai FC';
-    if (opponentId && opponentPlayers) {
+    if (opponentId && opponentPlayers && opponentPlayersOwner === opponentId) {
       awayPlayers = opponentPlayers;
       awayFormation = opponentFormation;
       awayName = opponentName;
@@ -261,14 +311,50 @@ function MatchInner() {
   startMatchRef.current = startMatch;
 
   const startPlay = () => {
+    if (challengeId && resultConfirmed) {
+      void challengesService.updateChallengePlayback(challengeId, 'play')
+        .then(state => {
+          receivePlaybackState(state);
+          setFrameIndex(state.currentFrame);
+          if (state.status === 'playing') setStep('play');
+          if (state.status === 'finished') setStep('result');
+        })
+        .catch(error => {
+          console.error('challenge playback start failed', error);
+          toast.error('Não foi possível iniciar o relógio compartilhado.');
+        });
+      return;
+    }
     setStep('play');
     setPlaying(true);
+  };
+
+  const controlPlayback = (action: 'play' | 'pause' | 'speed', nextSpeed?: 1 | 2 | 4) => {
+    if (challengeId && resultConfirmed) {
+      void challengesService.updateChallengePlayback(challengeId, action, nextSpeed)
+        .then(state => {
+          receivePlaybackState(state);
+          if (state.status === 'paused' || action === 'speed') setFrameIndex(state.currentFrame);
+          if (state.status === 'playing') setStep('play');
+          if (state.status === 'finished') setStep('result');
+        })
+        .catch(error => {
+          console.error('challenge playback update failed', error);
+          toast.error('Não foi possível sincronizar o controle da partida.');
+        });
+      return;
+    }
+    if (action === 'play') { setStep('play'); setPlaying(true); }
+    if (action === 'pause') setPlaying(value => !value);
+    if (action === 'speed' && nextSpeed) setSpeed(nextSpeed);
   };
 
   // opponent fetch
   useEffect(() => {
     if (!opponentId || !supabase) return;
     let cancelled = false;
+    setOpponentPlayers(null);
+    setOpponentPlayersOwner(null);
     setLoadingOpp(true);
     (async () => {
       try {
@@ -276,11 +362,13 @@ function MatchInner() {
         if (cancelled) return;
         setOpponentName(prof?.name || 'Amigo');
         const { data: sqs } = await supabase.from('squads').select('*').eq('user_id', opponentId);
+        if (cancelled) return;
         const sq = (sqs && sqs.length > 0) ? (sqs.find((s: any) => s.is_primary) || sqs[0]) : null;
         const formation = sq?.formation || '1-2-1';
         setOpponentFormation(formation);
         const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
         const { data: cs } = await supabase.from('cards').select('*').eq('user_id', opponentId);
+        if (cancelled) return;
         const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
         const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
         if (starterCards.length >= 5) {
@@ -291,9 +379,15 @@ function MatchInner() {
           }));
           const players = createPlayersFromCards(mapped, 'away', formation, 'futsal');
           setOpponentPlayers(players);
+          setOpponentPlayersOwner(opponentId);
         }
-      } catch (e) { console.error('opponent fetch failed', e); } finally { setLoadingOpp(false); }
+      } catch (e) {
+        if (!cancelled) console.error('opponent fetch failed', e);
+      } finally {
+        if (!cancelled) setLoadingOpp(false);
+      }
     })();
+    return () => { cancelled = true; };
   }, [opponentId]);
 
   // challenge fetch (initial): session + challenge row. Squads are loaded by the effect below.
@@ -305,10 +399,12 @@ function MatchInner() {
       try {
         const { data } = await supabase!.auth.getSession();
         if (cancelled) return;
-        setCurrentUserId(data.session?.user?.id ?? null);
+        const userId = data.session?.user?.id ?? null;
+        currentUserIdRef.current = userId;
+        setCurrentUserId(userId);
         const ch = await challengesService.getChallenge(challengeId);
         if (cancelled) return;
-        if (ch) applyChallengeRow(ch, 'result');
+        if (ch) applyChallengeRow(ch, 'prematch');
       } catch (e) {
         console.error('challenge fetch failed', e);
       } finally {
@@ -331,7 +427,8 @@ function MatchInner() {
   useEffect(() => {
     if (!challengeId || !supabase) return;
     const st = challenge?.status;
-    if ((st !== 'pending' && st !== 'accepted') || result) return;
+    const playbackFinished = (playbackState?.status === 'finished');
+    if ((st !== 'pending' && st !== 'accepted' && st !== 'completed') || (st === 'completed' && playbackFinished)) return;
     const t = setInterval(async () => {
       try {
         const ch = await challengesService.getChallenge(challengeId);
@@ -342,7 +439,7 @@ function MatchInner() {
     }, 4000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challengeId, challenge?.status, result]);
+  }, [challengeId, challenge?.status, playbackState?.status, result]);
 
   // auto start once BOTH are ready AND both squads are loaded (never from render, never stale)
   const bothReady = challengerReady && challengedReady;
@@ -355,7 +452,7 @@ function MatchInner() {
   }, [challengeId, challenge?.status, bothReady, challengeSquads, result, step, startError]);
 
   useEffect(() => {
-    if (step !== 'play' || !result) return;
+    if (challengeId || step !== 'play' || !result) return;
     if (!playing) { cancelAnimationFrame(rafRef.current); return; }
     lastTimeRef.current = performance.now();
     const tick = (now: number) => {
@@ -375,11 +472,61 @@ function MatchInner() {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [step, playing, speed, result]);
+  }, [challengeId, step, playing, speed, result]);
+
+  useEffect(() => {
+    if (!challengeId || !resultConfirmed || !result || !playbackState) return;
+    if (playbackState.status === 'finished') {
+      setFrameIndex(result.frames.length - 1);
+      setStep('result');
+      return;
+    }
+    if (playbackState.status !== 'playing' || !playbackState.startedAt) return;
+
+    setStep('play');
+    finishingPlaybackRef.current = false;
+    const startedAt = Date.parse(playbackState.startedAt);
+    const serverOffset = playbackState.serverNow && playbackState.receivedAt
+      ? Date.parse(playbackState.serverNow) - playbackState.receivedAt
+      : 0;
+    let retryTimer: number | undefined;
+    const tick = () => {
+      const frame = playbackState.currentFrame
+        + Math.max(0, Date.now() + serverOffset - startedAt) / 1000 * 2 * playbackState.speed;
+      if (frame >= result.frames.length - 1) {
+        setFrameIndex(result.frames.length - 1);
+        if (!finishingPlaybackRef.current) {
+          finishingPlaybackRef.current = true;
+          void challengesService.updateChallengePlayback(challengeId, 'finish')
+            .then(setPlaybackState)
+            .catch(error => {
+              finishingPlaybackRef.current = false;
+              console.error('challenge playback finish failed', error);
+              retryTimer = window.setTimeout(() => {
+                rafRef.current = requestAnimationFrame(tick);
+              }, 2000);
+            });
+        }
+        return;
+      }
+      setFrameIndex(frame);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    };
+  }, [challengeId, resultConfirmed, result, playbackState]);
 
   useEffect(() => {
     if (step !== 'result' || !result || recordedRef.current) return;
     recordedRef.current = true;
+    if (challengeId && currentUserId) {
+      void syncUserData(currentUserId).catch(error => {
+        console.error('challenge reward refresh failed', error);
+      });
+    }
     // challenge already recorded (page revisited / other tab): do not duplicate history or XP
     if (challengeId && matchHistory.some(m => m.challengeId === challengeId)) return;
     // in PvP the challenged user plays as AWAY: credit their own cards and see the score from their side
@@ -387,17 +534,15 @@ function MatchInner() {
     const myScore = mySide === 'home' ? result.homeScore : result.awayScore;
     const oppScore = mySide === 'home' ? result.awayScore : result.homeScore;
     const oppName = mySide === 'home' ? result.config.awayName : result.config.homeName;
-    addMatchHistory({ id: nanoid(), date: Date.now(), sport, homeScore: myScore, awayScore: oppScore, opponent: oppName, challengeId: challengeId ?? undefined });
-    const myPlayers = mySide === 'home' ? result.config.homePlayers : result.config.awayPlayers;
-    myPlayers.forEach(p => {
-      const uid = p.id.replace(new RegExp(`_${mySide}$`), '');
-      addPlayerXp(uid, 50 + (myScore > oppScore ? 30 : 0));
-      const ps = result.playerStats[p.id];
-      recordMatchStats(uid, ps?.goals ?? 0, ps?.assists ?? 0);
-    });
-    // safety net: if the save done at simulation time failed, try again (guarded server-side)
-    if (challengeId && challenge?.status !== 'completed') {
-      challengesService.saveChallengeResult(challengeId, { ...result, seed: result.config.seed, homeFormation: result.config.homeFormation, awayFormation: result.config.awayFormation });
+    const historyEntry = { id: nanoid(), date: Date.now(), sport, homeScore: myScore, awayScore: oppScore, opponent: oppName, challengeId: challengeId ?? undefined };
+    if (challengeId) addLocalMatchHistory(historyEntry);
+    else addMatchHistory(historyEntry);
+    if (!challengeId) {
+      result.config.homePlayers.forEach(p => {
+        const ps = result.playerStats[p.id];
+        addPlayerXp(p.id.replace(/_home$/, ''), 50 + (result.homeScore > result.awayScore ? 30 : 0));
+        recordMatchStats(p.id.replace(/_home$/, ''), ps?.goals ?? 0, ps?.assists ?? 0);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, result]);
@@ -427,7 +572,20 @@ function MatchInner() {
         <div className="p-4 md:p-8 space-y-4">
           <h1 className="text-2xl font-semibold text-[#252733]">Desafio enviado</h1>
           <div className="card-surface p-4 text-sm text-[#858A98]">Aguardando o adversario aceitar...</div>
-          <button onClick={async () => { cancelledByMeRef.current = true; await challengesService.rejectChallenge(challengeId); navigate('/friends'); }} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Cancelar desafio</button>
+          <button
+            onClick={async () => {
+              const ok = await challengesService.rejectChallenge(challengeId);
+              if (!ok) {
+                toast.error('Não foi possível cancelar o desafio.');
+                return;
+              }
+              cancelledByMeRef.current = true;
+              navigate('/friends');
+            }}
+            className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium"
+          >
+            Cancelar desafio
+          </button>
         </div>
       );
     }
@@ -438,7 +596,19 @@ function MatchInner() {
           <div className="text-sm text-[#252733]">Voce foi desafiado!</div>
           <div className="flex gap-2">
             <button onClick={async () => { const ok = await challengesService.acceptChallenge(challengeId); const ch = await challengesService.getChallenge(challengeId); if (!ok && ch?.status !== 'accepted') toast.error('Não foi possível aceitar o desafio.'); if (ch) applyChallengeRow(ch); }} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Aceitar</button>
-            <button onClick={async () => { await challengesService.rejectChallenge(challengeId); navigate('/'); }} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Recusar</button>
+            <button
+              onClick={async () => {
+                const ok = await challengesService.rejectChallenge(challengeId);
+                if (!ok) {
+                  toast.error('Não foi possível recusar o desafio.');
+                  return;
+                }
+                navigate('/');
+              }}
+              className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium"
+            >
+              Recusar
+            </button>
           </div>
         </div>
       </div>
@@ -449,6 +619,12 @@ function MatchInner() {
     const isChallenger = currentUserId === challenge.challenger_id;
     const myReady = isChallenger ? challengerReady : challengedReady;
     const oppReady = isChallenger ? challengedReady : challengerReady;
+    const homeAverage = challengeSquads
+      ? Math.round(challengeSquads.homeCards.reduce((sum, player) => sum + Number(player.overall ?? 0), 0) / challengeSquads.homeCards.length)
+      : null;
+    const awayAverage = challengeSquads
+      ? Math.round(challengeSquads.awayCards.reduce((sum, player) => sum + Number(player.overall ?? 0), 0) / challengeSquads.awayCards.length)
+      : null;
     return (
       <div className="p-4 md:p-8 space-y-6">
         {fade && <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center text-white text-2xl font-bold">Preparando partida...</div>}
@@ -456,11 +632,17 @@ function MatchInner() {
         <div className="grid md:grid-cols-2 gap-4">
           <div className="card-surface p-4">
             <div className="text-sm font-medium text-[#858A98] mb-2">Seu time</div>
-            <div className="text-sm text-[#252733]">{challengeSquads ? `${isChallenger ? challengeSquads.homeName : challengeSquads.awayName} · ${isChallenger ? challengeSquads.homeFormation : challengeSquads.awayFormation}` : 'Carregando elenco...'}</div>
+            <div className="text-sm text-[#252733]">{challengeSquads ? `${isChallenger ? challengeSquads.homeName : challengeSquads.awayName} · ${isChallenger ? challengeSquads.homeFormation : challengeSquads.awayFormation} · OVR ${isChallenger ? homeAverage : awayAverage}` : 'Carregando elenco...'}</div>
+            {challengeSquads && (isChallenger ? challengeSquads.homeCards : challengeSquads.awayCards).map(player => (
+              <div key={player.uid} className="text-xs text-[#858A98] mt-1">{player.name} · {player.position} · {player.overall}</div>
+            ))}
           </div>
           <div className="card-surface p-4">
             <div className="text-sm font-medium text-[#858A98] mb-2">Adversário</div>
-            <div className="text-sm text-[#252733]">{challengeSquads ? `${isChallenger ? challengeSquads.awayName : challengeSquads.homeName} · ${isChallenger ? challengeSquads.awayFormation : challengeSquads.homeFormation}` : 'Carregando elenco...'}</div>
+            <div className="text-sm text-[#252733]">{challengeSquads ? `${isChallenger ? challengeSquads.awayName : challengeSquads.homeName} · ${isChallenger ? challengeSquads.awayFormation : challengeSquads.homeFormation} · OVR ${isChallenger ? awayAverage : homeAverage}` : 'Carregando elenco...'}</div>
+            {challengeSquads && (isChallenger ? challengeSquads.awayCards : challengeSquads.homeCards).map(player => (
+              <div key={player.uid} className="text-xs text-[#858A98] mt-1">{player.name} · {player.position} · {player.overall}</div>
+            ))}
           </div>
         </div>
         {challengeError && (
@@ -472,6 +654,21 @@ function MatchInner() {
         <div className="text-sm text-[#858A98]">
           Você: {myReady ? 'Pronto ✓' : 'Aguardando...'} · Adversário: {oppReady ? 'Pronto ✓' : 'Aguardando...'}
         </div>
+        <div className="grid md:grid-cols-2 gap-3 text-xs text-[#858A98]">
+          <div>{challengeSquads?.homeName}: {TACTIC_LABEL[TACTICS.find(tactic => tactic === challenge?.challenger_tactic) ?? 'balanced']}</div>
+          <div>{challengeSquads?.awayName}: {TACTIC_LABEL[TACTICS.find(tactic => tactic === challenge?.challenged_tactic) ?? 'balanced']}</div>
+        </div>
+        <div>
+          <label className="text-sm text-[#858A98]">Sua tática</label>
+          <select
+            value={challengeTactic}
+            onChange={event => setChallengeTactic(event.target.value as Tactic)}
+            disabled={myReady}
+            className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm disabled:opacity-50"
+          >
+            {TACTICS.map(tactic => <option key={tactic} value={tactic}>{TACTIC_LABEL[tactic]}</option>)}
+          </select>
+        </div>
         {startError && (
           <div className="card-surface p-4 text-sm text-red-600 space-y-2">
             <div>{startError}</div>
@@ -481,10 +678,9 @@ function MatchInner() {
         <button
           onClick={async () => {
             if (!challengeId || readyLoading) return;
-            const side = isChallenger ? 'challenger' : 'challenged';
             setReadyLoading(true);
             try {
-              const ok = await challengesService.setReady(challengeId, side);
+              const ok = await challengesService.setReady(challengeId, challengeTactic);
               if (!ok) toast.error('Não foi possível confirmar. Tente de novo.');
               const ch = await challengesService.getChallenge(challengeId);
               if (ch) applyChallengeRow(ch);
@@ -498,16 +694,26 @@ function MatchInner() {
           {readyLoading ? 'Enviando...' : myReady ? 'Aguardando adversário...' : 'Estou pronto'}
         </button>
         <button
-          onClick={async () => { cancelledByMeRef.current = true; await challengesService.rejectChallenge(challengeId!); navigate('/friends'); }}
+          onClick={async () => {
+            const ok = await challengesService.rejectChallenge(challengeId!);
+            if (!ok) {
+              toast.error('Não é possível cancelar depois que os dois jogadores confirmaram presença.');
+              return;
+            }
+            cancelledByMeRef.current = true;
+            navigate('/friends');
+          }}
+          disabled={challengerReady && challengedReady}
           className="w-full px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium text-[#252733]"
         >
-          Cancelar desafio
+          {challengerReady && challengedReady ? 'Partida confirmada' : 'Cancelar desafio'}
         </button>
       </div>
     );
   }
 
   if (step === 'setup') {
+    const activeOpponentPlayers = opponentPlayersOwner === opponentId ? opponentPlayers : null;
     return (
       <div className="p-4 md:p-8 space-y-6">
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada{opponentId ? ` vs ${opponentName}` : challengeId ? ' (PvP)' : ''}</h1>
@@ -537,7 +743,7 @@ function MatchInner() {
               {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
             </select>
           </div>
-          <button onClick={startMatch} disabled={!homeInfo || (!!opponentId && !opponentPlayers)} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
+          <button onClick={startMatch} disabled={!homeInfo || (!!opponentId && !activeOpponentPlayers)} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
             Iniciar partida
           </button>
         </div>
@@ -546,33 +752,44 @@ function MatchInner() {
   }
 
   if (step === 'prematch' && result) {
+    const myPlayers = myMatchSide === 'home' ? result.config.homePlayers : result.config.awayPlayers;
+    const opponentPlayersForMatch = myMatchSide === 'home' ? result.config.awayPlayers : result.config.homePlayers;
+    const myTeamName = myMatchSide === 'home' ? result.config.homeName : result.config.awayName;
+    const opponentTeamName = myMatchSide === 'home' ? result.config.awayName : result.config.homeName;
+    const myFormation = myMatchSide === 'home' ? result.config.homeFormation : result.config.awayFormation;
+    const opponentTeamFormation = myMatchSide === 'home' ? result.config.awayFormation : result.config.homeFormation;
     return (
       <div className="p-4 md:p-8 space-y-4">
-        <h1 className="text-2xl font-semibold text-[#252733]">Pré-jogo</h1>
+        <h1 className="text-2xl font-semibold text-[#252733]">{challengeId ? 'Sala da partida PvP' : 'Pré-jogo'}</h1>
+        {challengeId && (
+          <div className="card-surface p-3 text-sm text-green-700">
+            Resultado oficial confirmado pelo servidor · Relógio compartilhado · {playbackState?.status === 'playing' ? 'Partida em andamento' : 'Aguardando início'}
+          </div>
+        )}
         <div className="card-surface p-4">
           <div className="flex justify-between items-center mb-4">
             <div className="text-center">
-              <div className="font-bold text-[#252733]">{result.config.homeName}</div>
-              <div className="text-xs text-[#858A98]">{result.config.homeFormation}</div>
+              <div className="font-bold text-[#252733]">{myTeamName}</div>
+              <div className="text-xs text-[#858A98]">{myFormation}</div>
             </div>
             <div className="text-[#858A98]">vs</div>
             <div className="text-center">
-              <div className="font-bold text-[#252733]">{result.config.awayName}</div>
-              <div className="text-xs text-[#858A98]">{result.config.awayFormation}</div>
+              <div className="font-bold text-[#252733]">{opponentTeamName}</div>
+              <div className="text-xs text-[#858A98]">{opponentTeamFormation}</div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
             <div>
-              <div className="font-semibold text-[#858A98] mb-1">Seu time</div>
-              {result.config.homePlayers.map(p => <div key={p.id} className="text-[#252733]">{p.number}. {p.name} ({p.position})</div>)}
+              <div className="font-semibold text-[#858A98] mb-1">{myTeamName} · Seu time</div>
+              {myPlayers.map(p => <div key={p.id} className="text-[#252733]">{p.number}. {p.name} ({p.position})</div>)}
             </div>
             <div>
-              <div className="font-semibold text-[#858A98] mb-1">Adversário</div>
-              {result.config.awayPlayers.map(p => <div key={p.id} className="text-[#252733]">{p.number}. {p.name} ({p.position})</div>)}
+              <div className="font-semibold text-[#858A98] mb-1">{opponentTeamName} · Adversário</div>
+              {opponentPlayersForMatch.map(p => <div key={p.id} className="text-[#252733]">{p.number}. {p.name} ({p.position})</div>)}
             </div>
           </div>
-          <button onClick={startPlay} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
-            Começar
+          <button onClick={startPlay} disabled={!!challengeId && (playbackState?.status === 'playing' || playbackState?.status === 'finished')} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
+            {playbackState?.status === 'paused' ? 'Retomar partida' : playbackState?.status === 'playing' ? 'Partida em andamento' : 'Começar'}
           </button>
         </div>
       </div>
@@ -583,18 +800,23 @@ function MatchInner() {
     const homePlayers = result.config.homePlayers;
     const awayPlayers = result.config.awayPlayers;
     const playerById = (id: string) => [...homePlayers, ...awayPlayers].find(p => p.id === id);
+    const shownHomeScore = challengeId && myMatchSide === 'away' ? result.awayScore : result.homeScore;
+    const shownAwayScore = challengeId && myMatchSide === 'away' ? result.homeScore : result.awayScore;
+    const activeSpeed = challengeId ? playbackState?.speed ?? 1 : speed;
+    const isPlaying = challengeId ? playbackState?.status === 'playing' : playing;
     return (
       <div className="p-4 md:p-8 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="text-2xl font-bold text-[#252733]">{result.homeScore} - {result.awayScore}</div>
+          <div className="text-2xl font-bold text-[#252733]">{shownHomeScore} - {shownAwayScore}</div>
           <div className="text-sm text-[#858A98]">{Math.floor(currentFrame.minute)}' · {currentFrame.half === 1 ? '1º tempo' : '2º tempo'}</div>
           <div className="flex gap-2">
-            <button onClick={() => setPlaying(p => !p)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">{playing ? 'Pausar' : 'Retomar'}</button>
+            <button onClick={() => controlPlayback(isPlaying ? 'pause' : 'play')} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">{isPlaying ? 'Pausar' : 'Retomar'}</button>
             {[1, 2, 4].map(s => (
-              <button key={s} onClick={() => setSpeed(s)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${speed === s ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>{s}x</button>
+              <button key={s} onClick={() => controlPlayback('speed', s as 1 | 2 | 4)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${activeSpeed === s ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>{s}x</button>
             ))}
           </div>
         </div>
+        {challengeId && <div className="text-xs text-[#858A98]">Relógio compartilhado · Velocidade atual: {activeSpeed}x</div>}
 
         <div className="card-surface p-2">
           <svg viewBox="0 0 100 64" className="w-full h-auto">
@@ -633,21 +855,32 @@ function MatchInner() {
   }
 
   if (step === 'result' && result) {
-    const homeStats = result.teamStats.home;
-    const awayStats = result.teamStats.away;
+    const homeStats = myMatchSide === 'home' ? result.teamStats.home : result.teamStats.away;
+    const awayStats = myMatchSide === 'home' ? result.teamStats.away : result.teamStats.home;
+    const possessionTicks = homeStats.possession + awayStats.possession;
+    const homePossession = possessionTicks ? Math.round(homeStats.possession / possessionTicks * 100) : 0;
+    const awayPossession = possessionTicks ? 100 - homePossession : 0;
+    const finalHomeScore = myMatchSide === 'home' ? result.homeScore : result.awayScore;
+    const finalAwayScore = myMatchSide === 'home' ? result.awayScore : result.homeScore;
+    const finalHomeName = myMatchSide === 'home' ? result.config.homeName : result.config.awayName;
+    const finalAwayName = myMatchSide === 'home' ? result.config.awayName : result.config.homeName;
     return (
       <div className="p-4 md:p-8 space-y-4">
         <h1 className="text-2xl font-semibold text-[#252733]">Resultado final</h1>
         <div className="card-surface p-6 text-center">
-          <div className="text-4xl font-bold text-[#252733]">{result.homeScore} - {result.awayScore}</div>
-          <div className="text-sm text-[#858A98] mt-1">{result.config.homeName} vs {result.config.awayName}</div>
+          {challengeId && <div className="text-xs font-semibold text-green-700 mb-2">Resultado oficial confirmado pelo servidor</div>}
+          <div className="text-4xl font-bold text-[#252733]">{finalHomeScore} - {finalAwayScore}</div>
+          <div className="text-sm text-[#858A98] mt-1">{finalHomeName} vs {finalAwayName}</div>
         </div>
         <div className="card-surface p-4">
           <h3 className="font-semibold text-[#252733] mb-3">Estatísticas</h3>
           <div className="grid grid-cols-3 gap-2 text-sm">
-            <div className="text-center font-bold text-[#252733]">{homeStats.possession}</div>
-            <div className="text-center text-[#858A98] text-xs">Posse (ticks)</div>
-            <div className="text-center font-bold text-[#252733]">{awayStats.possession}</div>
+            <div className="text-center text-xs text-[#858A98]">{finalHomeName}</div>
+            <div />
+            <div className="text-center text-xs text-[#858A98]">{finalAwayName}</div>
+            <div className="text-center font-bold text-[#252733]">{homePossession}%</div>
+            <div className="text-center text-[#858A98] text-xs">Posse de bola</div>
+            <div className="text-center font-bold text-[#252733]">{awayPossession}%</div>
             <div className="text-center font-bold text-[#252733]">{homeStats.passes}</div>
             <div className="text-center text-[#858A98] text-xs">Passes</div>
             <div className="text-center font-bold text-[#252733]">{awayStats.passes}</div>
