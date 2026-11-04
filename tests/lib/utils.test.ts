@@ -1,4 +1,4 @@
-import { levelFromXp, rollRarity } from '../../lib/game';
+import { levelFromXp, rollRarity } from '../../src/lib/game';
 
 describe('levelFromXp', () => {
   it('returns 1 for 0 xp', () => expect(levelFromXp(0)).toBe(1));

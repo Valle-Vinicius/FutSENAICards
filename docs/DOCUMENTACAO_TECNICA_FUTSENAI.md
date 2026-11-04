@@ -302,9 +302,9 @@ Layout: sidebar (desktop), drawer (mobile), bottom nav (mobile). ProtectedRoute 
 ## 17. Testes e validação
 
 Testes existentes (Jest):
-- `src/lib/__tests__/utils.test.ts`: `levelFromXp`, `rollRarity` (2 testes)
-- `src/lib/services/__tests__/profile.test.ts`: `getProfile`, `updateProfile` sem Supabase (2 testes)
-- `src/pages/__tests__/Auth.test.tsx`: render login, toggle register, submit, forgot password (4 testes)
+- `tests/lib/utils.test.ts`: `levelFromXp`, `rollRarity` (2 testes)
+- `tests/lib/services/profile.test.ts`: `getProfile`, `updateProfile` sem Supabase (2 testes)
+- `tests/pages/Auth.test.tsx`: render login, toggle register, submit, forgot password (4 testes)
 
 Total: 9 testes. Sem testes de integração ou E2E. Sem CI/CD de testes (apenas build/lint no Vercel).
 

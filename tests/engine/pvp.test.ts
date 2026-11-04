@@ -1,5 +1,5 @@
-import { simulateMatch, createPlayersFromCards, MATCH_DURATION_MINUTES } from '../match';
-import type { MatchConfig } from '../match';
+import { simulateMatch, createPlayersFromCards, MATCH_DURATION_MINUTES } from '../../src/engine/match';
+import type { MatchConfig } from '../../src/engine/match';
 
 const card = (id: string, position: string, base: number) => ({
   uid: id, name: `P${id}`, position, overall: base,

@@ -503,7 +503,7 @@ registra prêmio em moedas nem alteração de nível global.
   estatísticas. A autoridade depende de proteger a Edge Function e a chave
   `service_role`; comprometer essa função/chave ultrapassaria as garantias do
   cliente.
-- **Testes:** `src/engine/__tests__/pvp.test.ts` cobre validação de escalação e
+- **Testes:** `tests/engine/pvp.test.ts` cobre validação de escalação e
   atributos, ausência de multiplicador de dificuldade no modo PvP,
   determinismo local com a mesma seed, duração de 90 minutos (intervalo aos 45
   e fim aos 90) e serialização do resultado. Esses são testes do motor; não
@@ -518,7 +518,7 @@ registra prêmio em moedas nem alteração de nível global.
 - `src/lib/services/challenges.ts`
 - `src/lib/services/squads.ts`
 - `src/engine/match.ts`
-- `src/engine/__tests__/pvp.test.ts`
+- `tests/engine/pvp.test.ts`
 - `supabase/challenges.sql`
 - `supabase/friends.sql`
 - `supabase/pvp_authority.sql`

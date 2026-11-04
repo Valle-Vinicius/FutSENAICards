@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import Auth from '../Auth';
+import Auth from '../../src/pages/Auth';
 
-jest.mock('../../data/poses', () => ({ POSES: ['/pose1.png', '/pose2.png'] }));
-jest.mock('../../lib/supabase', () => ({
+jest.mock('../../src/data/poses', () => ({ POSES: ['/pose1.png', '/pose2.png'] }));
+jest.mock('../../src/lib/supabase', () => ({
   supabase: {
     auth: {
       signInWithPassword: jest.fn().mockResolvedValue({ error: null }),
@@ -37,7 +37,7 @@ describe('Auth page', () => {
     fireEvent.change(screen.getByPlaceholderText('Senha'), { target: { value: '123456' } });
     fireEvent.click(screen.getByText('ENTRAR'));
     await waitFor(() => {
-      const { supabase } = require('../../lib/supabase');
+      const { supabase } = require('../../src/lib/supabase');
       expect(supabase.auth.signInWithPassword).toHaveBeenCalled();
     });
   });

@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { PlayerCard } from '../../types';
-import { useGame } from '../../store/useGame';
-import SBC from '../SBC';
+import type { PlayerCard } from '../../src/types';
+import { useGame } from '../../src/store/useGame';
+import SBC from '../../src/pages/SBC';
 
-jest.mock('../../components/Card', () => ({ __esModule: true, default: () => null }));
-jest.mock('../../store/useGame', () => ({ useGame: jest.fn() }));
+jest.mock('../../src/components/Card', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../src/store/useGame', () => ({ useGame: jest.fn() }));
 
 const mockedUseGame = jest.mocked(useGame);
 const mockCompleteSBC = jest.fn(() => true);

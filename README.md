@@ -114,7 +114,15 @@ src/
   store/
     useGame.ts            # Estado global persistido
     toast.ts              # Toasts
+docs/                     # Documentação técnica e de produto
+tests/
+  engine/                 # Testes de simulação e PvP
+  lib/                    # Testes de serviços e utilitários
+  pages/                  # Testes de componentes de página
 ```
+
+`README.md` permanece na raiz para ser exibido pelo GitHub. Os demais documentos
+técnicos ficam em `docs/`, e os testes ficam agrupados em `tests/`.
 
 ---
 

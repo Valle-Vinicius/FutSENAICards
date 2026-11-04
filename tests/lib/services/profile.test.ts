@@ -1,6 +1,6 @@
-jest.mock('../../supabase', () => ({ supabase: null, hasSupabase: false }));
+jest.mock('../../../src/lib/supabase', () => ({ supabase: null, hasSupabase: false }));
 
-import { getProfile, updateProfile } from '../../profile';
+import { getProfile, updateProfile } from '../../../src/lib/profile';
 
 describe('profile service (no supabase)', () => {
   it('getProfile returns null', async () => {

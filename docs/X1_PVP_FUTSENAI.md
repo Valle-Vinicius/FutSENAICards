@@ -98,7 +98,7 @@ status: pending / accepted / rejected. RLS garante que só participantes veem.
 
 ## 6. Testes
 
-- `src/engine/__tests__/match.test.ts`: determinismo, stats, makeAwayTeam (3 testes).
+- `tests/engine/match.test.ts`: determinismo, stats, makeAwayTeam (3 testes).
 - Jest: 13 testes passando.
 
 ## 7. Pendências

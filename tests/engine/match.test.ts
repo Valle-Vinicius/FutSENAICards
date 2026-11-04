@@ -1,4 +1,4 @@
-import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../match';
+import { simulateMatch, createPlayersFromCards, makeAwayTeam } from '../../src/engine/match';
 
 const mkPlayer = (uid: string, name: string, pos: string, attrs: any) => ({
   uid, name, position: pos, overall: attrs.overall ?? 80,

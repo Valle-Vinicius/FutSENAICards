@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { MatchEvent, MatchPlayer, MatchResult, PlayerStats } from '../match';
-import type { ChallengeTeamSnapshot } from '../../lib/services/challenges';
-import PvpResultScreen from '../../components/PvpResultScreen';
-import { getPvpAwards, getRatedPvpPlayers, ratePvpPlayer, snapshotCardIdForPlayer } from '../pvp-result';
+import type { MatchEvent, MatchPlayer, MatchResult, PlayerStats } from '../../src/engine/match';
+import type { ChallengeTeamSnapshot } from '../../src/lib/services/challenges';
+import PvpResultScreen from '../../src/components/PvpResultScreen';
+import { getPvpAwards, getRatedPvpPlayers, ratePvpPlayer, snapshotCardIdForPlayer } from '../../src/engine/pvp-result';
 
-jest.mock('../../data/players', () => ({
+jest.mock('../../src/data/players', () => ({
   getPlayerImage: (name: string) => name === 'Casa 2' ? '/local-casa2.jpg' : null,
 }));
 
