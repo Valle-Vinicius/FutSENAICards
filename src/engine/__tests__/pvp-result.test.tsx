@@ -4,6 +4,8 @@ import type { ChallengeTeamSnapshot } from '../../lib/services/challenges';
 import PvpResultScreen from '../../components/PvpResultScreen';
 import { getPvpAwards, getRatedPvpPlayers, ratePvpPlayer, snapshotCardIdForPlayer } from '../pvp-result';
 
+jest.mock('../../data/players', () => ({ getPlayerImage: () => null }));
+
 const cardIds = {
   home: [
     '00000000-0000-4000-8000-000000000001',
