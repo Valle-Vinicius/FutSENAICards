@@ -11,17 +11,20 @@ export default function Marketplace() {
   const listings = useGame(s => s.listings);
   const cards = useGame(s => s.cards);
   const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
   }, []);
 
   useEffect(() => {
+    setLoading(true);
     getListings().then(listings => {
       if (listings.length > 0) {
         useGame.setState({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
       }
-    });
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
   const buyListing = useGame(s => s.buyListing);
   const bidListing = useGame(s => s.bidListing);
@@ -150,6 +153,7 @@ export default function Marketplace() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {loading && <div className="text-[#858A98] text-sm">Carregando mercado...</div>}
             {activeListings.map(l => {
               const c = cardOf(l.cardUid) || {
                 uid: l.cardUid || l.id,

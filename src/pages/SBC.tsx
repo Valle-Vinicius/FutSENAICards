@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { useGame } from '../store/useGame';
+import { toast } from '../store/toast';
 import Card from '../components/Card';
 
 const CARDS_PER_PAGE = 48;
@@ -13,7 +14,6 @@ export default function SBC() {
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  const [msg, setMsg] = useState('');
 
   const activeSbc = sbcs.find(sbc => sbc.id === activeSbcId) ?? sbcs[0];
   const chosen = activeSbc ? selected[activeSbc.id] || [] : [];
@@ -44,16 +44,14 @@ export default function SBC() {
   const handleComplete = (sbcId: string) => {
     const uids = selected[sbcId] || [];
     const ok = completeSBC(sbcId, uids);
-    setMsg(ok ? 'Desafio concluído! Recompensa concedida.' : 'Requisitos não atendidos.');
-    if (ok) setSelected(prev => ({ ...prev, [sbcId]: [] }));
+    if (ok) { toast.alert('Desafio concluído! Recompensa concedida.'); setSelected(prev => ({ ...prev, [sbcId]: [] })); }
+    else toast.alert('Requisitos não atendidos.');
     setPage(0);
-    setTimeout(() => setMsg(''), 2000);
   };
 
   return (
     <div className="p-4 md:p-8 space-y-4">
       <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Desafios de elenco (SBC)</h1>
-      {msg && <div className="text-sm text-[#E30613]">{msg}</div>}
       {sbcs.length === 0 ? (
         <div className="card-surface p-6 text-sm text-[#858A98]">Nenhum desafio disponível no momento.</div>
       ) : (

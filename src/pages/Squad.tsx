@@ -91,6 +91,7 @@ export default function Squad() {
   const handleSave = () => {
     if (!saveName.trim()) { toast.alert('Informe um nome.'); return; }
     saveSquad(saveName.trim(), sport);
+    toast.alert('Elenco salvo.');
     setSaveName('');
     setMsg('Escalação salva.');
     setTimeout(() => setMsg(''), 2000);
