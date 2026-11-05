@@ -161,12 +161,17 @@ export default function Profile() {
       {squad && squad.starters.some((s: any) => s.uid) && (
         <div className="card-surface p-4 space-y-3">
           <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {squad.starters.map((s: any, i: number) => {
-              const card = cards.find((c: any) => c.uid === s.uid);
-              if (!card) return null;
-              return <Card key={i} card={card} size="sm" />;
-            })}
+          <div className="relative bg-gradient-to-b from-green-50 to-green-100 rounded-xl border-2 border-green-200 p-2">
+            <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+              {squad.starters.map((s: any, i: number) => {
+                const card = cards.find((c: any) => c.uid === s.uid);
+                return (
+                  <div key={i} className="rounded-xl border-2 border-[#E30613]/30 bg-white flex flex-col items-center justify-center p-1">
+                    {card ? <Card card={card} size="sm" /> : <span className="text-[#858A98] text-xs">{s.position}</span>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -177,11 +182,11 @@ export default function Profile() {
           <div className="shrink-0">
             <Card card={rarest} size="lg" />
           </div>
-          <div className="space-y-1 text-center md:text-left">
-            <div className="text-xs font-medium text-[#858A98]">Carta mais rara</div>
-            <div className="text-lg font-bold text-[#252733]">{rarest.name}</div>
-            <div className="text-sm text-[#E30613] font-bold">OVR {rarest.overall} · {rarest.rarity}</div>
-            <div className="text-xs text-[#858A98]">{rarest.position} · {rarest.club}</div>
+          <div className="space-y-2 text-center md:text-left">
+            <div className="text-sm font-medium text-[#858A98]">Carta mais rara</div>
+            <div className="text-2xl font-bold text-[#252733]">{rarest.name}</div>
+            <div className="text-lg text-[#E30613] font-bold">OVR {rarest.overall} · {rarest.rarity}</div>
+            <div className="text-sm text-[#858A98]">{rarest.position} · {rarest.club}</div>
           </div>
         </div>
       )}
