@@ -224,8 +224,8 @@ export default function Marketplace() {
             <div className="flex gap-4">
               <div className="flex-1 space-y-2">
                 <input value={listSearch} onChange={e => setListSearch(e.target.value)} placeholder="Buscar carta..." className={`w-full ${sel}`} />
-                <div className="max-h-40 overflow-auto space-y-1">
-                  {availableToSell.filter(c => c.name.toLowerCase().includes(listSearch.toLowerCase())).slice(0, 8).map(c => (
+                <div className="max-h-48 overflow-y-auto space-y-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  {availableToSell.filter(c => c.name.toLowerCase().includes(listSearch.toLowerCase())).sort((a, b) => b.overall - a.overall).map(c => (
                     <button key={c.uid} onClick={() => setListUid(c.uid)} className={`w-full text-left px-2 py-1 rounded-lg text-sm ${listUid === c.uid ? 'bg-[#FFF0F2] text-[#E30613]' : 'hover:bg-[#F7F7F9] text-[#252733]'}`}>
                       {c.name} (OVR {c.overall})
                     </button>
