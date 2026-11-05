@@ -14,6 +14,7 @@ import Collection from './pages/Collection';
 import CardDetail from './pages/CardDetail';
 import Squad from './pages/Squad';
 import Match from './pages/Match';
+import Pool from './pages/Pool';
 import Compare from './pages/Compare';
 import Marketplace from './pages/Marketplace';
 import SBC from './pages/SBC';
@@ -63,6 +64,7 @@ export default function App() {
               <Route path="/card/:uid" element={<CardDetail />} />
               <Route path="/squad" element={<Squad />} />
               <Route path="/match" element={<Match />} />
+              <Route path="/pool/:matchId" element={<Pool />} />
               <Route path="/compare" element={<Compare />} />
               <Route path="/market" element={<Marketplace />} />
               <Route path="/sbc" element={<SBC />} />

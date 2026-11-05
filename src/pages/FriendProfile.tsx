@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import * as friendsService from '../lib/services/friends';
 import * as challengesService from '../lib/services/challenges';
+import * as poolService from '../lib/services/pool';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
 import { FORMATIONS_FUTSAL as FS } from '../lib/game';
@@ -112,6 +113,18 @@ export default function FriendProfile() {
     }
   };
 
+  const handlePool = async () => {
+    if (!currentUserId || !userId) return;
+    try {
+      const match = await poolService.createPoolMatch(userId, 0);
+      if (match) navigate(`/pool/${match.id}`);
+      else setActionMsg('Não foi possível criar a partida de sinuca.');
+    } catch (error) {
+      console.error('pool creation failed', error);
+      setActionMsg('Erro ao criar partida de sinuca.');
+    }
+  };
+
   if (loading) return <div className="p-8 text-[#858A98]">Carregando...</div>;
   if (!profile) return <div className="p-8 text-[#858A98]">Perfil não encontrado. <button onClick={() => navigate(-1)} className="text-[#E30613]">Voltar</button></div>;
 
@@ -149,6 +162,7 @@ export default function FriendProfile() {
                 <>
                   <button onClick={handleRemove} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium text-[#252733]">Remover amigo</button>
                   <button onClick={handleChallenge} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Desafiar</button>
+                <button onClick={handlePool} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Jogar sinuca</button>
                 </>
               )}
               {isPendingReceived && (

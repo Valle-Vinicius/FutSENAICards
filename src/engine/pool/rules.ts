@@ -1,4 +1,4 @@
-import { type Ball, type TableState, type ShotResult } from './types';
+import { type Ball, type TableState } from './types';
 
 export function getBallType(ballId: number, state: TableState): Ball['type'] {
   return state.balls.find(b => b.id === ballId)?.type ?? 'solid';
