@@ -42,6 +42,7 @@ const TITLES: Record<string, string> = {
 };
 
 export default function Layout() {
+  const avatarUrl = useGame(s => s.avatarUrl);
   const coins = useGame(s => s.coins);
   const xp = useGame(s => s.xp);
   const level = useGame(s => s.level);
@@ -174,6 +175,9 @@ export default function Layout() {
               )}
             </div>
             <div className="relative">
+              <div className="w-8 h-8 rounded-full bg-[#FFF0F2] overflow-hidden flex items-center justify-center text-[#E30613] font-bold text-sm">
+                {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <User className="w-4 h-4" />}
+              </div>
               <button onClick={() => setNotifOpen(o => !o)} className="w-8 h-8 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold" aria-label="Notificações"><Bell className="w-4 h-4" /></button>
               {notifOpen && (
                 <div className="absolute right-0 top-10 w-72 card-surface p-3 z-50 max-h-60 overflow-auto">

@@ -88,6 +88,7 @@ const initialState: GameState = {
   coins: 5000,
   xp: 0,
   level: 1,
+  avatarUrl: null,
   cards: seedCards(),
   packsOpened: 0,
   missions: DEFAULT_MISSIONS.map(m => ({ ...m })),
@@ -225,11 +226,12 @@ export const useGame = create<GameState & Actions>()(
         if (remoteAchievements.length > 0) set({ achievements: remoteAchievements });
         const remoteSettings = await getSettings(userId);
         if (remoteSettings) set({ settings: remoteSettings });
-        const { data: prof } = await supabase!.from('profiles').select('coins, preferences, xp, level, packs_opened, last_daily_claim').eq('id', userId).single();
+        const { data: prof } = await supabase!.from('profiles').select('coins, preferences, xp, level, packs_opened, last_daily_claim, avatar_url, name').eq('id', userId).single();
         if (prof) {
           const prefs = prof.preferences || {};
           set(st => ({
             coins: prof.coins ?? st.coins,
+            avatarUrl: prof.avatar_url ?? st.avatarUrl,
             xp: prof.xp ?? st.xp,
             level: prof.level ?? st.level,
             packsOpened: prof.packs_opened ?? st.packsOpened,

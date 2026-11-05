@@ -14,6 +14,7 @@ export default function Home() {
   const xp = useGame(s => s.xp);
   const level = useGame(s => s.level);
   const cards = useGame(s => s.cards);
+  const avatarUrl = useGame(s => s.avatarUrl);
   const [userName, setUserName] = useState('Jogador');
   useEffect(() => {
     if (!supabase) return;
@@ -78,8 +79,8 @@ export default function Home() {
     <div className="p-4 md:p-6 space-y-4">
       <div className="card-surface overflow-hidden flex flex-col md:flex-row items-center gap-4 p-4 bg-gradient-to-r from-[#FFF0F2] to-white">
         <div className="flex items-center gap-3 shrink-0">
-          <div className="w-14 h-14 rounded-full bg-[#E30613] text-white flex items-center justify-center text-lg font-bold shrink-0">
-            {level}
+          <div className="w-14 h-14 rounded-full bg-[#E30613] text-white flex items-center justify-center text-lg font-bold shrink-0 overflow-hidden">
+            {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : level}
           </div>
           <div className="min-w-0">
             <div className="text-base font-bold text-[#252733] truncate">{userName}</div>

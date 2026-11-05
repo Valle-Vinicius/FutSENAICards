@@ -105,12 +105,31 @@ export default function Collection() {
             ))}
           </div>
           {Math.ceil(filtered.length / PAGE_SIZE) > 1 && (
-            <div className="flex justify-center gap-2 mt-4 flex-wrap">
-              {Array.from({ length: Math.ceil(filtered.length / PAGE_SIZE) }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg text-sm font-medium ${p === page ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
-                  {p}
-                </button>
-              ))}
+            <div className="flex justify-center gap-1 mt-4 flex-wrap items-center">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded-lg text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98] disabled:opacity-40">‹</button>
+              {(() => {
+                const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+                const pages: (number | string)[] = [];
+                if (totalPages <= 7) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                  pages.push(1);
+                  if (page > 3) pages.push('...');
+                  for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+                  if (page < totalPages - 2) pages.push('...');
+                  pages.push(totalPages);
+                }
+                return pages.map((p, i) => (
+                  typeof p === 'number' ? (
+                    <button key={i} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg text-sm font-medium ${p === page ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={i} className="px-1 text-[#858A98]">…</span>
+                  )
+                ));
+              })()}
+              <button onClick={() => setPage(p => Math.min(Math.ceil(filtered.length / PAGE_SIZE), p + 1))} disabled={page === Math.ceil(filtered.length / PAGE_SIZE)} className="px-2 py-1 rounded-lg text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98] disabled:opacity-40">›</button>
             </div>
           )}
         </>

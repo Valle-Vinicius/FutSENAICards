@@ -18,6 +18,20 @@ export default function Marketplace() {
   }, []);
 
   useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase!.channel('marketplace-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => {
+        getListings().then(listings => {
+          if (listings.length > 0) {
+            useGame.setState({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
+          }
+        });
+      })
+      .subscribe();
+    return () => { supabase!.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
     setLoading(true);
     getListings().then(listings => {
       if (listings.length > 0) {
