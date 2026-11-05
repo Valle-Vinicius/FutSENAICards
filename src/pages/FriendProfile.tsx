@@ -116,8 +116,8 @@ export default function FriendProfile() {
   const handlePool = async () => {
     if (!currentUserId || !userId) return;
     try {
-      const match = await poolService.createPoolMatch(userId, 0);
-      if (match) navigate(`/pool/${match.id}`);
+      const matchId = await poolService.createPoolMatch(userId, 0);
+      if (matchId) navigate(`/pool/${matchId}`);
       else setActionMsg('Não foi possível criar a partida de sinuca.');
     } catch (error) {
       console.error('pool creation failed', error);
