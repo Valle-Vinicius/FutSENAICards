@@ -5,6 +5,7 @@ export interface FriendUser {
   name: string;
   avatar_url?: string;
   online?: boolean;
+  last_seen?: string;
 }
 
 export interface Friendship {
@@ -15,16 +16,22 @@ export interface Friendship {
   created_at: string;
 }
 
+function isOnline(lastSeen?: string): boolean {
+  if (!lastSeen) return false;
+  const diff = Date.now() - new Date(lastSeen).getTime();
+  return diff < 5 * 60 * 1000;
+}
+
 export async function searchUsers(query: string, currentUserId: string): Promise<FriendUser[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, avatar_url')
+    .select('id, name, avatar_url, last_seen')
     .ilike('name', `%${query}%`)
     .neq('id', currentUserId)
     .limit(20);
   if (error) return [];
-  return (data || []).map((u: any) => ({ id: u.id, name: u.name, avatar_url: u.avatar_url }));
+  return (data || []).map((u: any) => ({ id: u.id, name: u.name, avatar_url: u.avatar_url, last_seen: u.last_seen, online: isOnline(u.last_seen) }));
 }
 
 export async function getFriends(userId: string): Promise<FriendUser[]> {
@@ -37,8 +44,8 @@ export async function getFriends(userId: string): Promise<FriendUser[]> {
   if (error) return [];
   const friendIds = (data || []).map((f: any) => f.requester_id === userId ? f.addressee_id : f.requester_id);
   if (friendIds.length === 0) return [];
-  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url').in('id', friendIds);
-  return (profiles || []).map((u: any) => ({ id: u.id, name: u.name, avatar_url: u.avatar_url }));
+  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url, last_seen').in('id', friendIds);
+  return (profiles || []).map((u: any) => ({ id: u.id, name: u.name, avatar_url: u.avatar_url, last_seen: u.last_seen, online: isOnline(u.last_seen) }));
 }
 
 export async function getPendingReceived(userId: string): Promise<{ friendship: Friendship; user: FriendUser }[]> {
@@ -51,11 +58,11 @@ export async function getPendingReceived(userId: string): Promise<{ friendship: 
   if (error) return [];
   const requesterIds = (data || []).map((f: any) => f.requester_id);
   if (requesterIds.length === 0) return [];
-  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url').in('id', requesterIds);
+  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url, last_seen').in('id', requesterIds);
   const profileMap = new Map((profiles || []).map((u: any) => [u.id, u]));
   return (data || []).map((f: any) => ({
     friendship: f,
-    user: { id: f.requester_id, name: profileMap.get(f.requester_id)?.name || 'Usuário', avatar_url: profileMap.get(f.requester_id)?.avatar_url },
+    user: { id: f.requester_id, name: profileMap.get(f.requester_id)?.name || 'Usuário', avatar_url: profileMap.get(f.requester_id)?.avatar_url, last_seen: profileMap.get(f.requester_id)?.last_seen, online: isOnline(profileMap.get(f.requester_id)?.last_seen) },
   }));
 }
 
@@ -69,11 +76,11 @@ export async function getPendingSent(userId: string): Promise<{ friendship: Frie
   if (error) return [];
   const addresseeIds = (data || []).map((f: any) => f.addressee_id);
   if (addresseeIds.length === 0) return [];
-  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url').in('id', addresseeIds);
+  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url, last_seen').in('id', addresseeIds);
   const profileMap = new Map((profiles || []).map((u: any) => [u.id, u]));
   return (data || []).map((f: any) => ({
     friendship: f,
-    user: { id: f.addressee_id, name: profileMap.get(f.addressee_id)?.name || 'Usuário', avatar_url: profileMap.get(f.addressee_id)?.avatar_url },
+    user: { id: f.addressee_id, name: profileMap.get(f.addressee_id)?.name || 'Usuário', avatar_url: profileMap.get(f.addressee_id)?.avatar_url, last_seen: profileMap.get(f.addressee_id)?.last_seen, online: isOnline(profileMap.get(f.addressee_id)?.last_seen) },
   }));
 }
 

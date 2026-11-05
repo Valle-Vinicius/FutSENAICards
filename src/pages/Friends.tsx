@@ -38,7 +38,13 @@ export default function Friends() {
       setUserId(uid);
       await load(uid);
       const unsub = friendsService.subscribeFriends(uid, () => load(uid));
-      return () => unsub();
+      // update last_seen every 60s
+      const updateLastSeen = async () => {
+        if (supabase) await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', uid);
+      };
+      updateLastSeen();
+      const iv = setInterval(updateLastSeen, 60000);
+      return () => { unsub(); clearInterval(iv); };
     });
   }, []);
 
@@ -107,7 +113,10 @@ export default function Friends() {
           {received.map(r => (
             <div key={r.friendship.id} className="card-surface p-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/profile/${r.user.id}`)}>
-                <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden">{r.user.avatar_url ? <img src={r.user.avatar_url} alt={r.user.name} className="w-full h-full object-cover" /> : r.user.name.charAt(0)}</div>
+                <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden relative">
+                  {r.user.avatar_url ? <img src={r.user.avatar_url} alt={r.user.name} className="w-full h-full object-cover" /> : r.user.name.charAt(0)}
+                  {r.user.online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />}
+                </div>
                 <div className="text-sm text-[#252733]">{r.user.name}</div>
               </div>
               <div className="flex gap-2">
@@ -125,7 +134,10 @@ export default function Friends() {
           {sent.map(s => (
             <div key={s.friendship.id} className="card-surface p-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/profile/${s.user.id}`)}>
-                <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden">{s.user.avatar_url ? <img src={s.user.avatar_url} alt={s.user.name} className="w-full h-full object-cover" /> : s.user.name.charAt(0)}</div>
+                <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden relative">
+                  {s.user.avatar_url ? <img src={s.user.avatar_url} alt={s.user.name} className="w-full h-full object-cover" /> : s.user.name.charAt(0)}
+                  {s.user.online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />}
+                </div>
                 <div className="text-sm text-[#252733]">{s.user.name}</div>
               </div>
               <button onClick={() => handleCancel(s.friendship.id)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Cancelar</button>
@@ -145,7 +157,10 @@ export default function Friends() {
             {results.map(u => (
               <div key={u.id} className="card-surface p-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden">{u.avatar_url ? <img src={u.avatar_url} alt={u.name} className="w-full h-full object-cover" /> : u.name.charAt(0)}</div>
+                  <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden relative">
+                    {u.avatar_url ? <img src={u.avatar_url} alt={u.name} className="w-full h-full object-cover" /> : u.name.charAt(0)}
+                    {u.online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />}
+                  </div>
                   <div className="text-sm text-[#252733]">{u.name}</div>
                 </div>
                 <button onClick={() => handleSend(u.id)} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Adicionar</button>
