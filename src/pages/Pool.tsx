@@ -12,6 +12,7 @@ export default function Pool() {
   const [match, setMatch] = useState<any>(null);
   const [state, setState] = useState<TableState | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
   const [angle, setAngle] = useState(0);
   const [power, setPower] = useState(0.5);
   const [shooting, setShooting] = useState(false);
@@ -19,7 +20,8 @@ export default function Pool() {
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!matchId) return;
+    if (!matchId || loadedRef.current) return;
+    loadedRef.current = true;
     getPoolMatch(matchId).then(m => {
       if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
       setMatch(m);
