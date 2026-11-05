@@ -160,7 +160,7 @@ export default function OpenPack() {
 
   const sortCards = (list: PlayerCard[]) => [...list].sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity] || b.overall - a.overall);
 
-  const startOpen = () => {
+  const startOpen = async () => {
     if (phase !== 'idle') return;
     if (isChoice) {
       const res = previewPack(pack.id);
@@ -170,7 +170,7 @@ export default function OpenPack() {
       setPhase('choice');
       return;
     }
-    const res = openPack(pack.id);
+    const res = await openPack(pack.id);
     if (!res) { alert('Saldo insuficiente.'); return; }
     const sorted = sortCards(res.cards);
     setCards(sorted);
