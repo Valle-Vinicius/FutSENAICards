@@ -57,6 +57,7 @@ export default function Marketplace() {
   const [listUid, setListUid] = useState<string | null>(null);
   const [listPrice, setListPrice] = useState('');
   const [listBuyNow, setListBuyNow] = useState('');
+  const [listSearch, setListSearch] = useState('');
   const [confirmBuy, setConfirmBuy] = useState<string | null>(null);
   const [buyingAnim, setBuyingAnim] = useState<string | null>(null);
 
@@ -220,10 +221,28 @@ export default function Marketplace() {
         <div className="space-y-4">
           <div className="card-surface p-4 space-y-2">
             <h3 className="font-semibold text-[#252733]">Anunciar carta</h3>
-            <select value={listUid ?? ''} onChange={e => setListUid(e.target.value || null)} className={`w-full ${sel}`}>
-              <option value="">Selecione uma carta</option>
-              {availableToSell.map(c => <option key={c.uid} value={c.uid}>{c.name} (OVR {c.overall})</option>)}
-            </select>
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                <input value={listSearch} onChange={e => setListSearch(e.target.value)} placeholder="Buscar carta..." className={`w-full ${sel}`} />
+                <div className="max-h-40 overflow-auto space-y-1">
+                  {availableToSell.filter(c => c.name.toLowerCase().includes(listSearch.toLowerCase())).slice(0, 8).map(c => (
+                    <button key={c.uid} onClick={() => setListUid(c.uid)} className={`w-full text-left px-2 py-1 rounded-lg text-sm ${listUid === c.uid ? 'bg-[#FFF0F2] text-[#E30613]' : 'hover:bg-[#F7F7F9] text-[#252733]'}`}>
+                      {c.name} (OVR {c.overall})
+                    </button>
+                  ))}
+                  {availableToSell.filter(c => c.name.toLowerCase().includes(listSearch.toLowerCase())).length === 0 && (
+                    <div className="text-xs text-[#858A98] px-2 py-1">Nenhuma carta encontrada.</div>
+                  )}
+                </div>
+              </div>
+              <div className="w-32 shrink-0 flex items-center justify-center">
+                {listUid && availableToSell.find(c => c.uid === listUid) ? (
+                  <Card card={availableToSell.find(c => c.uid === listUid)!} size="sm" />
+                ) : (
+                  <div className="text-xs text-[#858A98] text-center">Selecione uma carta</div>
+                )}
+              </div>
+            </div>
             <div className="flex gap-2">
               <input value={listPrice} onChange={e => setListPrice(e.target.value)} placeholder="Preço inicial" className={`flex-1 ${sel}`} />
               <input value={listBuyNow} onChange={e => setListBuyNow(e.target.value)} placeholder="Compra imediata" className={`flex-1 ${sel}`} />
