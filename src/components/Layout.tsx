@@ -224,7 +224,7 @@ export default function Layout() {
             <div className="m-4 card-surface p-3 flex items-center justify-between gap-3">
               <div className="text-sm text-[#252733]">Você foi desafiado para uma partida de sinuca!</div>
               <div className="flex gap-2">
-                <button onClick={() => { navigate(`/pool/${pendingPoolMatchId}`); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Aceitar</button>
+                <button onClick={async () => { await poolService.acceptPoolMatch(pendingPoolMatchId); navigate(`/pool/${pendingPoolMatchId}`); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Aceitar</button>
                 <button onClick={() => { poolService.rejectPoolMatch(pendingPoolMatchId); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Recusar</button>
               </div>
             </div>

@@ -117,8 +117,23 @@ export default function FriendProfile() {
     if (!currentUserId || !userId) return;
     try {
       const matchId = await poolService.createPoolMatch(userId, 0);
-      if (matchId) navigate(`/pool/${matchId}`);
-      else setActionMsg('Não foi possível criar a partida de sinuca.');
+      if (!matchId) { setActionMsg('Não foi possível criar a partida de sinuca.'); return; }
+      setActionMsg('Convite de sinuca enviado. Aguardando aceite...');
+      if (supabase) {
+        const channel = supabase!.channel(`pool-invite-${matchId}`)
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
+            if (payload.new?.status === 'accepted') {
+              setActionMsg('');
+              navigate(`/pool/${matchId}`);
+              supabase!.removeChannel(channel);
+            }
+            if (payload.new?.status === 'declined') {
+              setActionMsg('Convite recusado.');
+              supabase!.removeChannel(channel);
+            }
+          })
+          .subscribe();
+      }
     } catch (error) {
       console.error('pool creation failed', error);
       setActionMsg('Erro ao criar partida de sinuca.');
