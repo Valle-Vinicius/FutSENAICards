@@ -161,7 +161,7 @@ export default function Profile() {
       {squad && squad.starters.some((s: any) => s.uid) && (
         <div className="card-surface p-4 space-y-2">
           <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
-          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+          <div className="flex justify-center gap-2 flex-wrap">
             {squad.starters.slice(0, 3).map((s: any, i: number) => {
               const card = cards.find((c: any) => c.uid === s.uid);
               return (
@@ -171,8 +171,7 @@ export default function Profile() {
               );
             })}
           </div>
-          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
-            <div />
+          <div className="flex justify-center gap-2 flex-wrap">
             {squad.starters.slice(3, 5).map((s: any, i: number) => {
               const card = cards.find((c: any) => c.uid === s.uid);
               return (
@@ -181,7 +180,6 @@ export default function Profile() {
                 </div>
               );
             })}
-            <div />
           </div>
         </div>
       )}
