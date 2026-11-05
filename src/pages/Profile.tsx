@@ -66,6 +66,7 @@ export default function Profile() {
     if (updated) {
       setProfile(updated);
       await updateMetadata(draftName.trim());
+      useGame.setState({ avatarUrl: draftAvatar.trim() || null });
       setEditing(false);
     }
     setSaving(false);
@@ -97,7 +98,7 @@ export default function Profile() {
           {!editing ? (
             <>
               <div className="text-xl font-semibold text-[#252733]">{profile?.name || 'Jogador Futsenai'}</div>
-              <div className="text-sm text-[#858A98]">NÃ­vel {level} Â· {xp} XP</div>
+              <div className="text-sm text-[#858A98]">Nível {level} · {xp} XP</div>
               <button onClick={() => setEditing(true)} className="text-sm text-[#E30613] font-medium hover:underline">Editar perfil</button>
             </>
           ) : (

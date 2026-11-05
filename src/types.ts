@@ -163,6 +163,7 @@ export interface GameState {
   coins: number;
   xp: number;
   level: number;
+  avatarUrl: string | null;
   cards: PlayerCard[];
   packsOpened: number;
   missions: Mission[];
