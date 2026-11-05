@@ -3,7 +3,6 @@ import Card from '../components/Card';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getProfile, updateProfile, type UserProfile } from '../lib/profile';
-import { getSquad } from '../lib/services/squads';
 import { updateEmail, updatePassword, signOut, updateMetadata } from '../lib/services/auth';
 import { useEffect, useState } from 'react';
 
@@ -23,7 +22,7 @@ export default function Profile() {
   const rarest = [...cards].sort((a, b) => b.overall - a.overall)[0];
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [squad, setSquad] = useState<any>(null);
+  const squad = useGame(s => s.squads.futsal);
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [draftAvatar, setDraftAvatar] = useState('');
@@ -40,8 +39,6 @@ export default function Profile() {
         setProfile(p);
         setDraftName(p?.name || '');
         setDraftAvatar(p?.avatar_url || '');
-        const sq = await getSquad(uid);
-        if (sq) setSquad(sq);
       }
     });
   }, []);
