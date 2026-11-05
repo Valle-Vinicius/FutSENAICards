@@ -25,12 +25,9 @@ export default function FriendProfile() {
       const { data: sess } = await supabase.auth.getSession();
       const me = sess.session?.user?.id ?? null;
       setCurrentUserId(me);
-      console.log('[FriendProfile] userId:', userId, 'me:', me);
-      const { data: prof, error: profErr } = await supabase.from('profiles').select('*').eq('id', userId).single();
-      console.log('[FriendProfile] profile:', prof, 'error:', profErr);
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).single();
       setProfile(prof);
-      const { data: cs, error: csErr } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
-      console.log('[FriendProfile] cards:', cs?.length, 'error:', csErr);
+      const { data: cs } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
       setCards((cs || []).map((c: any) => ({
         uid: c.id, playerId: c.player_id, name: c.name, position: c.position, sport: c.sport,
         nationality: c.nationality, age: c.age, club: c.club,
@@ -44,9 +41,7 @@ export default function FriendProfile() {
       setMatches(ms || []);
       const { data: ach } = await supabase.from('achievements').select('*').eq('user_id', userId).eq('unlocked', true);
       setAchievements(ach || []);
-      const { data: sq, error: sqErr } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).single();
-      console.log('[FriendProfile] squad:', sq, 'error:', sqErr);
-      console.log('[FriendProfile] starters:', sq?.starters);
+      const { data: sq } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).single();
       if (sq) setSquad(sq);
       if (me && me !== userId) {
         const { data: f } = await supabase.from('friendships').select('*')
