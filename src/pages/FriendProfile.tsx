@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import * as friendsService from '../lib/services/friends';
 import * as challengesService from '../lib/services/challenges';
 import Card from '../components/Card';
+import { FORMATIONS_FUTSAL as FS } from '../lib/game';
 import type { PlayerCard } from '../types';
 
 export default function FriendProfile() {
@@ -43,7 +44,24 @@ export default function FriendProfile() {
       setAchievements(ach || []);
       const { data: sq, error: sqErr } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
       if (sqErr) console.error('[FriendProfile] squad error:', sqErr);
-      if (sq) setSquad(sq);
+      if (sq) {
+        const positions = (FS as any)[sq.formation] || (FS as any)['1-2-1'];
+        const normalized = (sq.starters || []).map((uid: string | null, i: number) => ({
+          position: positions[i] || 'Ala',
+          uid: uid || null,
+        }));
+        console.log('[FriendProfile] starters raw:', sq.starters);
+        console.log('[FriendProfile] starters normalizados:', normalized);
+        // fetch cards for these uids
+        const uids = normalized.map((s: any) => s.uid).filter(Boolean);
+        let cardMap = new Map();
+        if (uids.length > 0) {
+          const { data: cs2 } = await supabase.from('cards').select('*').in('id', uids);
+          (cs2 || []).forEach((c: any) => cardMap.set(c.id, c));
+        }
+        console.log('[FriendProfile] cartas encontradas:', cardMap.size, 'de', uids.length);
+        setSquad({ ...sq, starters: normalized, cardMap });
+      }
       if (me && me !== userId) {
         const { data: f } = await supabase.from('friendships').select('*')
           .or(`and(requester_id.eq.${me},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${me})`);
@@ -167,15 +185,37 @@ export default function FriendProfile() {
       </div>
 
       {/* Elenco atual */}
-      {squad && squad.starters && squad.starters.some((s: any) => s.uid) && (
+      {squad && squad.starters && squad.starters.some((s: any) => (typeof s === 'string' ? s : s?.uid)) && (
         <div className="card-surface p-4 space-y-2">
           <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
           <div className="flex flex-wrap gap-2 justify-center">
             {squad.starters.map((s: any, i: number) => {
               const uid = typeof s === 'string' ? s : s?.uid;
-              const card = cards.find((c: any) => c.uid === uid);
-              if (!card) return null;
-              return <Card key={uid || i} card={card} size="sm" />;
+              const pos = typeof s === 'string' ? (squad.formation ? (FS as any)[squad.formation]?.[i] : 'Ala') : s?.position;
+              const card = uid ? (squad.cardMap?.get(uid) || cards.find((c: any) => c.uid === uid)) : null;
+              if (!card) {
+                return <div key={i} className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-xs text-[#858A98]">{pos || 'Vazio'}</div>;
+              }
+              const pc = {
+                uid: card.id || card.uid,
+                playerId: card.player_id || card.playerId,
+                name: card.name,
+                position: card.position,
+                sport: card.sport || 'futsal',
+                nationality: card.nationality,
+                age: card.age,
+                club: card.club,
+                rarity: card.rarity,
+                edition: card.edition,
+                special: card.special,
+                overall: card.overall,
+                pace: card.pace, shooting: card.shooting, passing: card.passing, dribbling: card.dribbling,
+                defending: card.defending, physical: card.physical, reflexes: card.reflexes,
+                positioning: card.positioning, handling: card.handling, image: card.image,
+                favorite: card.favorite, isNew: card.is_new ?? card.isNew,
+                obtainedAt: card.obtained_at ? new Date(card.obtained_at).getTime() : (card.obtainedAt || Date.now()),
+              };
+              return <Card key={uid || i} card={pc as any} size="sm" />;
             })}
           </div>
         </div>
