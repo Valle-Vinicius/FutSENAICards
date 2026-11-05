@@ -4,8 +4,8 @@ import { supabase } from '../lib/supabase';
 import * as friendsService from '../lib/services/friends';
 import * as challengesService from '../lib/services/challenges';
 import Card from '../components/Card';
-import { FORMATIONS_FUTSAL as FS } from '../lib/game';
 import type { PlayerCard } from '../types';
+import { FORMATIONS_FUTSAL as FS } from '../lib/game';
 
 export default function FriendProfile() {
   const { userId } = useParams();
@@ -120,6 +120,7 @@ export default function FriendProfile() {
   const winRate = matches.length ? Math.round((wins / matches.length) * 100) : 0;
   const rareCount = cards.filter(c => ['rare', 'epic', 'legendary', 'icon'].includes(c.rarity)).length;
   const specialCount = cards.filter(c => c.special && c.special !== 'none').length;
+  const rarest = [...cards].sort((a, b) => b.overall - a.overall)[0];
 
   const isSelf = currentUserId === userId;
   const isFriend = friendship?.status === 'accepted';
@@ -133,12 +134,15 @@ export default function FriendProfile() {
       {/* Cabeçalho */}
       <div className="card-surface p-4 md:p-6 flex flex-col md:flex-row items-center gap-4 md:gap-6">
         <div className="w-24 h-24 rounded-full bg-[#FFF0F2] flex items-center justify-center text-3xl text-[#E30613] font-bold overflow-hidden shrink-0">
-          {profile.avatar_url ? <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : (profile.name || '?').charAt(0)}
+          {profile.avatar_url ? <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : (profile.level ?? 1)}
         </div>
         <div className="flex-1 min-w-0 text-center md:text-left space-y-1">
           <div className="text-xl font-bold text-[#252733] truncate">{profile.name}</div>
-          <div className="text-sm text-[#858A98]">Nível {profile.level ?? 1} · {profile.xp ?? 0} XP · {profile.coins ?? 0} moedas</div>
-          <div className="text-xs text-[#858A98]">Entrou em: {profile.created_at ? new Date(profile.created_at).toLocaleDateString('pt-BR') : '—'}</div>
+          <div className="text-sm text-[#858A98]">Nível {profile.level ?? 1} · {profile.xp ?? 0} XP</div>
+          <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden max-w-xs mx-auto md:mx-0">
+            <div className="h-full bg-[#E30613]" style={{ width: `${Math.min(100, (((profile.xp ?? 0) - ((profile.level ?? 1) - 1) * 500) / 500) * 100)}%` }} />
+          </div>
+          <div className="text-xs text-[#858A98]">{(profile.xp ?? 0) - ((profile.level ?? 1) - 1) * 500} / 500 XP para o próximo nível</div>
           {!isSelf && (
             <div className="flex flex-wrap gap-2 mt-2 justify-center md:justify-start">
               {isFriend && (
@@ -168,14 +172,14 @@ export default function FriendProfile() {
       {/* Estatísticas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Partidas', value: matches.length },
-          { label: 'Vitórias', value: wins },
-          { label: 'Derrotas', value: losses },
-          { label: 'Taxa de vitória', value: `${winRate}%` },
-          { label: 'Cartas', value: cards.length },
-          { label: 'Cartas raras+', value: rareCount },
-          { label: 'Cartas especiais', value: specialCount },
-          { label: 'Conquistas', value: achievements.length },
+          { label: 'Partidas', value: matches.length, icon: null },
+          { label: 'Vitórias', value: wins, icon: null },
+          { label: 'Derrotas', value: losses, icon: null },
+          { label: 'Taxa de vitória', value: `${winRate}%`, icon: null },
+          { label: 'Cartas', value: cards.length, icon: null },
+          { label: 'Cartas raras+', value: rareCount, icon: null },
+          { label: 'Cartas especiais', value: specialCount, icon: null },
+          { label: 'Conquistas', value: achievements.length, icon: null },
         ].map(s => (
           <div key={s.label} className="card-surface p-3">
             <div className="text-xs text-[#858A98]">{s.label}</div>
@@ -188,35 +192,44 @@ export default function FriendProfile() {
       {squad && squad.starters && squad.starters.some((s: any) => (typeof s === 'string' ? s : s?.uid)) && (
         <div className="card-surface p-4 space-y-2">
           <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {squad.starters.map((s: any, i: number) => {
+          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+            {squad.starters.slice(0, 3).map((s: any, i: number) => {
               const uid = typeof s === 'string' ? s : s?.uid;
-              const pos = typeof s === 'string' ? (squad.formation ? (FS as any)[squad.formation]?.[i] : 'Ala') : s?.position;
-              const card = uid ? (squad.cardMap?.get(uid) || cards.find((c: any) => c.uid === uid)) : null;
-              if (!card) {
-                return <div key={i} className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-xs text-[#858A98]">{pos || 'Vazio'}</div>;
-              }
-              const pc = {
-                uid: card.id || card.uid,
-                playerId: card.player_id || card.playerId,
-                name: card.name,
-                position: card.position,
-                sport: card.sport || 'futsal',
-                nationality: card.nationality,
-                age: card.age,
-                club: card.club,
-                rarity: card.rarity,
-                edition: card.edition,
-                special: card.special,
-                overall: card.overall,
-                pace: card.pace, shooting: card.shooting, passing: card.passing, dribbling: card.dribbling,
-                defending: card.defending, physical: card.physical, reflexes: card.reflexes,
-                positioning: card.positioning, handling: card.handling, image: card.image,
-                favorite: card.favorite, isNew: card.is_new ?? card.isNew,
-                obtainedAt: card.obtained_at ? new Date(card.obtained_at).getTime() : (card.obtainedAt || Date.now()),
-              };
-              return <Card key={uid || i} card={pc as any} size="sm" />;
+              const card = cards.find((c: any) => c.uid === uid);
+              return (
+                <div key={i} className="flex flex-col items-center">
+                  {card ? <Card card={card} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-xs text-[#858A98]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
+                </div>
+              );
             })}
+          </div>
+          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+            <div />
+            {squad.starters.slice(3, 5).map((s: any, i: number) => {
+              const uid = typeof s === 'string' ? s : s?.uid;
+              const card = cards.find((c: any) => c.uid === uid);
+              return (
+                <div key={i} className="flex flex-col items-center">
+                  {card ? <Card card={card} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-xs text-[#858A98]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
+                </div>
+              );
+            })}
+            <div />
+          </div>
+        </div>
+      )}
+
+      {/* Carta mais rara */}
+      {rarest && (
+        <div className="card-surface p-4 flex flex-col md:flex-row items-center gap-4">
+          <div className="shrink-0">
+            <Card card={rarest} size="lg" />
+          </div>
+          <div className="space-y-2 text-center md:text-left">
+            <div className="text-sm font-medium text-[#858A98]">Carta mais rara</div>
+            <div className="text-2xl font-bold text-[#252733]">{rarest.name}</div>
+            <div className="text-lg text-[#E30613] font-bold">OVR {rarest.overall} · {rarest.rarity}</div>
+            <div className="text-sm text-[#858A98]">{rarest.position} · {rarest.club}</div>
           </div>
         </div>
       )}
