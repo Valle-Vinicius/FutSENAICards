@@ -5,6 +5,7 @@ import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Stor
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
+import * as challengesService from '../lib/services/challenges';
 
 const NAV = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard },
@@ -102,7 +103,15 @@ export default function Layout() {
         </div>
         <nav className="flex flex-col gap-1">
           {NAV.map(n => (
-            <NavLink key={n.to} to={n.to} end={n.to === '/'}
+            <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
+            const params = new URLSearchParams(window.location.search);
+            const challengeId = params.get('challenge');
+            if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') {
+              e.preventDefault();
+              await challengesService.abandonChallenge(challengeId);
+              navigate(n.to);
+            }
+          }}
               className={({ isActive }) =>
                 `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98] hover:bg-[#F7F7F9] hover:text-[#252733]'}`}>
               {({ isActive }) => (
@@ -212,7 +221,7 @@ export default function Layout() {
           <div className="w-64 h-full bg-white p-4" onClick={e => e.stopPropagation()}>
             <div className="text-xl font-bold mb-4"><span className="text-[#E30613]">FUT</span>SENAI</div>
             {NAV.map(n => (
-              <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={() => setDrawerOpen(false)}
+              <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async () => { setDrawerOpen(false); const params = new URLSearchParams(window.location.search); const challengeId = params.get('challenge'); if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') { await challengesService.abandonChallenge(challengeId); } }}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98]'}`}>
                  <n.icon className="w-4 h-4" /> {n.label}
@@ -224,7 +233,15 @@ export default function Layout() {
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 flex overflow-x-auto justify-around border-t border-[#E9EAF0] bg-white z-40">
         {[...NAV.slice(0, 5), NAV.find(n => n.to === '/leaderboard')!].map(n => (
-          <NavLink key={n.to} to={n.to} end={n.to === '/'}
+          <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
+            const params = new URLSearchParams(window.location.search);
+            const challengeId = params.get('challenge');
+            if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') {
+              e.preventDefault();
+              await challengesService.abandonChallenge(challengeId);
+              navigate(n.to);
+            }
+          }}
             className={({ isActive }) =>
               `flex flex-col items-center py-2 px-2 text-[10px] shrink-0 min-w-[64px] ${isActive ? 'text-[#E30613]' : 'text-[#858A98]'}`}>
              <n.icon className="w-4 h-4" /> {n.label}

@@ -5,7 +5,7 @@ export interface Challenge {
   id: string;
   challenger_id: string;
   challenged_id: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled' | 'abandoned';
   challenger_ready?: boolean;
   challenged_ready?: boolean;
   home_formation?: string;
@@ -70,6 +70,12 @@ export async function acceptChallenge(id: string): Promise<boolean> {
 export async function setReady(id: string, tactic: Tactic): Promise<boolean> {
   if (!supabase) return false;
   const { data, error } = await supabase.rpc('set_challenge_ready', { p_challenge_id: id, p_tactic: tactic });
+  return !error && data === true;
+}
+
+export async function abandonChallenge(id: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('abandon_challenge', { p_challenge_id: id });
   return !error && data === true;
 }
 
