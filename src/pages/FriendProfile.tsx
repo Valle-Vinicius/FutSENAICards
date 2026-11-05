@@ -41,7 +41,8 @@ export default function FriendProfile() {
       setMatches(ms || []);
       const { data: ach } = await supabase.from('achievements').select('*').eq('user_id', userId).eq('unlocked', true);
       setAchievements(ach || []);
-      const { data: sq } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).single();
+      const { data: sq, error: sqErr } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
+      if (sqErr) console.error('[FriendProfile] squad error:', sqErr);
       if (sq) setSquad(sq);
       if (me && me !== userId) {
         const { data: f } = await supabase.from('friendships').select('*')
@@ -171,9 +172,10 @@ export default function FriendProfile() {
           <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
           <div className="flex flex-wrap gap-2 justify-center">
             {squad.starters.map((s: any, i: number) => {
-              const card = cards.find((c: any) => c.uid === s.uid);
+              const uid = typeof s === 'string' ? s : s?.uid;
+              const card = cards.find((c: any) => c.uid === uid);
               if (!card) return null;
-              return <Card key={i} card={card} size="sm" />;
+              return <Card key={uid || i} card={card} size="sm" />;
             })}
           </div>
         </div>
