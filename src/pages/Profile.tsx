@@ -145,16 +145,11 @@ export default function Profile() {
       {squad && (
         <div className="card-surface p-4 space-y-2">
           <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="flex gap-3 overflow-x-auto pb-2">
             {squad.starters.map((s: any, i: number) => {
               const card = cards.find((c: any) => c.uid === s.uid);
-              return (
-                <div key={i} className="text-center">
-                  <div className="text-xs font-bold text-[#E30613]">{s.position}</div>
-                  <div className="text-[10px] text-[#252733] truncate">{card?.name || 'Vazio'}</div>
-                  {card && <div className="text-[9px] text-[#858A98]">OVR {card.overall}</div>}
-                </div>
-              );
+              if (!card) return null;
+              return <Card key={i} card={card} size="sm" />;
             })}
           </div>
         </div>
