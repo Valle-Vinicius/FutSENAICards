@@ -3,6 +3,7 @@ import Card from '../components/Card';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getProfile, updateProfile, type UserProfile } from '../lib/profile';
+import { getSquad } from '../lib/services/squads';
 import { updateEmail, updatePassword, signOut, updateMetadata } from '../lib/services/auth';
 import { useEffect, useState } from 'react';
 
@@ -22,6 +23,7 @@ export default function Profile() {
   const rarest = [...cards].sort((a, b) => b.overall - a.overall)[0];
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [squad, setSquad] = useState<any>(null);
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [draftAvatar, setDraftAvatar] = useState('');
@@ -33,10 +35,13 @@ export default function Profile() {
     if (!supabase) return;
     supabase.auth.getSession().then(async ({ data }: { data: any }) => {
       if (data.session?.user?.id) {
-        const p = await getProfile(data.session.user.id);
+        const uid = data.session.user.id;
+        const p = await getProfile(uid);
         setProfile(p);
         setDraftName(p?.name || '');
         setDraftAvatar(p?.avatar_url || '');
+        const sq = await getSquad(uid);
+        if (sq) setSquad(sq);
       }
     });
   }, []);
@@ -139,6 +144,24 @@ export default function Profile() {
           </div>
         ))}
       </div>
+
+      {squad && (
+        <div className="card-surface p-4 space-y-2">
+          <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
+          <div className="grid grid-cols-5 gap-2">
+            {squad.starters.map((s: any, i: number) => {
+              const card = cards.find((c: any) => c.uid === s.uid);
+              return (
+                <div key={i} className="text-center">
+                  <div className="text-xs font-bold text-[#E30613]">{s.position}</div>
+                  <div className="text-[10px] text-[#252733] truncate">{card?.name || 'Vazio'}</div>
+                  {card && <div className="text-[9px] text-[#858A98]">OVR {card.overall}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {rarest && (
         <div className="card-surface p-4">
