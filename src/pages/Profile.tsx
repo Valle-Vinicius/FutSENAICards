@@ -159,18 +159,35 @@ export default function Profile() {
 
       {/* Elenco atual */}
       {squad && squad.starters.some((s: any) => s.uid) && (
-        <div className="card-surface p-4 space-y-3">
+        <div className="card-surface p-4 space-y-2">
           <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
-          <div className="relative bg-gradient-to-b from-green-50 to-green-100 rounded-xl border-2 border-green-200 p-2">
-            <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-              {squad.starters.map((s: any, i: number) => {
-                const card = cards.find((c: any) => c.uid === s.uid);
-                return (
-                  <div key={i} className="rounded-xl border-2 border-[#E30613]/30 bg-white flex flex-col items-center justify-center p-1">
-                    {card ? <Card card={card} size="sm" /> : <span className="text-[#858A98] text-xs">{s.position}</span>}
-                  </div>
-                );
-              })}
+          <div className="relative bg-gradient-to-b from-green-50 to-green-100 rounded-xl border-2 border-green-200 p-4 mx-auto max-w-md overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 border border-green-300/40 rounded-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-green-300/30" />
+            </div>
+            <div className="relative flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[9px] font-bold text-green-700/60">GOL</span>
+                {(() => { const sl = squad.starters.find((x: any) => x.position === 'GK'); const c = sl?.uid ? cards.find((cc: any) => cc.uid === sl.uid) : null; return c ? <Card card={c} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-green-300 flex items-center justify-center text-xs text-[#858A98]">GOL</div>; })()}
+              </div>
+              <div className="flex justify-between w-full max-w-xs gap-4">
+                {['Ala', 'Ala'].map((_, idx) => {
+                  const alas = squad.starters.filter((x: any) => x.position === 'Ala');
+                  const sl = alas[idx];
+                  const c = sl?.uid ? cards.find((cc: any) => cc.uid === sl.uid) : null;
+                  return (
+                    <div key={idx} className="flex flex-col items-center gap-1">
+                      <span className="text-[9px] font-bold text-green-700/60">ALA</span>
+                      {c ? <Card card={c} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-green-300 flex items-center justify-center text-xs text-[#858A98]">ALA</div>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[9px] font-bold text-green-700/60">PIVÔ</span>
+                {(() => { const sl = squad.starters.find((x: any) => x.position === 'Pivo'); const c = sl?.uid ? cards.find((cc: any) => cc.uid === sl.uid) : null; return c ? <Card card={c} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-green-300 flex items-center justify-center text-xs text-[#858A98]">PIVÔ</div>; })()}
+              </div>
             </div>
           </div>
         </div>
