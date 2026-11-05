@@ -36,7 +36,22 @@ export default function Pool() {
     });
   }, [matchId, navigate]);
 
-  // Render canvas
+  useEffect(() => {
+    if (!matchId || !supabase) return;
+    const channel = supabase
+      .channel(`pool-match-${matchId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
+        const row = payload.new;
+        if (row?.table_state) {
+          setState(JSON.parse(row.table_state));
+        }
+        if (row?.status === 'finished') {
+          // show result
+        }
+      })
+      .subscribe();
+    return () => { supabase!.removeChannel(channel); };
+  }, [matchId]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !state) return;
