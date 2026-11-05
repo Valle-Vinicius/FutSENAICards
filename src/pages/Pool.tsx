@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import { getPoolMatch, submitShot } from '../lib/services/pool';
 import { createInitialState, simulateShot } from '../engine/pool/physics';
@@ -16,16 +17,21 @@ export default function Pool() {
   const [angle, setAngle] = useState(0);
   const [power, setPower] = useState(0.5);
   const [shooting, setShooting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
     if (!matchId || loadedRef.current) return;
     loadedRef.current = true;
-    getPoolMatch(matchId).then(m => {
+    getPoolMatch(matchId).then(async m => {
       if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
       setMatch(m);
       setState(m.tableState ? JSON.parse(m.tableState) : createInitialState());
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        setCurrentUserId(data.session?.user?.id ?? null);
+      }
       setLoading(false);
     });
   }, [matchId, navigate]);
@@ -96,29 +102,42 @@ export default function Pool() {
 
   const handleShoot = async () => {
     if (shooting || !state || !match) return;
+    const isMyTurn = (state.currentPlayer === 1 && currentUserId === match.player1_id) || (state.currentPlayer === 2 && currentUserId === match.player2_id);
+    if (!isMyTurn) return;
     setShooting(true);
-    const result = simulateShot(state, { angle, power });
-    // animate frames
-    let i = 0;
-    const animate = () => {
-      if (i >= result.frames.length) {
-        setState(result.finalState);
+    try {
+      const result = simulateShot(state, { angle, power });
+      // animate frames
+      let i = 0;
+      const animate = () => {
+        if (i >= result.frames.length) {
+          setState(result.finalState || state);
+          setShooting(false);
+          // sync with server
+          submitShot(match.id, angle, power).then(serverRes => {
+            if (serverRes && serverRes.finalState) {
+              setState(serverRes.finalState);
+            }
+          }).catch(() => {});
+          return;
+        }
+        setState(prev => prev ? { ...prev, balls: result.frames[i].balls.map((b, idx) => ({ ...prev.balls[idx], x: b.x, y: b.y, pocketed: b.pocketed })) } : prev);
+        i++;
+        rafRef.current = requestAnimationFrame(animate);
+      };
+      if (result.frames.length === 0) {
+        setState(result.finalState || state);
         setShooting(false);
-        // sync with server
-        submitShot(match.id, angle, power).then(serverRes => {
-          if (serverRes && serverRes.finalState) {
-            setState(serverRes.finalState);
-          }
-        });
-        return;
+      } else {
+        animate();
       }
-      setState(prev => prev ? { ...prev, balls: result.frames[i].balls.map((b, idx) => ({ ...prev.balls[idx], x: b.x, y: b.y, pocketed: b.pocketed })) } : prev);
-      i++;
-      rafRef.current = requestAnimationFrame(animate);
-    };
-    animate();
+    } catch (e) {
+      console.error('shot failed', e);
+      setShooting(false);
+    }
   };
 
+  const isMyTurn = state ? ((state.currentPlayer === 1 && currentUserId === match?.player1_id) || (state.currentPlayer === 2 && currentUserId === match?.player2_id)) : false;
   if (loading) return <div className="p-8 text-[#858A98]">Carregando partida...</div>;
   if (!match || !state) return <div className="p-8 text-[#858A98]">Partida não encontrada.</div>;
 
@@ -137,19 +156,25 @@ export default function Pool() {
         <canvas ref={canvasRef} width={600} height={300} className="w-full rounded-xl" style={{ background: '#1a5c2a' }} />
       </div>
 
-      <div className="card-surface p-4 space-y-3">
-        <div className="flex items-center gap-4">
-          <label className="text-sm text-[#858A98]">Ângulo</label>
-          <input type="range" min={0} max={6.28} step={0.01} value={angle} onChange={e => setAngle(Number(e.target.value))} className="flex-1" disabled={shooting} />
+      {isMyTurn ? (
+        <div className="card-surface p-4 space-y-3">
+          <div className="flex items-center gap-4">
+            <label className="text-sm text-[#858A98]">Ângulo</label>
+            <input type="range" min={0} max={6.28} step={0.01} value={angle} onChange={e => setAngle(Number(e.target.value))} className="flex-1" disabled={shooting} />
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="text-sm text-[#858A98]">Força</label>
+            <input type="range" min={0.1} max={1} step={0.01} value={power} onChange={e => setPower(Number(e.target.value))} className="flex-1" disabled={shooting} />
+          </div>
+          <button onClick={handleShoot} disabled={shooting} className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60">
+            {shooting ? 'Simulando...' : 'TACADA'}
+          </button>
         </div>
-        <div className="flex items-center gap-4">
-          <label className="text-sm text-[#858A98]">Força</label>
-          <input type="range" min={0.1} max={1} step={0.01} value={power} onChange={e => setPower(Number(e.target.value))} className="flex-1" disabled={shooting} />
+      ) : (
+        <div className="card-surface p-4 text-center text-sm text-[#858A98]">
+          Aguardando a vez do adversário...
         </div>
-        <button onClick={handleShoot} disabled={shooting} className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60">
-          {shooting ? 'Simulando...' : 'TACADA'}
-        </button>
-      </div>
+      )}
     </div>
   );
 }
