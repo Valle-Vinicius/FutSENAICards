@@ -46,6 +46,7 @@ export default function FriendProfile() {
       setAchievements(ach || []);
       const { data: sq, error: sqErr } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).single();
       console.log('[FriendProfile] squad:', sq, 'error:', sqErr);
+      console.log('[FriendProfile] starters:', sq?.starters);
       if (sq) setSquad(sq);
       if (me && me !== userId) {
         const { data: f } = await supabase.from('friendships').select('*')
