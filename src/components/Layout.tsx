@@ -6,6 +6,7 @@ import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import * as challengesService from '../lib/services/challenges';
+import * as poolService from '../lib/services/pool';
 
 const NAV = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard },
@@ -60,6 +61,7 @@ export default function Layout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pendingChallengeId, setPendingChallengeId] = useState<string | null>(null);
+  const [pendingPoolMatchId, setPendingPoolMatchId] = useState<string | null>(null);
   const cards = useGame(s => s.cards);
   const searchResults = search.trim().length < 2 ? [] : cards.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
   useEffect(() => {
@@ -73,6 +75,8 @@ export default function Layout() {
       const checkPending = async () => {
         const { data: pendings } = await supabase!.from('challenges').select('id').eq('challenged_id', uid).eq('status', 'pending');
         if (pendings && pendings.length > 0) setPendingChallengeId(pendings[0].id);
+        const { data: poolPendings } = await supabase!.from('pool_matches').select('id').eq('player2_id', uid).eq('status', 'pending');
+        if (poolPendings && poolPendings.length > 0) setPendingPoolMatchId(poolPendings[0].id);
       };
       await checkPending();
       interval = setInterval(checkPending, 5000);
@@ -82,10 +86,20 @@ export default function Layout() {
           const row = payload.new;
           if (row && row.challenged_id === uid && row.status === 'pending') {
             setPendingChallengeId(row.id);
-            toast.info('Você foi desafiado para um X1!');
+            toast.info('VocÃª foi desafiado para um X1!');
           }
           if (row && row.challenged_id === uid && (row.status === 'rejected' || row.status === 'completed')) {
             setPendingChallengeId(null);
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pool_matches' }, (payload: any) => {
+          const row = payload.new;
+          if (row && row.player2_id === uid && row.status === 'pending') {
+            setPendingPoolMatchId(row.id);
+            toast.info('VocÃª foi desafiado para uma partida de sinuca!');
+          }
+          if (row && row.player2_id === uid && (row.status === 'declined' || row.status === 'finished')) {
+            setPendingPoolMatchId(null);
           }
         })
         .subscribe();
@@ -203,6 +217,15 @@ export default function Layout() {
               <div className="flex gap-2">
                 <button onClick={() => { navigate(`/match?challenge=${pendingChallengeId}`); setPendingChallengeId(null); }} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Aceitar</button>
                 <button onClick={() => setPendingChallengeId(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Depois</button>
+              </div>
+            </div>
+          )}
+          {pendingPoolMatchId && (
+            <div className="m-4 card-surface p-3 flex items-center justify-between gap-3">
+              <div className="text-sm text-[#252733]">Você foi desafiado para uma partida de sinuca!</div>
+              <div className="flex gap-2">
+                <button onClick={() => { navigate(`/pool/${pendingPoolMatchId}`); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Aceitar</button>
+                <button onClick={() => { poolService.rejectPoolMatch(pendingPoolMatchId); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Recusar</button>
               </div>
             </div>
           )}
