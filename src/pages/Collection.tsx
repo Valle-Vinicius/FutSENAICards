@@ -34,7 +34,7 @@ export default function Collection() {
     return b.obtainedAt - a.obtainedAt;
   });
 
-  const unique = new Set(cards.map(c => c.playerId.split('-')[0])).size;
+  const unique = new Set(cards.map(c => (c.playerId || c.name).split('-')[0])).size;
   const clubs = [...new Set(cards.map(c => c.club))];
   useEffect(() => { setPage(1); }, [q, pos, rar, club, sort]);
 

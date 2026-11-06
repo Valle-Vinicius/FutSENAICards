@@ -172,6 +172,7 @@ export default function Pool() {
       .channel(`pool-match-${matchId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
         const row = payload.new;
+        if (shootingRef.current) return; // não sobrescrever durante animação
         if (row?.table_state) {
           const parsed = typeof row.table_state === 'string' ? JSON.parse(row.table_state) : row.table_state;
           setState(prev => ({
@@ -185,14 +186,22 @@ export default function Pool() {
       })
       .subscribe();
     const interval = setInterval(async () => {
+      if (shootingRef.current) return; // não sobrescrever estado durante animação
       const m = await getPoolMatch(matchId);
       if (m) {
         setMatch(m);
         if (m.tableState) {
           const parsed = typeof m.tableState === 'string' ? JSON.parse(m.tableState) : m.tableState;
-          setState({
-            ...parsed,
-            currentPlayer: (m.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
+          setState(prev => {
+            // só atualiza se o currentPlayer mudou ou se não estamos no meio de animação
+            if (prev && prev.currentPlayer === (m.currentPlayer ?? parsed.currentPlayer ?? 1)) {
+              // manter o estado local (bolas podem estar animando)
+              return prev;
+            }
+            return {
+              ...parsed,
+              currentPlayer: (m.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
+            };
           });
         }
       }

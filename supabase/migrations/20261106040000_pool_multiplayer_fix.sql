@@ -63,7 +63,7 @@ begin
   update public.pool_matches
   set status = 'playing',
       current_player = 1,
-      turn_deadline = now() + interval '30 seconds',
+      turn_deadline = now() + interval '60 seconds',
       updated_at = now()
   where id = p_id;
   return true;

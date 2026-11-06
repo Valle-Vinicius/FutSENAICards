@@ -1,11 +1,16 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Origem restrita ao domínio da aplicação em produção
-const ALLOWED_ORIGIN = 'https://fut-senai-cards.vercel.app';
+// Origem restrita ao domínio da aplicação em produção, mas aceita localhost e previews Vercel
+const ALLOWED_ORIGINS = [
+  'https://fut-senai-cards.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+];
 
 const corsHeaders = (origin: string | null) => {
-  const allowOrigin = origin === ALLOWED_ORIGIN ? ALLOWED_ORIGIN : '';
+  const allowOrigin = origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app')) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -232,7 +237,7 @@ serve(async (req) => {
   }
 
   // Load or create table state
-  let state = match.table_state ? JSON.parse(match.table_state) : null;
+  let state = match.table_state ? (typeof match.table_state === 'string' ? JSON.parse(match.table_state) : match.table_state) : null;
   if (!state) {
     const balls = createInitialBalls();
     state = { balls, assignments: { player1: null, player2: null }, currentPlayer: match.current_player, winner: null, foul: false, pocketedThisTurn: [], firstContact: null, shotInProgress: false };
@@ -340,7 +345,7 @@ serve(async (req) => {
   });
 
   // Update match state
-  const turnDeadline = new Date(Date.now() + 30000).toISOString();
+  const turnDeadline = new Date(Date.now() + 60000).toISOString();
   const updateData: any = {
     table_state: JSON.stringify(state),
     current_player: nextPlayer,
