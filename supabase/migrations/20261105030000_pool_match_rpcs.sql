@@ -16,7 +16,7 @@ begin
     raise exception 'Not friends';
   end if;
   -- check no active match
-  if exists (select 1 from public.pool_matches where status in ('pending','accepted','playing') and ((player1_id = v_uid and player2_id = p_opponent) or (player2_id = v_uid and player1_id = p_opponent))) then
+  if exists (select 1 from public.pool_matches where status in ('pending','accepted','playing') and created_at > now() - interval '2 hours' and ((player1_id = v_uid and player2_id = p_opponent) or (player2_id = v_uid and player1_id = p_opponent))) then
     raise exception 'Active match exists';
   end if;
   insert into public.pool_matches (player1_id, player2_id, stake, status, seed, table_state, current_player, turn_deadline)

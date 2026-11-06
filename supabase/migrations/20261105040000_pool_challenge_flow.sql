@@ -37,7 +37,8 @@ declare
 begin
   if v_uid is null then raise exception 'Not authenticated'; end if;
   update public.pool_matches
-  set status = 'accepted',
+  set status = 'playing',
+      turn_deadline = now() + interval '30 seconds',
       updated_at = now()
   where id = p_id
     and status = 'pending'
