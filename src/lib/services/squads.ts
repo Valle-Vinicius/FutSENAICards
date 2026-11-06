@@ -26,7 +26,7 @@ export async function saveSquad(userId: string, squad: Squad, name = 'Elenco pri
     user_id: userId,
     name,
     formation: squad.formation,
-    starters: squad.starters,
+    starters: squad.starters.map(s => s.uid),
     bench: squad.bench,
     is_primary: true,
   }).select().single();
@@ -61,11 +61,11 @@ export async function getSavedSquads(userId: string): Promise<SavedSquad[]> {
   const { data, error } = await supabase.from('saved_squads').select('*').eq('user_id', userId).order('created_at', { ascending: false });
   if (error) return [];
   return (data || []).map((s: any) => {
-    const positions = (FS as any)[s.formation] || (FS as any)['1-2-1'];
-    const starters = (s.starters || []).map((uid: string | null, i: number) => ({
-      position: positions[i] || 'Ala',
-      uid: uid || null,
-    }));
+    const starters = (s.starters || []).map((x: any) => {
+      if (typeof x === 'string') return x || null;
+      if (x && typeof x === 'object') return x.uid ?? null;
+      return null;
+    });
     return {
       id: s.id,
       name: s.name,

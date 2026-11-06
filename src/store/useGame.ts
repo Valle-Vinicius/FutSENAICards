@@ -40,6 +40,8 @@ interface Actions {
   deleteSquad: (id: string) => void;
   setPrimarySquad: (id: string) => void;
   loadSquad: (id: string) => void;
+  persistActiveSquad: (sport: 'futsal') => void;
+  reconcileSquads: () => void;
   addCompareHistory: (aUid: string, bUid: string) => void;
   addMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string; challengeId?: string }) => void;
   addLocalMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string; challengeId?: string }) => void;
@@ -201,12 +203,15 @@ export const useGame = create<GameState & Actions>()(
             image: t.image,
           };
         });
-        if (remoteCards.length > 0) set({ cards: migratedRemote });
-        else {
+        if (remoteCards.length > 0) {
+          set({ cards: migratedRemote });
+          get().reconcileSquads();
+        } else {
           const local = get().cards;
           const dbCards = await Promise.all(local.map(c => addCard(userId, c)));
           const idMap = new Map(local.map((c, i) => [c.uid, dbCards[i]?.uid]));
           set(st => ({ cards: st.cards.map(c => idMap.get(c.uid) ? { ...c, uid: idMap.get(c.uid)! } : c) }));
+          get().reconcileSquads();
         }
         const squads = await getSavedSquads(userId);
         if (squads.length > 0) set({ savedSquads: squads });
@@ -521,6 +526,7 @@ export const useGame = create<GameState & Actions>()(
           return { squads: { ...st.squads, [sport]: squad } };
         });
         get().updateMissionProgress();
+        get().persistActiveSquad(sport);
       },
       clearSlot: (sport, index, bench, benchIndex) => {
         set(st => {
@@ -536,6 +542,7 @@ export const useGame = create<GameState & Actions>()(
           return { squads: { ...st.squads, [sport]: squad } };
         });
         get().updateMissionProgress();
+        get().persistActiveSquad(sport);
       },
       setFormation: (sport, formation) => {
         const positions = (FORMATIONS_FUTSAL[formation] ?? FORMATIONS_FUTSAL['1-2-1']);
@@ -562,6 +569,7 @@ export const useGame = create<GameState & Actions>()(
             },
           };
         });
+        get().persistActiveSquad(sport);
       },
       saveSquad: (name, sport) => {
         const id = nanoid(8);
@@ -584,7 +592,6 @@ export const useGame = create<GameState & Actions>()(
               if (remote) {
                 set(st => ({ savedSquads: st.savedSquads.map(x => x.id === id ? { ...x, id: remote.id } : x) }));
               }
-              await upsertPrimarySquad(uid, squad);
             }
           });
         }
@@ -597,15 +604,25 @@ export const useGame = create<GameState & Actions>()(
         }
       },
       setPrimarySquad: (id) => {
+        const s = get();
+        const saved = s.savedSquads.find(x => x.id === id);
         set(st => ({
-          savedSquads: st.savedSquads.map(s => ({ ...s, isPrimary: s.id === id ? true : (s.sport === st.savedSquads.find(x=>x.id===id)?.sport ? false : s.isPrimary) }))
+          savedSquads: st.savedSquads.map(x => ({ ...x, isPrimary: x.id === id }))
         }));
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
-            if (uid) {
+            if (uid && saved) {
               await supabase!.from('saved_squads').update({ is_primary: false }).eq('user_id', uid);
               await supabase!.from('saved_squads').update({ is_primary: true }).eq('id', id);
+              const positions = (FORMATIONS_FUTSAL as any)[saved.formation] || (FORMATIONS_FUTSAL as any)['1-2-1'];
+              const squad: Squad = {
+                sport: 'futsal',
+                formation: saved.formation,
+                starters: saved.starters.map((uid, i) => ({ position: positions[i] ?? 'Ala', uid })),
+                bench: saved.bench,
+              };
+              await upsertPrimarySquad(uid, squad);
             }
           });
         }
@@ -625,6 +642,27 @@ export const useGame = create<GameState & Actions>()(
             [sport]: { sport, formation: saved.formation, starters, bench: [...saved.bench] },
           },
         }));
+      },
+      persistActiveSquad: (sport) => {
+        if (!supabase) return;
+        supabase.auth.getSession().then(async ({ data }: { data: any }) => {
+          const uid = data.session?.user?.id;
+          if (uid) await upsertPrimarySquad(uid, get().squads[sport]);
+        });
+      },
+      reconcileSquads: () => {
+        set(st => {
+          const valid = new Set(st.cards.map(c => c.uid));
+          const clean = (uids: (string | null)[]) => uids.map(u => (u && valid.has(u) ? u : null));
+          const squads = { ...st.squads };
+          for (const sp of Object.keys(squads) as (keyof typeof squads)[]) {
+            const sq = squads[sp];
+            sq.starters = sq.starters.map(s => ({ ...s, uid: s.uid && valid.has(s.uid) ? s.uid : null }));
+            sq.bench = clean(sq.bench);
+          }
+          const savedSquads = st.savedSquads.map(s => ({ ...s, starters: clean(s.starters), bench: clean(s.bench) }));
+          return { squads, savedSquads };
+        });
       },
       addCompareHistory: (aUid, bUid) => {
         set(st => ({ compareHistory: [{ aUid, bUid, at: Date.now() }, ...st.compareHistory].slice(0, 20) }));
