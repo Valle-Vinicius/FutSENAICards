@@ -36,7 +36,11 @@ export default function Pool() {
       setMatch(m);
       console.log('[Pool] match loaded:', m.id, 'status:', m.status, 'current_player:', m.currentPlayer, 'player1:', m.player1Id, 'player2:', m.player2Id);
       const rawState = m.tableState ? JSON.parse(m.tableState) : createInitialState();
-      setState(rawState && rawState.balls ? rawState : createInitialState());
+      const initial = rawState && rawState.balls ? rawState : createInitialState();
+      setState({
+        ...initial,
+        currentPlayer: (m.currentPlayer ?? initial.currentPlayer ?? 1) as 1 | 2,
+      });
       setLoading(false);
     })();
   }, [matchId]);
@@ -132,12 +136,21 @@ export default function Pool() {
       }
 
       const res = await serverPromise;
-      if (res?.finalState) setState(res.finalState);
-      else {
+      if (res?.finalState) {
+        setState({
+          ...res.finalState,
+          currentPlayer: (res.finalState.currentPlayer ?? match.currentPlayer ?? 1) as 1 | 2,
+        });
+      } else {
         toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
         const fresh = await getPoolMatch(match.id);
-        if (fresh?.tableState) setState(JSON.parse(fresh.tableState));
-        else setState(createInitialState());
+        if (fresh?.tableState) {
+          const parsed = JSON.parse(fresh.tableState);
+          setState({
+            ...parsed,
+            currentPlayer: (fresh.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
+          });
+        } else setState(createInitialState());
       }
     } catch (e) {
       console.error('shot failed', e);
@@ -154,7 +167,11 @@ export default function Pool() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
         const row = payload.new;
         if (row?.table_state) {
-          setState(typeof row.table_state === 'string' ? JSON.parse(row.table_state) : row.table_state);
+          const parsed = typeof row.table_state === 'string' ? JSON.parse(row.table_state) : row.table_state;
+          setState(prev => ({
+            ...parsed,
+            currentPlayer: ((row as any).current_player ?? prev?.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
+          }));
         }
         if (row?.status) {
           setMatch((m: any) => m ? { ...m, status: row.status, currentPlayer: row.current_player, turnDeadline: row.turn_deadline, winnerId: row.winner_id } : m);
@@ -166,7 +183,13 @@ export default function Pool() {
       const m = await getPoolMatch(matchId);
       if (m) {
         setMatch(m);
-        if (m.tableState) setState(JSON.parse(m.tableState));
+        if (m.tableState) {
+          const parsed = JSON.parse(m.tableState);
+          setState({
+            ...parsed,
+            currentPlayer: (m.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
+          });
+        }
       }
     }, 3000);
     return () => { supabase!.removeChannel(channel); clearInterval(interval); };
