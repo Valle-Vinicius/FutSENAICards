@@ -16,10 +16,42 @@ export interface PoolMatch {
   createdAt: string;
 }
 
+async function getActivePoolMatchBetween(player1Id: string, player2Id: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from('pool_matches')
+    .select('id, status, player1_id, player2_id')
+    .or(`and(player1_id.eq.${player1Id},player2_id.eq.${player2Id}),and(player1_id.eq.${player2Id},player2_id.eq.${player1Id})`)
+    .in('status', ['pending', 'accepted', 'playing'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function createPoolMatch(opponentId: string, stake: number): Promise<{ matchId: string | null; error: string | null }> {
   if (!supabase) return { matchId: null, error: 'Supabase não configurado' };
   const { data, error } = await supabase.rpc('create_pool_match', { p_opponent: opponentId, p_stake: stake });
-  if (error) return { matchId: null, error: error.message };
+  if (error) {
+    const msg = error.message || '';
+    if (msg.includes('Active match exists')) {
+      // tentar abandonar a partida travada e criar novamente
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const uid = sess.session?.user?.id;
+        const activeId = uid ? await getActivePoolMatchBetween(uid, opponentId) : null;
+        if (activeId) {
+          await supabase.rpc('abandon_pool_match', { p_id: activeId });
+        }
+        const retry = await supabase.rpc('create_pool_match', { p_opponent: opponentId, p_stake: stake });
+        if (retry.error) return { matchId: null, error: retry.error.message };
+        return { matchId: retry.data as string, error: null };
+      } catch (e: any) {
+        return { matchId: null, error: e?.message || msg };
+      }
+    }
+    return { matchId: null, error: msg };
+  }
   return { matchId: data as string, error: null };
 }
 
