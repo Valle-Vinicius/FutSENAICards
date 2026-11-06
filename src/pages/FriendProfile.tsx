@@ -22,53 +22,57 @@ export default function FriendProfile() {
   const [actionMsg, setActionMsg] = useState('');
 
   useEffect(() => {
-    if (!supabase || !userId) return;
+    if (!supabase || !userId) { setLoading(false); return; }
     (async () => {
-      const { data: sess } = await supabase.auth.getSession();
-      const me = sess.session?.user?.id ?? null;
-      setCurrentUserId(me);
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).single();
-      setProfile(prof);
-      const { data: cs } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
-      setCards((cs || []).map((c: any) => ({
-        uid: c.id, playerId: c.player_id, name: c.name, position: c.position, sport: c.sport,
-        nationality: c.nationality, age: c.age, club: c.club,
-        rarity: c.rarity, edition: c.edition, special: c.special, overall: c.overall,
-        pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling,
-        defending: c.defending, physical: c.physical, reflexes: c.reflexes,
-        positioning: c.positioning, handling: c.handling, image: c.image,
-        favorite: c.favorite, isNew: c.is_new, obtainedAt: new Date(c.obtained_at).getTime(),
-      })));
-      const { data: ms } = await supabase.from('matches').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10);
-      setMatches(ms || []);
-      const { data: ach } = await supabase.from('achievements').select('*').eq('user_id', userId).eq('unlocked', true);
-      setAchievements(ach || []);
-      const { data: sq, error: sqErr } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
-      if (sqErr) console.error('[FriendProfile] squad error:', sqErr);
-      if (sq) {
-        const positions = (FS as any)[sq.formation] || (FS as any)['1-2-1'];
-        const normalized = (sq.starters || []).map((uid: string | null, i: number) => ({
-          position: positions[i] || 'Ala',
-          uid: uid || null,
-        }));
-        console.log('[FriendProfile] starters raw:', sq.starters);
-        console.log('[FriendProfile] starters normalizados:', normalized);
-        // fetch cards for these uids
-        const uids = normalized.map((s: any) => s.uid).filter(Boolean);
-        let cardMap = new Map();
-        if (uids.length > 0) {
-          const { data: cs2 } = await supabase.from('cards').select('*').in('id', uids);
-          (cs2 || []).forEach((c: any) => cardMap.set(c.id, c));
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const me = sess.session?.user?.id ?? null;
+        setCurrentUserId(me);
+        const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        setProfile(prof);
+        const { data: cs } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
+        setCards((cs || []).map((c: any) => ({
+          uid: c.id, playerId: c.player_id, name: c.name, position: c.position, sport: c.sport,
+          nationality: c.nationality, age: c.age, club: c.club,
+          rarity: c.rarity, edition: c.edition, special: c.special, overall: c.overall,
+          pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling,
+          defending: c.defending, physical: c.physical, reflexes: c.reflexes,
+          positioning: c.positioning, handling: c.handling, image: c.image,
+          favorite: c.favorite, isNew: c.is_new, obtainedAt: new Date(c.obtained_at).getTime(),
+        })));
+        const { data: ms } = await supabase.from('matches').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10);
+        setMatches(ms || []);
+        const { data: ach } = await supabase.from('achievements').select('*').eq('user_id', userId).eq('unlocked', true);
+        setAchievements(ach || []);
+        const { data: sq, error: sqErr } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
+        if (sqErr) console.error('[FriendProfile] squad error:', sqErr);
+        if (sq) {
+          const positions = (FS as any)[sq.formation] || (FS as any)['1-2-1'];
+          const normalized = (sq.starters || []).map((uid: string | null, i: number) => ({
+            position: positions[i] || 'Ala',
+            uid: uid || null,
+          }));
+          console.log('[FriendProfile] starters raw:', sq.starters);
+          console.log('[FriendProfile] starters normalizados:', normalized);
+          const uids = normalized.map((s: any) => s.uid).filter(Boolean);
+          let cardMap = new Map();
+          if (uids.length > 0) {
+            const { data: cs2 } = await supabase.from('cards').select('*').in('id', uids);
+            (cs2 || []).forEach((c: any) => cardMap.set(c.id, c));
+          }
+          console.log('[FriendProfile] cartas encontradas:', cardMap.size, 'de', uids.length);
+          setSquad({ ...sq, starters: normalized, cardMap });
         }
-        console.log('[FriendProfile] cartas encontradas:', cardMap.size, 'de', uids.length);
-        setSquad({ ...sq, starters: normalized, cardMap });
+        if (me && me !== userId) {
+          const { data: f } = await supabase.from('friendships').select('*')
+            .or(`and(requester_id.eq.${me},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${me})`);
+          setFriendship(f && f.length > 0 ? f[0] : null);
+        }
+      } catch (error) {
+        console.error('[FriendProfile] load failed', error);
+      } finally {
+        setLoading(false);
       }
-      if (me && me !== userId) {
-        const { data: f } = await supabase.from('friendships').select('*')
-          .or(`and(requester_id.eq.${me},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${me})`);
-        setFriendship(f && f.length > 0 ? f[0] : null);
-      }
-      setLoading(false);
     })();
   }, [userId]);
 

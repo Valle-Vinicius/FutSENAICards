@@ -41,11 +41,15 @@ export default function Profile() {
     if (!supabase) return;
     supabase.auth.getSession().then(async ({ data }: { data: any }) => {
       if (data.session?.user?.id) {
-        const uid = data.session.user.id;
-        const p = await getProfile(uid);
-        setProfile(p);
-        setDraftName(p?.name || '');
-        setDraftAvatar(p?.avatar_url || '');
+        try {
+          const uid = data.session.user.id;
+          const p = await getProfile(uid);
+          setProfile(p);
+          setDraftName(p?.name || '');
+          setDraftAvatar(p?.avatar_url || '');
+        } catch (error) {
+          console.error('[Profile] load failed', error);
+        }
       }
     });
   }, []);
