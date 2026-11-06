@@ -16,11 +16,11 @@ export interface PoolMatch {
   createdAt: string;
 }
 
-export async function createPoolMatch(opponentId: string, stake: number): Promise<string | null> {
-  if (!supabase) return null;
+export async function createPoolMatch(opponentId: string, stake: number): Promise<{ matchId: string | null; error: string | null }> {
+  if (!supabase) return { matchId: null, error: 'Supabase não configurado' };
   const { data, error } = await supabase.rpc('create_pool_match', { p_opponent: opponentId, p_stake: stake });
-  if (error) return null;
-  return data as string;
+  if (error) return { matchId: null, error: error.message };
+  return { matchId: data as string, error: null };
 }
 
 export async function acceptPoolMatch(id: string): Promise<boolean> {

@@ -116,15 +116,21 @@ export default function FriendProfile() {
   const handlePool = async () => {
     if (!currentUserId || !userId) return;
     try {
-      const matchId = await poolService.createPoolMatch(userId, 0);
-      if (!matchId) { setActionMsg('Não foi possível criar a partida de sinuca.'); return; }
+      const result = await poolService.createPoolMatch(userId, 0);
+      if (!result.matchId) {
+        const msg = result.error?.includes('Active match exists')
+          ? 'Já existe uma partida de sinuca ativa entre vocês.'
+          : result.error || 'Não foi possível criar a partida de sinuca.';
+        setActionMsg(msg);
+        return;
+      }
       setActionMsg('Convite de sinuca enviado. Aguardando aceite...');
       if (supabase) {
-        const channel = supabase!.channel(`pool-invite-${matchId}`)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
+        const channel = supabase!.channel(`pool-invite-${result.matchId}`)
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${result.matchId}` }, (payload: any) => {
             if (payload.new?.status === 'accepted') {
               setActionMsg('');
-              navigate(`/pool/${matchId}`);
+              navigate(`/pool/${result.matchId}`);
               supabase!.removeChannel(channel);
             }
             if (payload.new?.status === 'declined') {

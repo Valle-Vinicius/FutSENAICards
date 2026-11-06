@@ -297,12 +297,17 @@ serve(async (req) => {
   // Save shot
   const { data: shotCount } = await supabase.from('pool_shots').select('seq').eq('match_id', matchId).order('seq', { ascending: false }).limit(1);
   const seq = shotCount && shotCount.length > 0 ? shotCount[0].seq + 1 : 1;
+  // idempotency: check if this shot was already processed
+  const shotId = crypto.randomUUID();
+  const { data: existingShot } = await supabase.from('pool_shots').select('id').eq('shot_id', shotId).single();
+  if (existingShot) return json({ error: 'shot already processed' }, 409);
   await supabase.from('pool_shots').insert({
     match_id: matchId,
     player_id: user.id,
     seq,
     angle,
     power: clampedPower,
+    shot_id: shotId,
     result: { pocketed: pocketedIds, foul, nextPlayer, winner: state.winner },
   });
 
@@ -312,6 +317,7 @@ serve(async (req) => {
     current_player: nextPlayer,
     turn_deadline: new Date(Date.now() + 30000).toISOString(),
     updated_at: new Date().toISOString(),
+    version: (match.version || 0) + 1,
   };
   if (state.winner) {
     updateData.status = 'finished';

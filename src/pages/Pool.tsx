@@ -35,7 +35,8 @@ export default function Pool() {
       if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
       setMatch(m);
       console.log('[Pool] match loaded:', m.id, 'status:', m.status, 'current_player:', m.currentPlayer, 'player1:', m.player1Id, 'player2:', m.player2Id);
-      setState(m.tableState ? JSON.parse(m.tableState) : createInitialState());
+      const rawState = m.tableState ? JSON.parse(m.tableState) : createInitialState();
+      setState(rawState && rawState.balls ? rawState : createInitialState());
       setLoading(false);
     })();
   }, [matchId]);
@@ -107,7 +108,7 @@ export default function Pool() {
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const handleShoot = async () => {
-    if (shooting || !state || !match || myNumber !== state.currentPlayer) return;
+    if (shooting || !state || !match || !state.balls || myNumber !== state.currentPlayer) return;
     setShooting(true);
     try {
       const result = simulateShot(state, { angle, power });
@@ -120,10 +121,10 @@ export default function Pool() {
           const tick = (now: number) => {
             const idx = Math.min(frames.length - 1, Math.floor(((now - t0) / 1000) * 60));
             const frame = frames[idx];
-            setState(prev => prev && ({
+            setState(prev => prev && prev.balls ? ({
               ...prev,
               balls: prev.balls.map((b, k) => ({ ...b, x: frame.balls[k].x, y: frame.balls[k].y, pocketed: frame.balls[k].pocketed })),
-            }));
+            }) : prev);
             if (idx < frames.length - 1) rafRef.current = requestAnimationFrame(tick); else resolve();
           };
           rafRef.current = requestAnimationFrame(tick);
@@ -136,6 +137,7 @@ export default function Pool() {
         toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
         const fresh = await getPoolMatch(match.id);
         if (fresh?.tableState) setState(JSON.parse(fresh.tableState));
+        else setState(createInitialState());
       }
     } catch (e) {
       console.error('shot failed', e);
@@ -151,7 +153,6 @@ export default function Pool() {
       .channel(`pool-match-${matchId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
         const row = payload.new;
-        if (shootingRef.current) return;
         if (row?.table_state) {
           setState(typeof row.table_state === 'string' ? JSON.parse(row.table_state) : row.table_state);
         }
@@ -160,7 +161,15 @@ export default function Pool() {
         }
       })
       .subscribe();
-    return () => { supabase!.removeChannel(channel); };
+    // polling fallback
+    const interval = setInterval(async () => {
+      const m = await getPoolMatch(matchId);
+      if (m) {
+        setMatch(m);
+        if (m.tableState) setState(JSON.parse(m.tableState));
+      }
+    }, 3000);
+    return () => { supabase!.removeChannel(channel); clearInterval(interval); };
   }, [matchId]);
   const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
   const uid = currentUserId || match?.player1Id;
