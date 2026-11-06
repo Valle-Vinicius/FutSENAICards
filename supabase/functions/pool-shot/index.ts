@@ -1,14 +1,21 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+// Origem restrita ao domínio da aplicação em produção
+const ALLOWED_ORIGIN = 'https://fut-senai-cards.vercel.app';
+
+const corsHeaders = (origin: string | null) => {
+  const allowOrigin = origin === ALLOWED_ORIGIN ? ALLOWED_ORIGIN : '';
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true',
+  };
 };
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+const json = (body: unknown, origin: string | null, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
 
 const TABLE_WIDTH = 2.0;
 const TABLE_HEIGHT = 1.0;
@@ -112,103 +119,122 @@ function stepPhysics(state: any): boolean {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+  const origin = req.headers.get('Origin');
+
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders(origin) });
+  }
+  if (req.method !== 'POST') {
+    return json({ error: 'method not allowed' }, origin, 405);
+  }
 
   const authorization = req.headers.get('Authorization');
-  if (!authorization) return json({ error: 'unauthorized' }, 401);
+  if (!authorization) {
+    console.log('[pool-shot] 401 unauthorized - missing Authorization header');
+    return json({ error: 'unauthorized' }, origin, 401);
+  }
 
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SERVICE_ROLE_KEY')!);
   const token = authorization.replace(/^Bearer\s+/i, '');
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) return json({ error: 'invalid session' }, 401);
+  if (authError || !user) {
+    console.log('[pool-shot] 401 invalid session for request');
+    return json({ error: 'invalid session' }, origin, 401);
+  }
+
+  console.log(`[pool-shot] user=${user.id} matchId=?`);
 
   let body: { matchId?: unknown; angle?: unknown; power?: unknown; ballInHandPos?: unknown };
   try {
     body = await req.json();
   } catch {
-    return json({ error: 'invalid JSON body' }, 400);
+    console.log(`[pool-shot] user=${user.id} 400 invalid JSON body`);
+    return json({ error: 'invalid JSON body' }, origin, 400);
   }
 
   const { matchId, angle, power, ballInHandPos } = body;
 
   // Validate inputs
   if (typeof matchId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(matchId)) {
-    return json({ error: 'invalid matchId' }, 400);
+    console.log(`[pool-shot] user=${user.id} 400 invalid matchId`);
+    return json({ error: 'invalid matchId' }, origin, 400);
   }
   if (typeof angle !== 'number' || !isFinite(angle)) {
-    return json({ error: 'invalid angle' }, 400);
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 invalid angle`);
+    return json({ error: 'invalid angle' }, origin, 400);
   }
   if (typeof power !== 'number' || !isFinite(power) || power < 0 || power > 1) {
-    return json({ error: 'invalid power' }, 400);
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 invalid power`);
+    return json({ error: 'invalid power' }, origin, 400);
   }
   if (ballInHandPos !== undefined && ballInHandPos !== null) {
     if (typeof ballInHandPos !== 'object' || typeof (ballInHandPos as any).x !== 'number' || typeof (ballInHandPos as any).y !== 'number') {
-      return json({ error: 'invalid ballInHandPos' }, 400);
+      console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 invalid ballInHandPos`);
+      return json({ error: 'invalid ballInHandPos' }, origin, 400);
     }
     const pos = ballInHandPos as { x: number; y: number };
     if (!isFinite(pos.x) || !isFinite(pos.y) || pos.x < 0.025 || pos.x > 1.975 || pos.y < 0.025 || pos.y > 0.975) {
-      return json({ error: 'ballInHandPos out of bounds' }, 400);
+      console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 ballInHandPos out of bounds`);
+      return json({ error: 'ballInHandPos out of bounds' }, origin, 400);
     }
   }
 
   // Load match
   const { data: match, error: matchError } = await supabase.from('pool_matches').select('*').eq('id', matchId).single();
   if (matchError) {
-    if (matchError.code === 'PGRST116') return json({ error: 'match not found' }, 404);
-    return json({ error: 'database error: ' + matchError.message }, 500);
+    if (matchError.code === 'PGRST116') {
+      console.log(`[pool-shot] user=${user.id} matchId=${matchId} 404 match not found`);
+      return json({ error: 'match not found' }, origin, 404);
+    }
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 500 database error: ${matchError.message}`);
+    return json({ error: 'database error: ' + matchError.message }, origin, 500);
   }
-  if (!match) return json({ error: 'match not found' }, 404);
+  if (!match) {
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 404 match not found`);
+    return json({ error: 'match not found' }, origin, 404);
+  }
+
+  console.log(`[pool-shot] user=${user.id} matchId=${matchId} status=${match.status} current_player=${match.current_player} turn_deadline=${match.turn_deadline} player1=${match.player1_id} player2=${match.player2_id}`);
 
   // Validate participant
   if (match.player1_id !== user.id && match.player2_id !== user.id) {
-    return json({ error: 'not a participant' }, 403);
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 403 not a participant`);
+    return json({ error: 'not a participant' }, origin, 403);
   }
 
-  // Validate status
+  // Validate status - aceitar tanto 'accepted' quanto 'playing'
   if (match.status !== 'accepted' && match.status !== 'playing') {
-    return json({ error: 'match not active' }, 400);
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 match not active (status=${match.status})`);
+    return json({ error: 'match not active' }, origin, 400);
   }
 
   // Validate turn
   const currentPlayerId = match.current_player === 1 ? match.player1_id : match.player2_id;
   if (currentPlayerId !== user.id) {
-    return json({ error: 'not your turn' }, 403);
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 403 not your turn (currentPlayerId=${currentPlayerId})`);
+    return json({ error: 'not your turn' }, origin, 403);
   }
 
-  // Validate turn deadline
-  if (match.turn_deadline && new Date(match.turn_deadline) < new Date()) {
-    const winnerId = match.current_player === 1 ? match.player2_id : match.player1_id;
-    await supabase.from('pool_matches').update({ status: 'finished', winner_id: winnerId, updated_at: new Date().toISOString() }).eq('id', matchId);
-    return json({ error: 'turn expired', winner: winnerId }, 400);
+  // Validate turn deadline - usar horário do servidor
+  const now = new Date();
+  if (match.turn_deadline) {
+    const deadline = new Date(match.turn_deadline);
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} now=${now.toISOString()} deadline=${deadline.toISOString()}`);
+    if (deadline < now) {
+      const winnerId = match.current_player === 1 ? match.player2_id : match.player1_id;
+      await supabase.from('pool_matches').update({ status: 'finished', winner_id: winnerId, updated_at: now.toISOString() }).eq('id', matchId);
+      console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 turn expired, winner=${winnerId}`);
+      return json({ error: 'turn expired', winner: winnerId }, origin, 400);
+    }
+  } else {
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} WARNING turn_deadline is null`);
   }
 
   // Load or create table state
   let state = match.table_state ? JSON.parse(match.table_state) : null;
   if (!state) {
-    // create initial balls
-    const balls: any[] = [];
-    balls.push({ id: 0, type: 'cue', x: TABLE_WIDTH * 0.25, y: TABLE_HEIGHT / 2, vx: 0, vy: 0, pocketed: false });
-    const rackX = TABLE_WIDTH * 0.75;
-    const rackY = TABLE_HEIGHT / 2;
-    const rows = 5;
-    let ballId = 1;
-    const types: string[] = [];
-    for (let i = 0; i < 7; i++) types.push('solid');
-    for (let i = 0; i < 7; i++) types.push('stripe');
-    types.push('eight');
-    let idx = 0;
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col <= row; col++) {
-        if (ballId > 15) break;
-        const x = rackX + row * BALL_RADIUS * 2;
-        const y = rackY + (col - row / 2) * BALL_RADIUS * 2 * 1.05;
-        const t = types[idx % types.length];
-        idx++;
-        balls.push({ id: ballId, type: t, x, y, vx: 0, vy: 0, pocketed: false });
-        ballId++;
-      }
-    }
+    const balls = createInitialBalls();
     state = { balls, assignments: { player1: null, player2: null }, currentPlayer: match.current_player, winner: null, foul: false, pocketedThisTurn: [], firstContact: null, shotInProgress: false };
   }
 
@@ -297,10 +323,12 @@ serve(async (req) => {
   // Save shot
   const { data: shotCount } = await supabase.from('pool_shots').select('seq').eq('match_id', matchId).order('seq', { ascending: false }).limit(1);
   const seq = shotCount && shotCount.length > 0 ? shotCount[0].seq + 1 : 1;
-  // idempotency: check if this shot was already processed
   const shotId = crypto.randomUUID();
   const { data: existingShot } = await supabase.from('pool_shots').select('id').eq('shot_id', shotId).single();
-  if (existingShot) return json({ error: 'shot already processed' }, 409);
+  if (existingShot) {
+    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 409 shot already processed`);
+    return json({ error: 'shot already processed' }, origin, 409);
+  }
   await supabase.from('pool_shots').insert({
     match_id: matchId,
     player_id: user.id,
@@ -312,10 +340,11 @@ serve(async (req) => {
   });
 
   // Update match state
+  const turnDeadline = new Date(Date.now() + 30000).toISOString();
   const updateData: any = {
     table_state: JSON.stringify(state),
     current_player: nextPlayer,
-    turn_deadline: new Date(Date.now() + 30000).toISOString(),
+    turn_deadline: turnDeadline,
     updated_at: new Date().toISOString(),
     version: (match.version || 0) + 1,
   };
@@ -325,5 +354,6 @@ serve(async (req) => {
   }
   await supabase.from('pool_matches').update(updateData).eq('id', matchId);
 
-  return json({ frames, finalState: state, pocketed: pocketedIds, foul, nextPlayer, winner: state.winner });
+  console.log(`[pool-shot] user=${user.id} matchId=${matchId} success nextPlayer=${nextPlayer} winner=${state.winner} foul=${foul}`);
+  return json({ frames, finalState: state, pocketed: pocketedIds, foul, nextPlayer, winner: state.winner }, origin, 200);
 });

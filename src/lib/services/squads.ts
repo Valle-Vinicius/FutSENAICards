@@ -5,7 +5,7 @@ import { FORMATIONS_FUTSAL as FS } from '../game';
 
 export async function getSquad(userId: string): Promise<Squad | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).single();
+  const { data, error } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
   if (error || !data) return null;
   const positions = (FS as any)[data.formation] || (FS as any)['1-2-1'];
   const starters = (data.starters || []).map((uid: string | null, i: number) => ({

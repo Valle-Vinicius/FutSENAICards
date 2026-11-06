@@ -23,7 +23,7 @@ begin
   -- expira convites pendentes antigos (mais de 10 minutos) do par
   update public.pool_matches
   set status = 'expired', updated_at = now()
-  where status = 'pending'
+  where status in ('pending', 'accepted')
     and created_at < now() - interval '10 minutes'
     and ((player1_id = v_uid and player2_id = p_opponent) or (player2_id = v_uid and player1_id = p_opponent));
   if exists (select 1 from public.pool_matches where status in ('pending','accepted','playing') and ((player1_id = v_uid and player2_id = p_opponent) or (player2_id = v_uid and player1_id = p_opponent))) then
