@@ -203,7 +203,9 @@ export default function Pool() {
   useEffect(() => {
     const onBeforeUnload = () => {
       abandonRef.current = true;
-      if (matchId && (match?.status === 'pending' || match?.status === 'accepted' || match?.status === 'playing')) {
+      // só abandona se a partida ainda não começou (pending). Se já está playing,
+      // deixa expirar pelo timeout do servidor para não prejudicar o adversário.
+      if (matchId && match?.status === 'pending') {
         abandonPoolMatch(matchId);
       }
     };
