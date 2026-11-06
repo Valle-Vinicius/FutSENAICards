@@ -27,11 +27,13 @@ export default function Pool() {
     (async () => {
       if (supabase) {
         const { data } = await supabase.auth.getSession();
+        console.log('[Pool] session user:', data.session?.user?.id);
         setCurrentUserId(data.session?.user?.id ?? null);
       }
       const m = await getPoolMatch(matchId);
       if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
       setMatch(m);
+      console.log('[Pool] match loaded:', m.id, 'status:', m.status, 'current_player:', m.currentPlayer, 'player1:', m.player1Id, 'player2:', m.player2Id);
       setState(m.tableState ? JSON.parse(m.tableState) : createInitialState());
       setLoading(false);
     })();
