@@ -28,6 +28,7 @@ import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
 import Leaderboard from './pages/Leaderboard';
 import CompetitiveProfile from './pages/CompetitiveProfile';
+import Admin from './pages/Admin';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err: Error | null }> {
   state = { err: null as Error | null };
@@ -104,6 +105,7 @@ export default function App() {
             <Route path="/profile/:userId" element={<FriendProfile />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
+            <Route path="/admin" element={<Admin />} />
             </Route>
           </Route>
         )}

@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -60,9 +60,17 @@ export default function Layout() {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      setIsAdmin(data.session?.user?.id === '35a8dc5f-c5db-4b33-9380-a32739ff6c10');
+    });
+  }, []);
   const [pendingChallengeId, setPendingChallengeId] = useState<string | null>(null);
   const [pendingPoolMatchId, setPendingPoolMatchId] = useState<string | null>(null);
   const cards = useGame(s => s.cards);
+  const NAV_WITH_ADMIN = isAdmin ? [...NAV, { to: '/admin', label: 'Administrador', icon: Shield }] : NAV;
   const searchResults = search.trim().length < 2 ? [] : cards.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
   useEffect(() => {
     if (!supabase) return;
@@ -118,7 +126,7 @@ export default function Layout() {
           <div className="text-[10px] text-[#858A98] tracking-widest mt-0.5">FUTEBOL ENTRE AMIGOS</div>
         </div>
         <nav className="flex flex-col gap-1">
-          {NAV.map(n => (
+          {NAV_WITH_ADMIN.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
             const params = new URLSearchParams(window.location.search);
             const challengeId = params.get('challenge');
@@ -255,7 +263,7 @@ export default function Layout() {
         <div className="md:hidden fixed inset-0 z-50 bg-black/40" onClick={() => setDrawerOpen(false)}>
           <div className="w-64 h-full bg-white p-4" onClick={e => e.stopPropagation()}>
             <div className="text-xl font-bold mb-4"><span className="text-[#E30613]">FUT</span>SENAI</div>
-            {NAV.map(n => (
+            {NAV_WITH_ADMIN.map(n => (
               <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async () => { setDrawerOpen(false); const params = new URLSearchParams(window.location.search); const challengeId = params.get('challenge'); if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') { await challengesService.abandonChallenge(challengeId); } const poolMatchId = window.location.pathname.match(/\/pool\/([a-f0-9-]+)/)?.[1]; if (poolMatchId && n.to !== '/pool') { await poolService.abandonPoolMatch(poolMatchId); } }}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98]'}`}>
@@ -267,7 +275,7 @@ export default function Layout() {
       )}
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 flex overflow-x-auto justify-around border-t border-[#E9EAF0] bg-white z-40">
-        {[...NAV.slice(0, 5), NAV.find(n => n.to === '/leaderboard')!].map(n => (
+        {[...NAV_WITH_ADMIN.slice(0, 5), NAV_WITH_ADMIN.find(n => n.to === '/leaderboard')!].map(n => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
             const params = new URLSearchParams(window.location.search);
             const challengeId = params.get('challenge');
