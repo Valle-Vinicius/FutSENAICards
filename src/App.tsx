@@ -42,11 +42,6 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 }
 
 export default function App() {
-  const [loading, setLoading] = useState(() => {
-    const h = window.location.hash.replace('#', '') || '/';
-    const known = ['/', '/packs', '/open/', '/collection', '/card/', '/squad', '/match', '/compare', '/market', '/sbc', '/missions', '/shop', '/profile', '/settings', '/auth', '/leaderboard'];
-    return !known.some(k => h === k || h.startsWith(k));
-  });
   const [authReady, setAuthReady] = useState(false);
   const [authed, setAuthed] = useState(false);
 
@@ -80,47 +75,42 @@ export default function App() {
     return <div className="min-h-screen flex items-center justify-center text-[#858A98]">Carregando sessão…</div>;
   }
   return (
-    <>
+    <ErrorBoundary>
       <ToastContainer />
       <Tutorial />
-      {loading && <LoadingScreen onDone={() => setLoading(false)} />}
-      {!loading && (
-        <ErrorBoundary>
-          <BrowserRouter>
-            <Routes>
-            <Route path="/auth" element={<Auth />} />
-            {!authed ? (
-              <Route path="*" element={<Navigate to="/auth" replace />} />
-            ) : (
-              <Route element={<ProtectedRoute />}>
-                <Route element={<Layout />}>
-                <Route path="/" element={<Home />} />
-                <Route path="/packs" element={<Packs />} />
-                <Route path="/open/:packId" element={<OpenPack />} />
-                <Route path="/collection" element={<Collection />} />
-                <Route path="/card/:uid" element={<CardDetail />} />
-                <Route path="/squad" element={<Squad />} />
-                <Route path="/match" element={<Match />} />
-                <Route path="/pool/:matchId" element={<Pool />} />
-                <Route path="/compare" element={<Compare />} />
-                <Route path="/market" element={<Marketplace />} />
-                <Route path="/sbc" element={<SBC />} />
-                <Route path="/missions" element={<Missions />} />
-                <Route path="/shop" element={<Shop />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/friends" element={<Friends />} />
-                <Route path="/profile/:userId" element={<FriendProfile />} />
-                <Route path="/leaderboard" element={<Leaderboard />} />
-                <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
-                </Route>
-              </Route>
-            )}
-            <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </ErrorBoundary>
-      )}
-    </>
+      <BrowserRouter>
+        <Routes>
+        <Route path="/auth" element={<Auth />} />
+        {!authed ? (
+          <Route path="*" element={<Navigate to="/auth" replace />} />
+        ) : (
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/packs" element={<Packs />} />
+            <Route path="/open/:packId" element={<OpenPack />} />
+            <Route path="/collection" element={<Collection />} />
+            <Route path="/card/:uid" element={<CardDetail />} />
+            <Route path="/squad" element={<Squad />} />
+            <Route path="/match" element={<Match />} />
+            <Route path="/pool/:matchId" element={<Pool />} />
+            <Route path="/compare" element={<Compare />} />
+            <Route path="/market" element={<Marketplace />} />
+            <Route path="/sbc" element={<SBC />} />
+            <Route path="/missions" element={<Missions />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/friends" element={<Friends />} />
+            <Route path="/profile/:userId" element={<FriendProfile />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
+            </Route>
+          </Route>
+        )}
+        <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
