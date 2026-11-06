@@ -17,6 +17,29 @@ import { getListings, createListing, cancelListing as cancelListingService } fro
 import { generatePlayerCard, randomTemplate, allTemplates } from '../data/players';
 import { RARITY_META, SPECIAL_META } from '../types';
 
+// --- Elenco ativo: autosave + serialização do sync ---
+let squadSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let squadSavePending = false; // true enquanto há alteração local ainda não confirmada no servidor
+let syncChain: Promise<void> = Promise.resolve();
+
+function scheduleSquadSave(getSquad: () => Squad) {
+  if (!supabase) return;
+  squadSavePending = true;
+  if (squadSaveTimer) clearTimeout(squadSaveTimer);
+  squadSaveTimer = setTimeout(async () => {
+    squadSaveTimer = null;
+    try {
+      const { data } = await supabase!.auth.getSession();
+      const uid = data.session?.user?.id;
+      if (!uid) return;
+      const ok = await upsertPrimarySquad(uid, getSquad());
+      if (ok && !squadSaveTimer) squadSavePending = false;
+    } catch (e) {
+      console.error('[squad] autosave falhou', e);
+    }
+  }, 500);
+}
+
 interface Actions {
   init: () => void;
   syncUserData: (userId: string) => Promise<void>;
@@ -40,8 +63,6 @@ interface Actions {
   deleteSquad: (id: string) => void;
   setPrimarySquad: (id: string) => void;
   loadSquad: (id: string) => void;
-  persistActiveSquad: (sport: 'futsal') => void;
-  reconcileSquads: () => void;
   addCompareHistory: (aUid: string, bUid: string) => void;
   addMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string; challengeId?: string }) => void;
   addLocalMatchHistory: (entry: { id: string; date: number; sport: string; homeScore: number; awayScore: number; opponent: string; challengeId?: string }) => void;
@@ -182,6 +203,12 @@ export const useGame = create<GameState & Actions>()(
         }
       },
       syncUserData: async (userId) => {
+        // serializa: init(), SIGNED_IN e Match podem chamar ao mesmo tempo
+        const prevSync = syncChain;
+        let releaseSync!: () => void;
+        syncChain = new Promise<void>(r => { releaseSync = r; });
+        await prevSync;
+        try {
         const remoteCards = await getCards(userId);
         const migratedRemote = remoteCards.map(c => {
           const t = allTemplates().find(x => x.name === c.name);
@@ -203,38 +230,18 @@ export const useGame = create<GameState & Actions>()(
             image: t.image,
           };
         });
-        if (remoteCards.length > 0) {
-          const currentSquad = get().squads.futsal;
-          const localCards = get().cards;
-          set({ cards: migratedRemote });
-          const remotePlayerIdToUid = new Map(migratedRemote.map((c: any) => [c.playerId, c.uid]));
-          const remap = (uid: string | null) => {
-            if (!uid) return null;
-            const localCard = localCards.find(c => c.uid === uid);
-            if (!localCard) return null;
-            return remotePlayerIdToUid.get(localCard.playerId) ?? null;
-          };
-          const newStarters = currentSquad.starters.map(s => ({ ...s, uid: remap(s.uid) }));
-          const newBench = currentSquad.bench.map(uid => remap(uid));
-          set(st => ({
-            squads: {
-              ...st.squads,
-              futsal: { ...st.squads.futsal, starters: newStarters, bench: newBench },
-            },
-          }));
-          get().reconcileSquads();
-        } else {
+        if (remoteCards.length > 0) set({ cards: migratedRemote });
+        else {
           const local = get().cards;
           const dbCards = await Promise.all(local.map(c => addCard(userId, c)));
           const idMap = new Map(local.map((c, i) => [c.uid, dbCards[i]?.uid]));
           set(st => ({ cards: st.cards.map(c => idMap.get(c.uid) ? { ...c, uid: idMap.get(c.uid)! } : c) }));
-          get().reconcileSquads();
         }
         const squads = await getSavedSquads(userId);
         if (squads.length > 0) set({ savedSquads: squads });
         // load primary squad into active squad
         const primary = await getPrimarySquadService(userId);
-        if (primary) {
+        if (primary && !squadSavePending) {
           const positions = (FORMATIONS_FUTSAL as any)[primary.formation] || (FORMATIONS_FUTSAL as any)['1-2-1'];
           const starters = positions.map((pos: string, i: number) => ({ position: pos, uid: primary.starters[i] ?? null }));
           set(st => ({ squads: { ...st.squads, futsal: { sport: 'futsal', formation: primary.formation, starters, bench: primary.bench } } }));
@@ -266,6 +273,7 @@ export const useGame = create<GameState & Actions>()(
             packConfigs: prefs.unlockedPacks ? st.packConfigs.map(p => prefs.unlockedPacks.includes(p.id) ? { ...p, unlocked: true } : p) : st.packConfigs,
           }));
         }
+        } finally { releaseSync(); }
       },
       addCoins: (n, reason) => {
         set(st => ({
@@ -538,12 +546,13 @@ export const useGame = create<GameState & Actions>()(
             b[benchIndex] = cardUid;
             squad.bench = b;
           } else {
+            squad.starters = [...squad.starters];
             squad.starters[index] = { ...squad.starters[index], uid: cardUid };
           }
           return { squads: { ...st.squads, [sport]: squad } };
         });
+        scheduleSquadSave(() => get().squads[sport]);
         get().updateMissionProgress();
-        get().persistActiveSquad(sport);
       },
       clearSlot: (sport, index, bench, benchIndex) => {
         set(st => {
@@ -554,12 +563,13 @@ export const useGame = create<GameState & Actions>()(
             b[benchIndex] = null;
             squad.bench = b;
           } else {
+            squad.starters = [...squad.starters];
             squad.starters[index] = { ...squad.starters[index], uid: null };
           }
           return { squads: { ...st.squads, [sport]: squad } };
         });
+        scheduleSquadSave(() => get().squads[sport]);
         get().updateMissionProgress();
-        get().persistActiveSquad(sport);
       },
       setFormation: (sport, formation) => {
         const positions = (FORMATIONS_FUTSAL[formation] ?? FORMATIONS_FUTSAL['1-2-1']);
@@ -586,7 +596,7 @@ export const useGame = create<GameState & Actions>()(
             },
           };
         });
-        get().persistActiveSquad(sport);
+        scheduleSquadSave(() => get().squads[sport]);
       },
       saveSquad: (name, sport) => {
         const id = nanoid(8);
@@ -609,6 +619,7 @@ export const useGame = create<GameState & Actions>()(
               if (remote) {
                 set(st => ({ savedSquads: st.savedSquads.map(x => x.id === id ? { ...x, id: remote.id } : x) }));
               }
+              await upsertPrimarySquad(uid, squad);
             }
           });
         }
@@ -621,25 +632,15 @@ export const useGame = create<GameState & Actions>()(
         }
       },
       setPrimarySquad: (id) => {
-        const s = get();
-        const saved = s.savedSquads.find(x => x.id === id);
         set(st => ({
-          savedSquads: st.savedSquads.map(x => ({ ...x, isPrimary: x.id === id }))
+          savedSquads: st.savedSquads.map(s => ({ ...s, isPrimary: s.id === id ? true : (s.sport === st.savedSquads.find(x=>x.id===id)?.sport ? false : s.isPrimary) }))
         }));
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
-            if (uid && saved) {
+            if (uid) {
               await supabase!.from('saved_squads').update({ is_primary: false }).eq('user_id', uid);
               await supabase!.from('saved_squads').update({ is_primary: true }).eq('id', id);
-              const positions = (FORMATIONS_FUTSAL as any)[saved.formation] || (FORMATIONS_FUTSAL as any)['1-2-1'];
-              const squad: Squad = {
-                sport: 'futsal',
-                formation: saved.formation,
-                starters: saved.starters.map((uid, i) => ({ position: positions[i] ?? 'Ala', uid })),
-                bench: saved.bench,
-              };
-              await upsertPrimarySquad(uid, squad);
             }
           });
         }
@@ -659,27 +660,7 @@ export const useGame = create<GameState & Actions>()(
             [sport]: { sport, formation: saved.formation, starters, bench: [...saved.bench] },
           },
         }));
-      },
-      persistActiveSquad: (sport) => {
-        if (!supabase) return;
-        supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-          const uid = data.session?.user?.id;
-          if (uid) await upsertPrimarySquad(uid, get().squads[sport]);
-        });
-      },
-      reconcileSquads: () => {
-        set(st => {
-          const valid = new Set(st.cards.map(c => c.uid));
-          const clean = (uids: (string | null)[]) => uids.map(u => (u && valid.has(u) ? u : null));
-          const squads = { ...st.squads };
-          for (const sp of Object.keys(squads) as (keyof typeof squads)[]) {
-            const sq = squads[sp];
-            sq.starters = sq.starters.map(s => ({ ...s, uid: s.uid && valid.has(s.uid) ? s.uid : null }));
-            sq.bench = clean(sq.bench);
-          }
-          const savedSquads = st.savedSquads.map(s => ({ ...s, starters: clean(s.starters), bench: clean(s.bench) }));
-          return { squads, savedSquads };
-        });
+        scheduleSquadSave(() => get().squads[sport]);
       },
       addCompareHistory: (aUid, bUid) => {
         set(st => ({ compareHistory: [{ aUid, bUid, at: Date.now() }, ...st.compareHistory].slice(0, 20) }));
@@ -761,15 +742,41 @@ export const useGame = create<GameState & Actions>()(
         return true;
       },
       convertDuplicates: async () => {
-        if (!supabase) return 0;
-        const { data: { session } } = await supabase.auth.getSession();
-        const uid = session?.user?.id;
-        if (!uid) return 0;
-        const { data: count, error } = await supabase.rpc('convert_duplicates');
-        if (error || count == null) return 0;
-        // servidor é a autoridade: recarrega cartas e moedas do banco
-        await get().syncUserData(uid);
-        return Number(count);
+        const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
+        const cards = get().cards;
+        const byName: Record<string, typeof cards> = {};
+        cards.forEach(c => { (byName[c.name] = byName[c.name] || []).push(c); });
+        const toRemove: string[] = [];
+        Object.values(byName).forEach(group => {
+          if (group.length <= 1) return;
+          // skip icon rarity entirely
+          const nonIcon = group.filter(c => c.rarity !== 'icon');
+          if (nonIcon.length <= 1) return;
+          const nonFav = nonIcon.filter(c => !c.favorite).sort((a, b) => (rarityRank[b.rarity] ?? 0) - (rarityRank[a.rarity] ?? 0));
+          nonFav.slice(1).forEach(c => toRemove.push(c.uid));
+        });
+        if (toRemove.length === 0) return 0;
+        const reward = toRemove.length * 200;
+        get().addCoins(reward, `Conversão de ${toRemove.length} duplicatas`);
+        set(st => ({ cards: st.cards.filter(c => !toRemove.includes(c.uid)) }));
+        if (supabase) {
+          const { data } = await supabase.auth.getSession();
+          const uid = data.session?.user?.id;
+          if (uid) {
+            for (const c of toRemove) {
+              if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) {
+                await supabase.from('cards').delete().eq('id', c);
+              }
+            }
+            // sync collector ranking
+            const allCards = get().cards;
+            const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
+            const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
+            const { data: prof } = await supabase.from('profiles').select('name').eq('id', uid).single();
+            await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
+          }
+        }
+        return toRemove.length;
       },
       recordEvolution: (uid, attr) => set(st => ({
         cards: st.cards.map(c => c.uid === uid ? { ...c, evolutionLog: [...(c.evolutionLog ?? []), { attr, at: Date.now() }] } : c),
@@ -895,14 +902,13 @@ export const useGame = create<GameState & Actions>()(
         // remove cards
         set(st => ({ cards: st.cards.filter(c => !cardUids.includes(c.uid)) }));
         if (supabase) {
-          (async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            const uid = session?.user?.id;
+          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
+            const uid = data.session?.user?.id;
             if (uid) {
-              await supabase.rpc('delete_owned_cards', { p_card_ids: cardUids });
+              for (const cu of cardUids) await supabase!.from('cards').delete().eq('id', cu);
               await recordSBCCompletion(uid, sbcId);
             }
-          })();
+          });
         }
         // reward
         if (sbc.reward.type === 'coins') {
