@@ -104,8 +104,7 @@ export default function Pool() {
 
   const handleShoot = async () => {
     if (shooting || !state || !match) return;
-    const isMyTurn = (state.currentPlayer === 1 && currentUserId === match.player1Id) || (state.currentPlayer === 2 && currentUserId === match.player2Id);
-    if (!isMyTurn) return;
+    if (myNumber !== state.currentPlayer) return;
     setShooting(true);
     try {
       const result = simulateShot(state, { angle, power });
@@ -141,7 +140,8 @@ export default function Pool() {
 
   const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
   const uid = currentUserId || match?.player1Id;
-  const isMyTurn = isMatchActive && state ? ((state.currentPlayer === 1 && uid === match?.player1Id) || (state.currentPlayer === 2 && uid === match?.player2Id)) : false;
+  const myNumber = match && uid ? (uid === match.player1Id ? 1 : uid === match.player2Id ? 2 : null) : null;
+  const isMyTurn = isMatchActive && !!state && myNumber === state.currentPlayer;
   if (loading) return <div className="p-8 text-[#858A98]">Carregando partida...</div>;
   if (!match || !state) return <div className="p-8 text-[#858A98]">Partida não encontrada.</div>;
 
@@ -157,7 +157,7 @@ export default function Pool() {
           <div className="text-sm text-[#858A98] text-center">Aguardando aceite do adversário...</div>
         )}
         {isMatchActive && (
-          <div className="text-xs text-[#858A98] text-center">Vez: Jogador {state.currentPlayer} · {state.assignments.player1 ? `Lisas/Listradas definidas` : 'Definindo...'}</div>
+          <div className="text-xs text-[#858A98] text-center">Vez: Jogador {state.currentPlayer} · {state.assignments.player1 ? `Lisas/Listradas definidas` : 'Mesa aberta: a primeira bola enfiada define lisas ou listradas'}</div>
         )}
       </div>
 
