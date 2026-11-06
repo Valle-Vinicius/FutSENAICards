@@ -26,7 +26,7 @@ export async function saveSquad(userId: string, squad: Squad, name = 'Elenco pri
     user_id: userId,
     name,
     formation: squad.formation,
-    starters: squad.starters.map(s => s.uid),
+    starters: squad.starters,
     bench: squad.bench,
     is_primary: true,
   }).select().single();
@@ -43,17 +43,15 @@ export async function saveSquad(userId: string, squad: Squad, name = 'Elenco pri
   };
 }
 
-export async function upsertPrimarySquad(userId: string, squad: Squad): Promise<boolean> {
+export async function upsertPrimarySquad(_userId: string, squad: Squad): Promise<boolean> {
   if (!supabase) return false;
-  // remover qualquer linha anterior deste usuário para evitar conflito de primário único
-  await supabase.from('squads').delete().eq('user_id', userId);
-  const { error } = await supabase.from('squads').insert({
-    user_id: userId,
-    formation: squad.formation,
-    starters: squad.starters.map(s => s.uid),
-    bench: squad.bench,
-    is_primary: true,
+  // Atômico no servidor: apaga o principal antigo e grava o novo na mesma transação.
+  const { error } = await supabase.rpc('set_primary_squad', {
+    p_formation: squad.formation,
+    p_starters: squad.starters.map(s => s.uid),
+    p_bench: squad.bench,
   });
+  if (error) console.error('[squads] set_primary_squad falhou:', error);
   return !error;
 }
 export async function getSavedSquads(userId: string): Promise<SavedSquad[]> {
@@ -61,11 +59,11 @@ export async function getSavedSquads(userId: string): Promise<SavedSquad[]> {
   const { data, error } = await supabase.from('saved_squads').select('*').eq('user_id', userId).order('created_at', { ascending: false });
   if (error) return [];
   return (data || []).map((s: any) => {
-    const starters = (s.starters || []).map((x: any) => {
-      if (typeof x === 'string') return x || null;
-      if (x && typeof x === 'object') return x.uid ?? null;
-      return null;
-    });
+    const positions = (FS as any)[s.formation] || (FS as any)['1-2-1'];
+    const starters = (s.starters || []).map((uid: string | null, i: number) => ({
+      position: positions[i] || 'Ala',
+      uid: uid || null,
+    }));
     return {
       id: s.id,
       name: s.name,
