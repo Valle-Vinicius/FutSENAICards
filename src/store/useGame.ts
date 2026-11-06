@@ -230,18 +230,22 @@ export const useGame = create<GameState & Actions>()(
             image: t.image,
           };
         });
-        if (remoteCards.length > 0) set({ cards: migratedRemote });
-        else {
+
+        // só sincroniza do servidor se o usuário já tem algo salvo (savedSquads)
+        const squads = await getSavedSquads(userId);
+        const hasSaved = squads.length > 0;
+        if (hasSaved && remoteCards.length > 0) {
+          set({ cards: migratedRemote });
+        } else if (!hasSaved && remoteCards.length === 0) {
           const local = get().cards;
           const dbCards = await Promise.all(local.map(c => addCard(userId, c)));
           const idMap = new Map(local.map((c, i) => [c.uid, dbCards[i]?.uid]));
           set(st => ({ cards: st.cards.map(c => idMap.get(c.uid) ? { ...c, uid: idMap.get(c.uid)! } : c) }));
         }
-        const squads = await getSavedSquads(userId);
-        if (squads.length > 0) set({ savedSquads: squads });
+        if (hasSaved) set({ savedSquads: squads });
         // load primary squad into active squad
         const primary = await getPrimarySquadService(userId);
-        if (primary && !squadSavePending) {
+        if (primary && hasSaved && !squadSavePending) {
           const positions = (FORMATIONS_FUTSAL as any)[primary.formation] || (FORMATIONS_FUTSAL as any)['1-2-1'];
           const starters = positions.map((pos: string, i: number) => ({ position: pos, uid: primary.starters[i] ?? null }));
           set(st => ({ squads: { ...st.squads, futsal: { sport: 'futsal', formation: primary.formation, starters, bench: primary.bench } } }));

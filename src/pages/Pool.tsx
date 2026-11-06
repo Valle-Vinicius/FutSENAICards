@@ -119,11 +119,11 @@ export default function Pool() {
         const t0 = performance.now();
         await new Promise<void>(resolve => {
           const tick = (now: number) => {
-            const idx = Math.min(frames.length - 1, Math.floor(((now - t0) / 1000) * 60));
+            const idx = Math.max(0, Math.min(frames.length - 1, Math.floor(((now - t0) / 1000) * 60)));
             const frame = frames[idx];
             setState(prev => prev && prev.balls ? ({
               ...prev,
-              balls: prev.balls.map((b, k) => ({ ...b, x: frame.balls[k].x, y: frame.balls[k].y, pocketed: frame.balls[k].pocketed })),
+              balls: prev.balls.map((b, k) => ({ ...b, x: frame.balls[k]?.x ?? b.x, y: frame.balls[k]?.y ?? b.y, pocketed: frame.balls[k]?.pocketed ?? b.pocketed })),
             }) : prev);
             if (idx < frames.length - 1) rafRef.current = requestAnimationFrame(tick); else resolve();
           };
