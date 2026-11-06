@@ -183,7 +183,7 @@ export function simulateShot(state: TableState, shot: ShotInput): ShotResult {
   }
 
   // 8-ball pocketed early
-  const eightPocketed = pocketedIds.includes(8);
+  const eightPocketed = pocketedIds.includes(15);
   const ownType = s.assignments[`player${s.currentPlayer}` as 'player1' | 'player2'];
   const ownRemaining = s.balls.filter(b => b.type === ownType && !b.pocketed).length;
 
