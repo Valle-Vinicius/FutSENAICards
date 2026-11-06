@@ -4,14 +4,15 @@ import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
-import type { PlayerCard } from '../types';
+import type { PlayerCard, Position, Rarity } from '../types';
+import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall } from '../data/players';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 
-const POSITIONS = ['GK', 'Fixo', 'Ala', 'Pivo'];
-const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'];
-const SPECIALS = ['none', 'totw', 'potm', 'revelation', 'legend', 'futsal'];
-const EDITIONS = ['none', 'totw', 'potm'];
+const POSITIONS = ['GK', 'Fixo', 'Ala', 'Pivo'] as const;
+const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'] as const;
+const SPECIALS = ['none', 'totw', 'potm', 'revelation', 'legend', 'futsal'] as const;
+const EDITIONS = ['none', 'totw', 'potm'] as const;
 
 const RARITY_LABELS: Record<string, string> = {
   common: 'Comum',
@@ -37,6 +38,20 @@ const EDITION_LABELS: Record<string, string> = {
   potm: 'Craque da Rodada',
 };
 
+function calcOverall(attrs: { pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; reflexes?: number; positioning?: number; handling?: number }, position: string, rarity: string, special: string): number {
+  const t = {
+    attributes: { pace: attrs.pace, shooting: attrs.shooting, passing: attrs.passing, dribbling: attrs.dribbling, defending: attrs.defending, physical: attrs.physical },
+    gkAttributes: attrs.reflexes ? { reflexes: attrs.reflexes, positioning: attrs.positioning!, handling: attrs.handling! } : undefined,
+    position: position as Position,
+    baseOverall: undefined as number | undefined,
+  };
+  const base = calculateOverall(t as any);
+  return Math.min(99, base + (RARITY_OVR_BONUS[rarity as Rarity] ?? 0) + (SPECIAL_OVR_BONUS[special] ?? 0));
+}
+
+function applyMod(value: number, mod: number): number {
+  return Math.max(0, Math.min(99, Math.round(value * mod)));
+}
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -62,6 +77,8 @@ export default function Admin() {
     edition: 'none',
     special: 'none',
     imageUrl: '',
+    calcOverall: false,
+    destination: 'inventory' as 'inventory' | 'packs',
   });
 
   useEffect(() => {
@@ -73,69 +90,113 @@ export default function Admin() {
   }, []);
 
   const isGK = form.position === 'GK';
+  const calcMode = form.calcOverall;
 
-  const previewImage = form.imageUrl.trim();
+  // When calc mode is on, force uncommon rarity
+  useEffect(() => {
+    if (calcMode && form.rarity !== 'uncommon') {
+      setForm(f => ({ ...f, rarity: 'uncommon' }));
+    }
+  }, [calcMode]);
 
-  const previewCard: PlayerCard = {
-    uid: 'preview',
-    playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + form.rarity,
-    name: form.name || 'Nome do Jogador',
-    position: form.position as any,
-    sport: 'futsal',
-    nationality: 'Brasil',
-    age: 20,
-    club: 'Clube',
-    rarity: form.rarity as any,
-    edition: form.edition as any,
-    special: form.special as any,
-    overall: form.overall,
-    pace: form.pace,
-    shooting: form.shooting,
-    passing: form.passing,
-    dribbling: form.dribbling,
-    defending: form.defending,
-    physical: form.physical,
+  const attrs = {
+    pace: form.pace, shooting: form.shooting, passing: form.passing,
+    dribbling: form.dribbling, defending: form.defending, physical: form.physical,
     reflexes: isGK ? form.reflexes : undefined,
     positioning: isGK ? form.positioning : undefined,
     handling: isGK ? form.handling : undefined,
-    image: previewImage,
-    favorite: false,
-    isNew: true,
-    obtainedAt: Date.now(),
-    xp: 0,
-    evoPoints: 0,
-    upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
-    evolutionLog: [],
-    seasonStats: { matches: 0, goals: 0, assists: 0 },
+  };
+
+  const calculatedOverall = calcMode ? calcOverall(attrs, form.position, 'uncommon', form.special) : form.overall;
+
+  // Preview cards for all rarities (when calc mode)
+  const makePreviewCard = (rarity: string): PlayerCard => {
+    const mod = RARITY_MODIFIER[rarity as Rarity] ?? 1.0;
+    const ovr = calcMode ? calcOverall(attrs, form.position, rarity, form.special) : form.overall;
+    return {
+      uid: 'preview-' + rarity,
+      playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
+      name: form.name || 'Nome do Jogador',
+      position: form.position as any,
+      sport: 'futsal',
+      nationality: 'Brasil',
+      age: 20,
+      club: 'Clube',
+      rarity: rarity as any,
+      edition: form.edition as any,
+      special: form.special as any,
+      overall: ovr,
+      pace: calcMode ? applyMod(form.pace, mod) : form.pace,
+      shooting: calcMode ? applyMod(form.shooting, mod) : form.shooting,
+      passing: calcMode ? applyMod(form.passing, mod) : form.passing,
+      dribbling: calcMode ? applyMod(form.dribbling, mod) : form.dribbling,
+      defending: calcMode ? applyMod(form.defending, mod) : form.defending,
+      physical: calcMode ? applyMod(form.physical, mod) : form.physical,
+      reflexes: isGK ? (calcMode ? applyMod(form.reflexes, mod) : form.reflexes) : undefined,
+      positioning: isGK ? (calcMode ? applyMod(form.positioning, mod) : form.positioning) : undefined,
+      handling: isGK ? (calcMode ? applyMod(form.handling, mod) : form.handling) : undefined,
+      image: form.imageUrl.trim(),
+      favorite: false,
+      isNew: true,
+      obtainedAt: Date.now(),
+      xp: 0,
+      evoPoints: 0,
+      upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
+      evolutionLog: [],
+      seasonStats: { matches: 0, goals: 0, assists: 0 },
+    };
   };
 
   const handleCreate = async () => {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
     setCreating(true);
     try {
-      const { error } = await supabase.rpc('create_card', {
-        p_name: form.name.trim(),
-        p_position: form.position,
-        p_rarity: form.rarity,
-        p_overall: form.overall,
-        p_pace: form.pace,
-        p_shooting: form.shooting,
-        p_passing: form.passing,
-        p_dribbling: form.dribbling,
-        p_defending: form.defending,
-        p_physical: form.physical,
-        p_reflexes: isGK ? form.reflexes : null,
-        p_positioning: isGK ? form.positioning : null,
-        p_handling: isGK ? form.handling : null,
-        p_edition: form.edition,
-        p_special: form.special,
-        p_image: form.imageUrl.trim() || null,
-      });
-      if (error) { toast.error('Erro: ' + error.message); return; }
-      toast.success('Carta criada com sucesso!');
-      // Sincronizar dados do usuário para a carta aparecer na coleção
-      if (userId) await syncUserData(userId);
-      setForm({ ...form, name: '' });
+      if (form.destination === 'inventory') {
+        const ovr = calcMode ? calculatedOverall : form.overall;
+        const { error } = await supabase.rpc('create_card', {
+          p_name: form.name.trim(),
+          p_position: form.position,
+          p_rarity: calcMode ? 'uncommon' : form.rarity,
+          p_overall: ovr,
+          p_pace: form.pace,
+          p_shooting: form.shooting,
+          p_passing: form.passing,
+          p_dribbling: form.dribbling,
+          p_defending: form.defending,
+          p_physical: form.physical,
+          p_reflexes: isGK ? form.reflexes : null,
+          p_positioning: isGK ? form.positioning : null,
+          p_handling: isGK ? form.handling : null,
+          p_edition: form.edition,
+          p_special: form.special,
+          p_image: form.imageUrl.trim() || null,
+        });
+        if (error) { toast.error('Erro: ' + error.message); return; }
+        toast.success('Carta criada no inventário!');
+        if (userId) await syncUserData(userId);
+      } else {
+        const { error } = await supabase.rpc('create_card_template', {
+          p_name: form.name.trim(),
+          p_position: form.position,
+          p_nationality: 'Brasil',
+          p_age: 20,
+          p_club: 'Clube',
+          p_pace: form.pace,
+          p_shooting: form.shooting,
+          p_passing: form.passing,
+          p_dribbling: form.dribbling,
+          p_defending: form.defending,
+          p_physical: form.physical,
+          p_reflexes: isGK ? form.reflexes : null,
+          p_positioning: isGK ? form.positioning : null,
+          p_handling: isGK ? form.handling : null,
+          p_image: form.imageUrl.trim() || null,
+          p_special: form.special,
+        });
+        if (error) { toast.error('Erro: ' + error.message); return; }
+        toast.success('Carta adicionada aos pacotes!');
+      }
+      setForm({ ...form, name: '', imageUrl: '' });
     } catch (e: any) {
       toast.error('Erro: ' + (e?.message || 'desconhecido'));
     } finally {
@@ -186,15 +247,25 @@ export default function Admin() {
             </div>
             <div>
               <label className={labelCls}>Raridade</label>
-              <select value={form.rarity} onChange={e => setForm({ ...form, rarity: e.target.value })} className={inputCls}>
+              <select value={form.rarity} onChange={e => setForm({ ...form, rarity: e.target.value })} className={inputCls} disabled={calcMode}>
                 {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
               </select>
+              {calcMode && <div className="text-[10px] text-[#858A98] mt-1">Bloqueado no modo cálculo (sempre Incomum)</div>}
+            </div>
+          </div>
+
+          {/* Toggle: calcular OVR automaticamente */}
+          <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
+            <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="w-4 h-4" />
+            <div>
+              <div className="text-sm font-medium text-[#252733]">Calcular OVR automaticamente</div>
+              <div className="text-xs text-[#858A98]">O overall será calculado a partir dos atributos (sistema incomum). Preview mostra todas as raridades.</div>
             </div>
           </div>
 
           <div>
-            <label className={labelCls}>Overall (OVR)</label>
-            <input type="number" value={form.overall} onChange={e => setForm({ ...form, overall: Number(e.target.value) })} className={inputCls} min={0} max={999} />
+            <label className={labelCls}>Overall (OVR) {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
+            <input type="number" value={calcMode ? calculatedOverall : form.overall} onChange={e => setForm({ ...form, overall: Number(e.target.value) })} className={inputCls} min={0} max={999} disabled={calcMode} />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -256,22 +327,47 @@ export default function Admin() {
             </div>
           </div>
 
+          {/* Toggle: destino */}
+          <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
+            <div className="flex-1">
+              <div className="text-sm font-medium text-[#252733]">Destino da carta</div>
+              <div className="text-xs text-[#858A98]">Onde a carta será disponibilizada</div>
+            </div>
+            <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value as any })} className="bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]">
+              <option value="inventory">Inventário (admin)</option>
+              <option value="packs">Pacotes (disponível para todos)</option>
+            </select>
+          </div>
+
           <button
             onClick={handleCreate}
             disabled={creating || !form.name.trim()}
             className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
           >
-            {creating ? 'Criando...' : 'Criar Carta'}
+            {creating ? 'Criando...' : form.destination === 'packs' ? 'Adicionar aos Pacotes' : 'Criar no Inventário'}
           </button>
         </div>
 
         {/* Preview da carta */}
         <div className="flex flex-col items-center justify-start gap-4 min-w-[200px]">
           <h2 className="text-lg font-semibold text-[#252733]">Preview</h2>
-          <Card card={previewCard} size="lg" />
-          <div className="text-xs text-[#858A98] text-center">
-            {RARITY_LABELS[form.rarity] || form.rarity} · OVR {form.overall}
-          </div>
+          {calcMode ? (
+            <div className="flex flex-wrap gap-3 justify-center">
+              {RARITIES.map(r => (
+                <div key={r} className="flex flex-col items-center gap-1">
+                  <Card card={makePreviewCard(r)} size="sm" />
+                  <div className="text-[10px] text-[#858A98]">{RARITY_LABELS[r]} · OVR {makePreviewCard(r).overall}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <Card card={makePreviewCard(form.rarity)} size="lg" />
+              <div className="text-xs text-[#858A98] text-center">
+                {RARITY_LABELS[form.rarity] || form.rarity} · OVR {form.overall}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

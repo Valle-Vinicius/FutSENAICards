@@ -31,7 +31,7 @@ interface PlayerTemplate {
   baseOverall?: number;
 }
 
-const RARITY_MODIFIER: Record<Rarity, number> = {
+export const RARITY_MODIFIER: Record<Rarity, number> = {
   common: 0.88,
   uncommon: 1.0,
   rare: 1.05,
@@ -40,7 +40,7 @@ const RARITY_MODIFIER: Record<Rarity, number> = {
   icon: 1.20,
 };
 
-const RARITY_OVR_BONUS: Record<Rarity, number> = {
+export const RARITY_OVR_BONUS: Record<Rarity, number> = {
   common: -2,
   uncommon: 0,
   rare: 2,
@@ -49,7 +49,7 @@ const RARITY_OVR_BONUS: Record<Rarity, number> = {
   icon: 8,
 };
 
-const SPECIAL_OVR_BONUS: Record<string, number> = {
+export const SPECIAL_OVR_BONUS: Record<string, number> = {
   none: 0,
   totw: 2,
   potm: 2,
@@ -83,7 +83,7 @@ function applyModifier(value: number, mod: number): number {
   return Math.max(0, Math.min(99, Math.round(value * mod)));
 }
 
-function calculateOverall(t: PlayerTemplate): number {
+export function calculateOverall(t: PlayerTemplate): number {
   if (t.baseOverall !== undefined) return t.baseOverall;
   const a = t.attributes;
   if (t.position === 'GK') {
@@ -145,7 +145,35 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
 }
 
 export function futsalTemplates() { return TEMPLATES; }
-export function allTemplates() { return TEMPLATES; }
+import { supabase } from '../lib/supabase';
+
+let dbTemplates: PlayerTemplate[] = [];
+
+export function setDbTemplates(templates: PlayerTemplate[]) {
+  dbTemplates = templates;
+}
+
+export async function loadDbTemplates() {
+  if (!supabase) return;
+  const { data } = await supabase.from('card_templates').select('*');
+  if (!data) return;
+  const templates: PlayerTemplate[] = data.map((t: any) => ({
+    name: t.name,
+    position: t.position,
+    nationality: t.nationality,
+    age: t.age,
+    club: t.club,
+    attributes: t.attributes || { pace: 70, shooting: 70, passing: 70, dribbling: 70, defending: 70, physical: 70 },
+    gkAttributes: t.gk_attributes || undefined,
+    image: t.image || '',
+    baseRarity: 'uncommon',
+    baseOverall: t.base_overall || undefined,
+    special: t.special || 'none',
+  }));
+  setDbTemplates(templates);
+}
+
+export function allTemplates() { return [...TEMPLATES, ...dbTemplates]; }
 
 export function getPlayerImage(name: string): string | undefined {
   const t = TEMPLATES.find(x => x.name === name);
