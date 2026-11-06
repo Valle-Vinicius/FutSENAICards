@@ -5,7 +5,7 @@ import { getPlayerImage } from '../data/players';
 import { Circle, Star } from 'lucide-react';
 
 export default function Card({ card, size = 'md', onClick, isNew }: { card: PlayerCard; size?: 'sm'|'md'|'lg'; onClick?: () => void; isNew?: boolean }) {
-  const meta = RARITY_META[card.rarity];
+  const meta = RARITY_META[card.rarity] ?? RARITY_META.common;
   const img = getPlayerImage(card.name) || card.image;
   const isGK = card.position === 'GK';
   const dims = size === 'sm' ? 'w-36 h-52' : size === 'lg' ? 'w-60 h-84' : 'w-48 h-64';
@@ -39,9 +39,9 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
 
       <div className="absolute top-2 left-2 flex flex-col items-start gap-1 z-10 max-w-[60%]">
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full truncate max-w-full ${card.rarity === 'icon' ? 'rgb-stat' : ''}`} style={{ background: card.rarity === 'icon' ? undefined : meta.color, color: '#fff' }}>{meta.label}</span>
-        {card.special !== 'none' && (
-          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded line-clamp-2 max-w-full leading-tight" style={{ background: SPECIAL_META[card.special].color, color: '#fff' }}>
-            {SPECIAL_META[card.special].label}
+        {card.special && card.special !== 'none' && (
+          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded line-clamp-2 max-w-full leading-tight" style={{ background: SPECIAL_META[card.special]?.color ?? '', color: '#fff' }}>
+            {SPECIAL_META[card.special]?.label ?? ''}
           </span>
         )}
       </div>
