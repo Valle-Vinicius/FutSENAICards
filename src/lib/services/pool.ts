@@ -65,6 +65,11 @@ export async function getPoolMatch(id: string): Promise<PoolMatch | null> {
 export async function submitShot(matchId: string, angle: number, power: number, ballInHandPos?: { x: number; y: number }): Promise<any> {
   if (!supabase) return null;
   const { data, error } = await supabase.functions.invoke('pool-shot', { body: { matchId, angle, power, ballInHandPos } });
-  if (error) return null;
+  if (error) {
+    let msg = error.message;
+    try { const b = await (error as any).context?.json(); if (b?.error) msg = b.error; } catch {}
+    console.error('[pool-shot]', msg);
+    return { error: msg };
+  }
   return data;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React from 'react';
 import ToastContainer from './components/ToastContainer';
 import LoadingScreen from './components/LoadingScreen';
 import { useGame } from './store/useGame';
@@ -29,6 +30,17 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Leaderboard from './pages/Leaderboard';
 import CompetitiveProfile from './pages/CompetitiveProfile';
 
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err: Error | null }> {
+  state = { err: null as Error | null };
+  static getDerivedStateFromError(err: Error) { return { err }; }
+  render() {
+    if (this.state.err) {
+      return <div className="p-8 text-sm text-[#858A98]">Algo deu errado. <button onClick={() => location.reload()} className="text-[#E30613]">Recarregar</button></div>;
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [loading, setLoading] = useState(() => {
     const h = window.location.hash.replace('#', '') || '/';
@@ -52,8 +64,9 @@ export default function App() {
       <Tutorial />
       {loading && <LoadingScreen onDone={() => setLoading(false)} />}
       {!loading && (
-        <BrowserRouter>
-          <Routes>
+        <ErrorBoundary>
+          <BrowserRouter>
+            <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
@@ -81,6 +94,7 @@ export default function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        </ErrorBoundary>
       )}
     </>
   );
