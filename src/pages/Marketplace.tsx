@@ -162,9 +162,9 @@ export default function Marketplace() {
           </div>
 
           <div className="card-surface p-3 flex flex-wrap gap-4 text-sm text-[#252733]">
-            <div>Preço mín: <span className="font-bold text-[#E30613]">{minP}</span></div>
-            <div>Preço médio: <span className="font-bold text-[#E30613]">{avgP}</span></div>
-            <div>Preço máx: <span className="font-bold text-[#E30613]">{maxP}</span></div>
+            <div>Preço mín: <span className="font-bold text-[#E30613]">{minP.toLocaleString('pt-BR')}</span></div>
+            <div>Preço médio: <span className="font-bold text-[#E30613]">{avgP.toLocaleString('pt-BR')}</span></div>
+            <div>Preço máx: <span className="font-bold text-[#E30613]">{maxP.toLocaleString('pt-BR')}</span></div>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -204,7 +204,7 @@ export default function Marketplace() {
                 <div key={l.id} className={`card-surface p-3 space-y-2 transition ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
                   <Card card={c} size="sm" />
                   <div className="text-xs text-[#858A98]">Vendedor: {l.sellerName}</div>
-                  <div className="text-sm text-[#252733]">Preço: <span className="font-bold text-[#E30613]">{l.price}</span> · Compra imediata: <span className="font-bold">{l.buyNow}</span></div>
+                  <div className="text-sm text-[#252733]">Preço: <span className="font-bold text-[#E30613]">{l.price.toLocaleString('pt-BR')}</span> · Compra imediata: <span className="font-bold">{l.buyNow.toLocaleString('pt-BR')}</span></div>
                   <div className="flex gap-2">
                     <button onClick={() => handleBuy(l.id)} className="flex-1 px-2 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Comprar</button>
                     <button onClick={() => handleBid(l.id)} className="flex-1 px-2 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Lance</button>
@@ -254,7 +254,7 @@ export default function Marketplace() {
               const c = cardOf(l.cardUid);
               return (
                 <div key={l.id} className="card-surface p-3 flex items-center justify-between gap-3">
-                  <div className="text-sm text-[#252733]">{c?.name} · {l.price} moedas · {l.status}</div>
+                  <div className="text-sm text-[#252733]">{c?.name} · {l.price.toLocaleString('pt-BR')} moedas · {l.status}</div>
                   {l.status === 'active' && <button onClick={() => cancelListing(l.id)} className="px-2 py-1 text-xs rounded-lg text-red-600 border border-red-200">Cancelar</button>}
                 </div>
               );
@@ -274,7 +274,7 @@ export default function Marketplace() {
           <h3 className="font-semibold text-[#252733]">Transferências recentes</h3>
           {recentTransfers.map((t, i) => (
             <div key={i} className="text-sm text-[#252733] py-1 border-b border-[#E9EAF0] last:border-0">
-              {t.type === 'buy' ? 'Compra' : 'Venda'} · {t.cardName} · {t.price} moedas · {new Date(t.at).toLocaleString('pt-BR')}
+              {t.type === 'buy' ? 'Compra' : 'Venda'} · {t.cardName} · {t.price.toLocaleString('pt-BR')} moedas · {new Date(t.at).toLocaleString('pt-BR')}
             </div>
           ))}
           {recentTransfers.length === 0 && <div className="text-[#858A98] text-sm">Sem histórico.</div>}
@@ -284,7 +284,7 @@ export default function Marketplace() {
       <ConfirmModal
         open={!!confirmBuy}
         title="Confirmar compra"
-        message={confirmBuy ? `Comprar por ${listings.find(l => l.id === confirmBuy)?.buyNow || listings.find(l => l.id === confirmBuy)?.price} moedas?` : ''}
+        message={confirmBuy ? `Comprar por ${(listings.find(l => l.id === confirmBuy)?.buyNow || listings.find(l => l.id === confirmBuy)?.price || 0).toLocaleString('pt-BR')} moedas?` : ''}
         onConfirm={confirmBuyNow}
         onCancel={() => setConfirmBuy(null)}
       />
