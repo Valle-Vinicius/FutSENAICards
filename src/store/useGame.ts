@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types';
+import { toast } from './toast';
 import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL } from '../lib/game';
 import { supabase } from '../lib/supabase';
 import { getCards, addCard, updateCard } from '../lib/services/cards';
@@ -10,7 +11,6 @@ import { saveSquad as saveSquadService, getSavedSquads, getSquad as getPrimarySq
 import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/missions';
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
 import { recordSBCCompletion } from '../lib/services/sbc';
-import { addTransaction } from '../lib/services/transactions';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
@@ -254,8 +254,8 @@ export const useGame = create<GameState & Actions>()(
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
-              await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
-              await addTransaction(uid, n, reason, 'earn');
+              const { data: newCoins } = await supabase!.rpc('add_coins', { p_amount: n, p_reason: reason });
+              if (newCoins !== null) set({ coins: newCoins });
             }
           });
         }
@@ -271,8 +271,9 @@ export const useGame = create<GameState & Actions>()(
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
-              await supabase!.from('profiles').update({ coins: get().coins }).eq('id', uid);
-              await addTransaction(uid, n, reason, 'spend');
+              const { data: newCoins, error } = await supabase!.rpc('spend_coins', { p_amount: n, p_reason: reason });
+              if (error) { toast.error('Saldo insuficiente.'); return; }
+              if (newCoins !== null) set({ coins: newCoins });
             }
           });
         }
@@ -286,7 +287,10 @@ export const useGame = create<GameState & Actions>()(
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
-            if (uid) await supabase!.from('profiles').update({ xp: get().xp, level: get().level }).eq('id', uid);
+            if (uid) {
+              const { data: res } = await supabase!.rpc('add_xp', { p_amount: n });
+              if (res) { set({ xp: res.xp, level: res.level }); }
+            }
           });
         }
       },
