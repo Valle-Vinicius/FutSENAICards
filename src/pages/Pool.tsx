@@ -13,28 +13,30 @@ export default function Pool() {
   const [match, setMatch] = useState<any>(null);
   const [state, setState] = useState<TableState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const loadedRef = useRef(false);
   const [angle, setAngle] = useState(0);
   const [power, setPower] = useState(0.5);
   const [shooting, setShooting] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
+  // evita abandono indevido em remount do React StrictMode; só abandona no beforeunload real
+  const abandonRef = useRef(false);
 
   useEffect(() => {
     if (!matchId || loadedRef.current) return;
     loadedRef.current = true;
     (async () => {
+      let uid: string | null = null;
       if (supabase) {
         const { data } = await supabase.auth.getSession();
-        console.log('[Pool] session user:', data.session?.user?.id);
-        setCurrentUserId(data.session?.user?.id ?? null);
+        uid = data.session?.user?.id ?? null;
+        setSessionUserId(uid);
       }
       const m = await getPoolMatch(matchId);
       console.log('[Pool] loaded match:', m);
       if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
       setMatch(m);
-      console.log('[Pool] match loaded:', m.id, 'status:', m.status, 'current_player:', m.currentPlayer, 'player1:', m.player1Id, 'player2:', m.player2Id);
       const rawState = m.tableState ? JSON.parse(m.tableState) : createInitialState();
       const initial = rawState && rawState.balls ? rawState : createInitialState();
       setState({
@@ -44,6 +46,7 @@ export default function Pool() {
       setLoading(false);
     })();
   }, [matchId]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !state) return;
@@ -55,21 +58,21 @@ export default function Pool() {
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // table
       ctx.fillStyle = '#1a5c2a';
       ctx.fillRect(offsetX, offsetY, TABLE_WIDTH * scale, TABLE_HEIGHT * scale);
       ctx.strokeStyle = '#0d3b1a';
       ctx.lineWidth = 4;
       ctx.strokeRect(offsetX, offsetY, TABLE_WIDTH * scale, TABLE_HEIGHT * scale);
-      // pockets
-      const pockets = [{ x: 0, y: 0 }, { x: TABLE_WIDTH / 2, y: 0 }, { x: TABLE_WIDTH, y: 0 }, { x: 0, y: TABLE_HEIGHT }, { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT }, { x: TABLE_WIDTH, y: TABLE_HEIGHT }];
+      const pockets = [
+        { x: 0, y: 0 }, { x: TABLE_WIDTH / 2, y: 0 }, { x: TABLE_WIDTH, y: 0 },
+        { x: 0, y: TABLE_HEIGHT }, { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT }, { x: TABLE_WIDTH, y: TABLE_HEIGHT },
+      ];
       for (const pk of pockets) {
         ctx.beginPath();
         ctx.arc(offsetX + pk.x * scale, offsetY + pk.y * scale, 8, 0, Math.PI * 2);
         ctx.fillStyle = '#000';
         ctx.fill();
       }
-      // balls
       for (const b of state.balls) {
         if (b.pocketed) continue;
         const x = offsetX + b.x * scale;
@@ -89,7 +92,6 @@ export default function Pool() {
           ctx.fillText(String(b.id), x, y);
         }
       }
-      // aim line
       if (!shooting && state.balls[0] && !state.balls[0].pocketed) {
         const cue = state.balls[0];
         const cx = offsetX + cue.x * scale;
@@ -112,7 +114,10 @@ export default function Pool() {
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const handleShoot = async () => {
-    if (shooting || !state || !match || !state.balls || myNumber !== state.currentPlayer) return;
+    if (shooting || !state || !match || !state.balls) return;
+    if (sessionUserId === null) return;
+    const myNumber = sessionUserId === match.player1Id ? 1 : sessionUserId === match.player2Id ? 2 : null;
+    if (myNumber === null || myNumber !== state.currentPlayer) return;
     setShooting(true);
     try {
       const result = simulateShot(state, { angle, power });
@@ -125,6 +130,7 @@ export default function Pool() {
           const tick = (now: number) => {
             const idx = Math.max(0, Math.min(frames.length - 1, Math.floor(((now - t0) / 1000) * 60)));
             const frame = frames[idx];
+            if (!frame) return;
             setState(prev => prev && prev.balls ? ({
               ...prev,
               balls: prev.balls.map((b, k) => ({ ...b, x: frame.balls[k]?.x ?? b.x, y: frame.balls[k]?.y ?? b.y, pocketed: frame.balls[k]?.pocketed ?? b.pocketed })),
@@ -178,7 +184,6 @@ export default function Pool() {
         }
       })
       .subscribe();
-    // polling fallback
     const interval = setInterval(async () => {
       const m = await getPoolMatch(matchId);
       if (m) {
@@ -194,60 +199,97 @@ export default function Pool() {
     }, 3000);
     return () => { supabase!.removeChannel(channel); clearInterval(interval); };
   }, [matchId]);
+
   useEffect(() => {
-    const onBeforeUnload = () => { if (matchId) abandonPoolMatch(matchId); };
+    const onBeforeUnload = () => {
+      abandonRef.current = true;
+      if (matchId && (match?.status === 'pending' || match?.status === 'accepted' || match?.status === 'playing')) {
+        abandonPoolMatch(matchId);
+      }
+    };
     window.addEventListener('beforeunload', onBeforeUnload);
-    return () => { window.removeEventListener('beforeunload', onBeforeUnload); if (matchId) abandonPoolMatch(matchId); };
-  }, [matchId]);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [matchId, match]);
+
   const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
-  const uid = currentUserId || match?.player1Id;
-  const myNumber = match && uid ? (uid === match.player1Id ? 1 : uid === match.player2Id ? 2 : null) : null;
-  const isMyTurn = isMatchActive && !!state && myNumber === state.currentPlayer;
+  const myNumber = sessionUserId !== null && match
+    ? sessionUserId === match.player1Id ? 1 : sessionUserId === match.player2Id ? 2 : null
+    : null;
+  const isMyTurn = isMatchActive && state !== null && myNumber !== null && myNumber === state.currentPlayer;
+
   if (loading) return <div className="p-8 text-[#858A98]">Carregando partida...</div>;
   if (!match || !state) return <div className="p-8 text-[#858A98]">Partida não encontrada.</div>;
 
-  return (
-    <div className="p-4 md:p-8 space-y-4">
-      <div className="card-surface p-4 space-y-3">
-        <div className="flex justify-between items-center">
+  if (match.status === 'pending') {
+    return (
+      <div className="p-4 md:p-8 space-y-4">
+        <div className="card-surface p-4 text-center">
           <div className="font-bold text-[#252733]">Jogador 1</div>
           <div className="text-[#858A98]">vs</div>
           <div className="font-bold text-[#252733]">Jogador 2</div>
         </div>
-        {match?.status === 'pending' && (
-          <div className="text-sm text-[#858A98] text-center">Aguardando aceite do adversário...</div>
-        )}
-        {isMatchActive && (
-          <div className="text-xs text-[#858A98] text-center">Vez: Jogador {state.currentPlayer} · {state.assignments.player1 ? `Lisas/Listradas definidas` : 'Mesa aberta: a primeira bola enfiada define lisas ou listradas'}</div>
-        )}
-        {isMatchActive && (
-          <button onClick={async () => { await abandonPoolMatch(match.id); navigate('/'); }} className="w-full py-2 rounded-xl border-2 border-[#E9EAF0] text-sm text-[#E30613]">Sair da partida</button>
-        )}
+        <div className="card-surface p-8 text-center text-[#858A98]">
+          <div className="text-sm">Aguardando aceite do adversário...</div>
+          {sessionUserId === match.player1Id && (
+            <div className="text-xs mt-2 text-[#858A98]">Você é o jogador 1 (criou o desafio).</div>
+          )}
+          {sessionUserId === match.player2Id && (
+            <div className="text-xs mt-2 text-[#858A98]">Você é o jogador 2 (foi desafiado).</div>
+          )}
+          <button onClick={async () => { await abandonPoolMatch(match.id); navigate('/'); }} className="mt-4 px-4 py-2 rounded-xl border-2 border-[#E9EAF0] text-sm text-[#E30613]">Cancelar partida</button>
+        </div>
       </div>
+    );
+  }
 
-      <div className="card-surface p-2">
-        <canvas ref={canvasRef} width={600} height={300} className="w-full rounded-xl" style={{ background: '#1a5c2a' }} />
-      </div>
-
-      {isMyTurn ? (
+  if (match.status === 'playing' || match.status === 'accepted') {
+    return (
+      <div className="p-4 md:p-8 space-y-4">
         <div className="card-surface p-4 space-y-3">
-          <div className="flex items-center gap-4">
-            <label className="text-sm text-[#858A98]">Ângulo</label>
-            <input type="range" min={0} max={6.28} step={0.01} value={angle} onChange={e => setAngle(Number(e.target.value))} className="flex-1" disabled={shooting} />
+          <div className="flex justify-between items-center">
+            <div className="font-bold text-[#252733]">Jogador 1</div>
+            <div className="text-[#858A98]">vs</div>
+            <div className="font-bold text-[#252733]">Jogador 2</div>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="text-sm text-[#858A98]">Força</label>
-            <input type="range" min={0.1} max={1} step={0.01} value={power} onChange={e => setPower(Number(e.target.value))} className="flex-1" disabled={shooting} />
+          <div className="text-xs text-[#858A98] text-center">
+            Vez: Jogador {state.currentPlayer} · {state.assignments.player1 ? `Lisas/Listradas definidas` : 'Mesa aberta: a primeira bola enfiada define lisas ou listradas'}
           </div>
-          <button onClick={handleShoot} disabled={shooting} className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60">
-            {shooting ? 'Simulando...' : 'TACADA'}
-          </button>
+          <button onClick={async () => { await abandonPoolMatch(match.id); navigate('/'); }} className="w-full py-2 rounded-xl border-2 border-[#E9EAF0] text-sm text-[#E30613]">Sair da partida</button>
         </div>
-      ) : (
-        <div className="card-surface p-4 text-center text-sm text-[#858A98]">
-          Aguardando a vez do adversário...
+
+        <div className="card-surface p-2">
+          <canvas ref={canvasRef} width={600} height={300} className="w-full rounded-xl" style={{ background: '#1a5c2a' }} />
         </div>
-      )}
+
+        {isMyTurn ? (
+          <div className="card-surface p-4 space-y-3">
+            <div className="flex items-center gap-4">
+              <label className="text-sm text-[#858A98]">Ângulo</label>
+              <input type="range" min={0} max={6.28} step={0.01} value={angle} onChange={e => setAngle(Number(e.target.value))} className="flex-1" disabled={shooting} />
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="text-sm text-[#858A98]">Força</label>
+              <input type="range" min={0.1} max={1} step={0.01} value={power} onChange={e => setPower(Number(e.target.value))} className="flex-1" disabled={shooting} />
+            </div>
+            <button onClick={handleShoot} disabled={shooting} className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60">
+              {shooting ? 'Simulando...' : 'TACADA'}
+            </button>
+          </div>
+        ) : (
+          <div className="card-surface p-4 text-center text-sm text-[#858A98]">
+            Aguardando a vez do adversário…
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-8 text-center text-[#858A98]">
+      Partida finalizada ou cancelada.
+      <button onClick={() => navigate('/')} className="mt-4 px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm">Voltar</button>
     </div>
   );
 }
