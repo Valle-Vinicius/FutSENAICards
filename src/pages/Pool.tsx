@@ -102,42 +102,66 @@ export default function Pool() {
     draw();
   }, [state, angle, shooting]);
 
+  const shootingRef = useRef(false);
+  useEffect(() => { shootingRef.current = shooting; }, [shooting]);
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
   const handleShoot = async () => {
-    if (shooting || !state || !match) return;
-    if (myNumber !== state.currentPlayer) return;
+    if (shooting || !state || !match || myNumber !== state.currentPlayer) return;
     setShooting(true);
     try {
       const result = simulateShot(state, { angle, power });
-      // animate frames
-      let i = 0;
-      const animate = () => {
-        if (i >= result.frames.length) {
-          setState(result.finalState || state);
-          setShooting(false);
-          // sync with server
-          submitShot(match.id, angle, power).then(serverRes => {
-            if (serverRes && serverRes.finalState) {
-              setState(serverRes.finalState);
-            }
-          }).catch(() => {});
-          return;
-        }
-        setState(prev => prev ? { ...prev, balls: result.frames[i].balls.map((b, idx) => ({ ...prev.balls[idx], x: b.x, y: b.y, pocketed: b.pocketed })) } : prev);
-        i++;
-        rafRef.current = requestAnimationFrame(animate);
-      };
-      if (result.frames.length === 0) {
-        setState(result.finalState || state);
-        setShooting(false);
-      } else {
-        animate();
+      const frames = result.frames;
+      const serverPromise = submitShot(match.id, angle, power);
+
+      if (frames.length > 0) {
+        const t0 = performance.now();
+        await new Promise<void>(resolve => {
+          const tick = (now: number) => {
+            const idx = Math.min(frames.length - 1, Math.floor(((now - t0) / 1000) * 60));
+            const frame = frames[idx];
+            setState(prev => prev && ({
+              ...prev,
+              balls: prev.balls.map((b, k) => ({ ...b, x: frame.balls[k].x, y: frame.balls[k].y, pocketed: frame.balls[k].pocketed })),
+            }));
+            if (idx < frames.length - 1) rafRef.current = requestAnimationFrame(tick); else resolve();
+          };
+          rafRef.current = requestAnimationFrame(tick);
+        });
+      }
+
+      const res = await serverPromise;
+      if (res?.finalState) setState(res.finalState);
+      else {
+        toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
+        const fresh = await getPoolMatch(match.id);
+        if (fresh?.tableState) setState(JSON.parse(fresh.tableState));
       }
     } catch (e) {
       console.error('shot failed', e);
+      toast.alert('Erro na tacada.');
+    } finally {
       setShooting(false);
     }
   };
 
+  useEffect(() => {
+    if (!matchId || !supabase) return;
+    const channel = supabase
+      .channel(`pool-match-${matchId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
+        const row = payload.new;
+        if (shootingRef.current) return;
+        if (row?.table_state) {
+          setState(typeof row.table_state === 'string' ? JSON.parse(row.table_state) : row.table_state);
+        }
+        if (row?.status) {
+          setMatch((m: any) => m ? { ...m, status: row.status, currentPlayer: row.current_player, turnDeadline: row.turn_deadline, winnerId: row.winner_id } : m);
+        }
+      })
+      .subscribe();
+    return () => { supabase!.removeChannel(channel); };
+  }, [matchId]);
   const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
   const uid = currentUserId || match?.player1Id;
   const myNumber = match && uid ? (uid === match.player1Id ? 1 : uid === match.player2Id ? 2 : null) : null;
