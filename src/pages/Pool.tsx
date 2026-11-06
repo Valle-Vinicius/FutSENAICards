@@ -24,33 +24,17 @@ export default function Pool() {
   useEffect(() => {
     if (!matchId || loadedRef.current) return;
     loadedRef.current = true;
-    getPoolMatch(matchId).then(async m => {
-      if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
-      setMatch(m);
-      setState(m.tableState ? JSON.parse(m.tableState) : createInitialState());
+    (async () => {
       if (supabase) {
         const { data } = await supabase.auth.getSession();
         setCurrentUserId(data.session?.user?.id ?? null);
       }
+      const m = await getPoolMatch(matchId);
+      if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
+      setMatch(m);
+      setState(m.tableState ? JSON.parse(m.tableState) : createInitialState());
       setLoading(false);
-    });
-  }, [matchId, navigate]);
-
-  useEffect(() => {
-    if (!matchId || !supabase) return;
-    const channel = supabase
-      .channel(`pool-match-${matchId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
-        const row = payload.new;
-        if (row?.table_state) {
-          setState(JSON.parse(row.table_state));
-        }
-        if (row?.status === 'finished') {
-          // show result
-        }
-      })
-      .subscribe();
-    return () => { supabase!.removeChannel(channel); };
+    })();
   }, [matchId]);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -152,7 +136,8 @@ export default function Pool() {
     }
   };
 
-  const isMyTurn = state ? ((state.currentPlayer === 1 && currentUserId === match?.player1_id) || (state.currentPlayer === 2 && currentUserId === match?.player2_id)) : false;
+  const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
+  const isMyTurn = isMatchActive && state ? ((state.currentPlayer === 1 && currentUserId === match?.player1_id) || (state.currentPlayer === 2 && currentUserId === match?.player2_id)) : false;
   if (loading) return <div className="p-8 text-[#858A98]">Carregando partida...</div>;
   if (!match || !state) return <div className="p-8 text-[#858A98]">Partida não encontrada.</div>;
 
@@ -164,7 +149,12 @@ export default function Pool() {
           <div className="text-[#858A98]">vs</div>
           <div className="font-bold text-[#252733]">Jogador 2</div>
         </div>
-        <div className="text-xs text-[#858A98] text-center">Vez: Jogador {state.currentPlayer} · {state.assignments.player1 ? `Lisas/Listradas definidas` : 'Definindo...'}</div>
+        {match?.status === 'pending' && (
+          <div className="text-sm text-[#858A98] text-center">Aguardando aceite do adversário...</div>
+        )}
+        {isMatchActive && (
+          <div className="text-xs text-[#858A98] text-center">Vez: Jogador {state.currentPlayer} · {state.assignments.player1 ? `Lisas/Listradas definidas` : 'Definindo...'}</div>
+        )}
       </div>
 
       <div className="card-surface p-2">
