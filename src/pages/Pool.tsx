@@ -140,7 +140,8 @@ export default function Pool() {
   };
 
   const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
-  const isMyTurn = isMatchActive && state ? ((state.currentPlayer === 1 && currentUserId === match?.player1_id) || (state.currentPlayer === 2 && currentUserId === match?.player2_id)) : false;
+  const uid = currentUserId || match?.player1Id;
+  const isMyTurn = isMatchActive && state ? ((state.currentPlayer === 1 && uid === match?.player1Id) || (state.currentPlayer === 2 && uid === match?.player2Id)) : false;
   if (loading) return <div className="p-8 text-[#858A98]">Carregando partida...</div>;
   if (!match || !state) return <div className="p-8 text-[#858A98]">Partida não encontrada.</div>;
 
