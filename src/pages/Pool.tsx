@@ -31,6 +31,7 @@ export default function Pool() {
         setCurrentUserId(data.session?.user?.id ?? null);
       }
       const m = await getPoolMatch(matchId);
+      console.log('[Pool] loaded match:', m);
       if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
       setMatch(m);
       console.log('[Pool] match loaded:', m.id, 'status:', m.status, 'current_player:', m.currentPlayer, 'player1:', m.player1Id, 'player2:', m.player2Id);
@@ -103,7 +104,7 @@ export default function Pool() {
 
   const handleShoot = async () => {
     if (shooting || !state || !match) return;
-    const isMyTurn = (state.currentPlayer === 1 && currentUserId === match.player1_id) || (state.currentPlayer === 2 && currentUserId === match.player2_id);
+    const isMyTurn = (state.currentPlayer === 1 && currentUserId === match.player1Id) || (state.currentPlayer === 2 && currentUserId === match.player2Id);
     if (!isMyTurn) return;
     setShooting(true);
     try {
