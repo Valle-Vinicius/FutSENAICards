@@ -37,7 +37,7 @@ export default function Pool() {
       console.log('[Pool] loaded match:', m);
       if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
       setMatch(m);
-      const rawState = m.tableState ? JSON.parse(m.tableState) : createInitialState();
+      const rawState = m.tableState ? (typeof m.tableState === 'string' ? JSON.parse(m.tableState) : m.tableState) : createInitialState();
       const initial = rawState && rawState.balls ? rawState : createInitialState();
       setState({
         ...initial,
@@ -151,7 +151,7 @@ export default function Pool() {
         toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
         const fresh = await getPoolMatch(match.id);
         if (fresh?.tableState) {
-          const parsed = JSON.parse(fresh.tableState);
+          const parsed = typeof fresh.tableState === 'string' ? JSON.parse(fresh.tableState) : fresh.tableState;
           setState({
             ...parsed,
             currentPlayer: (fresh.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
@@ -189,7 +189,7 @@ export default function Pool() {
       if (m) {
         setMatch(m);
         if (m.tableState) {
-          const parsed = JSON.parse(m.tableState);
+          const parsed = typeof m.tableState === 'string' ? JSON.parse(m.tableState) : m.tableState;
           setState({
             ...parsed,
             currentPlayer: (m.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
