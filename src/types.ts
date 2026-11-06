@@ -55,6 +55,7 @@ export interface PlayerCard {
   positioning?: number;
   handling?: number;
   obtainedAt: number;
+  schemaVersion?: number;
   favorite: boolean;
   isNew: boolean;
 }

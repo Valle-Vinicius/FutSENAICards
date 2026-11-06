@@ -213,6 +213,8 @@ export const useGame = create<GameState & Actions>()(
         const migratedRemote = remoteCards.map(c => {
           const t = allTemplates().find(x => x.name === c.name);
           if (!t) return c;
+          const schemaVersion = c.schemaVersion ?? 1;
+          if (schemaVersion >= 4) return c; // já migrado, não recalcular
           return {
             ...c,
             position: t.position,

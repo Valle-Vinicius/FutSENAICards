@@ -75,6 +75,7 @@ export async function getCards(userId: string): Promise<PlayerCard[]> {
     favorite: c.favorite,
     isNew: c.is_new,
     obtainedAt: new Date(c.obtained_at).getTime(),
+    schemaVersion: c.schema_version,
   })) as PlayerCard[];
 }
 
