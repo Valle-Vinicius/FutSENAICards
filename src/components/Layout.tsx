@@ -126,6 +126,13 @@ export default function Layout() {
               await challengesService.abandonChallenge(challengeId);
               navigate(n.to);
             }
+            // Pool match abandon
+            const poolMatchId = window.location.pathname.match(/\/pool\/([a-f0-9-]+)/)?.[1];
+            if (poolMatchId && n.to !== '/pool') {
+              e.preventDefault();
+              await poolService.abandonPoolMatch(poolMatchId);
+              navigate(n.to);
+            }
           }}
               className={({ isActive }) =>
                 `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98] hover:bg-[#F7F7F9] hover:text-[#252733]'}`}>
@@ -266,6 +273,13 @@ export default function Layout() {
             if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') {
               e.preventDefault();
               await challengesService.abandonChallenge(challengeId);
+              navigate(n.to);
+            }
+            // Pool match abandon
+            const poolMatchId = window.location.pathname.match(/\/pool\/([a-f0-9-]+)/)?.[1];
+            if (poolMatchId && n.to !== '/pool') {
+              e.preventDefault();
+              await poolService.abandonPoolMatch(poolMatchId);
               navigate(n.to);
             }
           }}
