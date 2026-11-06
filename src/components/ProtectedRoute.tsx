@@ -14,7 +14,7 @@ export default function ProtectedRoute() {
     }
     const resolveSession = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } = await supabase!.auth.getSession();
         setAuthed(!!data.session);
       } catch {
         setAuthed(false);

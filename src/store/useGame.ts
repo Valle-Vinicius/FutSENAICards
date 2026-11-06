@@ -706,41 +706,15 @@ export const useGame = create<GameState & Actions>()(
         return true;
       },
       convertDuplicates: async () => {
-        const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
-        const cards = get().cards;
-        const byName: Record<string, typeof cards> = {};
-        cards.forEach(c => { (byName[c.name] = byName[c.name] || []).push(c); });
-        const toRemove: string[] = [];
-        Object.values(byName).forEach(group => {
-          if (group.length <= 1) return;
-          // skip icon rarity entirely
-          const nonIcon = group.filter(c => c.rarity !== 'icon');
-          if (nonIcon.length <= 1) return;
-          const nonFav = nonIcon.filter(c => !c.favorite).sort((a, b) => (rarityRank[b.rarity] ?? 0) - (rarityRank[a.rarity] ?? 0));
-          nonFav.slice(1).forEach(c => toRemove.push(c.uid));
-        });
-        if (toRemove.length === 0) return 0;
-        const reward = toRemove.length * 200;
-        get().addCoins(reward, `Conversão de ${toRemove.length} duplicatas`);
-        set(st => ({ cards: st.cards.filter(c => !toRemove.includes(c.uid)) }));
-        if (supabase) {
-          const { data } = await supabase.auth.getSession();
-          const uid = data.session?.user?.id;
-          if (uid) {
-            for (const c of toRemove) {
-              if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) {
-                await supabase.from('cards').delete().eq('id', c);
-              }
-            }
-            // sync collector ranking
-            const allCards = get().cards;
-            const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
-            const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
-            const { data: prof } = await supabase.from('profiles').select('name').eq('id', uid).single();
-            await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
-          }
-        }
-        return toRemove.length;
+        if (!supabase) return 0;
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (!uid) return 0;
+        const { data: count, error } = await supabase.rpc('convert_duplicates');
+        if (error || count == null) return 0;
+        // servidor é a autoridade: recarrega cartas e moedas do banco
+        await get().syncUserData(uid);
+        return Number(count);
       },
       recordEvolution: (uid, attr) => set(st => ({
         cards: st.cards.map(c => c.uid === uid ? { ...c, evolutionLog: [...(c.evolutionLog ?? []), { attr, at: Date.now() }] } : c),
@@ -866,13 +840,14 @@ export const useGame = create<GameState & Actions>()(
         // remove cards
         set(st => ({ cards: st.cards.filter(c => !cardUids.includes(c.uid)) }));
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
+          (async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const uid = session?.user?.id;
             if (uid) {
-              for (const cu of cardUids) await supabase!.from('cards').delete().eq('id', cu);
+              await supabase.rpc('delete_owned_cards', { p_card_ids: cardUids });
               await recordSBCCompletion(uid, sbcId);
             }
-          });
+          })();
         }
         // reward
         if (sbc.reward.type === 'coins') {

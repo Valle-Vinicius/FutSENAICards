@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import React from 'react';
 import ToastContainer from './components/ToastContainer';
-import LoadingScreen from './components/LoadingScreen';
 import { useGame } from './store/useGame';
 import { supabase } from './lib/supabase';
 import Layout from './components/Layout';
@@ -54,7 +53,7 @@ export default function App() {
     }
     const resolveSession = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } = await supabase!.auth.getSession();
         setAuthed(!!data.session);
       } catch {
         setAuthed(false);

@@ -137,3 +137,67 @@ begin
   update profiles set name = p_name, avatar_url = p_avatar_url, updated_at = now() where id = v_uid;
 end;
 $$;
+
+-- RPC: convert duplicate cards (server-side, atomic)
+-- Keeps one copy per name (favorite first, then rarity, then overall), ignores icons,
+-- awards 200 coins per removed duplicate, and records the transaction.
+create or replace function public.convert_duplicates()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_count int;
+begin
+  if v_uid is null then raise exception 'Not authenticated'; end if;
+  with ranked as (
+    select id,
+      row_number() over (
+        partition by name
+        order by favorite desc,
+          case rarity when 'icon' then 5 when 'legendary' then 4 when 'epic' then 3
+                      when 'rare' then 2 when 'uncommon' then 1 else 0 end desc,
+          overall desc
+      ) rn,
+      rarity,
+      favorite
+    from cards
+    where user_id = v_uid
+  ), del as (
+    delete from cards
+    where id in (
+      select id from ranked where rn > 1 and rarity <> 'icon' and not favorite
+    )
+    returning 1
+  )
+  select count(*) into v_count from del;
+  if v_count > 0 then
+    update profiles set coins = coins + v_count * 200 where id = v_uid;
+    insert into transactions (user_id, amount, reason, type)
+    values (v_uid, v_count * 200, 'Conversão de ' || v_count || ' duplicatas', 'earn');
+  end if;
+  return v_count;
+end;
+$$;
+
+-- RPC: delete owned cards (server-side, used by SBC/card exchanges)
+create or replace function public.delete_owned_cards(p_card_ids text[])
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_count int;
+begin
+  if v_uid is null then raise exception 'Not authenticated'; end if;
+  delete from cards
+  where id = any(p_card_ids)
+    and user_id = v_uid;
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
