@@ -77,6 +77,7 @@ export default function Layout() {
         if (pendings && pendings.length > 0) setPendingChallengeId(pendings[0].id);
         const { data: poolPendings } = await supabase!.from('pool_matches').select('id').eq('player2_id', uid).eq('status', 'pending');
         if (poolPendings && poolPendings.length > 0) setPendingPoolMatchId(poolPendings[0].id);
+        else setPendingPoolMatchId(null);
       };
       await checkPending();
       interval = setInterval(checkPending, 5000);
@@ -231,7 +232,7 @@ export default function Layout() {
             <div className="m-4 card-surface p-3 flex items-center justify-between gap-3">
               <div className="text-sm text-[#252733]">Você foi desafiado para uma partida de sinuca!</div>
               <div className="flex gap-2">
-                <button onClick={async () => { await poolService.acceptPoolMatch(pendingPoolMatchId); navigate(`/pool/${pendingPoolMatchId}`); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Aceitar</button>
+                <button onClick={async () => { const ok = await poolService.acceptPoolMatch(pendingPoolMatchId); if (ok) navigate(`/pool/${pendingPoolMatchId}`); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Aceitar</button>
                 <button onClick={() => { poolService.rejectPoolMatch(pendingPoolMatchId); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Recusar</button>
               </div>
             </div>
@@ -255,7 +256,7 @@ export default function Layout() {
           <div className="w-64 h-full bg-white p-4" onClick={e => e.stopPropagation()}>
             <div className="text-xl font-bold mb-4"><span className="text-[#E30613]">FUT</span>SENAI</div>
             {NAV.map(n => (
-              <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async () => { setDrawerOpen(false); const params = new URLSearchParams(window.location.search); const challengeId = params.get('challenge'); if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') { await challengesService.abandonChallenge(challengeId); } }}
+              <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async () => { setDrawerOpen(false); const params = new URLSearchParams(window.location.search); const challengeId = params.get('challenge'); if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') { await challengesService.abandonChallenge(challengeId); } const poolMatchId = window.location.pathname.match(/\/pool\/([a-f0-9-]+)/)?.[1]; if (poolMatchId && n.to !== '/pool') { await poolService.abandonPoolMatch(poolMatchId); } }}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98]'}`}>
                  <n.icon className="w-4 h-4" /> {n.label}

@@ -204,7 +204,24 @@ export const useGame = create<GameState & Actions>()(
           };
         });
         if (remoteCards.length > 0) {
+          const currentSquad = get().squads.futsal;
+          const localCards = get().cards;
           set({ cards: migratedRemote });
+          const remotePlayerIdToUid = new Map(migratedRemote.map((c: any) => [c.playerId, c.uid]));
+          const remap = (uid: string | null) => {
+            if (!uid) return null;
+            const localCard = localCards.find(c => c.uid === uid);
+            if (!localCard) return null;
+            return remotePlayerIdToUid.get(localCard.playerId) ?? null;
+          };
+          const newStarters = currentSquad.starters.map(s => ({ ...s, uid: remap(s.uid) }));
+          const newBench = currentSquad.bench.map(uid => remap(uid));
+          set(st => ({
+            squads: {
+              ...st.squads,
+              futsal: { ...st.squads.futsal, starters: newStarters, bench: newBench },
+            },
+          }));
           get().reconcileSquads();
         } else {
           const local = get().cards;

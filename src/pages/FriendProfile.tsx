@@ -132,13 +132,13 @@ export default function FriendProfile() {
       if (supabase) {
         const channel = supabase!.channel(`pool-invite-${result.matchId}`)
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${result.matchId}` }, (payload: any) => {
-            if (payload.new?.status === 'accepted') {
+            if (payload.new?.status === 'accepted' || payload.new?.status === 'playing') {
               setActionMsg('');
               navigate(`/pool/${result.matchId}`);
               supabase!.removeChannel(channel);
             }
-            if (payload.new?.status === 'declined') {
-              setActionMsg('Convite recusado.');
+            if (['declined','cancelled','forfeited','finished','expired'].includes(payload.new?.status)) {
+              setActionMsg('Convite de sinuca não pôde ser aceito (' + payload.new?.status + ').');
               supabase!.removeChannel(channel);
             }
           })

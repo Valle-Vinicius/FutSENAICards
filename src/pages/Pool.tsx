@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
-import { getPoolMatch, submitShot } from '../lib/services/pool';
+import { getPoolMatch, submitShot, abandonPoolMatch } from '../lib/services/pool';
 import { createInitialState, simulateShot } from '../engine/pool/physics';
 import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
 import type { TableState } from '../engine/pool/types';
@@ -171,6 +171,11 @@ export default function Pool() {
     }, 3000);
     return () => { supabase!.removeChannel(channel); clearInterval(interval); };
   }, [matchId]);
+  useEffect(() => {
+    const onBeforeUnload = () => { if (matchId) abandonPoolMatch(matchId); };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => { window.removeEventListener('beforeunload', onBeforeUnload); if (matchId) abandonPoolMatch(matchId); };
+  }, [matchId]);
   const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
   const uid = currentUserId || match?.player1Id;
   const myNumber = match && uid ? (uid === match.player1Id ? 1 : uid === match.player2Id ? 2 : null) : null;
@@ -191,6 +196,9 @@ export default function Pool() {
         )}
         {isMatchActive && (
           <div className="text-xs text-[#858A98] text-center">Vez: Jogador {state.currentPlayer} · {state.assignments.player1 ? `Lisas/Listradas definidas` : 'Mesa aberta: a primeira bola enfiada define lisas ou listradas'}</div>
+        )}
+        {isMatchActive && (
+          <button onClick={async () => { await abandonPoolMatch(match.id); navigate('/'); }} className="w-full py-2 rounded-xl border-2 border-[#E9EAF0] text-sm text-[#E30613]">Sair da partida</button>
         )}
       </div>
 
