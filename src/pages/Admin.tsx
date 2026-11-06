@@ -5,7 +5,6 @@ import { toast } from '../store/toast';
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
-import { allTemplates } from '../data/players';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 
@@ -38,7 +37,6 @@ const EDITION_LABELS: Record<string, string> = {
   potm: 'Craque da Rodada',
 };
 
-const templates = allTemplates();
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -63,7 +61,7 @@ export default function Admin() {
     handling: 0,
     edition: 'none',
     special: 'none',
-    imageBase: '',
+    imageUrl: '',
   });
 
   useEffect(() => {
@@ -76,8 +74,7 @@ export default function Admin() {
 
   const isGK = form.position === 'GK';
 
-  const selectedTemplate = templates.find(t => t.name === form.imageBase);
-  const previewImage = selectedTemplate?.image || '';
+  const previewImage = form.imageUrl.trim();
 
   const previewCard: PlayerCard = {
     uid: 'preview',
@@ -85,9 +82,9 @@ export default function Admin() {
     name: form.name || 'Nome do Jogador',
     position: form.position as any,
     sport: 'futsal',
-    nationality: selectedTemplate?.nationality || 'Brasil',
-    age: selectedTemplate?.age || 20,
-    club: selectedTemplate?.club || 'Clube',
+    nationality: 'Brasil',
+    age: 20,
+    club: 'Clube',
     rarity: form.rarity as any,
     edition: form.edition as any,
     special: form.special as any,
@@ -132,7 +129,7 @@ export default function Admin() {
         p_handling: isGK ? form.handling : null,
         p_edition: form.edition,
         p_special: form.special,
-        p_image: previewImage || null,
+        p_image: form.imageUrl.trim() || null,
       });
       if (error) { toast.error('Erro: ' + error.message); return; }
       toast.success('Carta criada com sucesso!');
@@ -176,11 +173,8 @@ export default function Admin() {
           </div>
 
           <div>
-            <label className={labelCls}>Imagem (baseada em jogador existente)</label>
-            <select value={form.imageBase} onChange={e => setForm({ ...form, imageBase: e.target.value })} className={inputCls}>
-              <option value="">-- Sem imagem --</option>
-              {templates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
-            </select>
+            <label className={labelCls}>URL da Imagem</label>
+            <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
