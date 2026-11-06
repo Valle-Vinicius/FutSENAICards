@@ -22,7 +22,7 @@ serve(async req => {
   if (!token) return json({ error: 'unauthorized' }, 401);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');
   if (!supabaseUrl || !serviceRoleKey) {
     console.error('delete-account is missing Supabase server configuration');
     return json({ error: 'Account deletion is temporarily unavailable.' }, 500);

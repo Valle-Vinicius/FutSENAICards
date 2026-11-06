@@ -156,7 +156,7 @@ serve(async (req) => {
   const { data: match, error: matchError } = await supabase.from('pool_matches').select('*').eq('id', matchId).single();
   if (matchError) {
     if (matchError.code === 'PGRST116') return json({ error: 'match not found' }, 404);
-    return json({ error: 'database error' }, 500);
+    return json({ error: 'database error: ' + matchError.message }, 500);
   }
   if (!match) return json({ error: 'match not found' }, 404);
 
