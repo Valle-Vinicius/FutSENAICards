@@ -45,8 +45,8 @@ export async function saveSquad(userId: string, squad: Squad, name = 'Elenco pri
 
 export async function upsertPrimarySquad(userId: string, squad: Squad): Promise<boolean> {
   if (!supabase) return false;
-  // delete existing primary
-  await supabase.from('squads').delete().eq('user_id', userId).eq('is_primary', true);
+  // remover qualquer linha anterior deste usuário para evitar conflito de primário único
+  await supabase.from('squads').delete().eq('user_id', userId);
   const { error } = await supabase.from('squads').insert({
     user_id: userId,
     formation: squad.formation,
