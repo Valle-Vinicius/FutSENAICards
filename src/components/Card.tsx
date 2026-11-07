@@ -6,7 +6,7 @@ import { Circle, Star } from 'lucide-react';
 
 export default function Card({ card, size = 'md', onClick, isNew }: { card: PlayerCard; size?: 'sm'|'md'|'lg'; onClick?: () => void; isNew?: boolean }) {
   const meta = RARITY_META[card.rarity] ?? RARITY_META.common;
-  const img = getPlayerImage(card.name) || card.image;
+  const img = card.image || getPlayerImage(card.name);
   const isGK = card.position === 'GK';
   const dims = size === 'sm' ? 'w-36 h-52' : size === 'lg' ? 'w-60 h-84' : 'w-48 h-64';
   const attrFont = size === 'sm' ? 'text-[10px]' : 'text-[11px]';

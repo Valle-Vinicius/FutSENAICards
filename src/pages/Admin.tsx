@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
 import type { PlayerCard, Position, Rarity } from '../types';
-import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall, TEMPLATES } from '../data/players';
+import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall, allTemplates, loadDbTemplates } from '../data/players';
 import { validateRarityOverall } from '../lib/game';
 import { useGame } from '../store/useGame';
 
@@ -70,6 +70,9 @@ export default function Admin() {
 
   const [form, setForm] = useState({
     name: '',
+    nationality: 'Brasil',
+    age: 20,
+    club: 'Clube',
     position: 'Ala',
     rarity: 'uncommon',
     overall: 80,
@@ -137,9 +140,9 @@ export default function Admin() {
       name: form.name || 'Nome do Jogador',
       position: form.position as any,
       sport: 'futsal',
-      nationality: 'Brasil',
-      age: 20,
-      club: 'Clube',
+      nationality: form.nationality || 'Brasil',
+      age: Number(form.age) || 20,
+      club: form.club || 'Clube',
       rarity: rarity as any,
       edition: DEFAULT_EDITION,
       special: form.special as any,
@@ -245,7 +248,8 @@ export default function Admin() {
         p_special: templateAttrs.special,
       });
       if (error) { toast.error('Erro: ' + error.message); return; }
-      toast.success('Template atualizado! Recarregue a página para ver as mudanças.');
+      await loadDbTemplates();
+      toast.success('Template atualizado com sucesso!');
       setEditingTemplate(null);
     } catch (e: any) {
       toast.error('Erro: ' + (e?.message || 'desconhecido'));
@@ -276,8 +280,8 @@ export default function Admin() {
       }
 
       if (isInventory) {
-        const ovr = calculatedOverall;
-        const { error } = await supabase.rpc('create_card', {
+        const ovr = calcMode ? calculatedOverall : form.overall;
+        const { data: createdCardId, error } = await supabase.rpc('create_card', {
           p_name: form.name.trim(),
           p_position: form.position,
           p_rarity: rarityToUse,
@@ -294,21 +298,21 @@ export default function Admin() {
           p_edition: DEFAULT_EDITION,
           p_special: form.special,
           p_image: form.imageUrl.trim() || null,
-          p_nationality: 'Brasil',
-          p_age: 20,
-          p_club: 'Clube',
+          p_nationality: form.nationality.trim() || 'Brasil',
+          p_age: Number(form.age) || 20,
+          p_club: form.club.trim() || 'Clube',
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         toast.success('Carta criada no inventário!');
         const novaCarta: PlayerCard = {
-          uid: nanoid(10),
+          uid: createdCardId || nanoid(10),
           playerId: form.name.trim().toLowerCase().replace(/\s+/g, '-') + '-' + rarityToUse,
           name: form.name.trim(),
           position: form.position as Position,
           sport: 'futsal',
-          nationality: 'Brasil',
-          age: 20,
-          club: 'Clube',
+          nationality: form.nationality.trim() || 'Brasil',
+          age: Number(form.age) || 20,
+          club: form.club.trim() || 'Clube',
           rarity: rarityToUse as any,
           edition: DEFAULT_EDITION,
           special: form.special as any,
@@ -340,9 +344,9 @@ export default function Admin() {
         const { error } = await supabase.rpc('create_card_template', {
           p_name: form.name.trim(),
           p_position: form.position,
-          p_nationality: 'Brasil',
-          p_age: 20,
-          p_club: 'Clube',
+          p_nationality: form.nationality.trim() || 'Brasil',
+          p_age: Number(form.age) || 20,
+          p_club: form.club.trim() || 'Clube',
           p_pace: form.pace,
           p_shooting: form.shooting,
           p_passing: form.passing,
@@ -358,6 +362,7 @@ export default function Admin() {
           p_base_overall: ovr,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
+        await loadDbTemplates();
         toast.success('Carta adicionada aos pacotes!');
       }
       setForm({ ...form, name: '', imageUrl: '' });
@@ -400,6 +405,21 @@ export default function Admin() {
             <div>
               <label className={labelCls}>URL da Imagem</label>
               <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Nacionalidade</label>
+                <input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} className={inputCls} placeholder="Ex: Brasil" />
+              </div>
+              <div>
+                <label className={labelCls}>Idade</label>
+                <input type="number" value={form.age} onChange={e => setForm({ ...form, age: Number(e.target.value) })} className={inputCls} min={14} max={60} />
+              </div>
+              <div>
+                <label className={labelCls}>Clube</label>
+                <input value={form.club} onChange={e => setForm({ ...form, club: e.target.value })} className={inputCls} placeholder="Ex: Santos" />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -608,9 +628,9 @@ export default function Admin() {
 
         <div className="card-surface p-4 space-y-4">
           <h2 className="text-lg font-semibold text-[#252733]">Editar Cartas do Jogo (Templates)</h2>
-          <div className="text-xs text-[#858A98]">Edite os atributos das 13 cartas base. As mudanças se aplicam a todos os jogadores.</div>
+          <div className="text-xs text-[#858A98]">Edite os atributos das cartas e templates do jogo. As alterações são sincronizadas no banco e refletidas nos pacotes.</div>
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
-            {TEMPLATES.map((t: any) => (
+            {allTemplates().map((t: any) => (
               <div key={t.name} className="p-3 bg-[#F7F7F9] rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div>

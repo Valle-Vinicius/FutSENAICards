@@ -186,10 +186,19 @@ export async function loadDbTemplates() {
   console.log('[loadDbTemplates] carregados', templates.length, 'templates:', templates.map(t => t.name));
 }
 
-export function allTemplates() { return [...TEMPLATES, ...dbTemplates]; }
+export function allTemplates(): PlayerTemplate[] {
+  const dbMap = new Map<string, PlayerTemplate>(dbTemplates.map(t => [t.name, t]));
+  const merged = TEMPLATES.map(t => dbMap.get(t.name) || t);
+  for (const t of dbTemplates) {
+    if (!TEMPLATES.some(x => x.name === t.name)) {
+      merged.push(t);
+    }
+  }
+  return merged;
+}
 
 export function getPlayerImage(name: string): string | undefined {
-  const t = TEMPLATES.find(x => x.name === name);
+  const t = allTemplates().find(x => x.name === name);
   return t?.image;
 }
 
