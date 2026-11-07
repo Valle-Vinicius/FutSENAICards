@@ -358,7 +358,7 @@ export const useGame = create<GameState & Actions>()(
           const special = rollSpecial();
         const t = randomTemplate(pack.position as any);
         console.log('[openPack] template escolhido:', t.name, 'position:', t.position, 'baseRarity:', t.baseRarity, 'baseOverall:', t.baseOverall);
-        const card = generatePlayerCard(t, rarity, special === 'none' ? 'none' : special, t.baseRarity as Rarity, t.baseOverall);
+        const card = generatePlayerCard(t, rarity, special === 'none' ? 'none' : special, t.baseOverall);
           cards.push(card);
         }
         // add to store first

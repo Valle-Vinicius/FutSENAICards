@@ -96,13 +96,8 @@ export function calculateOverall(t: PlayerTemplate): number {
   return Math.round(a.shooting * 0.32 + a.physical * 0.22 + a.dribbling * 0.18 + a.passing * 0.12 + a.pace * 0.10 + a.defending * 0.06);
 }
 
-export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' = 'none', baseRarity?: Rarity, baseOverall?: number): PlayerCard {
-  // Quando vem de template do banco com baseRarity/baseOverall, usa esses valores
-  // em vez da raridade/overall sorteados pelo pacote
-  const effectiveRarity = baseRarity ?? rarity;
-  const effectiveBaseOverall = baseOverall ?? (t.baseOverall ?? calculateOverall(t));
-
-  const mod = RARITY_MODIFIER[effectiveRarity as Rarity] ?? 1.0;
+export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' = 'none', baseOverall?: number): PlayerCard {
+  const mod = RARITY_MODIFIER[rarity];
   const a = t.attributes;
   const attrs = {
     pace: applyModifier(a.pace, mod),
@@ -120,18 +115,18 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
 
   const effectiveSpecial = t.special && t.special !== 'none' ? t.special as any : special;
 
-  const overall = Math.min(99, effectiveBaseOverall + (RARITY_OVR_BONUS[effectiveRarity as Rarity] ?? 0) + (SPECIAL_OVR_BONUS[effectiveSpecial] ?? 0));
+  const overall = Math.min(99, (baseOverall ?? t.baseOverall ?? calculateOverall(t)) + (RARITY_OVR_BONUS[rarity] ?? 0) + (SPECIAL_OVR_BONUS[effectiveSpecial] ?? 0));
 
   return {
     uid: nanoid(10),
-    playerId: t.name.toLowerCase().replace(/\s+/g, '-') + '-' + effectiveRarity,
+    playerId: t.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
     name: t.name,
     position: t.position,
     sport: 'futsal',
     nationality: t.nationality,
     age: t.age,
     club: t.club,
-    rarity: effectiveRarity as any,
+    rarity,
     edition: SEASONS[0],
     special: effectiveSpecial as any,
     overall,
