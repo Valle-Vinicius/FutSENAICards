@@ -59,7 +59,7 @@ export const SPECIAL_OVR_BONUS: Record<string, number> = {
   futsal: 2,
 };
 
-const TEMPLATES: PlayerTemplate[] = [
+export const TEMPLATES: PlayerTemplate[] = [
   { name: 'Pietro Guedes', position: 'Pivo', nationality: 'Brasil', age: 20, club: 'Aurora Futsal', attributes: { pace: 81, shooting: 88, passing: 83, dribbling: 78, defending: 73, physical: 87 }, image: pietroguedes, baseRarity: 'uncommon', baseOverall: 86 },
   { name: 'Muzy', position: 'Pivo', nationality: 'Brasil', age: 21, club: 'Fênix Futsal', attributes: { pace: 78, shooting: 76, passing: 69, dribbling: 66, defending: 67, physical: 80 }, image: gustavohyppolito, baseRarity: 'uncommon', baseOverall: 75 },
   { name: 'Mateus Lopes', position: 'Pivo', nationality: 'Brasil', age: 19, club: 'Estrela Futsal', attributes: { pace: 41, shooting: 61, passing: 63, dribbling: 61, defending: 50, physical: 55 }, image: matheuslopes, baseRarity: 'uncommon', baseOverall: 57 },
