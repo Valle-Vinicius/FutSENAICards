@@ -80,7 +80,7 @@ export default function App() {
     <ErrorBoundary>
       <ToastContainer />
       <Tutorial />
-      <BrowserRouter>
+      <BrowserRouter basename={typeof window !== 'undefined' && window.location.pathname.startsWith('/FutSENAICards') ? '/FutSENAICards' : undefined}>
         <Routes>
         <Route path="/auth" element={<Auth />} />
         {!authed ? (

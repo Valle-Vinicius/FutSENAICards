@@ -3,6 +3,6 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/',
+  base: process.env.GITHUB_ACTIONS ? '/FutSENAICards/' : '/',
   plugins: [react(), tailwindcss()],
 })
