@@ -165,8 +165,15 @@ export function setDbTemplates(templates: PlayerTemplate[]) {
 
 export async function loadDbTemplates() {
   if (!supabase) return;
-  const { data } = await supabase.from('card_templates').select('*');
-  if (!data) return;
+  const { data, error } = await supabase.from('card_templates').select('*');
+  if (error) {
+    console.error('[loadDbTemplates] erro:', error);
+    return;
+  }
+  if (!data || data.length === 0) {
+    console.log('[loadDbTemplates] nenhum template encontrado no banco');
+    return;
+  }
   const templates: PlayerTemplate[] = data.map((t: any) => ({
     name: t.name,
     position: t.position,
@@ -176,11 +183,12 @@ export async function loadDbTemplates() {
     attributes: t.attributes || { pace: 70, shooting: 70, passing: 70, dribbling: 70, defending: 70, physical: 70 },
     gkAttributes: t.gk_attributes || undefined,
     image: t.image || '',
-    baseRarity: 'uncommon',
+    baseRarity: (t.base_rarity as Rarity) || 'uncommon',
     baseOverall: t.base_overall || undefined,
     special: t.special || 'none',
   }));
   setDbTemplates(templates);
+  console.log('[loadDbTemplates] carregados', templates.length, 'templates:', templates.map(t => t.name));
 }
 
 export function allTemplates() { return [...TEMPLATES, ...dbTemplates]; }

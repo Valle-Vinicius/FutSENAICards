@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { loadDbTemplates } from './data/players';
+import { loadDbTemplates, allTemplates } from './data/players';
 import React from 'react';
 import ToastContainer from './components/ToastContainer';
 import { useGame } from './store/useGame';
@@ -48,7 +48,11 @@ export default function App() {
 
   useEffect(() => {
     useGame.getState().init();
-    loadDbTemplates();
+    const initTemplates = async () => {
+      await loadDbTemplates();
+      console.log('[App] templates carregados, allTemplates:', allTemplates().length);
+    };
+    initTemplates();
     if (!supabase) {
       setAuthReady(true);
       setAuthed(false);
