@@ -29,6 +29,7 @@ interface PlayerTemplate {
   image: string;
   baseRarity: Rarity;
   baseOverall?: number;
+  special?: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal';
 }
 
 export const RARITY_MODIFIER: Record<Rarity, number> = {

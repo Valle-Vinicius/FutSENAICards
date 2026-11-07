@@ -3,7 +3,6 @@ import { nanoid } from 'nanoid';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
-import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 import type { PlayerCard, Position, Rarity } from '../types';
 import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall } from '../data/players';
@@ -41,7 +40,6 @@ function calcOverallLocal(
   rarity: string,
   special: string
 ): number {
-  const modMap: Record<Rarity, number> = { common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 };
   const t = {
     attributes: { pace: attrs.pace, shooting: attrs.shooting, passing: attrs.passing, dribbling: attrs.dribbling, defending: attrs.defending, physical: attrs.physical },
     gkAttributes: attrs.reflexes !== undefined && attrs.reflexes !== null ? { reflexes: attrs.reflexes, positioning: attrs.positioning ?? 50, handling: attrs.handling ?? 50 } : undefined,
@@ -111,6 +109,14 @@ export default function Admin() {
     reflexes: isGK ? applyMod(form.reflexes, mod) : undefined,
     positioning: isGK ? applyMod(form.positioning, mod) : undefined,
     handling: isGK ? applyMod(form.handling, mod) : undefined,
+  };
+
+  const attrsRaw = {
+    pace: form.pace, shooting: form.shooting, passing: form.passing,
+    dribbling: form.dribbling, defending: form.defending, physical: form.physical,
+    reflexes: isGK ? form.reflexes : undefined,
+    positioning: isGK ? form.positioning : undefined,
+    handling: isGK ? form.handling : undefined,
   };
 
   const calculatedOverall = calcOverallLocal(attrsRaw, form.position, rarityToUse, form.special);
@@ -191,7 +197,7 @@ export default function Admin() {
           uid: nanoid(10),
           playerId: form.name.trim().toLowerCase().replace(/\s+/g, '-') + '-' + rarityToUse,
           name: form.name.trim(),
-          position: form.position,
+          position: form.position as Position,
           sport: 'futsal',
           nationality: 'Brasil',
           age: 20,

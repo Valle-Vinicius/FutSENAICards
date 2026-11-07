@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types';
+import { RARITY_META, SPECIAL_META } from '../types';
 import { toast } from './toast';
 import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL } from '../lib/game';
 import { supabase } from '../lib/supabase';
