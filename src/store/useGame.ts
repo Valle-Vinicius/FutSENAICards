@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
-import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types';
+import type { GameState, PlayerCard, Squad, SavedSquad, Listing, Rarity } from '../types';
 import { RARITY_META, SPECIAL_META } from '../types';
 import { toast } from './toast';
 import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL } from '../lib/game';
@@ -16,7 +16,6 @@ import { getSettings, updateSettings as updateSettingsService } from '../lib/ser
 import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate, allTemplates } from '../data/players';
-import { RARITY_META, SPECIAL_META } from '../types';
 
 // --- Elenco ativo: autosave + serialização do sync ---
 let squadSaveTimer: ReturnType<typeof setTimeout> | null = null;
