@@ -65,6 +65,8 @@ export default function Admin() {
     position: 'Ala',
     rarity: 'uncommon',
     overall: 80,
+    baseOverall: 80,
+    baseRarity: 'uncommon',
     pace: 70,
     shooting: 70,
     passing: 70,
@@ -107,12 +109,14 @@ export default function Admin() {
     handling: isGK ? form.handling : undefined,
   };
 
-  const calculatedOverall = calcMode ? calcOverall(attrs, form.position, 'uncommon', form.special) : form.overall;
+  const calcRarity = form.destination === 'packs' ? form.baseRarity : form.rarity;
+  const calcBaseOvr = form.destination === 'packs' ? form.baseOverall : form.overall;
+  const calculatedOverall = calcMode ? calcOverall(attrs, form.position, calcRarity, form.special) : calcBaseOvr;
 
   // Preview cards for all rarities (when calc mode)
   const makePreviewCard = (rarity: string): PlayerCard => {
     const mod = RARITY_MODIFIER[rarity as Rarity] ?? 1.0;
-    const ovr = calcMode ? calcOverall(attrs, form.position, rarity, form.special) : form.overall;
+    const ovr = calcMode ? calcOverall(attrs, form.position, rarity, form.special) : (form.destination === 'packs' ? form.baseOverall : form.overall);
     return {
       uid: 'preview-' + rarity,
       playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
@@ -175,6 +179,7 @@ export default function Admin() {
         toast.success('Carta criada no inventário!');
         if (userId) await syncUserData(userId);
       } else {
+        const ovr = calcMode ? calculatedOverall : form.baseOverall;
         const { error } = await supabase.rpc('create_card_template', {
           p_name: form.name.trim(),
           p_position: form.position,
@@ -191,7 +196,9 @@ export default function Admin() {
           p_positioning: isGK ? form.positioning : null,
           p_handling: isGK ? form.handling : null,
           p_image: form.imageUrl.trim() || null,
-          p_special: form.special,
+          p_special: 'none',
+          p_base_rarity: form.baseRarity,
+          p_base_overall: ovr,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         toast.success('Carta adicionada aos pacotes!');
@@ -245,13 +252,23 @@ export default function Admin() {
                 {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            <div>
-              <label className={labelCls}>Raridade</label>
-              <select value={form.rarity} onChange={e => setForm({ ...form, rarity: e.target.value })} className={inputCls} disabled={calcMode}>
-                {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
-              </select>
-              {calcMode && <div className="text-[10px] text-[#858A98] mt-1">Bloqueado no modo cálculo (sempre Incomum)</div>}
-            </div>
+            {form.destination === 'inventory' ? (
+              <div>
+                <label className={labelCls}>Raridade</label>
+                <select value={form.rarity} onChange={e => setForm({ ...form, rarity: e.target.value })} className={inputCls} disabled={calcMode}>
+                  {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
+                </select>
+                {calcMode && <div className="text-[10px] text-[#858A98] mt-1">Bloqueado no modo cálculo (sempre Incomum)</div>}
+              </div>
+            ) : (
+              <div>
+                <label className={labelCls}>Raridade Base (pacotes)</label>
+                <select value={form.baseRarity} onChange={e => setForm({ ...form, baseRarity: e.target.value as any })} className={inputCls}>
+                  {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
+                </select>
+                <div className="text-[10px] text-[#858A98] mt-1">Raridade usada como base da carta nos pacotes</div>
+              </div>
+            )}
           </div>
 
           {/* Toggle: calcular OVR automaticamente */}
@@ -259,13 +276,17 @@ export default function Admin() {
             <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="w-4 h-4" />
             <div>
               <div className="text-sm font-medium text-[#252733]">Calcular OVR automaticamente</div>
-              <div className="text-xs text-[#858A98]">O overall será calculado a partir dos atributos (sistema incomum). Preview mostra todas as raridades.</div>
+              <div className="text-xs text-[#858A98]">{form.destination === 'inventory' ? 'O overall será calculado a partir dos atributos (sistema incomum).' : 'O overall base será usado direto nos pacotes.'}</div>
             </div>
           </div>
 
           <div>
-            <label className={labelCls}>Overall (OVR) {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
-            <input type="number" value={calcMode ? calculatedOverall : form.overall} onChange={e => setForm({ ...form, overall: Number(e.target.value) })} className={inputCls} min={0} max={999} disabled={calcMode} />
+            <label className={labelCls}>Overall {form.destination === 'packs' ? '(base)' : ''} {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
+            <input type="number" value={calcMode ? calculatedOverall : (form.destination === 'packs' ? form.baseOverall : form.overall)} onChange={e => {
+              const val = Number(e.target.value);
+              if (form.destination === 'packs') setForm({ ...form, baseOverall: val });
+              else setForm({ ...form, overall: val });
+            }} className={inputCls} min={0} max={999} disabled={calcMode} />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -312,20 +333,22 @@ export default function Admin() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Edição</label>
-              <select value={form.edition} onChange={e => setForm({ ...form, edition: e.target.value })} className={inputCls}>
-                {EDITIONS.map(e => <option key={e} value={e}>{EDITION_LABELS[e]}</option>)}
-              </select>
+          {form.destination === 'inventory' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Edição</label>
+                <select value={form.edition} onChange={e => setForm({ ...form, edition: e.target.value })} className={inputCls}>
+                  {EDITIONS.map(e => <option key={e} value={e}>{EDITION_LABELS[e]}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Especial</label>
+                <select value={form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={inputCls}>
+                  {SPECIALS.map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>Especial</label>
-              <select value={form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={inputCls}>
-                {SPECIALS.map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
-              </select>
-            </div>
-          </div>
+          )}
 
           {/* Toggle: destino */}
           <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
@@ -362,9 +385,9 @@ export default function Admin() {
             </div>
           ) : (
             <>
-              <Card card={makePreviewCard(form.rarity)} size="lg" />
+              <Card card={makePreviewCard(form.destination === 'packs' ? form.baseRarity : form.rarity)} size="lg" />
               <div className="text-xs text-[#858A98] text-center">
-                {RARITY_LABELS[form.rarity] || form.rarity} · OVR {form.overall}
+                {RARITY_LABELS[form.destination === 'packs' ? form.baseRarity : form.rarity] || (form.destination === 'packs' ? form.baseRarity : form.rarity)} · OVR {form.destination === 'packs' ? form.baseOverall : form.overall}
               </div>
             </>
           )}

@@ -95,8 +95,13 @@ export function calculateOverall(t: PlayerTemplate): number {
   return Math.round(a.shooting * 0.32 + a.physical * 0.22 + a.dribbling * 0.18 + a.passing * 0.12 + a.pace * 0.10 + a.defending * 0.06);
 }
 
-export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' = 'none'): PlayerCard {
-  const mod = RARITY_MODIFIER[rarity];
+export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' = 'none', baseRarity?: Rarity, baseOverall?: number): PlayerCard {
+  // Quando vem de template do banco com baseRarity/baseOverall, usa esses valores
+  // em vez da raridade/overall sorteados pelo pacote
+  const effectiveRarity = baseRarity ?? rarity;
+  const effectiveBaseOverall = baseOverall ?? (t.baseOverall ?? calculateOverall(t));
+
+  const mod = RARITY_MODIFIER[effectiveRarity as Rarity] ?? 1.0;
   const a = t.attributes;
   const attrs = {
     pace: applyModifier(a.pace, mod),
@@ -112,20 +117,22 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
     handling: applyModifier(t.gkAttributes.handling, mod),
   } : undefined;
 
-  const overall = Math.min(99, (t.baseOverall ?? calculateOverall(t)) + (RARITY_OVR_BONUS[rarity] ?? 0) + (SPECIAL_OVR_BONUS[special] ?? 0));
+  const effectiveSpecial = t.special && t.special !== 'none' ? t.special as any : special;
+
+  const overall = Math.min(99, effectiveBaseOverall + (RARITY_OVR_BONUS[effectiveRarity as Rarity] ?? 0) + (SPECIAL_OVR_BONUS[effectiveSpecial] ?? 0));
 
   return {
     uid: nanoid(10),
-    playerId: t.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
+    playerId: t.name.toLowerCase().replace(/\s+/g, '-') + '-' + effectiveRarity,
     name: t.name,
     position: t.position,
     sport: 'futsal',
     nationality: t.nationality,
     age: t.age,
     club: t.club,
-    rarity,
+    rarity: effectiveRarity as any,
     edition: SEASONS[0],
-    special: special as any,
+    special: effectiveSpecial as any,
     overall,
     image: t.image,
     pace: attrs.pace,
@@ -141,6 +148,8 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
     xp: 0,
     evoPoints: 0,
     upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
+    evolutionLog: [],
+    seasonStats: { matches: 0, goals: 0, assists: 0 },
   };
 }
 
@@ -181,7 +190,7 @@ export function getPlayerImage(name: string): string | undefined {
 }
 
 export function randomTemplate(positionFilter?: Position): PlayerTemplate {
-  const pool = positionFilter ? TEMPLATES.filter(t => t.position === positionFilter) : TEMPLATES;
+  const pool = positionFilter ? allTemplates().filter(t => t.position === positionFilter) : allTemplates();
   if (pool.length === 0) return TEMPLATES[0];
   return pool[Math.floor(Math.random() * pool.length)];
 }
