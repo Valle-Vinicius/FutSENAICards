@@ -34,6 +34,12 @@ export default function Collection() {
     return b.obtainedAt - a.obtainedAt;
   });
 
+  // DEBUG: show filtered card rarities
+  if (rar) {
+    console.log('[Collection] Filtered by:', rar);
+    filtered.forEach(c => console.log('  -', c.name, 'rarity:', c.rarity, 'ovr:', c.overall));
+  }
+
   const unique = new Set(cards.map(c => (c.playerId || c.name).split('-')[0])).size;
   const clubs = [...new Set(cards.map(c => c.club))];
   useEffect(() => { setPage(1); }, [q, pos, rar, club, sort]);
