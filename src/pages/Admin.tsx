@@ -96,72 +96,6 @@ export default function Admin() {
     });
   }, []);
 
-  const isGK = form.position === 'GK';
-  const calcMode = form.calcOverall;
-  const isInventory = form.destination === 'inventory';
-
-  const rarityToUse = isInventory ? form.rarity : form.baseRarity;
-  const mod = RARITY_MODIFIER[rarityToUse as Rarity] ?? 1.0;
-
-  const attrsMod = {
-    pace: applyMod(form.pace, mod),
-    shooting: applyMod(form.shooting, mod),
-    passing: applyMod(form.passing, mod),
-    dribbling: applyMod(form.dribbling, mod),
-    defending: applyMod(form.defending, mod),
-    physical: applyMod(form.physical, mod),
-    reflexes: isGK ? applyMod(form.reflexes, mod) : undefined,
-    positioning: isGK ? applyMod(form.positioning, mod) : undefined,
-    handling: isGK ? applyMod(form.handling, mod) : undefined,
-  };
-
-  const attrsRaw = {
-    pace: form.pace, shooting: form.shooting, passing: form.passing,
-    dribbling: form.dribbling, defending: form.defending, physical: form.physical,
-    reflexes: isGK ? form.reflexes : undefined,
-    positioning: isGK ? form.positioning : undefined,
-    handling: isGK ? form.handling : undefined,
-  };
-
-  const calculatedOverall = calcOverallLocal(attrsRaw, form.position, rarityToUse, form.special);
-
-  const makePreviewCard = (rarity: string): PlayerCard => {
-    const rMod = RARITY_MODIFIER[rarity as Rarity] ?? 1.0;
-    const ovr = calcOverallLocal(attrsRaw, form.position, rarity, form.special);
-    return {
-      uid: 'preview-' + rarity,
-      playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
-      name: form.name || 'Nome do Jogador',
-      position: form.position as any,
-      sport: 'futsal',
-      nationality: 'Brasil',
-      age: 20,
-      club: 'Clube',
-      rarity: rarity as any,
-      edition: DEFAULT_EDITION,
-      special: form.special as any,
-      overall: ovr,
-      pace: applyMod(form.pace, rMod),
-      shooting: applyMod(form.shooting, rMod),
-      passing: applyMod(form.passing, rMod),
-      dribbling: applyMod(form.dribbling, rMod),
-      defending: applyMod(form.defending, rMod),
-      physical: applyMod(form.physical, rMod),
-      reflexes: isGK ? applyMod(form.reflexes, rMod) : undefined,
-      positioning: isGK ? applyMod(form.positioning, rMod) : undefined,
-      handling: isGK ? applyMod(form.handling, rMod) : undefined,
-      image: form.imageUrl.trim(),
-      favorite: false,
-      isNew: true,
-      obtainedAt: Date.now(),
-      xp: 0,
-      evoPoints: 0,
-      upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
-      evolutionLog: [],
-      seasonStats: { matches: 0, goals: 0, assists: 0 },
-    };
-  };
-
   const loadAllCards = async () => {
     if (!supabase) return;
     setLoadingCards(true);
@@ -192,6 +126,8 @@ export default function Admin() {
   useEffect(() => {
     if (userId === ADMIN_USER_ID) loadAllCards();
   }, [userId]);
+
+  const handleCreate = async () => {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
     setCreating(true);
     try {
@@ -309,167 +245,234 @@ export default function Admin() {
   const inputCls = "w-full bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]";
   const labelCls = "text-xs text-[#858A98] mb-1 block";
 
+  const isGK = form.position === 'GK';
+  const calcMode = form.calcOverall;
+  const isInventory = form.destination === 'inventory';
+
+  const rarityToUse = isInventory ? form.rarity : form.baseRarity;
+  const mod = RARITY_MODIFIER[rarityToUse as Rarity] ?? 1.0;
+
+  const attrsMod = {
+    pace: applyMod(form.pace, mod),
+    shooting: applyMod(form.shooting, mod),
+    passing: applyMod(form.passing, mod),
+    dribbling: applyMod(form.dribbling, mod),
+    defending: applyMod(form.defending, mod),
+    physical: applyMod(form.physical, mod),
+    reflexes: isGK ? applyMod(form.reflexes, mod) : undefined,
+    positioning: isGK ? applyMod(form.positioning, mod) : undefined,
+    handling: isGK ? applyMod(form.handling, mod) : undefined,
+  };
+
+  const attrsRaw = {
+    pace: form.pace, shooting: form.shooting, passing: form.passing,
+    dribbling: form.dribbling, defending: form.defending, physical: form.physical,
+    reflexes: isGK ? form.reflexes : undefined,
+    positioning: isGK ? form.positioning : undefined,
+    handling: isGK ? form.handling : undefined,
+  };
+
+  const calculatedOverall = calcOverallLocal(attrsRaw, form.position, rarityToUse, form.special);
+
+  const makePreviewCard = (rarity: string): PlayerCard => {
+    const rMod = RARITY_MODIFIER[rarity as Rarity] ?? 1.0;
+    const ovr = calcOverallLocal(attrsRaw, form.position, rarity, form.special);
+    return {
+      uid: 'preview-' + rarity,
+      playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
+      name: form.name || 'Nome do Jogador',
+      position: form.position as any,
+      sport: 'futsal',
+      nationality: 'Brasil',
+      age: 20,
+      club: 'Clube',
+      rarity: rarity as any,
+      edition: DEFAULT_EDITION,
+      special: form.special as any,
+      overall: ovr,
+      pace: applyMod(form.pace, rMod),
+      shooting: applyMod(form.shooting, rMod),
+      passing: applyMod(form.passing, rMod),
+      dribbling: applyMod(form.dribbling, rMod),
+      defending: applyMod(form.defending, rMod),
+      physical: applyMod(form.physical, rMod),
+      reflexes: isGK ? applyMod(form.reflexes, rMod) : undefined,
+      positioning: isGK ? applyMod(form.positioning, rMod) : undefined,
+      handling: isGK ? applyMod(form.handling, rMod) : undefined,
+      image: form.imageUrl.trim(),
+      favorite: false,
+      isNew: true,
+      obtainedAt: Date.now(),
+      xp: 0,
+      evoPoints: 0,
+      upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
+      evolutionLog: [],
+      seasonStats: { matches: 0, goals: 0, assists: 0 },
+    };
+  };
+
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <h1 className="text-2xl font-bold text-[#252733]">Painel Administrador</h1>
+    <>
+      <div className="p-4 md:p-8 space-y-6">
+        <h1 className="text-2xl font-bold text-[#252733]">Painel Administrador</h1>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Formulário */}
-        <div className="flex-1 card-surface p-4 space-y-4">
-          <h2 className="text-lg font-semibold text-[#252733]">Criar Carta</h2>
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Formulário */}
+          <div className="flex-1 card-surface p-4 space-y-4">
+            <h2 className="text-lg font-semibold text-[#252733]">Criar Carta</h2>
 
-          <div>
-            <label className={labelCls}>Nome do Jogador</label>
-            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Ex: João Marcos" />
-          </div>
+            <div>
+              <label className={labelCls}>Nome do Jogador</label>
+              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Ex: João Marcos" />
+            </div>
 
-          <div>
-            <label className={labelCls}>URL da Imagem</label>
-            <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
-          </div>
+            <div>
+              <label className={labelCls}>URL da Imagem</label>
+              <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Posição</label>
-              <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className={inputCls}>
-                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Raridade</label>
-              <select value={isInventory ? form.rarity : form.baseRarity} onChange={e => {
-                const val = e.target.value as any;
-                if (isInventory) setForm({ ...form, rarity: val });
-                else setForm({ ...form, baseRarity: val });
-              }} className={inputCls} disabled={calcMode && isInventory}>
-                {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
-              </select>
-              {calcMode && isInventory && <div className="text-[10px] text-[#858A98] mt-1">Modo cálculo: OVR aplicado sobre esta raridade</div>}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
-            <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="w-4 h-4" />
-            <div>
-              <div className="text-sm font-medium text-[#252733]">Calcular OVR automaticamente</div>
-              <div className="text-xs text-[#858A98]">{isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</div>
-            </div>
-          </div>
-
-          <div>
-            <label className={labelCls}>Overall {isInventory ? '' : '(base)'} {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
-            <input type="number" value={calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall)} onChange={e => {
-              const val = Number(e.target.value);
-              if (!isInventory) setForm({ ...form, baseOverall: val });
-              else setForm({ ...form, overall: val });
-            }} className={inputCls} min={0} max={99} disabled={calcMode && isInventory} />
-            {isInventory && !calcMode && <div className="text-[10px] text-[#858A98] mt-1">O overall digitado será recalculado com atributos × raridade ao salvar.</div>}
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelCls}>Velocidade</label>
-              <input type="number" value={form.pace} onChange={e => setForm({ ...form, pace: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-            </div>
-            <div>
-              <label className={labelCls}>Chute</label>
-              <input type="number" value={form.shooting} onChange={e => setForm({ ...form, shooting: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-            </div>
-            <div>
-              <label className={labelCls}>Passe</label>
-              <input type="number" value={form.passing} onChange={e => setForm({ ...form, passing: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-            </div>
-            <div>
-              <label className={labelCls}>Drible</label>
-              <input type="number" value={form.dribbling} onChange={e => setForm({ ...form, dribbling: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-            </div>
-            <div>
-              <label className={labelCls}>Defesa</label>
-              <input type="number" value={form.defending} onChange={e => setForm({ ...form, defending: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-            </div>
-            <div>
-              <label className={labelCls}>Físico</label>
-              <input type="number" value={form.physical} onChange={e => setForm({ ...form, physical: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-            </div>
-          </div>
-
-          {isGK && (
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelCls}>Reflexos</label>
-                <input type="number" value={form.reflexes} onChange={e => setForm({ ...form, reflexes: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-              </div>
-              <div>
-                <label className={labelCls}>Posicionamento</label>
-                <input type="number" value={form.positioning} onChange={e => setForm({ ...form, positioning: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-              </div>
-              <div>
-                <label className={labelCls}>Defesa de Bola</label>
-                <input type="number" value={form.handling} onChange={e => setForm({ ...form, handling: Number(e.target.value) })} className={inputCls} min={0} max={99} />
-              </div>
-            </div>
-          )}
-
-          {isInventory && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Edição</label>
-                <select value={form.edition} onChange={e => setForm({ ...form, edition: e.target.value })} className={inputCls}>
-                  <option value={DEFAULT_EDITION}>Temporada ({DEFAULT_EDITION})</option>
-                  <option value="none">Sem edição</option>
+                <label className={labelCls}>Posição</label>
+                <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className={inputCls}>
+                  {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
-                <div className="text-[10px] text-[#858A98] mt-1">Use a temporada para cartas normais. Edições especiais vão em 'Especial'.</div>
               </div>
               <div>
-                <label className={labelCls}>Especial</label>
-                <select value={form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={inputCls}>
-                  {SPECIALS.map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
+                <label className={labelCls}>Raridade</label>
+                <select value={isInventory ? form.rarity : form.baseRarity} onChange={e => {
+                  const val = e.target.value as any;
+                  if (isInventory) setForm({ ...form, rarity: val });
+                  else setForm({ ...form, baseRarity: val });
+                }} className={inputCls} disabled={calcMode && isInventory}>
+                  {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
                 </select>
+                {calcMode && isInventory && <div className="text-[10px] text-[#858A98] mt-1">Modo cálculo: OVR aplicado sobre esta raridade</div>}
               </div>
             </div>
-          )}
 
-          {/* Toggle: destino */}
-          <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
-            <div className="flex-1">
-              <div className="text-sm font-medium text-[#252733]">Destino da carta</div>
-              <div className="text-xs text-[#858A98]">Onde a carta será disponibilizada</div>
+            <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
+              <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="w-4 h-4" />
+              <div>
+                <div className="text-sm font-medium text-[#252733]">Calcular OVR automaticamente</div>
+                <div className="text-xs text-[#858A98]">{isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</div>
+              </div>
             </div>
-            <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value as any })} className="bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]">
-              <option value="inventory">Inventário (admin)</option>
-              <option value="packs">Pacotes (disponível para todos)</option>
-            </select>
+
+            <div>
+              <label className={labelCls}>Overall {isInventory ? '' : '(base)'} {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
+              <input type="number" value={calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall)} onChange={e => {
+                const val = Number(e.target.value);
+                if (!isInventory) setForm({ ...form, baseOverall: val });
+                else setForm({ ...form, overall: val });
+              }} className={inputCls} min={0} max={99} disabled={calcMode && isInventory} />
+              {isInventory && !calcMode && <div className="text-[10px] text-[#858A98] mt-1">O overall digitado será recalculado com atributos × raridade ao salvar.</div>}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Velocidade</label>
+                <input type="number" value={form.pace} onChange={e => setForm({ ...form, pace: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+              </div>
+              <div>
+                <label className={labelCls}>Chute</label>
+                <input type="number" value={form.shooting} onChange={e => setForm({ ...form, shooting: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+              </div>
+              <div>
+                <label className={labelCls}>Passe</label>
+                <input type="number" value={form.passing} onChange={e => setForm({ ...form, passing: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+              </div>
+              <div>
+                <label className={labelCls}>Drible</label>
+                <input type="number" value={form.dribbling} onChange={e => setForm({ ...form, dribbling: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+              </div>
+              <div>
+                <label className={labelCls}>Defesa</label>
+                <input type="number" value={form.defending} onChange={e => setForm({ ...form, defending: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+              </div>
+              <div>
+                <label className={labelCls}>Físico</label>
+                <input type="number" value={form.physical} onChange={e => setForm({ ...form, physical: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+              </div>
+            </div>
+
+            {isGK && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Reflexos</label>
+                  <input type="number" value={form.reflexes} onChange={e => setForm({ ...form, reflexes: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                </div>
+                <div>
+                  <label className={labelCls}>Posicionamento</label>
+                  <input type="number" value={form.positioning} onChange={e => setForm({ ...form, positioning: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                </div>
+                <div>
+                  <label className={labelCls}>Defesa de Bola</label>
+                  <input type="number" value={form.handling} onChange={e => setForm({ ...form, handling: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                </div>
+              </div>
+            )}
+
+            {isInventory && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Edição</label>
+                  <select value={form.edition} onChange={e => setForm({ ...form, edition: e.target.value })} className={inputCls}>
+                    <option value={DEFAULT_EDITION}>Temporada ({DEFAULT_EDITION})</option>
+                    <option value="none">Sem edição</option>
+                  </select>
+                  <div className="text-[10px] text-[#858A98] mt-1">Use a temporada para cartas normais. Edições especiais vão em 'Especial'.</div>
+                </div>
+                <div>
+                  <label className={labelCls}>Especial</label>
+                  <select value={form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={inputCls}>
+                    {SPECIALS.map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Toggle: destino */}
+            <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
+              <div className="flex-1">
+                <div className="text-sm font-medium text-[#252733]">Destino da carta</div>
+                <div className="text-xs text-[#858A98]">Onde a carta será disponibilizada</div>
+              </div>
+              <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value as any })} className="bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]">
+                <option value="inventory">Inventário (admin)</option>
+                <option value="packs">Pacotes (disponível para todos)</option>
+              </select>
+            </div>
+
+            <button
+              onClick={handleCreate}
+              disabled={creating || !form.name.trim()}
+              className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
+            >
+              {creating ? 'Criando...' : isInventory ? 'Criar no Inventário' : 'Adicionar aos Pacotes'}
+            </button>
           </div>
 
-          <button
-            onClick={handleCreate}
-            disabled={creating || !form.name.trim()}
-            className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
-          >
-            {creating ? 'Criando...' : isInventory ? 'Criar no Inventário' : 'Adicionar aos Pacotes'}
-          </button>
-        </div>
-
-        {/* Preview da carta */}
-        <div className="flex flex-col items-center justify-start gap-4 min-w-[200px]">
-          <h2 className="text-lg font-semibold text-[#252733]">Preview</h2>
-          {calcMode ? (
-            <div className="flex flex-wrap gap-3 justify-center">
-              {RARITIES.map(r => (
-                <div key={r} className="flex flex-col items-center gap-1">
-                  <Card card={makePreviewCard(r)} size="sm" />
-                  <div className="text-[10px] text-[#858A98]">{RARITY_LABELS[r]} · OVR {makePreviewCard(r).overall}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              <Card card={makePreviewCard(isInventory ? form.rarity : form.baseRarity)} size="lg" />
-              <div className="text-xs text-[#858A98] text-center">
-                {RARITY_LABELS[isInventory ? form.rarity : form.baseRarity] || (isInventory ? form.rarity : form.baseRarity)} · OVR {calculatedOverall}
+          {/* Preview da carta */}
+          <div className="flex flex-col items-center justify-start gap-4 min-w-[200px]">
+            <h2 className="text-lg font-semibold text-[#252733]">Preview</h2>
+            {calcMode ? (
+              <div className="flex flex-wrap gap-3 justify-center">
+                {RARITIES.map(r => (
+                  <div key={r} className="flex flex-col items-center gap-1">
+                    <Card card={makePreviewCard(r)} size="sm" />
+                    <div className="text-[10px] text-[#858A98]">{RARITY_LABELS[r]} · OVR {makePreviewCard(r).overall}</div>
+                  </div>
+                ))}
               </div>
-            </>
-          )}
+            ) : (
+              <>
+                <Card card={makePreviewCard(isInventory ? form.rarity : form.baseRarity)} size="lg" />
+                <div className="text-xs text-[#858A98] text-center">
+                  {RARITY_LABELS[isInventory ? form.rarity : form.baseRarity] || (isInventory ? form.rarity : form.baseRarity)} · OVR {calculatedOverall}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -535,6 +538,6 @@ export default function Admin() {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
