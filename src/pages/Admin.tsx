@@ -113,7 +113,7 @@ export default function Admin() {
   const handleUpdateOverall = async (cardId: string, newOverall: number) => {
     if (!supabase) return;
     try {
-      const { data, error } = await supabase.rpc('admin_update_card_overall', { p_card_id: cardId, p_overall: newOverall });
+      const { error } = await supabase.rpc('admin_update_card_overall', { p_card_id: cardId, p_overall: newOverall });
       if (error) { toast.error('Erro: ' + error.message); return; }
       toast.success('Overall atualizado!');
       setAllCards(prev => prev.map(c => c.id === cardId ? { ...c, overall: newOverall } : c));
