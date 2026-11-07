@@ -60,6 +60,10 @@ export default function Admin() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [allCards, setAllCards] = useState<any[]>([]);
+  const [loadingCards, setLoadingCards] = useState(false);
+  const [editingCard, setEditingCard] = useState<string | null>(null);
+  const [editOverall, setEditOverall] = useState<number>(0);
 
   const [form, setForm] = useState({
     name: '',
@@ -158,7 +162,36 @@ export default function Admin() {
     };
   };
 
-  const handleCreate = async () => {
+  const loadAllCards = async () => {
+    if (!supabase) return;
+    setLoadingCards(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_get_all_cards');
+      if (error) { toast.error('Erro ao carregar cartas: ' + error.message); return; }
+      setAllCards(data || []);
+    } catch (e: any) {
+      toast.error('Erro: ' + (e?.message || 'desconhecido'));
+    } finally {
+      setLoadingCards(false);
+    }
+  };
+
+  const handleUpdateOverall = async (cardId: string, newOverall: number) => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase.rpc('admin_update_card_overall', { p_card_id: cardId, p_overall: newOverall });
+      if (error) { toast.error('Erro: ' + error.message); return; }
+      toast.success('Overall atualizado!');
+      setAllCards(prev => prev.map(c => c.id === cardId ? { ...c, overall: newOverall } : c));
+      setEditingCard(null);
+    } catch (e: any) {
+      toast.error('Erro: ' + (e?.message || 'desconhecido'));
+    }
+  };
+
+  useEffect(() => {
+    if (userId === ADMIN_USER_ID) loadAllCards();
+  }, [userId]);
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
     setCreating(true);
     try {
@@ -437,7 +470,70 @@ export default function Admin() {
               </div>
             </>
           )}
+          </div>
         </div>
+      </div>
+
+      {/* Seção de edição de overall */}
+      <div className="card-surface p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-[#252733]">Editar Overall das Cartas</h2>
+          <button onClick={loadAllCards} disabled={loadingCards} className="px-3 py-1.5 rounded-xl bg-[#F7F7F9] text-sm font-medium text-[#252733] disabled:opacity-60">
+            {loadingCards ? 'Carregando...' : 'Atualizar lista'}
+          </button>
+        </div>
+        {loadingCards ? (
+          <div className="text-[#858A98] text-sm">Carregando cartas...</div>
+        ) : allCards.length === 0 ? (
+          <div className="text-[#858A98] text-sm">Nenhuma carta encontrada.</div>
+        ) : (
+          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+            {allCards.map((c: any) => (
+              <div key={c.id} className="flex items-center gap-3 p-2 bg-[#F7F7F9] rounded-xl">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-[#252733] truncate">{c.name}</div>
+                  <div className="text-xs text-[#858A98]">{c.position} · {c.rarity} · {c.club}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {editingCard === c.id ? (
+                    <>
+                      <input
+                        type="number"
+                        value={editOverall}
+                        onChange={e => setEditOverall(Number(e.target.value))}
+                        className="w-16 bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733] text-center"
+                        min={0}
+                        max={99}
+                      />
+                      <button
+                        onClick={() => handleUpdateOverall(c.id, editOverall)}
+                        className="px-2 py-1 rounded-lg bg-[#E30613] text-white text-xs font-bold"
+                      >
+                        OK
+                      </button>
+                      <button
+                        onClick={() => setEditingCard(null)}
+                        className="px-2 py-1 rounded-lg bg-[#E9EAF0] text-[#858A98] text-xs font-bold"
+                      >
+                        X
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm font-bold text-[#252733] w-8 text-center">{c.overall}</span>
+                      <button
+                        onClick={() => { setEditingCard(c.id); setEditOverall(c.overall); }}
+                        className="px-2 py-1 rounded-lg bg-[#E9EAF0] text-[#252733] text-xs font-bold hover:bg-[#E30613] hover:text-white transition"
+                      >
+                        Editar
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
