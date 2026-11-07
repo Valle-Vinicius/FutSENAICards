@@ -6,6 +6,7 @@ import { toast } from '../store/toast';
 import Card from '../components/Card';
 import type { PlayerCard, Position, Rarity } from '../types';
 import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall } from '../data/players';
+import { TEMPLATES } from '../data/players';
 import { validateRarityOverall } from '../lib/game';
 import { useGame } from '../store/useGame';
 
@@ -62,8 +63,9 @@ export default function Admin() {
   const [creating, setCreating] = useState(false);
   const [allCards, setAllCards] = useState<any[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
-  const [editingCard, setEditingCard] = useState<string | null>(null);
-  const [editOverall, setEditOverall] = useState<number>(0);
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [templateAttrs, setTemplateAttrs] = useState<Record<string, any>>({});
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -110,7 +112,74 @@ export default function Admin() {
     }
   };
 
-  const handleUpdateOverall = async (cardId: string, newOverall: number) => {
+  const loadTemplateAttrs = (t: any) => {
+    setTemplateAttrs({
+      name: t.name,
+      position: t.position,
+      nationality: t.nationality,
+      age: t.age,
+      club: t.club,
+      pace: t.attributes.pace,
+      shooting: t.attributes.shooting,
+      passing: t.attributes.passing,
+      dribbling: t.attributes.dribbling,
+      defending: t.attributes.defending,
+      physical: t.attributes.physical,
+      reflexes: t.gkAttributes?.reflexes ?? 0,
+      positioning: t.gkAttributes?.positioning ?? 0,
+      handling: t.gkAttributes?.handling ?? 0,
+      baseRarity: t.baseRarity,
+      baseOverall: t.baseOverall ?? 80,
+      special: t.special ?? 'none',
+      imageUrl: t.image || '',
+    });
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!supabase || !templateAttrs.name) return;
+    setSavingTemplate(true);
+    try {
+      const isGK = templateAttrs.position === 'GK';
+      const { error } = await supabase.rpc('admin_upsert_template', {
+        p_name: templateAttrs.name,
+        p_position: templateAttrs.position,
+        p_nationality: templateAttrs.nationality,
+        p_age: templateAttrs.age,
+        p_club: templateAttrs.club,
+        p_pace: templateAttrs.pace,
+        p_shooting: templateAttrs.shooting,
+        p_passing: templateAttrs.passing,
+        p_dribbling: templateAttrs.dribbling,
+        p_defending: templateAttrs.defending,
+        p_physical: templateAttrs.physical,
+        p_reflexes: isGK ? templateAttrs.reflexes : null,
+        p_positioning: isGK ? templateAttrs.positioning : null,
+        p_handling: isGK ? templateAttrs.handling : null,
+        p_image: templateAttrs.imageUrl || null,
+        p_base_rarity: templateAttrs.baseRarity,
+        p_base_overall: templateAttrs.baseOverall,
+        p_special: templateAttrs.special,
+      });
+      if (error) { toast.error('Erro: ' + error.message); return; }
+      toast.success('Template atualizado! Recarregue a página para ver as mudanças.');
+      setEditingTemplate(null);
+    } catch (e: any) {
+      toast.error('Erro: ' + (e?.message || 'desconhecido'));
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const calcTemplateOverall = (attrs: any, position: string, rarity: string, special: string) => {
+    const t = {
+      attributes: { pace: attrs.pace, shooting: attrs.shooting, passing: attrs.passing, dribbling: attrs.dribbling, defending: attrs.defending, physical: attrs.physical },
+      gkAttributes: attrs.reflexes ? { reflexes: attrs.reflexes, positioning: attrs.positioning, handling: attrs.handling } : undefined,
+      position: position as Position,
+      baseOverall: attrs.baseOverall,
+    };
+    const base = calculateOverall(t as any);
+    return Math.min(99, base + (RARITY_OVR_BONUS[rarity as Rarity] ?? 0) + (SPECIAL_OVR_BONUS[special] ?? 0));
+  };
     if (!supabase) return;
     try {
       const { error } = await supabase.rpc('admin_update_card_overall', { p_card_id: cardId, p_overall: newOverall });
@@ -477,66 +546,115 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Seção de edição de overall */}
+      {/* Seção de edição de templates (13 cartas base) */}
       <div className="card-surface p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#252733]">Editar Overall das Cartas</h2>
-          <button onClick={loadAllCards} disabled={loadingCards} className="px-3 py-1.5 rounded-xl bg-[#F7F7F9] text-sm font-medium text-[#252733] disabled:opacity-60">
-            {loadingCards ? 'Carregando...' : 'Atualizar lista'}
-          </button>
-        </div>
-        {loadingCards ? (
-          <div className="text-[#858A98] text-sm">Carregando cartas...</div>
-        ) : allCards.length === 0 ? (
-          <div className="text-[#858A98] text-sm">Nenhuma carta encontrada.</div>
-        ) : (
-          <div className="space-y-2 max-h-[500px] overflow-y-auto">
-            {allCards.map((c: any) => (
-              <div key={c.id} className="flex items-center gap-3 p-2 bg-[#F7F7F9] rounded-xl">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-[#252733] truncate">{c.name}</div>
-                  <div className="text-xs text-[#858A98]">{c.position} · {c.rarity} · {c.club}</div>
+        <h2 className="text-lg font-semibold text-[#252733]">Editar Cartas do Jogo (Templates)</h2>
+        <div className="text-xs text-[#858A98]">Edite os atributos das 13 cartas base. As mudanças se aplicam a todos os jogadores.</div>
+        <div className="space-y-2 max-h-[600px] overflow-y-auto">
+          {TEMPLATES.map((t, i) => (
+            <div key={t.name} className="p-3 bg-[#F7F7F9] rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-bold text-[#252733]">{t.name}</div>
+                  <div className="text-xs text-[#858A98]">{t.position} · {t.club} · OVR {t.baseOverall ?? calculateOverall(t as any)}</div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {editingCard === c.id ? (
-                    <>
-                      <input
-                        type="number"
-                        value={editOverall}
-                        onChange={e => setEditOverall(Number(e.target.value))}
-                        className="w-16 bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733] text-center"
-                        min={0}
-                        max={99}
-                      />
-                      <button
-                        onClick={() => handleUpdateOverall(c.id, editOverall)}
-                        className="px-2 py-1 rounded-lg bg-[#E30613] text-white text-xs font-bold"
-                      >
-                        OK
-                      </button>
-                      <button
-                        onClick={() => setEditingCard(null)}
-                        className="px-2 py-1 rounded-lg bg-[#E9EAF0] text-[#858A98] text-xs font-bold"
-                      >
-                        X
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-sm font-bold text-[#252733] w-8 text-center">{c.overall}</span>
-                      <button
-                        onClick={() => { setEditingCard(c.id); setEditOverall(c.overall); }}
-                        className="px-2 py-1 rounded-lg bg-[#E9EAF0] text-[#252733] text-xs font-bold hover:bg-[#E30613] hover:text-white transition"
-                      >
-                        Editar
-                      </button>
-                    </>
-                  )}
-                </div>
+                <button
+                  onClick={() => {
+                    if (editingTemplate === t.name) {
+                      setEditingTemplate(null);
+                    } else {
+                      setEditingTemplate(t.name);
+                      loadTemplateAttrs(t);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#E9EAF0] text-[#252733] text-xs font-bold hover:bg-[#E30613] hover:text-white transition"
+                >
+                  {editingTemplate === t.name ? 'Fechar' : 'Editar'}
+                </button>
               </div>
-            ))}
-          </div>
-        )}
+              {editingTemplate === t.name && (
+                <div className="space-y-3 pt-2 border-t border-[#E9EAF0]">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Velocidade</label>
+                      <input type="number" value={templateAttrs.pace} onChange={e => setTemplateAttrs({ ...templateAttrs, pace: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Chute</label>
+                      <input type="number" value={templateAttrs.shooting} onChange={e => setTemplateAttrs({ ...templateAttrs, shooting: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Passe</label>
+                      <input type="number" value={templateAttrs.passing} onChange={e => setTemplateAttrs({ ...templateAttrs, passing: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Drible</label>
+                      <input type="number" value={templateAttrs.dribbling} onChange={e => setTemplateAttrs({ ...templateAttrs, dribbling: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Defesa</label>
+                      <input type="number" value={templateAttrs.defending} onChange={e => setTemplateAttrs({ ...templateAttrs, defending: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Físico</label>
+                      <input type="number" value={templateAttrs.physical} onChange={e => setTemplateAttrs({ ...templateAttrs, physical: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                    </div>
+                  </div>
+                  {templateAttrs.position === 'GK' && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[10px] text-[#858A98] mb-1 block">Reflexos</label>
+                        <input type="number" value={templateAttrs.reflexes} onChange={e => setTemplateAttrs({ ...templateAttrs, reflexes: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#858A98] mb-1 block">Posicionamento</label>
+                        <input type="number" value={templateAttrs.positioning} onChange={e => setTemplateAttrs({ ...templateAttrs, positioning: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#858A98] mb-1 block">Defesa de Bola</label>
+                        <input type="number" value={templateAttrs.handling} onChange={e => setTemplateAttrs({ ...templateAttrs, handling: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Posição</label>
+                      <select value={templateAttrs.position} onChange={e => setTemplateAttrs({ ...templateAttrs, position: e.target.value })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]">
+                        {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Raridade Base</label>
+                      <select value={templateAttrs.baseRarity} onChange={e => setTemplateAttrs({ ...templateAttrs, baseRarity: e.target.value })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]">
+                        {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Overall Base</label>
+                      <input type="number" value={templateAttrs.baseOverall} onChange={e => setTemplateAttrs({ ...templateAttrs, baseOverall: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#858A98] mb-1 block">Clube</label>
+                      <input type="text" value={templateAttrs.club} onChange={e => setTemplateAttrs({ ...templateAttrs, club: e.target.value })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" />
+                    </div>
+                  </div>
+                  <div className="text-xs text-[#858A98]">
+                    OVR calculado: {calcTemplateOverall(templateAttrs, templateAttrs.position, templateAttrs.baseRarity, templateAttrs.special)}
+                  </div>
+                  <button
+                    onClick={handleSaveTemplate}
+                    disabled={savingTemplate}
+                    className="w-full py-2 rounded-xl bg-[#E30613] text-white font-bold text-sm disabled:opacity-60"
+                  >
+                    {savingTemplate ? 'Salvando...' : 'Salvar Template'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </>
   );
