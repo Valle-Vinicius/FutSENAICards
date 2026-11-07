@@ -93,15 +93,25 @@ export default function Admin() {
 
   const isGK = form.position === 'GK';
   const calcMode = form.calcOverall;
+  const isInventory = form.destination === 'inventory';
 
-  // When calc mode is on, force uncommon rarity
-  useEffect(() => {
-    if (calcMode && form.rarity !== 'uncommon') {
-      setForm(f => ({ ...f, rarity: 'uncommon' }));
-    }
-  }, [calcMode]);
+  const rarityToUse = isInventory ? form.rarity : form.baseRarity;
+  const mod = RARITY_MODIFIER[rarityToUse as Rarity] ?? 1.0;
 
-  const attrs = {
+  // Atributos já com applyMod aplicado (o que será salvo no banco)
+  const attrsMod = {
+    pace: applyMod(form.pace, mod),
+    shooting: applyMod(form.shooting, mod),
+    passing: applyMod(form.passing, mod),
+    dribbling: applyMod(form.dribbling, mod),
+    defending: applyMod(form.defending, mod),
+    physical: applyMod(form.physical, mod),
+    reflexes: isGK ? applyMod(form.reflexes, mod) : undefined,
+    positioning: isGK ? applyMod(form.positioning, mod) : undefined,
+    handling: isGK ? applyMod(form.handling, mod) : undefined,
+  };
+
+  const attrsRaw = {
     pace: form.pace, shooting: form.shooting, passing: form.passing,
     dribbling: form.dribbling, defending: form.defending, physical: form.physical,
     reflexes: isGK ? form.reflexes : undefined,
@@ -109,14 +119,15 @@ export default function Admin() {
     handling: isGK ? form.handling : undefined,
   };
 
-  const calcRarity = form.destination === 'packs' ? form.baseRarity : form.rarity;
-  const calcBaseOvr = form.destination === 'packs' ? form.baseOverall : form.overall;
-  const calculatedOverall = calcMode ? calcOverall(attrs, form.position, calcRarity, form.special) : calcBaseOvr;
+  // Para preview e salvamento: usar atributos com mod aplicado + calcOverall com a raridade selecionada
+  const calculatedOverall = calcMode
+    ? calcOverall(attrsMod, form.position, rarityToUse, form.special)
+    : calcOverall(attrsMod, form.position, rarityToUse, form.special);
 
   // Preview cards for all rarities (when calc mode)
   const makePreviewCard = (rarity: string): PlayerCard => {
-    const mod = RARITY_MODIFIER[rarity as Rarity] ?? 1.0;
-    const ovr = calcMode ? calcOverall(attrs, form.position, rarity, form.special) : (form.destination === 'packs' ? form.baseOverall : form.overall);
+    const rMod = RARITY_MODIFIER[rarity as Rarity] ?? 1.0;
+    const ovr = calcOverall(attrsMod, form.position, rarity, form.special);
     return {
       uid: 'preview-' + rarity,
       playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
@@ -130,15 +141,15 @@ export default function Admin() {
       edition: form.edition as any,
       special: form.special as any,
       overall: ovr,
-      pace: calcMode ? applyMod(form.pace, mod) : form.pace,
-      shooting: calcMode ? applyMod(form.shooting, mod) : form.shooting,
-      passing: calcMode ? applyMod(form.passing, mod) : form.passing,
-      dribbling: calcMode ? applyMod(form.dribbling, mod) : form.dribbling,
-      defending: calcMode ? applyMod(form.defending, mod) : form.defending,
-      physical: calcMode ? applyMod(form.physical, mod) : form.physical,
-      reflexes: isGK ? (calcMode ? applyMod(form.reflexes, mod) : form.reflexes) : undefined,
-      positioning: isGK ? (calcMode ? applyMod(form.positioning, mod) : form.positioning) : undefined,
-      handling: isGK ? (calcMode ? applyMod(form.handling, mod) : form.handling) : undefined,
+      pace: applyMod(form.pace, rMod),
+      shooting: applyMod(form.shooting, rMod),
+      passing: applyMod(form.passing, rMod),
+      dribbling: applyMod(form.dribbling, rMod),
+      defending: applyMod(form.defending, rMod),
+      physical: applyMod(form.physical, rMod),
+      reflexes: isGK ? applyMod(form.reflexes, rMod) : undefined,
+      positioning: isGK ? applyMod(form.positioning, rMod) : undefined,
+      handling: isGK ? applyMod(form.handling, rMod) : undefined,
       image: form.imageUrl.trim(),
       favorite: false,
       isNew: true,
@@ -155,22 +166,22 @@ export default function Admin() {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
     setCreating(true);
     try {
-      if (form.destination === 'inventory') {
-        const ovr = calcMode ? calculatedOverall : form.overall;
+      if (isInventory) {
+        const ovr = calculatedOverall;
         const { error } = await supabase.rpc('create_card', {
           p_name: form.name.trim(),
           p_position: form.position,
-          p_rarity: calcMode ? 'uncommon' : form.rarity,
+          p_rarity: rarityToUse,
           p_overall: ovr,
-          p_pace: form.pace,
-          p_shooting: form.shooting,
-          p_passing: form.passing,
-          p_dribbling: form.dribbling,
-          p_defending: form.defending,
-          p_physical: form.physical,
-          p_reflexes: isGK ? form.reflexes : null,
-          p_positioning: isGK ? form.positioning : null,
-          p_handling: isGK ? form.handling : null,
+          p_pace: attrsMod.pace,
+          p_shooting: attrsMod.shooting,
+          p_passing: attrsMod.passing,
+          p_dribbling: attrsMod.dribbling,
+          p_defending: attrsMod.defending,
+          p_physical: attrsMod.physical,
+          p_reflexes: isGK ? attrsMod.reflexes : null,
+          p_positioning: isGK ? attrsMod.positioning : null,
+          p_handling: isGK ? attrsMod.handling : null,
           p_edition: form.edition,
           p_special: form.special,
           p_image: form.imageUrl.trim() || null,
@@ -252,23 +263,17 @@ export default function Admin() {
                 {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            {form.destination === 'inventory' ? (
-              <div>
-                <label className={labelCls}>Raridade</label>
-                <select value={form.rarity} onChange={e => setForm({ ...form, rarity: e.target.value })} className={inputCls} disabled={calcMode}>
-                  {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
-                </select>
-                {calcMode && <div className="text-[10px] text-[#858A98] mt-1">Bloqueado no modo cálculo (sempre Incomum)</div>}
-              </div>
-            ) : (
-              <div>
-                <label className={labelCls}>Raridade Base (pacotes)</label>
-                <select value={form.baseRarity} onChange={e => setForm({ ...form, baseRarity: e.target.value as any })} className={inputCls}>
-                  {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
-                </select>
-                <div className="text-[10px] text-[#858A98] mt-1">Raridade usada como base da carta nos pacotes</div>
-              </div>
-            )}
+            <div>
+              <label className={labelCls}>Raridade</label>
+              <select value={isInventory ? form.rarity : form.baseRarity} onChange={e => {
+                const val = e.target.value as any;
+                if (isInventory) setForm({ ...form, rarity: val });
+                else setForm({ ...form, baseRarity: val });
+              }} className={inputCls} disabled={calcMode && isInventory}>
+                {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
+              </select>
+              {calcMode && isInventory && <div className="text-[10px] text-[#858A98] mt-1">Modo cálculo: OVR aplicado sobre esta raridade</div>}
+            </div>
           </div>
 
           {/* Toggle: calcular OVR automaticamente */}
@@ -276,17 +281,18 @@ export default function Admin() {
             <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="w-4 h-4" />
             <div>
               <div className="text-sm font-medium text-[#252733]">Calcular OVR automaticamente</div>
-              <div className="text-xs text-[#858A98]">{form.destination === 'inventory' ? 'O overall será calculado a partir dos atributos (sistema incomum).' : 'O overall base será usado direto nos pacotes.'}</div>
+              <div className="text-xs text-[#858A98]">{isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</div>
             </div>
           </div>
 
           <div>
-            <label className={labelCls}>Overall {form.destination === 'packs' ? '(base)' : ''} {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
-            <input type="number" value={calcMode ? calculatedOverall : (form.destination === 'packs' ? form.baseOverall : form.overall)} onChange={e => {
+            <label className={labelCls}>Overall {isInventory ? '' : '(base)'} {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
+            <input type="number" value={calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall)} onChange={e => {
               const val = Number(e.target.value);
-              if (form.destination === 'packs') setForm({ ...form, baseOverall: val });
+              if (!isInventory) setForm({ ...form, baseOverall: val });
               else setForm({ ...form, overall: val });
-            }} className={inputCls} min={0} max={999} disabled={calcMode} />
+            }} className={inputCls} min={0} max={999} disabled={calcMode && isInventory} />
+            {isInventory && !calcMode && <div className="text-[10px] text-[#858A98] mt-1">O overall digitado será recalculado com atributos × raridade ao salvar.</div>}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -333,7 +339,7 @@ export default function Admin() {
             </div>
           )}
 
-          {form.destination === 'inventory' && (
+          {isInventory && (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Edição</label>
@@ -367,7 +373,7 @@ export default function Admin() {
             disabled={creating || !form.name.trim()}
             className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
           >
-            {creating ? 'Criando...' : form.destination === 'packs' ? 'Adicionar aos Pacotes' : 'Criar no Inventário'}
+            {creating ? 'Criando...' : isInventory ? 'Criar no Inventário' : 'Adicionar aos Pacotes'}
           </button>
         </div>
 
@@ -385,9 +391,9 @@ export default function Admin() {
             </div>
           ) : (
             <>
-              <Card card={makePreviewCard(form.destination === 'packs' ? form.baseRarity : form.rarity)} size="lg" />
+              <Card card={makePreviewCard(isInventory ? form.rarity : form.baseRarity)} size="lg" />
               <div className="text-xs text-[#858A98] text-center">
-                {RARITY_LABELS[form.destination === 'packs' ? form.baseRarity : form.rarity] || (form.destination === 'packs' ? form.baseRarity : form.rarity)} · OVR {form.destination === 'packs' ? form.baseOverall : form.overall}
+                {RARITY_LABELS[isInventory ? form.rarity : form.baseRarity] || (isInventory ? form.rarity : form.baseRarity)} · OVR {calculatedOverall}
               </div>
             </>
           )}
