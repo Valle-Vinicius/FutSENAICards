@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nanoid } from 'nanoid';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -7,13 +8,14 @@ import Card from '../components/Card';
 import type { PlayerCard, Position, Rarity } from '../types';
 import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall } from '../data/players';
 import { validateRarityOverall } from '../lib/game';
+import { useGame } from '../store/useGame';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
+const DEFAULT_EDITION = '2025/26';
 
 const POSITIONS = ['GK', 'Fixo', 'Ala', 'Pivo'] as const;
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'] as const;
 const SPECIALS = ['none', 'totw', 'potm', 'revelation', 'legend', 'futsal'] as const;
-const EDITIONS = ['none', 'totw', 'potm'] as const;
 
 const RARITY_LABELS: Record<string, string> = {
   common: 'Comum',
@@ -33,16 +35,16 @@ const SPECIAL_LABELS: Record<string, string> = {
   futsal: 'Futsal',
 };
 
-const EDITION_LABELS: Record<string, string> = {
-  none: 'Nenhuma',
-  totw: 'Time da Semana',
-  potm: 'Craque da Rodada',
-};
-
-function calcOverall(attrs: { pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; reflexes?: number; positioning?: number; handling?: number }, position: string, rarity: string, special: string): number {
+function calcOverallLocal(
+  attrs: { pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; reflexes?: number | null; positioning?: number | null; handling?: number | null },
+  position: string,
+  rarity: string,
+  special: string
+): number {
+  const modMap: Record<Rarity, number> = { common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 };
   const t = {
     attributes: { pace: attrs.pace, shooting: attrs.shooting, passing: attrs.passing, dribbling: attrs.dribbling, defending: attrs.defending, physical: attrs.physical },
-    gkAttributes: attrs.reflexes ? { reflexes: attrs.reflexes, positioning: attrs.positioning!, handling: attrs.handling! } : undefined,
+    gkAttributes: attrs.reflexes !== undefined && attrs.reflexes !== null ? { reflexes: attrs.reflexes, positioning: attrs.positioning ?? 50, handling: attrs.handling ?? 50 } : undefined,
     position: position as Position,
     baseOverall: undefined as number | undefined,
   };
@@ -77,7 +79,7 @@ export default function Admin() {
     reflexes: 0,
     positioning: 0,
     handling: 0,
-    edition: 'none',
+    edition: DEFAULT_EDITION,
     special: 'none',
     imageUrl: '',
     calcOverall: false,
@@ -99,7 +101,6 @@ export default function Admin() {
   const rarityToUse = isInventory ? form.rarity : form.baseRarity;
   const mod = RARITY_MODIFIER[rarityToUse as Rarity] ?? 1.0;
 
-  // Atributos já com applyMod aplicado (o que será salvo no banco)
   const attrsMod = {
     pace: applyMod(form.pace, mod),
     shooting: applyMod(form.shooting, mod),
@@ -112,23 +113,11 @@ export default function Admin() {
     handling: isGK ? applyMod(form.handling, mod) : undefined,
   };
 
-  const attrsRaw = {
-    pace: form.pace, shooting: form.shooting, passing: form.passing,
-    dribbling: form.dribbling, defending: form.defending, physical: form.physical,
-    reflexes: isGK ? form.reflexes : undefined,
-    positioning: isGK ? form.positioning : undefined,
-    handling: isGK ? form.handling : undefined,
-  };
+  const calculatedOverall = calcOverallLocal(attrsRaw, form.position, rarityToUse, form.special);
 
-  // Para preview e salvamento: usar atributos com mod aplicado + calcOverall com a raridade selecionada
-  const calculatedOverall = calcMode
-    ? calcOverall(attrsMod, form.position, rarityToUse, form.special)
-    : calcOverall(attrsMod, form.position, rarityToUse, form.special);
-
-  // Preview cards for all rarities (when calc mode)
   const makePreviewCard = (rarity: string): PlayerCard => {
     const rMod = RARITY_MODIFIER[rarity as Rarity] ?? 1.0;
-    const ovr = calcOverall(attrsMod, form.position, rarity, form.special);
+    const ovr = calcOverallLocal(attrsRaw, form.position, rarity, form.special);
     return {
       uid: 'preview-' + rarity,
       playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
@@ -139,7 +128,7 @@ export default function Admin() {
       age: 20,
       club: 'Clube',
       rarity: rarity as any,
-      edition: form.edition as any,
+      edition: DEFAULT_EDITION,
       special: form.special as any,
       overall: ovr,
       pace: applyMod(form.pace, rMod),
@@ -167,7 +156,6 @@ export default function Admin() {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
     setCreating(true);
     try {
-      // Validação de overall vs raridade (aviso, não bloqueio — catálogo existente pode divergir)
       const rarityForVal = isInventory ? rarityToUse : form.baseRarity;
       const ovrForVal = calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall);
       if (!validateRarityOverall(rarityForVal as Rarity, ovrForVal)) {
@@ -190,12 +178,49 @@ export default function Admin() {
           p_reflexes: isGK ? attrsMod.reflexes : null,
           p_positioning: isGK ? attrsMod.positioning : null,
           p_handling: isGK ? attrsMod.handling : null,
-          p_edition: form.edition,
+          p_edition: DEFAULT_EDITION,
           p_special: form.special,
           p_image: form.imageUrl.trim() || null,
+          p_nationality: 'Brasil',
+          p_age: 20,
+          p_club: 'Clube',
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         toast.success('Carta criada no inventário!');
+        const novaCarta: PlayerCard = {
+          uid: nanoid(10),
+          playerId: form.name.trim().toLowerCase().replace(/\s+/g, '-') + '-' + rarityToUse,
+          name: form.name.trim(),
+          position: form.position,
+          sport: 'futsal',
+          nationality: 'Brasil',
+          age: 20,
+          club: 'Clube',
+          rarity: rarityToUse as any,
+          edition: DEFAULT_EDITION,
+          special: form.special as any,
+          overall: ovr,
+          image: form.imageUrl.trim() || undefined,
+          pace: attrsMod.pace,
+          shooting: attrsMod.shooting,
+          passing: attrsMod.passing,
+          dribbling: attrsMod.dribbling,
+          defending: attrsMod.defending,
+          physical: attrsMod.physical,
+          reflexes: isGK ? attrsMod.reflexes : undefined,
+          positioning: isGK ? attrsMod.positioning : undefined,
+          handling: isGK ? attrsMod.handling : undefined,
+          favorite: false,
+          isNew: true,
+          obtainedAt: Date.now(),
+          xp: 0,
+          evoPoints: 0,
+          upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
+          evolutionLog: [],
+          seasonStats: { matches: 0, goals: 0, assists: 0 },
+          custom: true,
+        };
+        useGame.getState().addLocalCard(novaCarta);
         if (userId) await syncUserData(userId);
       } else {
         const ovr = calcMode ? calculatedOverall : form.baseOverall;
@@ -284,7 +309,6 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Toggle: calcular OVR automaticamente */}
           <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
             <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="w-4 h-4" />
             <div>
@@ -352,8 +376,10 @@ export default function Admin() {
               <div>
                 <label className={labelCls}>Edição</label>
                 <select value={form.edition} onChange={e => setForm({ ...form, edition: e.target.value })} className={inputCls}>
-                  {EDITIONS.map(e => <option key={e} value={e}>{EDITION_LABELS[e]}</option>)}
+                  <option value={DEFAULT_EDITION}>Temporada ({DEFAULT_EDITION})</option>
+                  <option value="none">Sem edição</option>
                 </select>
+                <div className="text-[10px] text-[#858A98] mt-1">Use a temporada para cartas normais. Edições especiais vão em 'Especial'.</div>
               </div>
               <div>
                 <label className={labelCls}>Especial</label>

@@ -58,6 +58,7 @@ export interface PlayerCard {
   schemaVersion?: number;
   favorite: boolean;
   isNew: boolean;
+  custom?: boolean;
 }
 
 export interface PackDef {

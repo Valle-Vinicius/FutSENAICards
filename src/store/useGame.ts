@@ -79,6 +79,7 @@ interface Actions {
   bidListing: (id: string, amount: number) => boolean;
   previewPack: (packId: string) => PlayerCard[] | null;
   claimPreviewedCard: (card: PlayerCard) => void;
+  addLocalCard: (card: PlayerCard) => void;
   completeSBC: (sbcId: string, cardUids: string[]) => boolean;
   seedMarket: () => void;
   recordPrice: (cardName: string, price: number) => void;
@@ -154,10 +155,12 @@ export const useGame = create<GameState & Actions>()(
     (set, get) => ({
       ...initialState,
       init: () => {
-        // migrate local cards to latest template values
+        // migrate local cards to latest template values (só cartas não-customizadas)
         const localCards = get().cards;
         if (localCards.length > 0) {
           const migrated = localCards.map(c => {
+            // pular cartas customizadas pelo admin
+            if (c.custom) return c;
             const t = allTemplates().find(x => x.name === c.name);
             if (!t) return c;
             return {
@@ -233,16 +236,26 @@ export const useGame = create<GameState & Actions>()(
           };
         });
 
-        // só sincroniza do servidor se o usuário já tem algo salvo (savedSquads)
+        // sincronizar cartas: mesclar locais e remotas sem sobrescrever customizações
         const squads = await getSavedSquads(userId);
         const hasSaved = squads.length > 0;
-        if (hasSaved && remoteCards.length > 0) {
-          set({ cards: migratedRemote });
-        } else if (!hasSaved && remoteCards.length === 0) {
-          const local = get().cards;
-          const dbCards = await Promise.all(local.map(c => addCard(userId, c)));
-          const idMap = new Map(local.map((c, i) => [c.uid, dbCards[i]?.uid]));
-          set(st => ({ cards: st.cards.map(c => idMap.get(c.uid) ? { ...c, uid: idMap.get(c.uid)! } : c) }));
+        const remoteByPlayerId = new Map(migratedRemote.map(c => [c.playerId, c]));
+        const local = get().cards;
+
+        // salvar cartas locais que ainda não existem no servidor (por playerId)
+        const toSave = local.filter(c => !remoteByPlayerId.has(c.playerId));
+        if (toSave.length > 0) {
+          const dbCards = await Promise.all(toSave.map(c => addCard(userId, c)));
+          dbCards.forEach((db, i) => {
+            if (db) remoteByPlayerId.set(toSave[i].playerId, { ...toSave[i], uid: db.uid });
+          });
+        }
+
+        // se tem cartas remotas, usar a versão remota para cartas que já existem lá,
+        // mantendo as locais que não existem no servidor
+        if (remoteByPlayerId.size > 0) {
+          const merged = local.map(c => remoteByPlayerId.get(c.playerId) || c);
+          set({ cards: merged });
         }
         if (hasSaved) set({ savedSquads: squads });
         // load primary squad into active squad
@@ -892,6 +905,14 @@ export const useGame = create<GameState & Actions>()(
             }
           });
         }
+      },
+      addLocalCard: (card) => {
+        set(st => ({
+          cards: [{ ...card, custom: true }, ...st.cards.filter(c => c.uid !== card.uid)],
+          newCardUids: [card.uid, ...st.newCardUids].slice(0, 50),
+        }));
+        get().addXp(10);
+        get().updateMissionProgress();
       },
       completeSBC: (sbcId, cardUids) => {
         const sbc = get().sbcs.find(s => s.id === sbcId);
