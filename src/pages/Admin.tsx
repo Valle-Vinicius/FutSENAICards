@@ -6,6 +6,7 @@ import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 import type { PlayerCard, Position, Rarity } from '../types';
 import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall } from '../data/players';
+import { validateRarityOverall } from '../lib/game';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 
@@ -166,6 +167,13 @@ export default function Admin() {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
     setCreating(true);
     try {
+      // Validação de overall vs raridade (aviso, não bloqueio — catálogo existente pode divergir)
+      const rarityForVal = isInventory ? rarityToUse : form.baseRarity;
+      const ovrForVal = calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall);
+      if (!validateRarityOverall(rarityForVal as Rarity, ovrForVal)) {
+        toast.warning(`Atenção: OVR ${ovrForVal} fora da banda típica para ${RARITY_LABELS[rarityForVal]}.`);
+      }
+
       if (isInventory) {
         const ovr = calculatedOverall;
         const { error } = await supabase.rpc('create_card', {
@@ -291,7 +299,7 @@ export default function Admin() {
               const val = Number(e.target.value);
               if (!isInventory) setForm({ ...form, baseOverall: val });
               else setForm({ ...form, overall: val });
-            }} className={inputCls} min={0} max={999} disabled={calcMode && isInventory} />
+            }} className={inputCls} min={0} max={99} disabled={calcMode && isInventory} />
             {isInventory && !calcMode && <div className="text-[10px] text-[#858A98] mt-1">O overall digitado será recalculado com atributos × raridade ao salvar.</div>}
           </div>
 
