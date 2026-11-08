@@ -24,6 +24,8 @@ export const SPECIAL_META: Record<SpecialEdition, { label: string; color: string
   futsal: { label: 'Especial Futsal', color: '#a855f7' },
 };
 
+export type UpgradeAttr = 'pace' | 'shooting' | 'passing' | 'dribbling' | 'defending' | 'physical' | 'reflexes' | 'positioning' | 'handling';
+
 export interface PlayerCard {
   uid: string; // unique instance id
   playerId: string;
@@ -39,7 +41,7 @@ export interface PlayerCard {
   overall: number;
   xp?: number;
   evoPoints?: number;
-  upgrades?: { pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number };
+  upgrades?: Partial<Record<UpgradeAttr, number>>;
   evolutionLog?: { attr: string; at: number }[];
   seasonStats?: { matches: number; goals: number; assists: number };
   photo?: string;
@@ -59,6 +61,8 @@ export interface PlayerCard {
   favorite: boolean;
   isNew: boolean;
   custom?: boolean;
+  /** carta inicial sorteada localmente (não é do servidor) */
+  seed?: boolean;
 }
 
 export interface PackDef {

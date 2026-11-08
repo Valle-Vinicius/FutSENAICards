@@ -3,8 +3,9 @@ import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types';
 import { RARITY_META, SPECIAL_META } from '../types';
+import type { UpgradeAttr } from '../types';
 import { toast } from './toast';
-import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL } from '../lib/game';
+import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL, mergeCardProgress, totalUpgrades, UUID_RE } from '../lib/game';
 import { supabase } from '../lib/supabase';
 import { getCards, addCard, updateCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
@@ -15,7 +16,7 @@ import { recordSBCCompletion } from '../lib/services/sbc';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
-import { generatePlayerCard, randomTemplate, allTemplates } from '../data/players';
+import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, overallFromAttributes } from '../data/players';
 
 // --- Elenco ativo: autosave + serialização do sync ---
 let squadSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -69,7 +70,7 @@ interface Actions {
   updateSettings: (s: Partial<{ audio: boolean; animations: boolean; highContrast: boolean }>) => void;
   setPendingFriends: (n: number) => void;
   addPlayerXp: (uid: string, amount: number) => void;
-  upgradePlayer: (uid: string, attr: 'pace' | 'shooting' | 'passing' | 'dribbling' | 'defending' | 'physical') => boolean;
+  upgradePlayer: (uid: string, attr: UpgradeAttr) => boolean;
   recordMatchStats: (uid: string, goals: number, assists: number) => void;
   convertDuplicates: () => Promise<number>;
   recordEvolution: (uid: string, attr: string) => void;
@@ -91,7 +92,7 @@ const seedCards = (): PlayerCard[] => {
   const rarities: any[] = ['common','common','uncommon','rare','uncommon'];
   for (let i = 0; i < 5; i++) {
     const t = randomTemplate();
-    out.push(generatePlayerCard(t, rarities[i], 'none'));
+    out.push({ ...generatePlayerCard(t, rarities[i], 'none'), seed: true });
   }
   return out;
 };
@@ -142,7 +143,7 @@ const initialState: GameState = {
 
 // helper: generate a card from a rarity
 
-// special edition roll (10% chance for special)
+// special edition roll (15% de chance de edição especial)
 function rollSpecial(): 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' {
   const r = Math.random();
   if (r < 0.85) return 'none';
@@ -155,30 +156,16 @@ export const useGame = create<GameState & Actions>()(
     (set, get) => ({
       ...initialState,
       init: () => {
-        // migrate local cards to latest template values (só cartas não-customizadas)
+        // migra cartas locais antigas para os valores do template (só cartas não-customizadas,
+        // ainda não migradas e sem evolução, para não apagar o progresso do jogador a cada carregamento)
         const localCards = get().cards;
         if (localCards.length > 0) {
           const migrated = localCards.map(c => {
-            // pular cartas customizadas pelo admin
             if (c.custom) return c;
+            if ((c.schemaVersion ?? 1) >= 4 || totalUpgrades(c as any) > 0) return c;
             const t = allTemplates().find(x => x.name === c.name);
             if (!t) return c;
-            return {
-              ...c,
-              position: t.position,
-              club: t.club,
-              nationality: t.nationality,
-              age: t.age,
-              pace: Math.max(0, Math.min(99, Math.round(t.attributes.pace * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-              shooting: Math.max(0, Math.min(99, Math.round(t.attributes.shooting * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-              passing: Math.max(0, Math.min(99, Math.round(t.attributes.passing * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-              dribbling: Math.max(0, Math.min(99, Math.round(t.attributes.dribbling * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-              defending: Math.max(0, Math.min(99, Math.round(t.attributes.defending * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-              physical: Math.max(0, Math.min(99, Math.round(t.attributes.physical * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-              ...(t.gkAttributes ? { reflexes: Math.max(0, Math.min(99, Math.round(t.gkAttributes.reflexes * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))), positioning: Math.max(0, Math.min(99, Math.round(t.gkAttributes.positioning * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))), handling: Math.max(0, Math.min(99, Math.round(t.gkAttributes.handling * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))) } : {}),
-              overall: Math.min(99, (t.baseOverall ?? c.overall) + ({ common: -2, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 }[c.rarity] ?? 0) + ({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 }[c.special] ?? 0)),
-              image: t.image,
-            };
+            return applyTemplateToCard(c, t);
           });
           set({ cards: migrated });
         }
@@ -213,50 +200,34 @@ export const useGame = create<GameState & Actions>()(
         await prevSync;
         try {
         const remoteCards = await getCards(userId);
-        const migratedRemote = remoteCards.map(c => {
-          const t = allTemplates().find(x => x.name === c.name);
-          if (!t) return c;
-          const schemaVersion = c.schemaVersion ?? 1;
-          if (schemaVersion >= 4) return c; // já migrado, não recalcular
-          return {
-            ...c,
-            position: t.position,
-            club: t.club,
-            nationality: t.nationality,
-            age: t.age,
-            pace: Math.max(0, Math.min(99, Math.round(t.attributes.pace * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-            shooting: Math.max(0, Math.min(99, Math.round(t.attributes.shooting * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-            passing: Math.max(0, Math.min(99, Math.round(t.attributes.passing * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-            dribbling: Math.max(0, Math.min(99, Math.round(t.attributes.dribbling * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-            defending: Math.max(0, Math.min(99, Math.round(t.attributes.defending * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-            physical: Math.max(0, Math.min(99, Math.round(t.attributes.physical * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))),
-            ...(t.gkAttributes ? { reflexes: Math.max(0, Math.min(99, Math.round(t.gkAttributes.reflexes * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))), positioning: Math.max(0, Math.min(99, Math.round(t.gkAttributes.positioning * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))), handling: Math.max(0, Math.min(99, Math.round(t.gkAttributes.handling * ({ common: 0.88, uncommon: 1.0, rare: 1.05, epic: 1.10, legendary: 1.15, icon: 1.20 }[c.rarity] ?? 1.0)))) } : {}),
-            overall: Math.min(99, (t.baseOverall ?? c.overall) + ({ common: -2, uncommon: 0, rare: 2, epic: 4, legendary: 6, icon: 8 }[c.rarity] ?? 0) + ({ none: 0, totw: 2, potm: 2, revelation: 1, legend: 3, futsal: 2 }[c.special] ?? 0)),
-            image: t.image,
-          };
-        });
-
-        // sincronizar cartas: mesclar locais e remotas sem sobrescrever customizações
         const squads = await getSavedSquads(userId);
         const hasSaved = squads.length > 0;
-        const remoteByPlayerId = new Map(migratedRemote.map(c => [c.playerId, c]));
-        const local = get().cards;
 
-        // salvar cartas locais que ainda não existem no servidor (por playerId)
-        const toSave = local.filter(c => !remoteByPlayerId.has(c.playerId));
-        if (toSave.length > 0) {
-          const dbCards = await Promise.all(toSave.map(c => addCard(userId, c)));
-          dbCards.forEach((db, i) => {
-            if (db) remoteByPlayerId.set(toSave[i].playerId, { ...toSave[i], uid: db.uid });
+        // null = falha ao ler do servidor: não mexe no inventário local
+        if (remoteCards) {
+          const local = get().cards;
+          const localByUid = new Map(local.map(c => [c.uid, c]));
+          const remoteUids = new Set(remoteCards.map(c => c.uid));
+          // fonte da verdade = servidor (por uid, não por playerId: cópias iguais são cartas diferentes)
+          const remoteMerged = remoteCards.map(r => mergeCardProgress(r, localByUid.get(r.uid)));
+          // cartas locais que ainda não existem no servidor (uid temporário)
+          const unsynced = local.filter(c => !UUID_RE.test(c.uid) && !remoteUids.has(c.uid));
+          // cartas iniciais sorteadas localmente só viram da conta se ela ainda não tem nenhuma carta
+          const toSave = unsynced.filter(c => !c.seed || remoteCards.length === 0);
+          const saved = await Promise.all(toSave.map(c => addCard(userId, c)));
+          const idMap = new Map<string, string>();
+          const savedCards = toSave.map((c, i) => {
+            const db = saved[i];
+            if (db) { idMap.set(c.uid, db.uid); return { ...c, uid: db.uid, seed: undefined }; }
+            return c; // não conseguiu salvar: mantém local para tentar de novo no próximo sync
           });
+          set({ cards: [...remoteMerged, ...savedCards] });
+          if (idMap.size > 0) {
+            const remap = (u: string | null) => (u && idMap.has(u) ? idMap.get(u)! : u);
+            set(st => ({ squads: { ...st.squads, futsal: { ...st.squads.futsal, starters: st.squads.futsal.starters.map(s => ({ ...s, uid: remap(s.uid) })), bench: st.squads.futsal.bench.map(remap) } } }));
+          }
         }
 
-        // se tem cartas remotas, usar a versão remota para cartas que já existem lá,
-        // mantendo as locais que não existem no servidor
-        if (remoteByPlayerId.size > 0) {
-          const merged = local.map(c => remoteByPlayerId.get(c.playerId) || c);
-          set({ cards: merged });
-        }
         if (hasSaved) set({ savedSquads: squads });
         // load primary squad into active squad
         const primary = await getPrimarySquadService(userId);
@@ -357,8 +328,7 @@ export const useGame = create<GameState & Actions>()(
           const rarity = rollRarity(pack.probabilities);
           const special = rollSpecial();
         const t = randomTemplate(pack.position as any);
-        console.log('[openPack] template escolhido:', t.name, 'position:', t.position, 'baseRarity:', t.baseRarity, 'baseOverall:', t.baseOverall);
-        const card = generatePlayerCard(t, rarity, special === 'none' ? 'none' : special, t.baseOverall);
+        const card = generatePlayerCard(t, rarity, special, t.baseOverall);
           cards.push(card);
         }
         // add to store first
@@ -449,7 +419,7 @@ export const useGame = create<GameState & Actions>()(
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const u = data.session?.user?.id;
-            if (u && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
+            if (u && UUID_RE.test(uid)) {
               await updateCard(uid, { favorite: newFav });
             }
           });
@@ -464,6 +434,8 @@ export const useGame = create<GameState & Actions>()(
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const u = data.session?.user?.id;
             if (u) {
+              const dbIds = uids.filter(x => UUID_RE.test(x));
+              if (dbIds.length > 0) await supabase!.rpc('mark_cards_seen', { p_card_ids: dbIds });
               const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', u).single();
               const prefs = prof?.preferences || {};
               await supabase!.from('profiles').update({ preferences: { ...prefs, newCardUids: get().newCardUids } }).eq('id', u);
@@ -737,23 +709,30 @@ export const useGame = create<GameState & Actions>()(
       upgradePlayer: (uid, attr) => {
         const c = get().cards.find(x => x.uid === uid);
         if (!c) return false;
-        const evoPoints = c.evoPoints ?? 0;
-        if (evoPoints <= 0) return false;
-        const upgrades = c.upgrades ?? { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 };
-        const totalUpgrades = Object.values(upgrades).reduce((a, b) => a + b, 0);
-        if (totalUpgrades >= 15) return false; // limit
-        if ((upgrades as any)[attr] >= 10) return false; // per-attr limit
-        const newUpgrades = { ...upgrades, [attr]: (upgrades as any)[attr] + 1 };
-        // apply to attrs
-        const attrMap: any = { pace: 'pace', shooting: 'shooting', passing: 'passing', dribbling: 'dribbling', defending: 'defending', physical: 'physical' };
-        const field = attrMap[attr];
-        const newVal = Math.min(99, (c as any)[field] + 1);
-        const newOverall = Math.min(99, Math.round(((c.pace + (attr==='pace'?1:0)) + (c.shooting + (attr==='shooting'?1:0)) + (c.passing + (attr==='passing'?1:0)) + (c.dribbling + (attr==='dribbling'?1:0)) + (c.defending + (attr==='defending'?1:0)) + (c.physical + (attr==='physical'?1:0))) / 6));
+        const isGK = c.position === 'GK';
+        const gkAttrs: UpgradeAttr[] = ['reflexes', 'positioning', 'handling'];
+        if (gkAttrs.includes(attr) && !isGK) return false;
+        if (isGK && (attr === 'shooting' || attr === 'dribbling')) return false;
+        if ((c.evoPoints ?? 0) <= 0) return false;
+        const upgrades = { ...(c.upgrades ?? {}) } as Record<string, number>;
+        if (totalUpgrades(c as any) >= 15) return false; // limite total
+        if ((upgrades[attr] ?? 0) >= 10) return false; // limite por atributo
+        const current = (c as any)[attr] ?? 0;
+        if (current >= 99) return false;
+        upgrades[attr] = (upgrades[attr] ?? 0) + 1;
+        const before = { pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical };
+        const gkBefore = isGK ? { reflexes: c.reflexes ?? 50, positioning: c.positioning ?? 50, handling: c.handling ?? 50 } : undefined;
+        const after: any = { ...before, ...(gkBefore ?? {}), [attr]: current + 1 };
+        const gkAfter = isGK ? { reflexes: after.reflexes, positioning: after.positioning, handling: after.handling } : undefined;
+        // overall sobe pelo ganho real do atributo (ponderado pela posição), preservando
+        // o bônus de raridade/edição, 
+        const delta = overallFromAttributes(c.position, after, gkAfter) - overallFromAttributes(c.position, before, gkBefore);
+        const newOverall = Math.min(99, c.overall + delta);
         set(st => ({
           cards: st.cards.map(x => x.uid === uid ? {
             ...x,
-            [field]: newVal,
-            upgrades: newUpgrades,
+            [attr]: current + 1,
+            upgrades: upgrades as any,
             evoPoints: (x.evoPoints ?? 0) - 1,
             overall: newOverall,
             evolutionLog: [...(x.evolutionLog ?? []), { attr, at: Date.now() }],
@@ -763,32 +742,51 @@ export const useGame = create<GameState & Actions>()(
       },
       convertDuplicates: async () => {
         const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
-        const cards = get().cards;
+        const st0 = get();
+        const cards = st0.cards;
+        // cartas "travadas": no elenco (ativo ou salvo) ou anunciadas no mercado
+        const locked = new Set<string>();
+        const addSquad = (starters: { uid: string | null }[], bench: (string | null)[]) => {
+          starters.forEach(s => s.uid && locked.add(s.uid));
+          bench.forEach(u => u && locked.add(u));
+        };
+        Object.values(st0.squads).forEach((sq: any) => sq && addSquad(sq.starters ?? [], sq.bench ?? []));
+        (st0.savedSquads as any[]).forEach(sq => addSquad(sq.starters?.map?.((u: any) => (typeof u === 'string' ? { uid: u } : u)) ?? [], sq.bench ?? []));
+        st0.listings.filter(l => l.status === 'active').forEach(l => locked.add(l.cardUid));
+
         const byName: Record<string, typeof cards> = {};
         cards.forEach(c => { (byName[c.name] = byName[c.name] || []).push(c); });
         const toRemove: string[] = [];
         Object.values(byName).forEach(group => {
-          if (group.length <= 1) return;
-          // skip icon rarity entirely
           const nonIcon = group.filter(c => c.rarity !== 'icon');
           if (nonIcon.length <= 1) return;
-          const nonFav = nonIcon.filter(c => !c.favorite).sort((a, b) => (rarityRank[b.rarity] ?? 0) - (rarityRank[a.rarity] ?? 0));
-          nonFav.slice(1).forEach(c => toRemove.push(c.uid));
+          // quem fica: a melhor cópia (raridade, overall, evolução). Favoritas e cartas em uso nunca são removidas.
+          const score = (c: typeof cards[number]) => [rarityRank[c.rarity] ?? 0, c.overall, totalUpgrades(c as any) + (c.xp ?? 0) / 1000];
+          const sorted = [...nonIcon].sort((a, b) => {
+            const sa = score(a), sb = score(b);
+            for (let i = 0; i < sa.length; i++) if (sb[i] !== sa[i]) return sb[i] - sa[i];
+            return 0;
+          });
+          sorted.slice(1).forEach(c => { if (!c.favorite && !locked.has(c.uid)) toRemove.push(c.uid); });
         });
         if (toRemove.length === 0) return 0;
-        const reward = toRemove.length * 200;
-        get().addCoins(reward, `Conversão de ${toRemove.length} duplicatas`);
+
+        // apaga no servidor primeiro; se falhar, nada muda (sem moedas de graça)
+        if (supabase) {
+          const { data } = await supabase.auth.getSession();
+          const userId = data.session?.user?.id;
+          const dbIds = toRemove.filter(x => UUID_RE.test(x));
+          if (userId && dbIds.length > 0) {
+            const { error } = await supabase.rpc('delete_owned_cards', { p_card_ids: dbIds });
+            if (error) return 0;
+          }
+        }
+        get().addCoins(toRemove.length * 200, `Conversão de ${toRemove.length} duplicatas`);
         set(st => ({ cards: st.cards.filter(c => !toRemove.includes(c.uid)) }));
         if (supabase) {
           const { data } = await supabase.auth.getSession();
           const uid = data.session?.user?.id;
           if (uid) {
-            for (const c of toRemove) {
-              if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) {
-                await supabase.from('cards').delete().eq('id', c);
-              }
-            }
-            // sync collector ranking
             const allCards = get().cards;
             const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
             const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
@@ -810,9 +808,13 @@ export const useGame = create<GameState & Actions>()(
       listCard: (cardUid, price, buyNow, hours) => {
         const c = get().cards.find(x => x.uid === cardUid);
         if (!c) return null;
+        const stNow = get();
+        if (stNow.listings.some(l => l.status === 'active' && l.cardUid === cardUid)) return null; // já anunciada
+        const inSquad = Object.values(stNow.squads).some((sq: any) => sq && ([...(sq.starters ?? []).map((s: any) => s.uid), ...(sq.bench ?? [])]).includes(cardUid));
+        if (inSquad) return null; // remova do elenco antes de anunciar
         const id = nanoid(8);
         const listing: Listing = {
-          id, cardUid, seller: 'user', sellerName: 'VocÃª',
+          id, cardUid, seller: 'user', sellerName: 'Você',
           price, buyNow, bids: [], createdAt: Date.now(),
           expiresAt: Date.now() + hours * 3600000, status: 'active',
         };
@@ -847,7 +849,7 @@ export const useGame = create<GameState & Actions>()(
           const uid = (await supabase.auth.getSession()).data.session?.user?.id;
           if (uid) {
             const remoteCards = await getCards(uid);
-            if (remoteCards.length > 0) set({ cards: remoteCards });
+            if (remoteCards) set({ cards: remoteCards });
             const { data: prof } = await supabase.from('profiles').select('coins').eq('id', uid).single();
             if (prof) set({ coins: prof.coins });
           }
@@ -920,6 +922,9 @@ export const useGame = create<GameState & Actions>()(
         if (!sbc) return false;
         const cards = get().cards.filter(c => cardUids.includes(c.uid));
         if (cards.length !== cardUids.length) return false;
+        const stSbc = get();
+        if (cardUids.some(u => stSbc.listings.some(l => l.status === 'active' && l.cardUid === u))) return false; // anunciada no mercado
+        if (Object.values(stSbc.squads).some((sq: any) => sq && ([...(sq.starters ?? []).map((s: any) => s.uid), ...(sq.bench ?? [])]).some((u: string | null) => u && cardUids.includes(u)))) return false; // está no elenco
         // validate count
         if (cards.length < sbc.requirements.count) return false;
         if (sbc.requirements.minOverall && cards.some(c => c.overall < sbc.requirements.minOverall!)) return false;
@@ -933,7 +938,8 @@ export const useGame = create<GameState & Actions>()(
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
-              for (const cu of cardUids) await supabase!.from('cards').delete().eq('id', cu);
+              const dbIds = cardUids.filter(x => UUID_RE.test(x));
+              if (dbIds.length > 0) await supabase!.rpc('delete_owned_cards', { p_card_ids: dbIds });
               await recordSBCCompletion(uid, sbcId);
             }
           });

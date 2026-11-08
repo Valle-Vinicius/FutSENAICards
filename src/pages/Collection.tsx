@@ -5,7 +5,8 @@ import { toast } from '../store/toast';
 import { Lock } from 'lucide-react';
 import bgWhite from '../imagens/background/backgroundbranco.png';
 import Card from '../components/Card';
-import type { PlayerCard } from '../types';
+import type { PlayerCard, Rarity } from '../types';
+import { RARITY_META } from '../types';
 import { allTemplates } from '../data/players';
 
 export default function Collection() {
@@ -22,6 +23,9 @@ export default function Collection() {
   const [album, setAlbum] = useState(false);
   const navigate = useNavigate();
 
+  const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'];
+  const rankOf = (r: Rarity) => RARITY_ORDER.indexOf(r);
+
   const filtered = cards.filter(c => {
     if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
     if (pos && c.position !== pos) return false;
@@ -29,14 +33,27 @@ export default function Collection() {
     if (club && c.club !== club) return false;
     return true;
   }).sort((a, b) => {
-    if (sort === 'overall') return b.overall - a.overall;
-    if (sort === 'name') return a.name.localeCompare(b.name);
+    // desempate estável: raridade, overall, nome
+    if (sort === 'overall') return b.overall - a.overall || rankOf(b.rarity) - rankOf(a.rarity) || a.name.localeCompare(b.name);
+    if (sort === 'rarity') return rankOf(b.rarity) - rankOf(a.rarity) || b.overall - a.overall || a.name.localeCompare(b.name);
+    if (sort === 'name') return a.name.localeCompare(b.name) || b.overall - a.overall;
     return b.obtainedAt - a.obtainedAt;
   });
 
-  const unique = new Set(cards.map(c => (c.playerId || c.name).split('-')[0])).size;
-  const clubs = [...new Set(cards.map(c => c.club))];
+  // "únicas" = nomes distintos (mesmo critério do "converter duplicatas")
+  const unique = new Set(cards.map(c => c.name)).size;
+  const clubs = [...new Set(cards.map(c => c.club).filter(Boolean))].sort();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   useEffect(() => { setPage(1); }, [q, pos, rar, club, sort]);
+  // se o total de páginas diminuir (ex.: depois de converter duplicatas), volta para uma página válida
+  useEffect(() => { setPage(p => Math.min(p, totalPages)); }, [totalPages]);
+
+  // melhor cópia de cada jogador para o álbum
+  const bestByName = new Map<string, PlayerCard>();
+  for (const c of cards) {
+    const cur = bestByName.get(c.name);
+    if (!cur || rankOf(c.rarity) > rankOf(cur.rarity) || (rankOf(c.rarity) === rankOf(cur.rarity) && c.overall > cur.overall)) bestByName.set(c.name, c);
+  }
 
   const openCard = (c: PlayerCard) => {
     if (c.isNew) markSeen([c.uid]);
@@ -51,9 +68,9 @@ export default function Collection() {
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Minhas cartas</h1>
         <div className="flex gap-2">
           <button onClick={() => setAlbum(a => !a)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${album ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
-            {album ? 'Álbum' : 'Coleção'}
+            {album ? 'Ver coleção' : 'Ver álbum'}
           </button>
-          <button onClick={async () => { const n = await convertDuplicates(); toast.alert(n > 0 ? `${n} duplicatas convertidas em moedas.` : 'Sem duplicatas.'); }} className="px-3 py-1.5 rounded-xl text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98]">
+          <button onClick={async () => { const n = await convertDuplicates(); if (n > 0) toast.success(`${n} duplicatas convertidas em moedas.`); else toast.info('Nenhuma duplicata para converter (cartas favoritas, no elenco ou à venda são mantidas).'); }} className="px-3 py-1.5 rounded-xl text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98]">
             Converter duplicatas
           </button>
           <div className="text-sm text-[#858A98] self-center">{cards.length} cartas · {unique} únicas · {cards.length - unique} duplicadas</div>
@@ -68,7 +85,7 @@ export default function Collection() {
         </select>
         <select value={rar} onChange={e => setRar(e.target.value)} className={sel}>
           <option value="">Raridade</option>
-          {['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'].map(r => <option key={r} value={r}>{r}</option>)}
+          {RARITY_ORDER.map(r => <option key={r} value={r}>{RARITY_META[r].label}</option>)}
         </select>
         <select value={club} onChange={e => setClub(e.target.value)} className={sel}>
           <option value="">Clube</option>
@@ -76,6 +93,7 @@ export default function Collection() {
         </select>
         <select value={sort} onChange={e => setSort(e.target.value)} className={sel}>
           <option value="overall">Overall</option>
+          <option value="rarity">Raridade</option>
           <option value="name">Nome</option>
           <option value="date">Data</option>
         </select>
@@ -84,7 +102,7 @@ export default function Collection() {
       {album ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {allTemplates().map(t => {
-            const owned = cards.find(c => c.name === t.name);
+            const owned = bestByName.get(t.name);
             return owned ? (
               <Card key={t.name} card={owned} size="sm" onClick={() => openCard(owned)} />
             ) : (
@@ -100,15 +118,14 @@ export default function Collection() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-            {filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(c => (
+            {filtered.slice((Math.min(page, totalPages) - 1) * PAGE_SIZE, Math.min(page, totalPages) * PAGE_SIZE).map(c => (
               <Card key={c.uid} card={c} size="sm" onClick={() => openCard(c)} isNew={c.isNew} />
             ))}
           </div>
-          {Math.ceil(filtered.length / PAGE_SIZE) > 1 && (
+          {totalPages > 1 && (
             <div className="flex justify-center gap-1 mt-4 flex-wrap items-center">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 rounded-lg text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98] disabled:opacity-40">‹</button>
               {(() => {
-                const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
                 const pages: (number | string)[] = [];
                 if (totalPages <= 7) {
                   for (let i = 1; i <= totalPages; i++) pages.push(i);
@@ -129,7 +146,7 @@ export default function Collection() {
                   )
                 ));
               })()}
-              <button onClick={() => setPage(p => Math.min(Math.ceil(filtered.length / PAGE_SIZE), p + 1))} disabled={page === Math.ceil(filtered.length / PAGE_SIZE)} className="px-2 py-1 rounded-lg text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98] disabled:opacity-40">›</button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-2 py-1 rounded-lg text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98] disabled:opacity-40">›</button>
             </div>
           )}
         </>

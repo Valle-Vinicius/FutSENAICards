@@ -112,6 +112,26 @@ export function validateRarityOverall(rarity: Rarity, overall: number): boolean 
   return overall >= m.minOvr && overall <= m.maxOvr;
 }
 
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function totalUpgrades(c: { upgrades?: Record<string, number | undefined> }): number {
+  return Object.values(c.upgrades ?? {}).reduce<number>((a, b) => a + (b ?? 0), 0);
+}
+
+/** Se a cópia local evoluiu mais que a remota, preserva o progresso local (o servidor ainda não guarda evolução). */
+export function mergeCardProgress<T extends { uid: string; xp?: number; evoPoints?: number; upgrades?: any; evolutionLog?: any; seasonStats?: any; overall: number; rarity: Rarity }>(remote: T, local?: T): T {
+  if (!local || local.uid !== remote.uid) return remote;
+  const lu = totalUpgrades(local), ru = totalUpgrades(remote);
+  const lm = local.seasonStats?.matches ?? 0, rm = remote.seasonStats?.matches ?? 0;
+  let out: T = remote;
+  if (lu > ru || (local.xp ?? 0) > (remote.xp ?? 0)) {
+    out = { ...local, favorite: (remote as any).favorite, isNew: (remote as any).isNew } as T;
+  } else if (lm > rm) {
+    out = { ...remote, seasonStats: local.seasonStats };
+  }
+  return out;
+}
+
 export const DEFAULT_MISSIONS: Mission[] = [
   { id: 'm1', title: 'Primeiros passos', description: 'Abra 1 pacote', target: 1, progress: 0, reward: 300, rewardXp: 50, type: 'open_packs', completed: false, claimed: false },
   { id: 'm2', title: 'Colecionador iniciante', description: 'Colecione 10 jogadores', target: 10, progress: 0, reward: 500, rewardXp: 80, type: 'collect', completed: false, claimed: false },

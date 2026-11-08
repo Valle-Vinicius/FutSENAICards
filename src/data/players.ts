@@ -18,7 +18,7 @@ import ricardo from '../imagens/ricardo.png';
 import rafaelteixeira from '../imagens/rafaelteixeira.png';
 import viniciusmonteiro from '../imagens/viniciusmonteiro.png';
 
-interface PlayerTemplate {
+export interface PlayerTemplate {
   name: string;
   position: Position;
   nationality: string;
@@ -84,16 +84,47 @@ function applyModifier(value: number, mod: number): number {
   return Math.max(0, Math.min(99, Math.round(value * mod)));
 }
 
-export function calculateOverall(t: PlayerTemplate): number {
-  if (t.baseOverall !== undefined) return t.baseOverall;
-  const a = t.attributes;
-  if (t.position === 'GK') {
-    const gk = t.gkAttributes ?? { reflexes: 50, positioning: 50, handling: 50 };
+type Attrs6 = { pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number };
+
+/** Overall calculado só a partir dos atributos (ponderado por posição). */
+export function overallFromAttributes(position: Position, a: Attrs6, gkAttributes?: { reflexes: number; positioning: number; handling: number }): number {
+  if (position === 'GK') {
+    const gk = gkAttributes ?? { reflexes: 50, positioning: 50, handling: 50 };
     return Math.round(gk.reflexes * 0.30 + gk.positioning * 0.25 + a.defending * 0.20 + a.passing * 0.10 + a.physical * 0.10 + a.pace * 0.05);
   }
-  if (t.position === 'Fixo') return Math.round(a.defending * 0.35 + a.physical * 0.20 + a.passing * 0.20 + a.pace * 0.10 + a.dribbling * 0.08 + a.shooting * 0.07);
-  if (t.position === 'Ala') return Math.round(a.pace * 0.25 + a.passing * 0.22 + a.dribbling * 0.20 + a.shooting * 0.13 + a.defending * 0.12 + a.physical * 0.08);
+  if (position === 'Fixo') return Math.round(a.defending * 0.35 + a.physical * 0.20 + a.passing * 0.20 + a.pace * 0.10 + a.dribbling * 0.08 + a.shooting * 0.07);
+  if (position === 'Ala') return Math.round(a.pace * 0.25 + a.passing * 0.22 + a.dribbling * 0.20 + a.shooting * 0.13 + a.defending * 0.12 + a.physical * 0.08);
   return Math.round(a.shooting * 0.32 + a.physical * 0.22 + a.dribbling * 0.18 + a.passing * 0.12 + a.pace * 0.10 + a.defending * 0.06);
+}
+
+export function calculateOverall(t: PlayerTemplate): number {
+  if (t.baseOverall !== undefined) return t.baseOverall;
+  return overallFromAttributes(t.position, t.attributes, t.gkAttributes);
+}
+
+/** Recalcula uma carta existente a partir do template (atributos × raridade, overall dentro da faixa). */
+export function applyTemplateToCard<T extends PlayerCard>(c: T, t: PlayerTemplate): T {
+  const mod = RARITY_MODIFIER[c.rarity] ?? 1.0;
+  const a = t.attributes;
+  const gk = t.gkAttributes;
+  const overall = Math.min(99, (t.baseOverall ?? c.overall) + (RARITY_OVR_BONUS[c.rarity] ?? 0) + (SPECIAL_OVR_BONUS[c.special] ?? 0));
+  return {
+    ...c,
+    position: t.position,
+    club: t.club,
+    nationality: t.nationality,
+    age: t.age,
+    pace: applyModifier(a.pace, mod),
+    shooting: applyModifier(a.shooting, mod),
+    passing: applyModifier(a.passing, mod),
+    dribbling: applyModifier(a.dribbling, mod),
+    defending: applyModifier(a.defending, mod),
+    physical: applyModifier(a.physical, mod),
+    ...(gk ? { reflexes: applyModifier(gk.reflexes, mod), positioning: applyModifier(gk.positioning, mod), handling: applyModifier(gk.handling, mod) } : {}),
+    overall,
+    image: t.image || c.image,
+    schemaVersion: 4,
+  };
 }
 
 export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' = 'none', baseOverall?: number): PlayerCard {
@@ -146,6 +177,7 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
     upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
     evolutionLog: [],
     seasonStats: { matches: 0, goals: 0, assists: 0 },
+    schemaVersion: 4,
   };
 }
 

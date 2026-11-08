@@ -3,6 +3,8 @@ import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import { Star } from 'lucide-react';
 import Card from '../components/Card';
+import { RARITY_META } from '../types';
+import type { UpgradeAttr } from '../types';
 
 export default function CardDetail() {
   const { uid } = useParams();
@@ -14,9 +16,27 @@ export default function CardDetail() {
   if (!card) return <div className="p-8 text-[#252733]">Carta não encontrada. <button onClick={()=>navigate('/collection')} className="text-[#E30613]">Voltar</button></div>;
 
   const isGK = card.position === 'GK';
+  // mesmos atributos que aparecem na carta (Card.tsx)
   const attrs = isGK
-    ? [['Reflexos', card.reflexes ?? 0], ['Posicionamento', card.positioning ?? 0], ['Defesa', card.handling ?? 0], ['Passe', card.passing], ['Físico', card.physical], ['Velocidade', card.pace]]
+    ? [['Reflexos', card.reflexes ?? 0], ['Posicionamento', card.positioning ?? 0], ['Manuseio', card.handling ?? 0], ['Velocidade', card.pace], ['Defesa', card.defending], ['Físico', card.physical]]
     : [['Velocidade', card.pace], ['Chute', card.shooting], ['Passe', card.passing], ['Drible', card.dribbling], ['Defesa', card.defending], ['Físico', card.physical]];
+  const upgradable: { key: UpgradeAttr; label: string; v: number }[] = isGK
+    ? [
+        { key: 'reflexes', label: 'Reflexos', v: card.reflexes ?? 0 },
+        { key: 'positioning', label: 'Posicionamento', v: card.positioning ?? 0 },
+        { key: 'handling', label: 'Manuseio', v: card.handling ?? 0 },
+        { key: 'pace', label: 'Velocidade', v: card.pace },
+        { key: 'defending', label: 'Defesa', v: card.defending },
+        { key: 'physical', label: 'Físico', v: card.physical },
+      ]
+    : [
+        { key: 'pace', label: 'Velocidade', v: card.pace },
+        { key: 'shooting', label: 'Chute', v: card.shooting },
+        { key: 'passing', label: 'Passe', v: card.passing },
+        { key: 'dribbling', label: 'Drible', v: card.dribbling },
+        { key: 'defending', label: 'Defesa', v: card.defending },
+        { key: 'physical', label: 'Físico', v: card.physical },
+      ];
 
   return (
     <div className="p-4 md:p-8 flex flex-col md:flex-row gap-8 items-start">
@@ -33,10 +53,9 @@ export default function CardDetail() {
           <Row label="Clube" value={card.club} />
           <Row label="Nacionalidade" value={card.nationality} />
           <Row label="Idade" value={String(card.age)} />
-          <Row label="Raridade" value={card.rarity} />
+          <Row label="Raridade" value={RARITY_META[card.rarity]?.label ?? card.rarity} />
           <Row label="Edição" value={card.edition} />
           <Row label="Overall" value={String(card.overall)} />
-          <Row label="ID" value={card.uid} />
         </div>
         <div className="card-surface p-4">
           <div className="font-semibold mb-2 text-[#252733]">Atributos</div>
@@ -45,7 +64,7 @@ export default function CardDetail() {
               <div key={l as string}>
                 <div className="flex justify-between text-xs mb-1 text-[#858A98]"><span>{l}</span><span className="font-bold text-[#252733]">{v}</span></div>
                 <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden">
-                  <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-[#E30613]'}`} style={{ width: `${v}%` }} />
+                  <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, v as number)}%` }} />
                 </div>
               </div>
             ))}
@@ -58,18 +77,11 @@ export default function CardDetail() {
             <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, ((card.xp ?? 0) % 100))}%` }} />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {[
-              { key: 'pace', label: 'Velocidade', v: card.pace },
-              { key: 'shooting', label: 'Chute', v: card.shooting },
-              { key: 'passing', label: 'Passe', v: card.passing },
-              { key: 'dribbling', label: 'Drible', v: card.dribbling },
-              { key: 'defending', label: 'Defesa', v: card.defending },
-              { key: 'physical', label: 'Físico', v: card.physical },
-            ].map(a => (
+            {upgradable.map(a => (
               <button
                 key={a.key}
-                disabled={(card.evoPoints ?? 0) <= 0}
-                onClick={() => { const ok = upgradePlayer(card.uid, a.key as any); if (!ok) toast.alert('Sem pontos ou limite atingido.'); }}
+                disabled={(card.evoPoints ?? 0) <= 0 || a.v >= 99}
+                onClick={() => { const ok = upgradePlayer(card.uid, a.key); if (!ok) toast.alert('Sem pontos ou limite atingido.'); }}
                 className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm disabled:opacity-40"
               >
                 <span className="text-[#252733]">{a.label}</span>
