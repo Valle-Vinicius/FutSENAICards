@@ -37,7 +37,6 @@ declare
   v_i integer := 0;
   v_rarity text;
   v_special text;
-  v_card_record record;
   v_pace integer;
   v_shooting integer;
   v_passing integer;
@@ -167,7 +166,8 @@ begin
         else 0
       end);
 
-    -- Insere a carta no banco
+    -- Insere a carta no banco e retorna
+    return query
     insert into public.cards (
       user_id, name, position, sport, rarity, edition, special,
       overall, pace, shooting, passing, dribbling, defending, physical,
@@ -181,9 +181,7 @@ begin
       null, '{}'::jsonb, v_image, false, true, now(), 4,
       lower(replace(v_name, ' ', '-')) || '-' || v_rarity,
       v_nationality, v_age, v_club
-    ) returning * into v_card_record;
-
-    return next v_card_record;
+    ) returning *;
   end loop;
 
   return;
