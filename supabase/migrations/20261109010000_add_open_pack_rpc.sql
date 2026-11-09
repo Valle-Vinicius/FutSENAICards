@@ -55,6 +55,7 @@ declare
   v_age integer;
   v_club text;
   v_image text;
+  v_r_mult float8;
 begin
   if v_uid is null then raise exception 'Not authenticated'; end if;
 
@@ -91,6 +92,17 @@ begin
         else 'futsal'
       end into v_special;
 
+    -- Multiplicador de raridade
+    select case v_rarity
+      when 'common' then 0.88
+      when 'uncommon' then 1.00
+      when 'rare' then 1.05
+      when 'epic' then 1.10
+      when 'legendary' then 1.15
+      when 'icon' then 1.20
+      else 1.00
+    end into v_r_mult;
+
     -- Sorteia um template aleatório da tabela cards (se houver) ou usa valores padrão
     select c.name, c.position, c.nationality, c.age, c.club, c.image,
            c.pace, c.shooting, c.passing, c.dribbling, c.defending, c.physical,
@@ -123,105 +135,15 @@ begin
     end if;
 
     -- Aplica multiplicador de raridade aos atributos
-    v_pace := least(99, greatest(0, round(v_pace * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
-    v_shooting := least(99, greatest(0, round(v_shooting * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
-    v_passing := least(99, greatest(0, round(v_passing * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
-    v_dribbling := least(99, greatest(0, round(v_dribbling * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
-    v_defending := least(99, greatest(0, round(v_defending * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
-    v_physical := least(99, greatest(0, round(v_physical * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
-    v_reflexes := least(99, greatest(0, round(coalesce(v_reflexes, 50) * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
-    v_positioning := least(99, greatest(0, round(coalesce(v_positioning, 50) * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
-    v_handling := least(99, greatest(0, round(coalesce(v_handling, 50) * (
-      case v_rarity 
-        when 'common' then 0.88
-        when 'uncommon' then 1.00
-        when 'rare' then 1.05
-        when 'epic' then 1.10
-        when 'legendary' then 1.15
-        when 'icon' then 1.20
-        else 1.00
-      end
-    )));
+    v_pace := least(99, greatest(0, round(v_pace * v_r_mult)));
+    v_shooting := least(99, greatest(0, round(v_shooting * v_r_mult)));
+    v_passing := least(99, greatest(0, round(v_passing * v_r_mult)));
+    v_dribbling := least(99, greatest(0, round(v_dribbling * v_r_mult)));
+    v_defending := least(99, greatest(0, round(v_defending * v_r_mult)));
+    v_physical := least(99, greatest(0, round(v_physical * v_r_mult)));
+    v_reflexes := least(99, greatest(0, round(coalesce(v_reflexes, 50) * v_r_mult)));
+    v_positioning := least(99, greatest(0, round(coalesce(v_positioning, 50) * v_r_mult)));
+    v_handling := least(99, greatest(0, round(coalesce(v_handling, 50) * v_r_mult)));
 
     -- Calcula overall base (média dos atributos) + bônus de raridade + bônus de especial
     v_base_overall := round((v_pace + v_shooting + v_passing + v_dribbling + v_defending + v_physical) / 6.0);
