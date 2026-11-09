@@ -314,7 +314,7 @@ export const useGame = create<GameState & Actions>()(
           });
         }
       },
-      openPack: (packId) => {
+      openPack: async (packId) => {
         const s = get();
         const pack = s.packConfigs.find(p => p.id === packId);
         if (!pack || !pack.unlocked) return null;
@@ -322,48 +322,68 @@ export const useGame = create<GameState & Actions>()(
         // deduct once
         const ok = get().spendCoins(pack.price, `Abertura ${pack.name}`);
         if (!ok) return null;
-        // generate cards
-        const cards: PlayerCard[] = [];
-        for (let i = 0; i < pack.cards; i++) {
-          const rarity = rollRarity(pack.probabilities);
-          const special = rollSpecial();
-        const t = randomTemplate(pack.position as any);
-        const card = generatePlayerCard(t, rarity, special, t.baseOverall);
-          cards.push(card);
+        // call server-side RPC to open pack (generates + inserts cards securely)
+        if (!supabase) return null;
+        const { data: session } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (!uid) return null;
+        const { data: newCards, error } = await supabase.rpc('open_pack', {
+          p_pack_id: packId,
+          p_price: pack.price,
+          p_card_count: pack.cards,
+        });
+        if (error || !newCards) {
+          // rollback coins on failure
+          get().addCoins(pack.price, `Reembolso falha abertura ${pack.name}`);
+          toast.error('Erro ao abrir pacote: ' + (error?.message ?? 'erro desconhecido'));
+          return null;
         }
-        // add to store first
+        // map server cards to PlayerCard
+        const cards: PlayerCard[] = (newCards as any[]).map(c => ({
+          uid: c.uid,
+          playerId: c.player_id,
+          name: c.name,
+          position: c.position,
+          sport: c.sport || 'futsal',
+          rarity: c.rarity,
+          edition: c.edition,
+          special: c.special,
+          overall: c.overall,
+          pace: c.pace,
+          shooting: c.shooting,
+          passing: c.passing,
+          dribbling: c.dribbling,
+          defending: c.defending,
+          physical: c.physical,
+          reflexes: c.reflexes,
+          positioning: c.positioning,
+          handling: c.handling,
+          image: c.image,
+          favorite: false,
+          isNew: true,
+          obtainedAt: new Date(c.created_at).getTime(),
+          xp: 0,
+          evoPoints: 0,
+          upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
+          evolutionLog: [],
+          seasonStats: { matches: 0, goals: 0, assists: 0 },
+        }));
+        // add to store
         set(st => ({
           cards: [...cards, ...st.cards],
           packsOpened: st.packsOpened + 1,
           newCardUids: [...cards.map(c => c.uid), ...st.newCardUids].slice(0, 50),
         }));
-        // sync new cards to Supabase
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) {
-              const dbCards = await Promise.all(cards.map(c => addCard(uid, c)));
-              const idMap = new Map(cards.map((c, i) => [c.uid, dbCards[i]?.uid ?? c.uid]));
-              set(st => ({ cards: st.cards.map(c => idMap.has(c.uid) && idMap.get(c.uid) !== c.uid ? { ...c, uid: idMap.get(c.uid)! } : c) }));
-              // sync collector ranking
-              const allCards = get().cards;
-              const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
-              const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
-              const { data: prof } = await supabase!.from('profiles').select('name').eq('id', uid).single();
-              await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
-            }
-          });
-        }
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) {
-              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
-              const prefs = prof?.preferences || {};
-              await supabase!.from('profiles').update({ packs_opened: get().packsOpened, preferences: { ...prefs, newCardUids: get().newCardUids } }).eq('id', uid);
-            }
-          });
-        }
+        // sync collector ranking
+        const allCards = get().cards;
+        const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
+        const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
+        const { data: prof } = await supabase!.from('profiles').select('name').eq('id', uid).single();
+        await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
+        // update packs_opened in profiles
+        const { data: prof2 } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
+        const prefs = prof2?.preferences || {};
+        await supabase!.from('profiles').update({ packs_opened: get().packsOpened, preferences: { ...prefs, newCardUids: get().newCardUids } }).eq('id', uid);
         get().addXp(pack.cards * 10);
         // mission progress
         get().updateMissionProgress();
