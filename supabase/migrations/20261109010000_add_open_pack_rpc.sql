@@ -7,7 +7,7 @@ returns table(
   uid uuid,
   player_id uuid,
   name text,
-  position text,
+  card_position text,
   sport text,
   rarity text,
   edition text,
@@ -37,10 +37,6 @@ declare
   v_i integer := 0;
   v_rarity text;
   v_special text;
-  v_templates text[] := array['common','uncommon','rare','epic','legendary','icon'];
-  v_rarity_weights float8[] := array[0.50, 0.30, 0.15, 0.04, 0.04, 0.01];
-  v_special_weights float8[] := array[0.85, 0.03, 0.03, 0.03, 0.03, 0.03];
-  v_special_list text[] := array['none','totw','potm','revelation','legend','futsal'];
   v_card_record record;
   v_pace integer;
   v_shooting integer;
@@ -54,7 +50,7 @@ declare
   v_base_overall integer;
   v_overall integer;
   v_name text;
-  v_position text;
+  v_card_position text;
   v_nationality text;
   v_age integer;
   v_club text;
@@ -73,11 +69,7 @@ begin
 
   -- Sorteia e insere cada carta
   for v_i in 1..p_card_count loop
-    -- Sorteia raridade
-    select v_rarity_weights[v_i % 6 + 1] into v_rarity; -- placeholder, será substituído abaixo
-    -- (sorteio simples baseado em pesos; para produção usar random() adequado)
-    select v_rarity_weights[1] into v_rarity; -- placeholder
-    -- Sorteia raridade de forma simples (pode ser aprimorado)
+    -- Sorteia raridade com pesos
     select 
       case 
         when random() < 0.50 then 'common'
@@ -103,7 +95,7 @@ begin
     select c.name, c.position, c.nationality, c.age, c.club, c.image,
            c.pace, c.shooting, c.passing, c.dribbling, c.defending, c.physical,
            c.reflexes, c.positioning, c.handling
-    into v_name, v_position, v_nationality, v_age, v_club, v_image,
+    into v_name, v_card_position, v_nationality, v_age, v_club, v_image,
          v_pace, v_shooting, v_passing, v_dribbling, v_defending, v_physical,
          v_reflexes, v_positioning, v_handling
     from public.cards c
@@ -114,7 +106,7 @@ begin
     -- Se não houver templates do usuário, usa valores padrão
     if v_name is null then
       v_name := 'Jogador';
-      v_position := 'Ala';
+      v_card_position := 'Ala';
       v_nationality := 'Brasil';
       v_age := 20;
       v_club := 'Clube';
@@ -252,7 +244,7 @@ begin
       evolution_log, season_stats, image, favorite, is_new, obtained_at, schema_version, player_id,
       nationality, age, club
     ) values (
-      v_uid, v_name, v_position, 'futsal', v_rarity, '2025/26', v_special,
+      v_uid, v_name, v_card_position, 'futsal', v_rarity, '2025/26', v_special,
       v_overall, v_pace, v_shooting, v_passing, v_dribbling, v_defending, v_physical,
       v_reflexes, v_positioning, v_handling, 0, 0, null,
       null, '{}'::jsonb, v_image, false, true, now(), 4,
@@ -265,4 +257,4 @@ begin
 
   return;
 end;
-$$;
+$$

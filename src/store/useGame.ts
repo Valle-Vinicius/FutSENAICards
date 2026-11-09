@@ -343,7 +343,7 @@ export const useGame = create<GameState & Actions>()(
           uid: c.uid,
           playerId: c.player_id,
           name: c.name,
-          position: c.position,
+          position: c.card_position,
           sport: c.sport || 'futsal',
           rarity: c.rarity,
           edition: c.edition,
