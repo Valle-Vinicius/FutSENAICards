@@ -123,7 +123,7 @@ begin
     end if;
 
     -- Aplica multiplicador de raridade aos atributos
-    v_pace := least(99, greatest(0, round(v_pace * 
+    v_pace := least(99, greatest(0, round(v_pace * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -132,8 +132,9 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
-    v_shooting := least(99, greatest(0, round(v_shooting * 
+      end
+    )));
+    v_shooting := least(99, greatest(0, round(v_shooting * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -142,8 +143,9 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
-    v_passing := least(99, greatest(0, round(v_passing * 
+      end
+    )));
+    v_passing := least(99, greatest(0, round(v_passing * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -152,8 +154,9 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
-    v_dribbling := least(99, greatest(0, round(v_dribbling * 
+      end
+    )));
+    v_dribbling := least(99, greatest(0, round(v_dribbling * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -162,8 +165,9 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
-    v_defending := least(99, greatest(0, round(v_defending * 
+      end
+    )));
+    v_defending := least(99, greatest(0, round(v_defending * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -172,8 +176,9 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
-    v_physical := least(99, greatest(0, round(v_physical * 
+      end
+    )));
+    v_physical := least(99, greatest(0, round(v_physical * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -182,8 +187,9 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
-    v_reflexes := least(99, greatest(0, round(coalesce(v_reflexes, 50) * 
+      end
+    )));
+    v_reflexes := least(99, greatest(0, round(coalesce(v_reflexes, 50) * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -192,8 +198,9 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
-    v_positioning := least(99, greatest(0, round(coalesce(v_positioning, 50) * 
+      end
+    )));
+    v_positioning := least(99, greatest(0, round(coalesce(v_positioning, 50) * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -202,8 +209,9 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
-    v_handling := least(99, greatest(0, round(coalesce(v_handling, 50) * 
+      end
+    )));
+    v_handling := least(99, greatest(0, round(coalesce(v_handling, 50) * (
       case v_rarity 
         when 'common' then 0.88
         when 'uncommon' then 1.00
@@ -212,7 +220,8 @@ begin
         when 'legendary' then 1.15
         when 'icon' then 1.20
         else 1.00
-      end));
+      end
+    )));
 
     -- Calcula overall base (média dos atributos) + bônus de raridade + bônus de especial
     v_base_overall := round((v_pace + v_shooting + v_passing + v_dribbling + v_defending + v_physical) / 6.0);
