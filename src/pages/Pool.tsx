@@ -125,13 +125,10 @@ export default function Pool() {
     }
 
     const t0 = performance.now();
-    const tick = (now: number) => {
-      const idx = Math.min(anim.length - 1, Math.floor(((now - t0) / 1000) * 60));
+    const tick = () => {
+      const elapsed = performance.now() - t0;
+      const idx = Math.max(0, Math.min(anim.length - 1, Math.floor((elapsed / 1000) * 60)));
       const frame = anim[idx];
-      if (!frame) {
-        resolve();
-        return;
-      }
       setState(prev => prev ? ({
         ...prev,
         balls: prev.balls.map((ball, index) => frame[index * 2] === -1
