@@ -220,7 +220,10 @@ export async function loadDbTemplates() {
 
 export function allTemplates(): PlayerTemplate[] {
   const dbMap = new Map<string, PlayerTemplate>(dbTemplates.map(t => [t.name, t]));
-  const merged = TEMPLATES.map(t => dbMap.get(t.name) || t);
+  const merged = TEMPLATES.map(t => {
+    const dbTemplate = dbMap.get(t.name);
+    return dbTemplate ? { ...t, ...dbTemplate, image: dbTemplate.image || t.image } : t;
+  });
   for (const t of dbTemplates) {
     if (!TEMPLATES.some(x => x.name === t.name)) {
       merged.push(t);

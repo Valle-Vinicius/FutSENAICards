@@ -50,6 +50,19 @@ function calcOverallLocal(
   return Math.min(99, base + (RARITY_OVR_BONUS[rarity as Rarity] ?? 0) + (SPECIAL_OVR_BONUS[special] ?? 0));
 }
 
+function calcBaseOverallLocal(
+  attrs: { pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; reflexes?: number | null; positioning?: number | null; handling?: number | null },
+  position: string
+): number {
+  const t = {
+    attributes: { pace: attrs.pace, shooting: attrs.shooting, passing: attrs.passing, dribbling: attrs.dribbling, defending: attrs.defending, physical: attrs.physical },
+    gkAttributes: attrs.reflexes !== undefined && attrs.reflexes !== null ? { reflexes: attrs.reflexes, positioning: attrs.positioning ?? 50, handling: attrs.handling ?? 50 } : undefined,
+    position: position as Position,
+    baseOverall: undefined as number | undefined,
+  };
+  return calculateOverall(t as any);
+}
+
 function applyMod(value: number, mod: number): number {
   return Math.max(0, Math.min(99, Math.round(value * mod)));
 }
@@ -87,7 +100,6 @@ export default function Admin() {
     reflexes: 0,
     positioning: 0,
     handling: 0,
-    edition: DEFAULT_EDITION,
     special: 'none',
     imageUrl: '',
     calcOverall: false,
@@ -129,11 +141,26 @@ export default function Admin() {
     handling: isGK ? form.handling : undefined,
   };
 
-  const calculatedOverall = calcOverallLocal(attrsRaw, form.position, rarityToUse, form.special);
+  const calculatedOverall = isInventory
+    ? calcOverallLocal(attrsMod, form.position, rarityToUse, form.special)
+    : calcBaseOverallLocal(attrsRaw, form.position);
 
   const makePreviewCard = (rarity: string): PlayerCard => {
     const rMod = RARITY_MODIFIER[rarity as Rarity] ?? 1.0;
-    const ovr = calcOverallLocal(attrsRaw, form.position, rarity, form.special);
+    const previewAttrs = {
+      pace: applyMod(form.pace, rMod),
+      shooting: applyMod(form.shooting, rMod),
+      passing: applyMod(form.passing, rMod),
+      dribbling: applyMod(form.dribbling, rMod),
+      defending: applyMod(form.defending, rMod),
+      physical: applyMod(form.physical, rMod),
+      reflexes: isGK ? applyMod(form.reflexes, rMod) : undefined,
+      positioning: isGK ? applyMod(form.positioning, rMod) : undefined,
+      handling: isGK ? applyMod(form.handling, rMod) : undefined,
+    };
+    const ovr = isInventory && !calcMode && rarity === form.rarity
+      ? form.overall
+      : calcOverallLocal(previewAttrs, form.position, rarity, isInventory ? form.special : 'none');
     return {
       uid: 'preview-' + rarity,
       playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
@@ -271,10 +298,34 @@ export default function Admin() {
 
   const handleCreate = async () => {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
+    const fields = [
+      ['Velocidade', form.pace],
+      ['Chute', form.shooting],
+      ['Passe', form.passing],
+      ['Drible', form.dribbling],
+      ['Defesa', form.defending],
+      ['Físico', form.physical],
+      ...(isGK ? [['Reflexos', form.reflexes], ['Posicionamento', form.positioning], ['Defesa de Bola', form.handling]] : []),
+    ] as [string, number][];
+    if (form.name.trim().length > 80) { toast.error('O nome deve ter no máximo 80 caracteres.'); return; }
+    if (!Number.isInteger(form.age) || form.age < 14 || form.age > 60) { toast.error('A idade deve ser um número inteiro entre 14 e 60.'); return; }
+    if (!fields.every(([, value]) => Number.isInteger(value) && value >= 0 && value <= 99)) {
+      toast.error('Todos os atributos devem ser números inteiros entre 0 e 99.');
+      return;
+    }
+    const imageUrl = form.imageUrl.trim();
+    if (imageUrl && !(/^https?:\/\//i.test(imageUrl) || (imageUrl.startsWith('/') && !imageUrl.startsWith('//')))) {
+      toast.error('A imagem deve usar uma URL HTTP(S) ou um caminho local iniciado por /.');
+      return;
+    }
     setCreating(true);
     try {
       const rarityForVal = isInventory ? rarityToUse : form.baseRarity;
       const ovrForVal = calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall);
+      if (!Number.isInteger(ovrForVal) || ovrForVal < 0 || ovrForVal > 99) {
+        toast.error('O OVR deve ser um número inteiro entre 0 e 99.');
+        return;
+      }
       if (!validateRarityOverall(rarityForVal as Rarity, ovrForVal)) {
         toast.warning(`Atenção: OVR ${ovrForVal} fora da banda típica para ${RARITY_LABELS[rarityForVal]}.`);
       }
@@ -295,9 +346,8 @@ export default function Admin() {
           p_reflexes: isGK ? attrsMod.reflexes : null,
           p_positioning: isGK ? attrsMod.positioning : null,
           p_handling: isGK ? attrsMod.handling : null,
-          p_edition: DEFAULT_EDITION,
           p_special: form.special,
-          p_image: form.imageUrl.trim() || null,
+          p_image: imageUrl || null,
           p_nationality: form.nationality.trim() || 'Brasil',
           p_age: Number(form.age) || 20,
           p_club: form.club.trim() || 'Clube',
@@ -317,7 +367,7 @@ export default function Admin() {
           edition: DEFAULT_EDITION,
           special: form.special as any,
           overall: ovr,
-          image: form.imageUrl.trim() || undefined,
+          image: imageUrl || undefined,
           pace: attrsMod.pace,
           shooting: attrsMod.shooting,
           passing: attrsMod.passing,
@@ -356,7 +406,7 @@ export default function Admin() {
           p_reflexes: isGK ? form.reflexes : null,
           p_positioning: isGK ? form.positioning : null,
           p_handling: isGK ? form.handling : null,
-          p_image: form.imageUrl.trim() || null,
+          p_image: imageUrl || null,
           p_special: 'none',
           p_base_rarity: form.baseRarity,
           p_base_overall: ovr,
@@ -457,7 +507,7 @@ export default function Admin() {
                 if (!isInventory) setForm({ ...form, baseOverall: val });
                 else setForm({ ...form, overall: val });
               }} className={inputCls} min={0} max={99} disabled={calcMode && isInventory} />
-              {isInventory && !calcMode && <div className="text-[10px] text-[#858A98] mt-1">O overall digitado será recalculado com atributos × raridade ao salvar.</div>}
+              {isInventory && !calcMode && <div className="text-[10px] text-[#858A98] mt-1">O OVR digitado será salvo como informado; confira a faixa típica da raridade.</div>}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -505,21 +555,12 @@ export default function Admin() {
             )}
 
             {isInventory && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Edição</label>
-                  <select value={form.edition} onChange={e => setForm({ ...form, edition: e.target.value })} className={inputCls}>
-                    <option value={DEFAULT_EDITION}>Temporada ({DEFAULT_EDITION})</option>
-                    <option value="none">Sem edição</option>
-                  </select>
-                  <div className="text-[10px] text-[#858A98] mt-1">Use a temporada para cartas normais. Edições especiais vão em 'Especial'.</div>
-                </div>
-                <div>
-                  <label className={labelCls}>Especial</label>
-                  <select value={form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={inputCls}>
-                    {SPECIALS.map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
-                  </select>
-                </div>
+              <div>
+                <label className={labelCls}>Especial</label>
+                <select value={form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={inputCls}>
+                  {SPECIALS.map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
+                </select>
+                <div className="text-[10px] text-[#858A98] mt-1">Todas as cartas são da temporada {DEFAULT_EDITION}.</div>
               </div>
             )}
 

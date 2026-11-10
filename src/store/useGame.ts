@@ -5,7 +5,7 @@ import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types
 import { RARITY_META, SPECIAL_META } from '../types';
 import type { UpgradeAttr } from '../types';
 import { toast } from './toast';
-import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, rollRarity, levelFromXp, FORMATIONS_FUTSAL, mergeCardProgress, totalUpgrades, UUID_RE } from '../lib/game';
+import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, levelFromXp, FORMATIONS_FUTSAL, mergeCardProgress, totalUpgrades, UUID_RE } from '../lib/game';
 import { supabase } from '../lib/supabase';
 import { getCards, addCard, updateCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
@@ -22,6 +22,69 @@ import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, 
 let squadSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let squadSavePending = false; // true enquanto há alteração local ainda não confirmada no servidor
 let syncChain: Promise<void> = Promise.resolve();
+
+interface OpenPackRow {
+  uid: string;
+  player_id: string;
+  name: string;
+  card_position: string;
+  sport: string;
+  nationality: string;
+  age: number;
+  club: string;
+  rarity: string;
+  edition: string;
+  special: string;
+  overall: number;
+  pace: number;
+  shooting: number;
+  passing: number;
+  dribbling: number;
+  defending: number;
+  physical: number;
+  reflexes: number | null;
+  positioning: number | null;
+  handling: number | null;
+  image: string | null;
+  choice_id: string | null;
+  remaining_coins: number;
+  created_at: string;
+}
+
+function mapOpenPackCard(row: OpenPackRow): PlayerCard {
+  return {
+    uid: row.uid,
+    playerId: row.player_id,
+    name: row.name,
+    position: row.card_position as PlayerCard['position'],
+    sport: row.sport as PlayerCard['sport'],
+    nationality: row.nationality,
+    age: row.age,
+    club: row.club,
+    rarity: row.rarity as PlayerCard['rarity'],
+    edition: row.edition,
+    special: row.special as PlayerCard['special'],
+    overall: row.overall,
+    pace: row.pace,
+    shooting: row.shooting,
+    passing: row.passing,
+    dribbling: row.dribbling,
+    defending: row.defending,
+    physical: row.physical,
+    reflexes: row.reflexes ?? undefined,
+    positioning: row.positioning ?? undefined,
+    handling: row.handling ?? undefined,
+    image: row.image || allTemplates().find(template => template.name === row.name)?.image,
+    favorite: false,
+    isNew: true,
+    obtainedAt: new Date(row.created_at).getTime(),
+    xp: 0,
+    evoPoints: 0,
+    upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
+    evolutionLog: [],
+    seasonStats: { matches: 0, goals: 0, assists: 0 },
+  };
+}
 
 function scheduleSquadSave(getSquad: () => Squad) {
   if (!supabase) return;
@@ -47,7 +110,7 @@ interface Actions {
   addCoins: (n: number, reason: string) => void;
   spendCoins: (n: number, reason: string) => boolean;
   addXp: (n: number) => void;
-  openPack: (packId: string) => { cards: PlayerCard[] } | null;
+  openPack: (packId: string) => Promise<{ cards: PlayerCard[] } | null>;
   claimDaily: () => { ok: boolean; amount: number };
   toggleFavorite: (uid: string) => void;
   markSeen: (uids: string[]) => void;
@@ -78,8 +141,8 @@ interface Actions {
   cancelListing: (id: string) => void;
   buyListing: (id: string) => Promise<boolean>;
   bidListing: (id: string, amount: number) => boolean;
-  previewPack: (packId: string) => PlayerCard[] | null;
-  claimPreviewedCard: (card: PlayerCard) => void;
+  previewPack: (packId: string) => Promise<{ cards: PlayerCard[]; choiceId: string } | null>;
+  claimPreviewedCard: (card: PlayerCard, choiceId: string) => Promise<PlayerCard | null>;
   addLocalCard: (card: PlayerCard) => void;
   completeSBC: (sbcId: string, cardUids: string[]) => boolean;
   seedMarket: () => void;
@@ -142,14 +205,6 @@ const initialState: GameState = {
 };
 
 // helper: generate a card from a rarity
-
-// special edition roll (15% de chance de edição especial)
-function rollSpecial(): 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal' {
-  const r = Math.random();
-  if (r < 0.85) return 'none';
-  const opts: any[] = ['totw','potm','revelation','legend','futsal'];
-  return opts[Math.floor(Math.random() * opts.length)];
-}
 
 export const useGame = create<GameState & Actions>()(
   persist(
@@ -318,76 +373,54 @@ export const useGame = create<GameState & Actions>()(
         const s = get();
         const pack = s.packConfigs.find(p => p.id === packId);
         if (!pack || !pack.unlocked) return null;
-        if (s.coins < pack.price) return null;
-        // deduct once
-        const ok = get().spendCoins(pack.price, `Abertura ${pack.name}`);
-        if (!ok) return null;
-        // call server-side RPC to open pack (generates + inserts cards securely)
-        if (!supabase) return null;
-        const { data: session } = await supabase.auth.getSession();
-        const uid = session?.user?.id;
-        if (!uid) return null;
-        const { data: newCards, error } = await supabase.rpc('open_pack', {
-          p_pack_id: packId,
-          p_price: pack.price,
-          p_card_count: pack.cards,
-        });
-        if (error || !newCards) {
-          // rollback coins on failure
-          get().addCoins(pack.price, `Reembolso falha abertura ${pack.name}`);
-          toast.error('Erro ao abrir pacote: ' + (error?.message ?? 'erro desconhecido'));
+        if (s.coins < pack.price) {
+          toast.alert('Saldo insuficiente.');
           return null;
         }
-        // map server cards to PlayerCard
-        const cards: PlayerCard[] = (newCards as any[]).map(c => ({
-          uid: c.uid,
-          playerId: c.player_id,
-          name: c.name,
-          position: c.card_position,
-          sport: c.sport || 'futsal',
-          rarity: c.rarity,
-          edition: c.edition,
-          special: c.special,
-          overall: c.overall,
-          pace: c.pace,
-          shooting: c.shooting,
-          passing: c.passing,
-          dribbling: c.dribbling,
-          defending: c.defending,
-          physical: c.physical,
-          reflexes: c.reflexes,
-          positioning: c.positioning,
-          handling: c.handling,
-          image: c.image,
-          favorite: false,
-          isNew: true,
-          obtainedAt: new Date(c.created_at).getTime(),
-          xp: 0,
-          evoPoints: 0,
-          upgrades: { pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0 },
-          evolutionLog: [],
-          seasonStats: { matches: 0, goals: 0, assists: 0 },
-        }));
-        // add to store
+        if (!supabase) return null;
+        let uid: string | undefined;
+        try {
+          const result = await supabase.auth.getSession();
+          if (result.error) {
+            toast.error('Erro ao validar sessão: ' + result.error.message);
+            return null;
+          }
+          uid = result.data.session?.user.id;
+        } catch (error) {
+          toast.error('Erro ao validar sessão: ' + (error instanceof Error ? error.message : 'erro desconhecido'));
+          return null;
+        }
+        if (!uid) return null;
+        let newCards: OpenPackRow[] | null = null;
+        let openError: string | null = null;
+        try {
+          const result = await supabase.rpc('open_pack', { p_pack_id: packId });
+          if (result.error) openError = result.error.message;
+          else newCards = result.data as OpenPackRow[] | null;
+        } catch (error) {
+          openError = error instanceof Error ? error.message : 'erro desconhecido';
+        }
+        if (openError || !newCards?.length) {
+          toast.error('Erro ao abrir pacote: ' + (openError ?? 'nenhuma carta foi retornada'));
+          return null;
+        }
+        const rows = newCards;
+        const cards = rows.map(mapOpenPackCard);
+        const remainingCoins = rows[0].remaining_coins;
         set(st => ({
           cards: [...cards, ...st.cards],
+          coins: remainingCoins,
+          transactions: [{ id: nanoid(8), type: 'spend' as const, amount: pack.price, reason: `Abertura ${pack.name}`, at: Date.now() }, ...st.transactions].slice(0, 50),
           packsOpened: st.packsOpened + 1,
           newCardUids: [...cards.map(c => c.uid), ...st.newCardUids].slice(0, 50),
         }));
-        // sync collector ranking
         const allCards = get().cards;
         const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
         const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
         const { data: prof } = await supabase!.from('profiles').select('name').eq('id', uid).single();
         await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
-        // update packs_opened in profiles
-        const { data: prof2 } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
-        const prefs = prof2?.preferences || {};
-        await supabase!.from('profiles').update({ packs_opened: get().packsOpened, preferences: { ...prefs, newCardUids: get().newCardUids } }).eq('id', uid);
-        get().addXp(pack.cards * 10);
-        // mission progress
+        get().addXp(cards.length * 10);
         get().updateMissionProgress();
-        // achievements
         const st2 = get();
         if (st2.cards.length >= 1) {
           const a = st2.achievements.find(x => x.id === 'a1');
@@ -894,40 +927,69 @@ export const useGame = create<GameState & Actions>()(
         }));
         return true;
       },
-      previewPack: (packId) => {
+      previewPack: async (packId) => {
         const s = get();
         const pack = s.packConfigs.find(p => p.id === packId);
-        if (!pack || !pack.unlocked) return null;
-        if (s.coins < pack.price) return null;
-        const ok = get().spendCoins(pack.price, `Prévia ${pack.name}`);
-        if (!ok) return null;
-        const cards = [];
-        const count = pack.choice || pack.cards;
-        for (let i = 0; i < count; i++) {
-          const rarity = rollRarity(pack.probabilities);
-          const t = randomTemplate(pack.position as any);
-          cards.push(generatePlayerCard(t, rarity, 'none'));
+        if (!pack || !pack.unlocked || !pack.choice) return null;
+        if (s.coins < pack.price) {
+          toast.alert('Saldo insuficiente.');
+          return null;
         }
-        return cards;
-      },
-      claimPreviewedCard: (card) => {
+        if (!supabase) return null;
+        let data: OpenPackRow[] | null = null;
+        let openError: string | null = null;
+        try {
+          const result = await supabase.rpc('open_pack', { p_pack_id: packId });
+          if (result.error) openError = result.error.message;
+          else data = result.data as OpenPackRow[] | null;
+        } catch (error) {
+          openError = error instanceof Error ? error.message : 'erro desconhecido';
+        }
+        if (openError || !data?.length) {
+          toast.error('Erro ao gerar escolha: ' + (openError ?? 'nenhuma carta foi retornada'));
+          return null;
+        }
+        const rows = data;
+        const choiceId = rows[0].choice_id;
+        if (!choiceId) {
+          toast.error('O servidor não retornou um identificador para a escolha.');
+          return null;
+        }
+        const cards = rows.map(mapOpenPackCard);
         set(st => ({
-          cards: [card, ...st.cards],
-          newCardUids: [card.uid, ...st.newCardUids].slice(0, 50),
+          coins: rows[0].remaining_coins,
+          transactions: [{ id: nanoid(8), type: 'spend' as const, amount: pack.price, reason: `Abertura ${pack.name}`, at: Date.now() }, ...st.transactions].slice(0, 50),
+          packsOpened: st.packsOpened + 1,
+        }));
+        get().updateMissionProgress();
+        return { cards, choiceId };
+      },
+      claimPreviewedCard: async (card, choiceId) => {
+        if (!supabase) return null;
+        let data: OpenPackRow[] | null = null;
+        let claimError: string | null = null;
+        try {
+          const result = await supabase.rpc('claim_pack_choice', {
+            p_choice_id: choiceId,
+            p_card_id: card.uid,
+          });
+          if (result.error) claimError = result.error.message;
+          else data = result.data as OpenPackRow[] | null;
+        } catch (error) {
+          claimError = error instanceof Error ? error.message : 'erro desconhecido';
+        }
+        if (claimError || !data?.length) {
+          toast.error('Erro ao resgatar carta: ' + (claimError ?? 'a escolha expirou ou já foi usada'));
+          return null;
+        }
+        const claimedCard = mapOpenPackCard(data[0]);
+        set(st => ({
+          cards: [claimedCard, ...st.cards],
+          newCardUids: [claimedCard.uid, ...st.newCardUids].slice(0, 50),
         }));
         get().addXp(10);
         get().updateMissionProgress();
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) {
-              const dbCard = await addCard(uid, card);
-              if (dbCard) {
-                set(st => ({ cards: st.cards.map(c => c.uid === card.uid ? { ...c, uid: dbCard.uid } : c) }));
-              }
-            }
-          });
-        }
+        return claimedCard;
       },
       addLocalCard: (card) => {
         set(st => ({

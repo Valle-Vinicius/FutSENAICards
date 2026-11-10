@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../store/useGame';
-import { toast } from '../store/toast';
 import { playBurst, playCharge, playFlip, playRareReveal } from '../lib/sound';
 import Card from '../components/Card';
 import type { PlayerCard, Rarity } from '../types';
@@ -97,6 +96,8 @@ export default function OpenPack() {
   const [phase, setPhase] = useState<'idle'|'charging'|'burst'|'rarity'|'reveal'|'summary'|'choice'>('idle');
   const [cards, setCards] = useState<PlayerCard[]>([]);
   const [choiceCards, setChoiceCards] = useState<PlayerCard[]>([]);
+  const [choiceId, setChoiceId] = useState<string | null>(null);
+  const [claimingChoice, setClaimingChoice] = useState(false);
   const [revealed, setRevealed] = useState<boolean[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [skip, setSkip] = useState(false);
@@ -163,15 +164,16 @@ export default function OpenPack() {
   const startOpen = async () => {
     if (phase !== 'idle') return;
     if (isChoice) {
-      const res = previewPack(pack.id);
-      if (!res) { toast.alert('Saldo insuficiente.'); return; }
-      const sorted = sortCards(res);
+      const res = await previewPack(pack.id);
+      if (!res) return;
+      const sorted = sortCards(res.cards);
       setChoiceCards(sorted);
+      setChoiceId(res.choiceId);
       setPhase('choice');
       return;
     }
     const res = await openPack(pack.id);
-    if (!res) { alert('Saldo insuficiente.'); return; }
+    if (!res) return;
     const sorted = sortCards(res.cards);
     setCards(sorted);
     setRevealed(new Array(sorted.length).fill(false));
@@ -343,12 +345,19 @@ export default function OpenPack() {
             <div className="flex flex-wrap justify-center gap-5">
               {choiceCards.map(c => (
                 <motion.div key={c.uid} whileHover={{ scale: 1.05 }} onClick={() => {
+                  if (!choiceId || claimingChoice) return;
+                  setClaimingChoice(true);
                   const prevOwned = new Set(useGame.getState().cards.map(x => x.playerId));
-                  claimPreviewedCard(c);
-                  setCards([c]);
-                  setRevealed([true]);
-                  setDuplicateCount(prevOwned.has(c.playerId) ? 1 : 0);
-                  setPhase('summary');
+                  void claimPreviewedCard(c, choiceId).then(claimedCard => {
+                    if (claimedCard) {
+                      setCards([claimedCard]);
+                      setRevealed([true]);
+                      setDuplicateCount(prevOwned.has(c.playerId) ? 1 : 0);
+                      setPhase('summary');
+                    } else {
+                      setClaimingChoice(false);
+                    }
+                  }).catch(() => setClaimingChoice(false));
                 }} className="cursor-pointer">
                   <Card card={c} size="md" />
                 </motion.div>
