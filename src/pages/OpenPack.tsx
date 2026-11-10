@@ -106,6 +106,7 @@ export default function OpenPack() {
   const [shake, setShake] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const openingRef = useRef(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -162,18 +163,49 @@ export default function OpenPack() {
   const sortCards = (list: PlayerCard[]) => [...list].sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity] || b.overall - a.overall);
 
   const startOpen = async () => {
-    if (phase !== 'idle') return;
+    if (phase !== 'idle' || openingRef.current) return;
+    openingRef.current = true;
+    setPhase('charging');
+    setShake(true);
+
     if (isChoice) {
-      const res = await previewPack(pack.id);
-      if (!res) return;
+      let res;
+      try {
+        res = await previewPack(pack.id);
+      } catch (error) {
+        openingRef.current = false;
+        throw error;
+      }
+      if (!res) {
+        openingRef.current = false;
+        setShake(false);
+        setPhase('idle');
+        return;
+      }
+      openingRef.current = false;
       const sorted = sortCards(res.cards);
       setChoiceCards(sorted);
       setChoiceId(res.choiceId);
+      setShake(false);
       setPhase('choice');
       return;
     }
-    const res = await openPack(pack.id);
-    if (!res) return;
+
+    let res;
+    try {
+      res = await openPack(pack.id);
+    } catch (error) {
+      openingRef.current = false;
+      throw error;
+    }
+    if (!res) {
+      openingRef.current = false;
+      setShake(false);
+      setPhase('idle');
+      return;
+    }
+    openingRef.current = false;
+
     const sorted = sortCards(res.cards);
     setCards(sorted);
     setRevealed(new Array(sorted.length).fill(false));
@@ -440,7 +472,7 @@ export default function OpenPack() {
               <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: '#E30613' }}>
                 VER COLEÇÃO
               </button>
-              <button onClick={() => { setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setDuplicateCount(0); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
+              <button onClick={() => { openingRef.current = false; setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setShake(false); setDuplicateCount(0); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
                 ABRIR OUTRO PACOTE
               </button>
             </div>
