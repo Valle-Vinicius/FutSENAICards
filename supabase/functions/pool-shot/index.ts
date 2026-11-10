@@ -144,7 +144,11 @@ serve(async (req) => {
   const token = authorization.replace(/^Bearer\s+/i, '');
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) {
-    console.log('[pool-shot] 401 invalid session for request');
+    console.warn('[pool-shot] 401 invalid session', {
+      status: authError?.status,
+      code: authError?.code,
+      message: authError?.message,
+    });
     return json({ error: 'invalid session' }, origin, 401);
   }
 

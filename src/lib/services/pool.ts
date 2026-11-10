@@ -94,12 +94,43 @@ export async function getPoolMatch(id: string): Promise<PoolMatch | null> {
   };
 }
 
+function isHttpResponse(value: unknown): value is Pick<Response, 'status' | 'clone'> {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as { status?: unknown; clone?: unknown };
+  return typeof candidate.status === 'number' && typeof candidate.clone === 'function';
+}
+
 export async function submitShot(matchId: string, angle: number, power: number, ballInHandPos?: { x: number; y: number }): Promise<any> {
   if (!supabase) return null;
-  const { data, error } = await supabase.functions.invoke('pool-shot', { body: { matchId, angle, power, ballInHandPos } });
+  const body = { matchId, angle, power, ballInHandPos };
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) return { error: sessionError.message };
+  if (!sessionData.session) return { error: 'Sua sessão expirou. Entre novamente.' };
+
+  const invoke = (accessToken: string) => supabase!.functions.invoke('pool-shot', {
+    body,
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  let { data, error } = await invoke(sessionData.session.access_token);
+  const context = error ? (error as { context?: unknown }).context : null;
+  if (isHttpResponse(context) && context.status === 401) {
+    const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshedData.session) {
+      return { error: 'Sua sessão expirou. Entre novamente.' };
+    }
+    ({ data, error } = await invoke(refreshedData.session.access_token));
+  }
+
   if (error) {
     let msg = error.message;
-    try { const b = await (error as any).context?.json(); if (b?.error) msg = b.error; } catch {}
+    try {
+      const errorContext = (error as { context?: unknown }).context;
+      if (isHttpResponse(errorContext)) {
+        const body = await errorContext.clone().json();
+        if (body?.error) msg = body.error;
+      }
+    } catch {}
     console.error('[pool-shot]', msg);
     return { error: msg };
   }
