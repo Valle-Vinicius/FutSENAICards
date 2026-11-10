@@ -1,10 +1,12 @@
 const mockGetSession = jest.fn();
 const mockRefreshSession = jest.fn();
 const mockInvoke = jest.fn();
+const mockFrom = jest.fn();
 
 jest.mock('../../../src/lib/supabase', () => ({
   get supabase() {
     return {
+      from: mockFrom,
       auth: {
         getSession: mockGetSession,
         refreshSession: mockRefreshSession,
@@ -14,13 +16,14 @@ jest.mock('../../../src/lib/supabase', () => ({
   },
 }));
 
-import { submitShot } from '../../../src/lib/services/pool';
+import { getPoolShotsAfter, submitShot } from '../../../src/lib/services/pool';
 
 describe('pool service', () => {
   beforeEach(() => {
     mockGetSession.mockReset();
     mockRefreshSession.mockReset();
     mockInvoke.mockReset();
+    mockFrom.mockReset();
   });
 
   it('renews the session and retries a shot rejected as unauthorized', async () => {
@@ -43,9 +46,9 @@ describe('pool service', () => {
           },
         },
       })
-      .mockResolvedValueOnce({ data: { finalState: {} }, error: null });
+      .mockResolvedValueOnce({ data: { finalState: {}, seq: 2 }, error: null });
 
-    await expect(submitShot('match-1', 0.4, 0.7)).resolves.toEqual({ finalState: {} });
+    await expect(submitShot('match-1', 0.4, 0.7)).resolves.toEqual({ finalState: {}, seq: 2 });
 
     expect(mockInvoke).toHaveBeenNthCalledWith(1, 'pool-shot', expect.objectContaining({
       headers: { Authorization: 'Bearer expired-token' },
@@ -63,5 +66,29 @@ describe('pool service', () => {
       error: 'Sua sessão expirou. Entre novamente.',
     });
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it('loads ordered shot animations after a sequence for realtime recovery', async () => {
+    const query: any = {};
+    Object.assign(query, {
+      select: jest.fn(() => query),
+      eq: jest.fn(() => query),
+      gt: jest.fn(() => query),
+      order: jest.fn(() => query),
+      then: (resolve: (value: unknown) => void) => resolve({
+        data: [{ seq: 4, player_id: 'player-2', result: { anim: [[1, 2], [3, 4]] } }],
+        error: null,
+      }),
+    });
+    mockFrom.mockReturnValue(query);
+
+    await expect(getPoolShotsAfter('match-1', 3)).resolves.toEqual([{
+      seq: 4,
+      playerId: 'player-2',
+      anim: [[1, 2], [3, 4]],
+    }]);
+    expect(mockFrom).toHaveBeenCalledWith('pool_shots');
+    expect(query.gt).toHaveBeenCalledWith('seq', 3);
+    expect(query.order).toHaveBeenCalledWith('seq', { ascending: true });
   });
 });

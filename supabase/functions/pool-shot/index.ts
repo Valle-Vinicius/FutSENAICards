@@ -381,5 +381,5 @@ serve(async (req) => {
   await supabase.from('pool_matches').update(updateData).eq('id', matchId);
 
   console.log(`[pool-shot] user=${user.id} matchId=${matchId} success nextPlayer=${nextPlayer} winner=${state.winner} foul=${foul}`);
-  return json({ anim, finalState: state, pocketed: pocketedIds, foul, nextPlayer, winner: state.winner }, origin, 200);
+  return json({ anim, seq, finalState: state, pocketed: pocketedIds, foul, nextPlayer, winner: state.winner }, origin, 200);
 });

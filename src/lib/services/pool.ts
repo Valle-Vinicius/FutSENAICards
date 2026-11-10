@@ -16,6 +16,41 @@ export interface PoolMatch {
   createdAt: string;
 }
 
+export interface PoolShotEvent {
+  seq: number;
+  playerId: string;
+  anim: number[][] | null;
+}
+
+export async function getLatestPoolShotSeq(matchId: string): Promise<number> {
+  if (!supabase) return 0;
+  const { data, error } = await supabase
+    .from('pool_shots')
+    .select('seq')
+    .eq('match_id', matchId)
+    .order('seq', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.seq ?? 0;
+}
+
+export async function getPoolShotsAfter(matchId: string, seq: number): Promise<PoolShotEvent[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('pool_shots')
+    .select('seq, player_id, result')
+    .eq('match_id', matchId)
+    .gt('seq', seq)
+    .order('seq', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(shot => ({
+    seq: shot.seq,
+    playerId: shot.player_id,
+    anim: Array.isArray(shot.result?.anim) ? shot.result.anim : null,
+  }));
+}
+
 async function getActivePoolMatchBetween(player1Id: string, player2Id: string): Promise<string | null> {
   if (!supabase) return null;
   const { data } = await supabase
