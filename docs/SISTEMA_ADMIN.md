@@ -23,14 +23,14 @@ O componente `Admin.tsx` verifica se o `userId` do Supabase Auth corresponde ao 
 Permite criar uma carta de duas formas:
 
 #### Modo Inventário
-Cria uma carta nova diretamente no inventário do admin via RPC `create_card`. O jogador, a posição, a nacionalidade, a idade, a imagem e os atributos são preenchidos para essa carta. O clube é escolhido de uma lista de times já usados pelos templates, para manter o valor padronizado no filtro da coleção.
+Cria uma carta nova diretamente no inventário do admin via RPC `create_card`. O jogador, a idade, a imagem e os atributos são preenchidos para essa carta. A nacionalidade é fixa em `Brasil`; o time é sorteado da lista de clubes já usados pelos templates para manter os valores padronizados no filtro da coleção.
 
 Campos:
 - Nome do jogador
 - URL da imagem
-- Nacionalidade
 - Idade
-- Clube (time pré-definido)
+- Nacionalidade fixa: Brasil
+- Clube (sorteado automaticamente entre os times existentes)
 - Posição (GK, Fixo, Ala, Pivo)
 - Raridade (Comum, Incomum, Rara, Épica, Lendária, Ícone)
 - Overall
@@ -39,7 +39,7 @@ Campos:
 - Edição (sempre `2025/26`)
 - Modo: Calcular OVR automaticamente (usa atributos × raridade) ou Manual
 
-Ao ativar o cálculo automático, a raridade da carta no Inventário — ou a raridade base no modo Pacotes — volta para **Incomum** como padrão. No Inventário, a raridade fica bloqueada enquanto o cálculo automático estiver ativo. O título especial não é escolhido no formulário; nos pacotes, ele é definido pelo sorteio da abertura. A coleção filtra por clube usando o valor salvo na carta, por isso o clube é escolhido da lista padronizada.
+Ao ativar o cálculo automático, a raridade (ou raridade base no modo Pacotes) volta para **Incomum** e fica bloqueada enquanto o cálculo automático estiver ativo. O título especial não é escolhido no formulário; nos pacotes, ele é definido pelo sorteio da abertura. A coleção filtra por clube usando o valor salvo na carta, por isso o clube é sorteado da lista padronizada.
 
 #### Modo Pacotes
 Cria um template que será sorteado nos pacotes abertos por qualquer jogador via RPC `create_card_template`.
@@ -48,7 +48,7 @@ Campos adicionais:
 - Raridade Base (raridade usada como base nos pacotes)
 - Overall Base (overall usado nos pacotes)
 
-**Nota:** No modo pacotes, edição e título especial não são definidos pelo template; a temporada é fixa e o título especial é sorteado ao abrir o pacote.
+**Nota:** No modo pacotes, edição e título especial não são definidos pelo template; a temporada é fixa e o título especial é sorteado ao abrir o pacote. A nacionalidade continua fixa em `Brasil` e o clube é sorteado entre os times existentes.
 
 ---
 

@@ -12,9 +12,11 @@ import { useGame } from '../store/useGame';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 const DEFAULT_EDITION = '2025/26';
+const DEFAULT_NATIONALITY = 'Brasil';
 
 const POSITIONS = ['GK', 'Fixo', 'Ala', 'Pivo'] as const;
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'] as const;
+const randomTeam = (teams: string[]) => teams[Math.floor(Math.random() * teams.length)] ?? '';
 const RARITY_LABELS: Record<string, string> = {
   common: 'Comum',
   uncommon: 'Incomum',
@@ -67,29 +69,30 @@ export default function Admin() {
   const [templateAttrs, setTemplateAttrs] = useState<Record<string, any>>({});
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templates, setTemplates] = useState(() => allTemplates());
-
-  const [form, setForm] = useState({
-    name: '',
-    nationality: 'Brasil',
-    age: 20,
-    club: '',
-    position: 'Ala',
-    rarity: 'uncommon',
-    overall: 80,
-    baseOverall: 80,
-    baseRarity: 'uncommon',
-    pace: 70,
-    shooting: 70,
-    passing: 70,
-    dribbling: 70,
-    defending: 70,
-    physical: 70,
-    reflexes: 0,
-    positioning: 0,
-    handling: 0,
-    imageUrl: '',
-    calcOverall: false,
-    destination: 'inventory' as 'inventory' | 'packs',
+  const [form, setForm] = useState(() => {
+    const initialTeams = [...new Set(allTemplates().map(template => template.club).filter(Boolean))];
+    return {
+      name: '',
+      age: 20,
+      club: randomTeam(initialTeams),
+      position: 'Ala',
+      rarity: 'uncommon',
+      overall: 80,
+      baseOverall: 80,
+      baseRarity: 'uncommon',
+      pace: 70,
+      shooting: 70,
+      passing: 70,
+      dribbling: 70,
+      defending: 70,
+      physical: 70,
+      reflexes: 0,
+      positioning: 0,
+      handling: 0,
+      imageUrl: '',
+      calcOverall: false,
+      destination: 'inventory' as 'inventory' | 'packs',
+    };
   });
 
   useEffect(() => {
@@ -103,7 +106,12 @@ export default function Admin() {
   useEffect(() => {
     let active = true;
     loadDbTemplates().then(() => {
-      if (active) setTemplates(allTemplates());
+      if (active) {
+        const loadedTemplates = allTemplates();
+        const loadedTeams = [...new Set(loadedTemplates.map(template => template.club).filter(Boolean))];
+        setTemplates(loadedTemplates);
+        setForm(prev => ({ ...prev, club: loadedTeams.includes(prev.club) ? prev.club : randomTeam(loadedTeams) }));
+      }
     });
     return () => { active = false; };
   }, []);
@@ -113,7 +121,7 @@ export default function Admin() {
   const isInventory = form.destination === 'inventory';
   const teams = [...new Set(templates.map(template => template.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-  const rarityToUse = isInventory ? form.rarity : form.baseRarity;
+  const rarityToUse = calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity;
   const mod = RARITY_MODIFIER[rarityToUse as Rarity] ?? 1.0;
 
   const attrsMod = {
@@ -162,7 +170,7 @@ export default function Admin() {
       name: form.name || 'Nome do Jogador',
       position: form.position as any,
       sport: 'futsal',
-      nationality: form.nationality || 'Brasil',
+      nationality: DEFAULT_NATIONALITY,
       age: Number(form.age) || 20,
       club: form.club || 'Clube',
       rarity: rarity as any,
@@ -263,7 +271,7 @@ export default function Admin() {
 
   const handleCreate = async () => {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
-    if (!teams.includes(form.club)) { toast.error('Selecione um time da lista.'); return; }
+    if (teams.length === 0 || !teams.includes(form.club)) { toast.error('Não há times cadastrados para realizar o sorteio.'); return; }
     const fields = [
       ['Velocidade', form.pace],
       ['Chute', form.shooting],
@@ -298,6 +306,7 @@ export default function Admin() {
 
       if (isInventory) {
         const ovr = calcMode ? calculatedOverall : form.overall;
+        const club = form.club;
         const { data: createdCardId, error } = await supabase.rpc('create_card', {
           p_name: form.name.trim(),
           p_position: form.position,
@@ -314,9 +323,9 @@ export default function Admin() {
           p_handling: isGK ? attrsMod.handling : null,
           p_special: 'none',
           p_image: imageUrl || null,
-          p_nationality: form.nationality.trim() || 'Brasil',
+          p_nationality: DEFAULT_NATIONALITY,
           p_age: Number(form.age),
-          p_club: form.club,
+          p_club: club,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         toast.success('Carta criada no inventário!');
@@ -326,9 +335,9 @@ export default function Admin() {
           name: form.name.trim(),
           position: form.position as Position,
           sport: 'futsal',
-          nationality: form.nationality.trim() || 'Brasil',
+          nationality: DEFAULT_NATIONALITY,
           age: Number(form.age),
-          club: form.club,
+          club,
           rarity: rarityToUse as any,
           edition: DEFAULT_EDITION,
           special: 'none',
@@ -357,12 +366,13 @@ export default function Admin() {
         if (userId) await syncUserData(userId);
       } else {
         const ovr = calcMode ? calculatedOverall : form.baseOverall;
+        const club = form.club;
         const { error } = await supabase.rpc('create_card_template', {
           p_name: form.name.trim(),
           p_position: form.position,
-          p_nationality: form.nationality.trim() || 'Brasil',
+          p_nationality: DEFAULT_NATIONALITY,
           p_age: Number(form.age) || 20,
-          p_club: form.club.trim() || 'Clube',
+          p_club: club,
           p_pace: form.pace,
           p_shooting: form.shooting,
           p_passing: form.passing,
@@ -382,7 +392,7 @@ export default function Admin() {
         setTemplates(allTemplates());
         toast.success('Carta adicionada aos pacotes!');
       }
-      setForm({ ...form, name: '', imageUrl: '' });
+      setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams) }));
     } catch (e: any) {
       toast.error('Erro: ' + (e?.message || 'desconhecido'));
     } finally {
@@ -433,21 +443,15 @@ export default function Admin() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className={labelCls}>Nacionalidade</label>
-                <input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} className={inputCls} placeholder="Ex: Brasil" />
+                <div className={`${inputCls} flex items-center bg-[#F7F7F9]`}>{DEFAULT_NATIONALITY}</div>
               </div>
               <div>
                 <label className={labelCls}>Idade</label>
                 <input type="number" value={form.age} onChange={e => setForm({ ...form, age: Number(e.target.value) })} className={inputCls} min={14} max={60} />
               </div>
               <div>
-                <label className={labelCls}>Clube</label>
-                <div className="relative">
-                  <select value={form.club} onChange={e => setForm({ ...form, club: e.target.value })} className={`${inputCls} appearance-none pr-10`}>
-                    <option value="">Selecione um time</option>
-                    {teams.map(team => <option key={team} value={team}>{team}</option>)}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
-                </div>
+                <label className={labelCls}>Time (sorteado)</label>
+                <div className={`${inputCls} flex items-center bg-[#F7F7F9]`}>{form.club || 'Aguardando sorteio...'}</div>
               </div>
             </div>
             </section>
@@ -470,16 +474,16 @@ export default function Admin() {
               <div>
                 <label className={labelCls}>Raridade</label>
                 <div className="relative">
-                  <select value={isInventory ? form.rarity : form.baseRarity} onChange={e => {
+                  <select value={calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity} onChange={e => {
                     const val = e.target.value as typeof form.rarity;
                     if (isInventory) setForm({ ...form, rarity: val });
                     else setForm({ ...form, baseRarity: val });
-                  }} className={`${inputCls} appearance-none pr-10`} disabled={calcMode && isInventory}>
+                  }} className={`${inputCls} appearance-none pr-10`} disabled={calcMode}>
                     {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
                 </div>
-                {calcMode && isInventory && <div className="text-[10px] text-[#858A98] mt-1">Modo cálculo: OVR aplicado sobre esta raridade</div>}
+                {calcMode && <div className="text-[10px] text-[#858A98] mt-1">Cálculo automático fixa a raridade em Incomum.</div>}
               </div>
             </div>
 
@@ -558,7 +562,7 @@ export default function Admin() {
                     const val = Number(e.target.value);
                     if (!isInventory) setForm({ ...form, baseOverall: val });
                     else setForm({ ...form, overall: val });
-                  }} className={`${inputCls} text-center text-lg font-bold tabular-nums`} min={0} max={99} disabled={calcMode && isInventory} />
+                  }} className={`${inputCls} text-center text-lg font-bold tabular-nums`} min={0} max={99} disabled={calcMode} />
                   {isInventory && !calcMode && <div className="mt-1 text-[10px] text-[#858A98]">O OVR digitado será salvo como informado; confira a faixa típica da raridade.</div>}
                 </div>
               </div>
@@ -571,11 +575,7 @@ export default function Admin() {
                     setForm(prev => ({
                       ...prev,
                       calcOverall,
-                      ...(calcOverall
-                        ? prev.destination === 'inventory'
-                          ? { rarity: 'uncommon' }
-                          : { baseRarity: 'uncommon' }
-                        : {}),
+                      ...(calcOverall ? { rarity: 'uncommon', baseRarity: 'uncommon' } : {}),
                     }));
                   }}
                   className="size-4 accent-[#E30613]"
@@ -590,7 +590,7 @@ export default function Admin() {
 
             <button
               onClick={handleCreate}
-              disabled={creating || !form.name.trim() || !form.club}
+              disabled={creating || !form.name.trim() || !form.club || teams.length === 0}
               className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
             >
               {creating ? 'Criando...' : isInventory ? 'Criar no Inventário' : 'Adicionar aos Pacotes'}
@@ -599,23 +599,10 @@ export default function Admin() {
 
           <div className="flex flex-col items-center justify-start gap-4 rounded-2xl border border-[#E9EAF0] bg-white p-4 md:p-5 xl:sticky xl:top-6">
             <h2 className="text-lg font-semibold text-[#252733]">Prévia</h2>
-            {calcMode ? (
-              <div className="flex flex-wrap gap-3 justify-center">
-                {RARITIES.map(r => (
-                  <div key={r} className="flex flex-col items-center gap-1">
-                    <Card card={makePreviewCard(r)} size="sm" />
-                    <div className="text-[10px] text-[#858A98]">{RARITY_LABELS[r]} · OVR {makePreviewCard(r).overall}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                <Card card={makePreviewCard(isInventory ? form.rarity : form.baseRarity)} size="lg" />
-                <div className="text-xs text-[#858A98] text-center">
-                  {RARITY_LABELS[isInventory ? form.rarity : form.baseRarity] || (isInventory ? form.rarity : form.baseRarity)} · OVR {calculatedOverall}
-                </div>
-              </>
-            )}
+            <Card card={makePreviewCard(rarityToUse)} size="lg" />
+            <div className="text-xs text-[#858A98] text-center">
+              {RARITY_LABELS[rarityToUse]} · OVR {makePreviewCard(rarityToUse).overall}
+            </div>
           </div>
         </div>
 
