@@ -25,6 +25,7 @@ let dailyClaimPending = false;
 let duplicateConversionPending = false;
 const sbcCompletionsPending = new Set<string>();
 const listingsPending = new Set<string>();
+let demoCoinClaimPending = false;
 
 interface OpenPackRow {
   uid: string;
@@ -110,7 +111,7 @@ function scheduleSquadSave(getSquad: () => Squad) {
 interface Actions {
   init: () => void;
   syncUserData: (userId: string) => Promise<void>;
-  addCoins: (n: number, reason: string) => void;
+  claimDemoCoins: () => Promise<boolean>;
   spendCoins: (n: number, reason: string) => boolean;
   addXp: (n: number) => void;
   openPack: (packId: string) => Promise<{ cards: PlayerCard[] } | null>;
@@ -323,19 +324,44 @@ export const useGame = create<GameState & Actions>()(
         }
         } finally { releaseSync(); }
       },
-      addCoins: (n, reason) => {
-        set(st => ({
-          coins: st.coins + n,
-          transactions: [{ id: nanoid(8), type: 'earn' as const, amount: n, reason, at: Date.now() }, ...st.transactions].slice(0, 50),
-        }));
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) {
-              const { data: newCoins } = await supabase!.rpc('add_coins', { p_amount: n, p_reason: reason });
-              if (newCoins !== null) set({ coins: newCoins });
-            }
+      claimDemoCoins: async () => {
+        if (demoCoinClaimPending) return false;
+        demoCoinClaimPending = true;
+        try {
+          if (!supabase) {
+            set(st => ({
+              coins: st.coins + 10000,
+              transactions: [{ id: nanoid(8), type: 'earn' as const, amount: 10000, reason: 'Pacote de moedas (demo)', at: Date.now() }, ...st.transactions].slice(0, 50),
+            }));
+            return true;
+          }
+
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw sessionError;
+          if (!sessionData.session?.user?.id) throw new Error('Entre na sua conta para receber moedas de demonstração.');
+
+          const { data: claimToken, error: beginError } = await supabase.rpc('begin_demo_coin_claim');
+          if (beginError) throw beginError;
+          if (typeof claimToken !== 'string') throw new Error('O servidor não reservou a compra de moedas.');
+
+          await new Promise(resolve => setTimeout(resolve, 1800));
+          const { data: result, error: finishError } = await supabase.rpc('finish_demo_coin_claim', {
+            p_claim_token: claimToken,
           });
+          if (finishError) throw finishError;
+          const coins = Number(result?.coins);
+          if (!Number.isInteger(coins)) throw new Error('O servidor retornou um saldo inválido.');
+          set(st => ({
+            coins,
+            transactions: [{ id: nanoid(8), type: 'earn' as const, amount: 10000, reason: 'Pacote de moedas (demo)', at: Date.now() }, ...st.transactions].slice(0, 50),
+          }));
+          return true;
+        } catch (error) {
+          console.error('[demo-coins] claim failed:', error);
+          toast.error(error instanceof Error ? error.message : 'Não foi possível concluir a compra de demonstração.');
+          return false;
+        } finally {
+          demoCoinClaimPending = false;
         }
       },
       spendCoins: (n, reason) => {
