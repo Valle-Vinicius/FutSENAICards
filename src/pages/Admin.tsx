@@ -66,14 +66,13 @@ export default function Admin() {
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [templateAttrs, setTemplateAttrs] = useState<Record<string, any>>({});
   const [savingTemplate, setSavingTemplate] = useState(false);
-  const [inventoryTemplateName, setInventoryTemplateName] = useState('');
   const [templates, setTemplates] = useState(() => allTemplates());
 
   const [form, setForm] = useState({
     name: '',
     nationality: 'Brasil',
     age: 20,
-    club: 'Clube',
+    club: '',
     position: 'Ala',
     rarity: 'uncommon',
     overall: 80,
@@ -112,31 +111,7 @@ export default function Admin() {
   const isGK = form.position === 'GK';
   const calcMode = form.calcOverall;
   const isInventory = form.destination === 'inventory';
-  const inventoryTemplate = templates.find(t => t.name === inventoryTemplateName);
-
-  const selectInventoryTemplate = (name: string) => {
-    const template = templates.find(t => t.name === name);
-    setInventoryTemplateName(name);
-    if (!template) return;
-    setForm(prev => ({
-      ...prev,
-      name: template.name,
-      nationality: template.nationality,
-      age: template.age,
-      club: template.club,
-      position: template.position,
-      imageUrl: template.image || '',
-      pace: template.attributes.pace,
-      shooting: template.attributes.shooting,
-      passing: template.attributes.passing,
-      dribbling: template.attributes.dribbling,
-      defending: template.attributes.defending,
-      physical: template.attributes.physical,
-      reflexes: template.gkAttributes?.reflexes ?? 0,
-      positioning: template.gkAttributes?.positioning ?? 0,
-      handling: template.gkAttributes?.handling ?? 0,
-    }));
-  };
+  const teams = [...new Set(templates.map(template => template.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   const rarityToUse = isInventory ? form.rarity : form.baseRarity;
   const mod = RARITY_MODIFIER[rarityToUse as Rarity] ?? 1.0;
@@ -288,7 +263,7 @@ export default function Admin() {
 
   const handleCreate = async () => {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
-    if (isInventory && !inventoryTemplate) { toast.error('Selecione um jogador dos templates do jogo.'); return; }
+    if (!teams.includes(form.club)) { toast.error('Selecione um time da lista.'); return; }
     const fields = [
       ['Velocidade', form.pace],
       ['Chute', form.shooting],
@@ -322,12 +297,10 @@ export default function Admin() {
       }
 
       if (isInventory) {
-        const template = inventoryTemplate;
-        if (!template) { toast.error('Selecione um jogador dos templates do jogo.'); return; }
         const ovr = calcMode ? calculatedOverall : form.overall;
         const { data: createdCardId, error } = await supabase.rpc('create_card', {
-          p_name: template.name,
-          p_position: template.position,
+          p_name: form.name.trim(),
+          p_position: form.position,
           p_rarity: rarityToUse,
           p_overall: ovr,
           p_pace: attrsMod.pace,
@@ -340,27 +313,27 @@ export default function Admin() {
           p_positioning: isGK ? attrsMod.positioning : null,
           p_handling: isGK ? attrsMod.handling : null,
           p_special: 'none',
-          p_image: template.image || null,
-          p_nationality: template.nationality,
-          p_age: template.age,
-          p_club: template.club,
+          p_image: imageUrl || null,
+          p_nationality: form.nationality.trim() || 'Brasil',
+          p_age: Number(form.age),
+          p_club: form.club,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         toast.success('Carta criada no inventário!');
         const novaCarta: PlayerCard = {
           uid: createdCardId || nanoid(10),
-          playerId: template.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarityToUse,
-          name: template.name,
-          position: template.position as Position,
+          playerId: form.name.trim().toLowerCase().replace(/\s+/g, '-') + '-' + rarityToUse,
+          name: form.name.trim(),
+          position: form.position as Position,
           sport: 'futsal',
-          nationality: template.nationality,
-          age: template.age,
-          club: template.club,
+          nationality: form.nationality.trim() || 'Brasil',
+          age: Number(form.age),
+          club: form.club,
           rarity: rarityToUse as any,
           edition: DEFAULT_EDITION,
           special: 'none',
           overall: ovr,
-          image: template.image || undefined,
+          image: imageUrl || undefined,
           pace: attrsMod.pace,
           shooting: attrsMod.shooting,
           passing: attrsMod.passing,
@@ -409,7 +382,6 @@ export default function Admin() {
         setTemplates(allTemplates());
         toast.success('Carta adicionada aos pacotes!');
       }
-      if (isInventory) setInventoryTemplateName('');
       setForm({ ...form, name: '', imageUrl: '' });
     } catch (e: any) {
       toast.error('Erro: ' + (e?.message || 'desconhecido'));
@@ -449,28 +421,15 @@ export default function Admin() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls}>{isInventory ? 'Jogador do template' : 'Nome do Jogador'}</label>
-                  {isInventory ? (
-                    <div className="relative">
-                      <select value={inventoryTemplateName} onChange={e => selectInventoryTemplate(e.target.value)} className={`${inputCls} appearance-none pr-10`}>
-                        <option value="">Selecione um jogador</option>
-                        {templates.map(template => <option key={template.name} value={template.name}>{template.name}</option>)}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
-                    </div>
-                  ) : (
-                    <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Ex: João Marcos" />
-                  )}
+                  <label className={labelCls}>Nome do Jogador</label>
+                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Ex: João Marcos" />
                 </div>
-                {!isInventory && (
-                  <div>
-                    <label className={labelCls}>URL da Imagem</label>
-                    <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
-                  </div>
-                )}
+                <div>
+                  <label className={labelCls}>URL da Imagem</label>
+                  <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
+                </div>
               </div>
 
-            {!isInventory ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className={labelCls}>Nacionalidade</label>
@@ -482,14 +441,15 @@ export default function Admin() {
               </div>
               <div>
                 <label className={labelCls}>Clube</label>
-                <input value={form.club} onChange={e => setForm({ ...form, club: e.target.value })} className={inputCls} placeholder="Ex: Santos" />
+                <div className="relative">
+                  <select value={form.club} onChange={e => setForm({ ...form, club: e.target.value })} className={`${inputCls} appearance-none pr-10`}>
+                    <option value="">Selecione um time</option>
+                    {teams.map(team => <option key={team} value={team}>{team}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                </div>
               </div>
             </div>
-            ) : (
-              <p className="text-xs text-[#858A98]">
-                Nacionalidade, idade, clube, posição e imagem vêm do template escolhido para manter os dados consistentes com os filtros da coleção.
-              </p>
-            )}
             </section>
 
             <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
@@ -501,7 +461,7 @@ export default function Admin() {
               <div>
                 <label className={labelCls}>Posição</label>
                 <div className="relative">
-                  <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className={`${inputCls} appearance-none pr-10`} disabled={isInventory}>
+                  <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className={`${inputCls} appearance-none pr-10`}>
                     {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
@@ -630,7 +590,7 @@ export default function Admin() {
 
             <button
               onClick={handleCreate}
-              disabled={creating || !form.name.trim() || (isInventory && !inventoryTemplate)}
+              disabled={creating || !form.name.trim() || !form.club}
               className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
             >
               {creating ? 'Criando...' : isInventory ? 'Criar no Inventário' : 'Adicionar aos Pacotes'}

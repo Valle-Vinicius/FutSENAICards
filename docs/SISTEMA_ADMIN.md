@@ -23,10 +23,15 @@ O componente `Admin.tsx` verifica se o `userId` do Supabase Auth corresponde ao 
 Permite criar uma carta de duas formas:
 
 #### Modo Inventário
-Cria uma cópia de carta diretamente no inventário do admin via RPC `create_card`. O jogador deve ser escolhido de um template existente; nome, posição, nacionalidade, idade, clube e imagem são herdados desse template, não digitados livremente. Os atributos podem ser ajustados para a cópia.
+Cria uma carta nova diretamente no inventário do admin via RPC `create_card`. O jogador, a posição, a nacionalidade, a idade, a imagem e os atributos são preenchidos para essa carta. O clube é escolhido de uma lista de times já usados pelos templates, para manter o valor padronizado no filtro da coleção.
 
 Campos:
-- Jogador (template existente)
+- Nome do jogador
+- URL da imagem
+- Nacionalidade
+- Idade
+- Clube (time pré-definido)
+- Posição (GK, Fixo, Ala, Pivo)
 - Raridade (Comum, Incomum, Rara, Épica, Lendária, Ícone)
 - Overall
 - Atributos: Velocidade, Chute, Passe, Drible, Defesa, Físico
@@ -34,7 +39,7 @@ Campos:
 - Edição (sempre `2025/26`)
 - Modo: Calcular OVR automaticamente (usa atributos × raridade) ou Manual
 
-Ao ativar o cálculo automático, a raridade da carta no Inventário — ou a raridade base no modo Pacotes — volta para **Incomum** como padrão. No Inventário, a raridade fica bloqueada enquanto o cálculo automático estiver ativo. O título especial não é escolhido no formulário; nos pacotes, ele é definido pelo sorteio da abertura. A coleção filtra por clube usando o valor salvo na carta, por isso os dados de identificação vêm do template para manter o filtro consistente.
+Ao ativar o cálculo automático, a raridade da carta no Inventário — ou a raridade base no modo Pacotes — volta para **Incomum** como padrão. No Inventário, a raridade fica bloqueada enquanto o cálculo automático estiver ativo. O título especial não é escolhido no formulário; nos pacotes, ele é definido pelo sorteio da abertura. A coleção filtra por clube usando o valor salvo na carta, por isso o clube é escolhido da lista padronizada.
 
 #### Modo Pacotes
 Cria um template que será sorteado nos pacotes abertos por qualquer jogador via RPC `create_card_template`.
