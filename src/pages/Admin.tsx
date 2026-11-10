@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { ChevronDown, Crown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -15,8 +15,6 @@ const DEFAULT_EDITION = '2025/26';
 
 const POSITIONS = ['GK', 'Fixo', 'Ala', 'Pivo'] as const;
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'] as const;
-const SPECIALS = ['none', 'totw', 'potm', 'revelation', 'legend', 'futsal'] as const;
-
 const RARITY_LABELS: Record<string, string> = {
   common: 'Comum',
   uncommon: 'Incomum',
@@ -24,15 +22,6 @@ const RARITY_LABELS: Record<string, string> = {
   epic: 'Épica',
   legendary: 'Lendária',
   icon: 'Ícone',
-};
-
-const SPECIAL_LABELS: Record<string, string> = {
-  none: 'Nenhuma',
-  totw: 'Time da Semana',
-  potm: 'Craque da Rodada',
-  revelation: 'Revelação',
-  legend: 'Lenda',
-  futsal: 'Futsal',
 };
 
 function calcOverallLocal(
@@ -97,7 +86,6 @@ export default function Admin() {
     reflexes: 0,
     positioning: 0,
     handling: 0,
-    special: 'none',
     imageUrl: '',
     calcOverall: false,
     destination: 'inventory' as 'inventory' | 'packs',
@@ -139,7 +127,7 @@ export default function Admin() {
   };
 
   const calculatedOverall = isInventory
-    ? calcOverallLocal(attrsMod, form.position, rarityToUse, form.special)
+    ? calcOverallLocal(attrsMod, form.position, rarityToUse, 'none')
     : calcBaseOverallLocal(attrsRaw, form.position);
 
   const makePreviewCard = (rarity: string): PlayerCard => {
@@ -157,7 +145,7 @@ export default function Admin() {
     };
     const ovr = isInventory && !calcMode && rarity === form.rarity
       ? form.overall
-      : calcOverallLocal(previewAttrs, form.position, rarity, isInventory ? form.special : 'none');
+      : calcOverallLocal(previewAttrs, form.position, rarity, 'none');
     return {
       uid: 'preview-' + rarity,
       playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
@@ -169,7 +157,7 @@ export default function Admin() {
       club: form.club || 'Clube',
       rarity: rarity as any,
       edition: DEFAULT_EDITION,
-      special: form.special as any,
+      special: 'none',
       overall: ovr,
       pace: applyMod(form.pace, rMod),
       shooting: applyMod(form.shooting, rMod),
@@ -210,7 +198,7 @@ export default function Admin() {
       handling: t.gkAttributes?.handling ?? 0,
       baseRarity: t.baseRarity,
       baseOverall: t.baseOverall ?? 80,
-      special: t.special ?? 'none',
+      special: 'none',
       imageUrl: t.image || '',
     });
   };
@@ -238,7 +226,7 @@ export default function Admin() {
         p_image: templateAttrs.imageUrl || null,
         p_base_rarity: templateAttrs.baseRarity,
         p_base_overall: templateAttrs.baseOverall,
-        p_special: templateAttrs.special,
+        p_special: 'none',
       });
       if (error) { toast.error('Erro: ' + error.message); return; }
       await loadDbTemplates();
@@ -312,7 +300,7 @@ export default function Admin() {
           p_reflexes: isGK ? attrsMod.reflexes : null,
           p_positioning: isGK ? attrsMod.positioning : null,
           p_handling: isGK ? attrsMod.handling : null,
-          p_special: form.special,
+          p_special: 'none',
           p_image: imageUrl || null,
           p_nationality: form.nationality.trim() || 'Brasil',
           p_age: Number(form.age) || 20,
@@ -331,7 +319,7 @@ export default function Admin() {
           club: form.club.trim() || 'Clube',
           rarity: rarityToUse as any,
           edition: DEFAULT_EDITION,
-          special: form.special as any,
+          special: 'none',
           overall: ovr,
           image: imageUrl || undefined,
           pace: attrsMod.pace,
@@ -373,7 +361,7 @@ export default function Admin() {
           p_positioning: isGK ? form.positioning : null,
           p_handling: isGK ? form.handling : null,
           p_image: imageUrl || null,
-          p_special: form.special,
+          p_special: 'none',
           p_base_rarity: form.baseRarity,
           p_base_overall: ovr,
         });
@@ -406,7 +394,7 @@ export default function Admin() {
 
   return (
     <>
-      <div className="p-4 md:p-8 space-y-6">
+      <div className="mx-auto w-full max-w-5xl p-4 md:p-8 space-y-6">
         <h1 className="text-2xl font-bold text-[#252733]">Painel Administrador</h1>
 
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
@@ -477,11 +465,6 @@ export default function Admin() {
               </div>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E9EAF0] bg-[#FAFAFB] p-3.5">
-              <input type="checkbox" checked={form.special === 'legend'} onChange={e => setForm({ ...form, special: e.target.checked ? 'legend' : 'none' })} className="size-4 accent-[#E30613]" />
-              <Crown className="size-4 text-[#D49A1B]" />
-              <span className="text-sm font-medium text-[#252733]">Ídolo / Lenda</span>
-            </label>
             </section>
 
             <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
@@ -539,16 +522,8 @@ export default function Admin() {
                 <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">4</span>
                 Configurações
               </div>
+              <p className="text-xs text-[#858A98]">O título especial das cartas dos pacotes é definido por sorteio ao abrir o pacote.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Especial</label>
-                  <div className="relative">
-                    <select value={form.special === 'legend' ? 'none' : form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={`${inputCls} appearance-none pr-10`}>
-                      {SPECIALS.filter(s => s !== 'legend').map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
-                  </div>
-                </div>
                 <div>
                   <label className={labelCls}>Destino da carta</label>
                   <div className="relative">
@@ -704,7 +679,7 @@ export default function Admin() {
                       </div>
                     </div>
                     <div className="text-xs text-[#858A98]">
-                      OVR calculado: {calcTemplateOverall(templateAttrs, templateAttrs.position, templateAttrs.baseRarity, templateAttrs.special)}
+                      OVR calculado: {calcTemplateOverall(templateAttrs, templateAttrs.position, templateAttrs.baseRarity, 'none')}
                     </div>
                     <button
                       onClick={handleSaveTemplate}
