@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../store/useGame';
@@ -244,22 +243,18 @@ export default function OpenPack() {
   const estimatedValue = cards.reduce((s, c) => s + RARITY_VALUE[c.rarity], 0);
 
   return (
-    <div className={`min-h-[95vh] flex flex-col items-center justify-center p-4 pb-20 relative overflow-x-hidden rounded-2xl ${isDarkPhase ? 'z-[51]' : ''}`} style={{ backgroundImage: isDarkPhase ? 'none' : `url(${bgWhite})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+    <div
+      className="min-h-[95vh] flex flex-col items-center justify-center p-4 pb-20 relative overflow-y-auto overflow-x-hidden rounded-2xl"
+      style={{
+        backgroundImage: isDarkPhase
+          ? 'linear-gradient(to bottom, #05060a, #0a0d14, #05060a)'
+          : `url(${bgWhite})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
       <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
-      <AnimatePresence>
-        {isDarkPhase && createPortal(
-          <motion.div
-            key="stage"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, scale: phase === 'burst' ? [1, 1.03, 1] : 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-[50] pointer-events-none bg-gradient-to-b from-[#05060a] via-[#0a0d14] to-[#05060a]"
-          />,
-          document.body,
-          'pack-animation-background',
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {phase === 'charging' && (
