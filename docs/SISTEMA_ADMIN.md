@@ -23,20 +23,18 @@ O componente `Admin.tsx` verifica se o `userId` do Supabase Auth corresponde ao 
 Permite criar uma carta de duas formas:
 
 #### Modo Inventário
-Cria uma carta diretamente no inventário do admin via RPC `create_card`.
+Cria uma cópia de carta diretamente no inventário do admin via RPC `create_card`. O jogador deve ser escolhido de um template existente; nome, posição, nacionalidade, idade, clube e imagem são herdados desse template, não digitados livremente. Os atributos podem ser ajustados para a cópia.
 
 Campos:
-- Nome do jogador
-- URL da imagem
-- Posição (GK, Fixo, Ala, Pivo)
+- Jogador (template existente)
 - Raridade (Comum, Incomum, Rara, Épica, Lendária, Ícone)
-- Overall (base)
+- Overall
 - Atributos: Velocidade, Chute, Passe, Drible, Defesa, Físico
 - (Se GK) Reflexos, Posicionamento, Defesa de Bola
-- Edição (sempre '2025/26' no inventário)
+- Edição (sempre `2025/26`)
 - Modo: Calcular OVR automaticamente (usa atributos × raridade) ou Manual
 
-Ao ativar o cálculo automático, a raridade da carta no Inventário — ou a raridade base no modo Pacotes — volta para **Incomum** como padrão. No Inventário, a raridade fica bloqueada enquanto o cálculo automático estiver ativo. O título especial não é escolhido no formulário; nos pacotes, ele é definido pelo sorteio da abertura.
+Ao ativar o cálculo automático, a raridade da carta no Inventário — ou a raridade base no modo Pacotes — volta para **Incomum** como padrão. No Inventário, a raridade fica bloqueada enquanto o cálculo automático estiver ativo. O título especial não é escolhido no formulário; nos pacotes, ele é definido pelo sorteio da abertura. A coleção filtra por clube usando o valor salvo na carta, por isso os dados de identificação vêm do template para manter o filtro consistente.
 
 #### Modo Pacotes
 Cria um template que será sorteado nos pacotes abertos por qualquer jogador via RPC `create_card_template`.
@@ -51,21 +49,13 @@ Campos adicionais:
 
 ### 2. Editar Overall das Cartas
 
-Lista **todas** as cartas do banco de dados e permite editar o overall de qualquer uma.
-
-Funcionamento:
-1. Clique em "Atualizar lista" para carregar todas as cartas via RPC `admin_get_all_cards`
-2. Clique em "Editar" na carta desejada
-3. Digite o novo overall (0-99)
-4. Clique em "OK" para salvar via RPC `admin_update_card_overall`
-
-**Validação:** O overall deve estar entre 0 e 99. O RPC retorna erro se estiver fora desse intervalo.
+O painel não oferece edição de OVR de cartas já pertencentes ao inventário. O OVR base continua editável na seção de templates.
 
 ---
 
 ### 3. Editar Cartas do Jogo (Templates Base)
 
-Lista as **13 cartas base** do jogo (templates estáticos em `src/data/players.ts`) e permite editar todos os atributos de cada uma.
+Lista os templates base do jogo (templates estáticos em `src/data/players.ts` e templates sincronizados com o banco) e permite editar seus atributos e OVR base.
 
 Funcionamento:
 1. Clique em "Editar" em qualquer carta
