@@ -46,6 +46,17 @@ function dist(a: { x: number; y: number }, b: { x: number; y: number }) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+function toRow(frame: { balls: { x: number; y: number; pocketed: boolean }[] }): number[] {
+  const row: number[] = [];
+  for (const ball of frame.balls) {
+    row.push(
+      ball.pocketed ? -1 : Math.round(ball.x * 1000),
+      ball.pocketed ? -1 : Math.round(ball.y * 1000),
+    );
+  }
+  return row;
+}
+
 function createInitialBalls() {
   const balls: any[] = [];
   balls.push({ id: 0, type: 'cue', x: TABLE_WIDTH * 0.25, y: TABLE_HEIGHT / 2, vx: 0, vy: 0, pocketed: false });
@@ -274,6 +285,12 @@ serve(async (req) => {
   }
   state.shotInProgress = false;
 
+  const anim: number[][] = [];
+  for (let i = 0; i < frames.length; i += 4) anim.push(toRow(frames[i]));
+  if (frames.length > 0 && (frames.length - 1) % 4 !== 0) {
+    anim.push(toRow(frames[frames.length - 1]));
+  }
+
   // Determine foul
   const pocketedIds = state.pocketedThisTurn;
   let foul = false;
@@ -345,7 +362,7 @@ serve(async (req) => {
     angle,
     power: clampedPower,
     shot_id: shotId,
-    result: { pocketed: pocketedIds, foul, nextPlayer, winner: state.winner },
+    result: { pocketed: pocketedIds, foul, nextPlayer, winner: state.winner, anim },
   });
 
   // Update match state
@@ -364,5 +381,5 @@ serve(async (req) => {
   await supabase.from('pool_matches').update(updateData).eq('id', matchId);
 
   console.log(`[pool-shot] user=${user.id} matchId=${matchId} success nextPlayer=${nextPlayer} winner=${state.winner} foul=${foul}`);
-  return json({ frames, finalState: state, pocketed: pocketedIds, foul, nextPlayer, winner: state.winner }, origin, 200);
+  return json({ anim, finalState: state, pocketed: pocketedIds, foul, nextPlayer, winner: state.winner }, origin, 200);
 });

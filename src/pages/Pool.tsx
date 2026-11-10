@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import { getPoolMatch, submitShot, abandonPoolMatch } from '../lib/services/pool';
-import { createInitialState, simulateShot } from '../engine/pool/physics';
+import { createInitialState } from '../engine/pool/physics';
 import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
 import type { TableState } from '../engine/pool/types';
 
@@ -14,6 +14,7 @@ export default function Pool() {
   const [state, setState] = useState<TableState | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const sessionUserIdRef = useRef<string | null>(null);
   const loadedRef = useRef(false);
   const [angle, setAngle] = useState(0);
   const [power, setPower] = useState(0.5);
@@ -22,6 +23,10 @@ export default function Pool() {
   const rafRef = useRef<number>(0);
   // evita abandono indevido em remount do React StrictMode; só abandona no beforeunload real
   const abandonRef = useRef(false);
+
+  useEffect(() => {
+    sessionUserIdRef.current = sessionUserId;
+  }, [sessionUserId]);
 
   useEffect(() => {
     if (!matchId || loadedRef.current) return;
@@ -113,40 +118,54 @@ export default function Pool() {
   useEffect(() => { shootingRef.current = shooting; }, [shooting]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
+  const playAnim = (anim: number[][]) => new Promise<void>(resolve => {
+    if (anim.length === 0) {
+      resolve();
+      return;
+    }
+
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const idx = Math.min(anim.length - 1, Math.floor(((now - t0) / 1000) * 60));
+      const frame = anim[idx];
+      if (!frame) {
+        resolve();
+        return;
+      }
+      setState(prev => prev ? ({
+        ...prev,
+        balls: prev.balls.map((ball, index) => frame[index * 2] === -1
+          ? { ...ball, pocketed: true }
+          : {
+            ...ball,
+            x: frame[index * 2] / 1000,
+            y: frame[index * 2 + 1] / 1000,
+            pocketed: false,
+          }),
+      }) : prev);
+      if (idx < anim.length - 1) rafRef.current = requestAnimationFrame(tick);
+      else resolve();
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  });
+
   const handleShoot = async () => {
     if (shooting || !state || !match || !state.balls) return;
     if (sessionUserId === null) return;
     const myNumber = sessionUserId === match.player1Id ? 1 : sessionUserId === match.player2Id ? 2 : null;
     if (myNumber === null || myNumber !== state.currentPlayer) return;
+    shootingRef.current = true;
     setShooting(true);
     try {
-      const result = simulateShot(state, { angle, power });
-      const frames = result.frames;
-      const serverPromise = submitShot(match.id, angle, power);
-
-      if (frames.length > 0) {
-        const t0 = performance.now();
-        await new Promise<void>(resolve => {
-          const tick = (now: number) => {
-            const idx = Math.max(0, Math.min(frames.length - 1, Math.floor(((now - t0) / 1000) * 60)));
-            const frame = frames[idx];
-            if (!frame) return;
-            setState(prev => prev && prev.balls ? ({
-              ...prev,
-              balls: prev.balls.map((b, k) => ({ ...b, x: frame.balls[k]?.x ?? b.x, y: frame.balls[k]?.y ?? b.y, pocketed: frame.balls[k]?.pocketed ?? b.pocketed })),
-            }) : prev);
-            if (idx < frames.length - 1) rafRef.current = requestAnimationFrame(tick); else resolve();
-          };
-          rafRef.current = requestAnimationFrame(tick);
-        });
-      }
-
-      const res = await serverPromise;
+      const res = await submitShot(match.id, angle, power);
+      if (res?.anim) await playAnim(res.anim);
       if (res?.finalState) {
         setState({
           ...res.finalState,
-          currentPlayer: (res.finalState.currentPlayer ?? match.currentPlayer ?? 1) as 1 | 2,
+          currentPlayer: (res.finalState.currentPlayer ?? 1) as 1 | 2,
         });
+        const fresh = await getPoolMatch(match.id);
+        if (fresh) setMatch(fresh);
       } else {
         toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
         const fresh = await getPoolMatch(match.id);
@@ -162,6 +181,7 @@ export default function Pool() {
       console.error('shot failed', e);
       toast.alert('Erro na tacada.');
     } finally {
+      shootingRef.current = false;
       setShooting(false);
     }
   };
@@ -182,6 +202,32 @@ export default function Pool() {
         }
         if (row?.status) {
           setMatch((m: any) => m ? { ...m, status: row.status, currentPlayer: row.current_player, turnDeadline: row.turn_deadline, winnerId: row.winner_id } : m);
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pool_shots', filter: `match_id=eq.${matchId}` }, async (payload: any) => {
+        const row = payload.new;
+        if (row.player_id === sessionUserIdRef.current) return;
+        const anim = row.result?.anim;
+        if (!Array.isArray(anim) || shootingRef.current) return;
+
+        shootingRef.current = true;
+        setShooting(true);
+        try {
+          await playAnim(anim);
+          const fresh = await getPoolMatch(matchId);
+          if (fresh?.tableState) {
+            const parsed = typeof fresh.tableState === 'string' ? JSON.parse(fresh.tableState) : fresh.tableState;
+            setState({
+              ...parsed,
+              currentPlayer: (fresh.currentPlayer ?? 1) as 1 | 2,
+            });
+            setMatch(fresh);
+          }
+        } catch (error) {
+          console.error('opponent shot animation failed', error);
+        } finally {
+          shootingRef.current = false;
+          setShooting(false);
         }
       })
       .subscribe();
