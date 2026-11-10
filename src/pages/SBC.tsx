@@ -14,6 +14,7 @@ export default function SBC() {
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
+  const [completingSbcId, setCompletingSbcId] = useState<string | null>(null);
 
   const activeSbc = sbcs.find(sbc => sbc.id === activeSbcId) ?? sbcs[0];
   const chosen = activeSbc ? selected[activeSbc.id] || [] : [];
@@ -41,12 +42,18 @@ export default function SBC() {
     });
   };
 
-  const handleComplete = (sbcId: string) => {
+  const handleComplete = async (sbcId: string) => {
+    if (completingSbcId) return;
     const uids = selected[sbcId] || [];
-    const ok = completeSBC(sbcId, uids);
-    if (ok) { toast.alert('Desafio concluído! Recompensa concedida.'); setSelected(prev => ({ ...prev, [sbcId]: [] })); }
-    else toast.alert('Requisitos não atendidos.');
-    setPage(0);
+    setCompletingSbcId(sbcId);
+    try {
+      const ok = await completeSBC(sbcId, uids);
+      if (ok) { toast.alert('Desafio concluído! Recompensa concedida.'); setSelected(prev => ({ ...prev, [sbcId]: [] })); }
+      else toast.alert('Requisitos não atendidos ou as cartas já foram usadas.');
+      setPage(0);
+    } finally {
+      setCompletingSbcId(null);
+    }
   };
 
   return (
@@ -167,10 +174,10 @@ export default function SBC() {
                   <button
                     type="button"
                     onClick={() => handleComplete(activeSbc.id)}
-                    disabled={chosen.length < activeSbc.requirements.count}
+                    disabled={completingSbcId !== null || chosen.length < activeSbc.requirements.count}
                     className="rounded-xl bg-[#E30613] px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
                   >
-                    Confirmar entrega
+                    {completingSbcId === activeSbc.id ? 'Concluindo...' : 'Confirmar entrega'}
                   </button>
                 </div>
               </div>

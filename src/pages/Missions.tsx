@@ -1,13 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame } from '../store/useGame';
 import { Check, Lock } from 'lucide-react';
+import { toast } from '../store/toast';
 
 export default function Missions() {
   const missions = useGame(s => s.missions);
   const claim = useGame(s => s.claimMission);
   const update = useGame(s => s.updateMissionProgress);
   const achievements = useGame(s => s.achievements);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
   useEffect(() => { update(); }, [update]);
+
+  const handleClaim = async (id: string) => {
+    if (claimingId) return;
+    setClaimingId(id);
+    if (await claim(id)) toast.success('Recompensa da missão resgatada.');
+    setClaimingId(null);
+  };
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -31,7 +40,7 @@ export default function Missions() {
               <div className="flex justify-between items-center mt-2">
                 <span className="text-xs text-[#858A98]">{m.progress}/{m.target}</span>
                 {m.completed && !m.claimed && (
-                  <button onClick={() => claim(m.id)} className="px-3 py-1 rounded-xl bg-[#E30613] text-white text-xs font-medium">Resgatar</button>
+                  <button onClick={() => handleClaim(m.id)} disabled={claimingId !== null} className="px-3 py-1 rounded-xl bg-[#E30613] text-white text-xs font-medium disabled:opacity-60">{claimingId === m.id ? 'Resgatando...' : 'Resgatar'}</button>
                 )}
                 {m.claimed && <span className="text-xs text-[#858A98]">Resgatada</span>}
               </div>

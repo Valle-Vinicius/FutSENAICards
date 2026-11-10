@@ -61,7 +61,7 @@ interface PlayerCard {
 | uncommon | Incomum | 1.00× | 0 | 60 | 74 |
 | rare | Rara | 1.05× | +2 | 70 | 79 |
 | epic | Épica | 1.10× | +4 | 80 | 87 |
-| legendary | Lendária | 0.15× | +6 | 88 | 94 |
+| legendary | Lendária | 1.15× | +6 | 88 | 94 |
 | icon | Ícone | 1.20× | +8 | 95 | 99 |
 
 ### Validação
@@ -97,35 +97,39 @@ Nota: As edições totw e potm também existem como especiais. No admin de inven
 
 ## Cálculo do Overall
 
-### Fórmula Base
+O OVR final segue esta regra:
 
 ```
-baseOverall = calcularPorPosicao(atributos)
-overallFinal = min(99, baseOverall + RARITY_BONUS[rarity] + SPECIAL_BONUS[special])
+OVR final = limitar(OVR base + bônus de raridade + bônus especial, 0, 99)
 ```
 
-### Função `calculateOverall`
+O OVR base vem de `baseOverall` quando esse valor existe no template; caso contrário, é calculado com os atributos ponderados pela posição. O multiplicador de raridade ajusta os atributos gravados na carta, mas, na abertura de pacotes, não recalcula o OVR base: a raridade contribui por meio de um bônus fixo.
 
-Recebe um template com atributos e posição, retorna o overall base (sem bônus de raridade):
+`calculateOverall` e `overallFromAttributes` usam estes pesos:
 
 - **GK:** reflexos 30%, posicionamento 25%, defesa 20%, passe 10%, físico 10%, velocidade 5%
 - **Fixo:** defesa 35%, físico 20%, passe 20%, velocidade 10%, drible 8%, chute 7%
 - **Ala:** velocidade 25%, passe 22%, drible 20%, chute 13%, defesa 12%, físico 8%
 - **Pivo:** chute 32%, físico 22%, drible 18%, passe 12%, velocidade 10%, defesa 6%
 
-### Função `generatePlayerCard`
+O resultado posicional é arredondado para inteiro. Para GK, Defesa de Bola (`handling`) não participa da fórmula; Reflexos e Posicionamento são atributos específicos usados no cálculo.
 
-Gera uma carta completa a partir de um template:
+### Geração de carta
 
 ```typescript
 generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special?: string, baseOverall?: number): PlayerCard
 ```
 
-1. Aplica `RARITY_MODIFIER[rarity]` a cada atributo (clamp 0-99)
-2. Calcula overall base pelos atributos modificados
-3. Soma bônus de raridade e especial
-4. Clampa resultado em 0-99
-5. Gera `uid` via nanoid e `playerId` como `nome-sem-espacos-raridade`
+1. Aplica o multiplicador da raridade a cada atributo, arredondando e limitando cada um a 0–99.
+2. Resolve o OVR base pela seguinte prioridade: argumento `baseOverall`, `t.baseOverall` e, por fim, `calculateOverall(t)`.
+3. Soma ao OVR base os bônus fixos de raridade e especial, limitando o resultado final a 0–99.
+4. Gera `uid` via nanoid e `playerId` como `nome-sem-espacos-raridade`.
+
+No fluxo de pacotes usado atualmente, a geração e o cálculo são executados pelo RPC `open_pack` no Supabase. O servidor usa `base_overall` quando preenchido ou calcula o valor pelos atributos base; em seguida soma os bônus de raridade e especial. O multiplicador da raridade ajusta os atributos retornados, independentemente do cálculo do OVR.
+
+No Admin, o cálculo automático fixa a raridade em Incomum. Para cartas no Inventário, o OVR é calculado a partir dos atributos ajustados pela raridade; para templates de Pacotes, o OVR calculado pelos atributos sem multiplicador é salvo como OVR base. O modo manual salva o OVR digitado.
+
+Para as fórmulas completas, exemplos e diferenças entre os fluxos, consulte [Relatório de cálculo do Overall](./SISTEMA_OVERALL.md).
 
 ---
 
@@ -156,10 +160,11 @@ O usuário pode gastar `evoPoints` para melhorar atributos individuais:
 - Custo: 1 evoPoint por upgrade
 - Ganho: +1 no atributo selecionado
 
-Após cada upgrade, o overall é recalculado como média simples dos 6 atributos:
+Após cada upgrade, a variação do OVR é calculada pela diferença entre os OVRs posicionais antes e depois do aumento de atributo. Essa diferença é somada ao OVR atual, preservando bônus de raridade/especial, e o resultado é limitado a 99:
 
 ```
-newOverall = round((pace + shooting + passing + dribbling + defending + physical) / 6)
+delta = overallFromAttributes(atributosApós) - overallFromAttributes(atributosAntes)
+newOverall = min(99, overallAtual + delta)
 ```
 
 ### Log de Evolução

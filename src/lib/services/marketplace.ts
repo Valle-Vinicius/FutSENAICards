@@ -50,21 +50,17 @@ export async function getListings(): Promise<ListingRecord[]> {
 
 export async function createListing(listing: Omit<ListingRecord, 'id' | 'createdAt'>): Promise<ListingRecord | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.from('listings').insert({
-    seller_id: listing.sellerId,
-    card_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listing.cardUid) ? listing.cardUid : null,
-    card_name: listing.cardName,
-    card_overall: listing.cardOverall,
-    card_position: listing.cardPosition,
-    card_rarity: listing.cardRarity,
-    card_image: listing.cardImage,
-    card_attributes: listing.cardAttributes,
-    price: listing.price,
-    buy_now: listing.buyNow,
-    expires_at: listing.expiresAt,
-    status: listing.status,
-  }).select().single();
-  if (error) return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listing.cardUid)) {
+    throw new Error('A carta precisa estar sincronizada antes de ser anunciada.');
+  }
+  const { data, error } = await supabase.rpc('create_listing', {
+    p_card_id: listing.cardUid,
+    p_price: listing.price,
+    p_buy_now: listing.buyNow,
+    p_expires_at: listing.expiresAt,
+  });
+  if (error) throw error;
+  if (!data) return null;
   return {
     id: data.id,
     sellerId: data.seller_id,
@@ -85,8 +81,8 @@ export async function createListing(listing: Omit<ListingRecord, 'id' | 'created
 
 export async function cancelListing(id: string): Promise<boolean> {
   if (!supabase) return false;
-  const { error } = await supabase.from('listings').update({ status: 'cancelled' }).eq('id', id);
-  return !error;
+  const { data, error } = await supabase.rpc('cancel_listing', { p_listing_id: id });
+  return !error && data === true;
 }
 
 export async function buyListing(id: string): Promise<boolean> {

@@ -20,7 +20,9 @@ export async function getSettings(userId: string): Promise<SettingsRecord | null
 
 export async function updateSettings(userId: string, settings: Partial<SettingsRecord>): Promise<void> {
   if (!supabase) return;
-  const { data } = await supabase.from('profiles').select('preferences').eq('id', userId).single();
-  const prefs = data?.preferences || {};
-  await supabase.from('profiles').update({ preferences: { ...prefs, ...settings } }).eq('id', userId);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (sessionData.session?.user?.id !== userId) throw new Error('Sessão inválida para atualizar preferências.');
+  const { error } = await supabase.rpc('update_user_preferences', { p_patch: settings });
+  if (error) throw error;
 }

@@ -10,9 +10,8 @@ import { supabase } from '../lib/supabase';
 import { getCards, addCard, updateCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
 import { saveSquad as saveSquadService, getSavedSquads, getSquad as getPrimarySquadService, upsertPrimarySquad } from '../lib/services/squads';
-import { getMissions, upsertMissions, claimMissionDb } from '../lib/services/missions';
+import { getMissions, upsertMissions } from '../lib/services/missions';
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
-import { recordSBCCompletion } from '../lib/services/sbc';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
@@ -22,6 +21,10 @@ import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, 
 let squadSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let squadSavePending = false; // true enquanto há alteração local ainda não confirmada no servidor
 let syncChain: Promise<void> = Promise.resolve();
+let dailyClaimPending = false;
+let duplicateConversionPending = false;
+const sbcCompletionsPending = new Set<string>();
+const listingsPending = new Set<string>();
 
 interface OpenPackRow {
   uid: string;
@@ -111,11 +114,11 @@ interface Actions {
   spendCoins: (n: number, reason: string) => boolean;
   addXp: (n: number) => void;
   openPack: (packId: string) => Promise<{ cards: PlayerCard[] } | null>;
-  claimDaily: () => { ok: boolean; amount: number };
+  claimDaily: () => Promise<{ ok: boolean; amount: number; error?: string }>;
   toggleFavorite: (uid: string) => void;
   markSeen: (uids: string[]) => void;
   updateMissionProgress: () => void;
-  claimMission: (id: string) => boolean;
+  claimMission: (id: string) => Promise<boolean>;
   setSquadSport: (sport: 'futsal') => void;
   assignSlot: (sport: 'futsal', index: number, cardUid: string | null, bench?: boolean, benchIndex?: number) => void;
   clearSlot: (sport: 'futsal', index: number, bench?: boolean, benchIndex?: number) => void;
@@ -137,14 +140,14 @@ interface Actions {
   recordMatchStats: (uid: string, goals: number, assists: number) => void;
   convertDuplicates: () => Promise<number>;
   recordEvolution: (uid: string, attr: string) => void;
-  listCard: (cardUid: string, price: number, buyNow: number, hours: number) => string | null;
-  cancelListing: (id: string) => void;
+  listCard: (cardUid: string, price: number, buyNow: number, hours: number) => Promise<string | null>;
+  cancelListing: (id: string) => Promise<boolean>;
   buyListing: (id: string) => Promise<boolean>;
   bidListing: (id: string, amount: number) => boolean;
   previewPack: (packId: string) => Promise<{ cards: PlayerCard[]; choiceId: string } | null>;
   claimPreviewedCard: (card: PlayerCard, choiceId: string) => Promise<PlayerCard | null>;
   addLocalCard: (card: PlayerCard) => void;
-  completeSBC: (sbcId: string, cardUids: string[]) => boolean;
+  completeSBC: (sbcId: string, cardUids: string[]) => Promise<boolean>;
   seedMarket: () => void;
   recordPrice: (cardName: string, price: number) => void;
   recordTransfer: (cardName: string, price: number, type: 'buy' | 'sell') => void;
@@ -440,28 +443,50 @@ export const useGame = create<GameState & Actions>()(
         }
         return { cards };
       },
-      claimDaily: () => {
-        const s = get();
-        const now = Date.now();
-        const last = s.lastDailyClaim;
-        const oneDay = 1000 * 60 * 60 * 20; // 20h
-        if (last && now - last < oneDay) return { ok: false, amount: 0 };
-        const amount = 500 + Math.floor(Math.random() * 500);
-        get().addCoins(amount, 'Recompensa diária');
-        get().addXp(40);
-        set({ lastDailyClaim: now });
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) await supabase!.from('profiles').update({ last_daily_claim: new Date(now).toISOString() }).eq('id', uid);
-          });
+      claimDaily: async () => {
+        if (dailyClaimPending) return { ok: false, amount: 0 };
+        dailyClaimPending = true;
+        try {
+          let amount: number;
+          if (supabase) {
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+            if (!sessionData.session?.user?.id) throw new Error('Entre na sua conta para resgatar a recompensa.');
+            const { data, error } = await supabase.rpc('claim_daily');
+            if (error) throw error;
+            const reward = data as { amount: number; coins: number; xp: number; level: number };
+            amount = reward.amount;
+            set(st => ({
+              coins: reward.coins,
+              xp: reward.xp,
+              level: reward.level,
+              lastDailyClaim: Date.now(),
+              transactions: [{ id: nanoid(8), type: 'earn' as const, amount, reason: 'Recompensa diária', at: Date.now() }, ...st.transactions].slice(0, 50),
+              missions: st.missions.map(m => m.id === 'm9' ? { ...m, progress: 1, completed: true } : m),
+            }));
+          } else {
+            const now = Date.now();
+            const last = get().lastDailyClaim;
+            const twentyHours = 1000 * 60 * 60 * 20;
+            if (last && now - last < twentyHours) return { ok: false, amount: 0 };
+            amount = 500 + Math.floor(Math.random() * 500);
+            set(st => ({
+              coins: st.coins + amount,
+              xp: st.xp + 40,
+              level: levelFromXp(st.xp + 40),
+              lastDailyClaim: now,
+              transactions: [{ id: nanoid(8), type: 'earn' as const, amount, reason: 'Recompensa diária', at: now }, ...st.transactions].slice(0, 50),
+              missions: st.missions.map(m => m.id === 'm9' ? { ...m, progress: 1, completed: true } : m),
+            }));
+          }
+          return { ok: true, amount };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'erro desconhecido';
+          console.error('[daily] claim failed:', message);
+          return { ok: false, amount: 0, error: message };
+        } finally {
+          dailyClaimPending = false;
         }
-        // mission daily
-        const m = get().missions.find(x => x.id === 'm9');
-        if (m && !m.completed) {
-          set(st => ({ missions: st.missions.map(x => x.id === 'm9' ? { ...x, progress: 1, completed: true } : x) }));
-        }
-        return { ok: true, amount };
       },
       toggleFavorite: (uid) => {
         const card = get().cards.find(c => c.uid === uid);
@@ -561,19 +586,39 @@ export const useGame = create<GameState & Actions>()(
           });
         }
       },
-      claimMission: (id) => {
-        const s = get();
-        const m = s.missions.find(x => x.id === id);
-        if (!m || !m.completed || m.claimed) return false;
-        get().addCoins(m.reward, `MissÃ£o: ${m.title}`);
-        get().addXp(m.rewardXp);
-        set(st => ({ missions: st.missions.map(x => x.id === id ? { ...x, claimed: true } : x) }));
+      claimMission: async (id) => {
+        const mission = get().missions.find(m => m.id === id);
+        if (!mission || !mission.completed) return false;
         if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) await claimMissionDb(uid, id);
-          });
+          try {
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+            if (!sessionData.session?.user?.id) throw new Error('Entre na sua conta para resgatar a missão.');
+            const { data, error } = await supabase.rpc('claim_mission', { p_mission_id: id });
+            if (error) throw error;
+            const reward = data as { coins: number; xp: number; level: number };
+            set(st => ({
+              coins: reward.coins,
+              xp: reward.xp,
+              level: reward.level,
+              missions: st.missions.map(m => m.id === id ? { ...m, claimed: true } : m),
+              transactions: [{ id: nanoid(8), type: 'earn' as const, amount: mission.reward, reason: `Missão: ${mission.title}`, at: Date.now() }, ...st.transactions].slice(0, 50),
+            }));
+            return true;
+          } catch (error) {
+            console.error('[missions] claim failed:', error);
+            toast.error(error instanceof Error ? error.message : 'Não foi possível resgatar a missão.');
+            return false;
+          }
         }
+        if (mission.claimed) return false;
+        set(st => ({
+          coins: st.coins + mission.reward,
+          xp: st.xp + mission.rewardXp,
+          level: levelFromXp(st.xp + mission.rewardXp),
+          missions: st.missions.map(m => m.id === id ? { ...m, claimed: true } : m),
+          transactions: [{ id: nanoid(8), type: 'earn' as const, amount: mission.reward, reason: `Missão: ${mission.title}`, at: Date.now() }, ...st.transactions].slice(0, 50),
+        }));
         return true;
       },
       setSquadSport: () => {},
@@ -742,11 +787,17 @@ export const useGame = create<GameState & Actions>()(
         });
       },
       updateSettings: (s) => {
+        const previousSettings = get().settings;
         set(st => ({ settings: { ...st.settings, ...s } }));
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
-            if (uid) await updateSettingsService(uid, s);
+            if (!uid) throw new Error('Sessão inválida para atualizar preferências.');
+            await updateSettingsService(uid, s);
+          }).catch(error => {
+            console.error('[settings] update failed:', error);
+            set({ settings: previousSettings });
+            toast.error(error instanceof Error ? error.message : 'Não foi possível salvar as preferências.');
           });
         }
       },
@@ -794,60 +845,75 @@ export const useGame = create<GameState & Actions>()(
         return true;
       },
       convertDuplicates: async () => {
-        const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
-        const st0 = get();
-        const cards = st0.cards;
-        // cartas "travadas": no elenco (ativo ou salvo) ou anunciadas no mercado
-        const locked = new Set<string>();
-        const addSquad = (starters: { uid: string | null }[], bench: (string | null)[]) => {
-          starters.forEach(s => s.uid && locked.add(s.uid));
-          bench.forEach(u => u && locked.add(u));
-        };
-        Object.values(st0.squads).forEach((sq: any) => sq && addSquad(sq.starters ?? [], sq.bench ?? []));
-        (st0.savedSquads as any[]).forEach(sq => addSquad(sq.starters?.map?.((u: any) => (typeof u === 'string' ? { uid: u } : u)) ?? [], sq.bench ?? []));
-        st0.listings.filter(l => l.status === 'active').forEach(l => locked.add(l.cardUid));
+        if (duplicateConversionPending) return 0;
+        duplicateConversionPending = true;
+        try {
+          if (supabase) {
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+            const uid = sessionData.session?.user?.id;
+            if (!uid) throw new Error('Entre na sua conta para converter duplicatas.');
+            const { data: count, error } = await supabase.rpc('convert_duplicates');
+            if (error) throw error;
+            const converted = Number(count) || 0;
+            if (converted > 0) {
+              const [remoteCards, profileResult] = await Promise.all([
+                getCards(uid),
+                supabase.from('profiles').select('coins, name').eq('id', uid).single(),
+              ]);
+              if (remoteCards) set({ cards: remoteCards });
+              if (profileResult.error) console.error('[duplicates] could not refresh profile:', profileResult.error);
+              else if (profileResult.data) set({ coins: profileResult.data.coins });
+              const allCards = remoteCards ?? get().cards;
+              const squadOverall = Math.round(allCards.reduce((sum, card) => sum + card.overall, 0) / Math.max(1, allCards.length));
+              const rareCount = allCards.filter(card => ['rare', 'epic', 'legendary', 'icon'].includes(card.rarity)).length;
+              if (profileResult.data) {
+                await updateCollectorRanking(uid, profileResult.data.name || 'Jogador', allCards.length, squadOverall, rareCount);
+              }
+            }
+            return converted;
+          }
 
-        const byName: Record<string, typeof cards> = {};
-        cards.forEach(c => { (byName[c.name] = byName[c.name] || []).push(c); });
-        const toRemove: string[] = [];
-        Object.values(byName).forEach(group => {
-          const nonIcon = group.filter(c => c.rarity !== 'icon');
-          if (nonIcon.length <= 1) return;
-          // quem fica: a melhor cópia (raridade, overall, evolução). Favoritas e cartas em uso nunca são removidas.
-          const score = (c: typeof cards[number]) => [rarityRank[c.rarity] ?? 0, c.overall, totalUpgrades(c as any) + (c.xp ?? 0) / 1000];
-          const sorted = [...nonIcon].sort((a, b) => {
-            const sa = score(a), sb = score(b);
-            for (let i = 0; i < sa.length; i++) if (sb[i] !== sa[i]) return sb[i] - sa[i];
-            return 0;
+          const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
+          const st0 = get();
+          const cards = st0.cards;
+          const locked = new Set<string>();
+          const addSquad = (starters: { uid: string | null }[], bench: (string | null)[]) => {
+            starters.forEach(slot => slot.uid && locked.add(slot.uid));
+            bench.forEach(uid => uid && locked.add(uid));
+          };
+          Object.values(st0.squads).forEach((squad: any) => squad && addSquad(squad.starters ?? [], squad.bench ?? []));
+          (st0.savedSquads as any[]).forEach(squad => addSquad(squad.starters?.map?.((uid: any) => (typeof uid === 'string' ? { uid } : uid)) ?? [], squad.bench ?? []));
+          st0.listings.filter(listing => listing.status === 'active').forEach(listing => locked.add(listing.cardUid));
+
+          const byName: Record<string, typeof cards> = {};
+          cards.forEach(card => { (byName[card.name] = byName[card.name] || []).push(card); });
+          const toRemove: string[] = [];
+          Object.values(byName).forEach(group => {
+            const nonIcon = group.filter(card => card.rarity !== 'icon');
+            if (nonIcon.length <= 1) return;
+            const score = (card: typeof cards[number]) => [rarityRank[card.rarity] ?? 0, card.overall, totalUpgrades(card as any) + (card.xp ?? 0) / 1000];
+            const sorted = [...nonIcon].sort((a, b) => {
+              const sa = score(a), sb = score(b);
+              for (let i = 0; i < sa.length; i++) if (sb[i] !== sa[i]) return sb[i] - sa[i];
+              return 0;
+            });
+            sorted.slice(1).forEach(card => { if (!card.favorite && !locked.has(card.uid)) toRemove.push(card.uid); });
           });
-          sorted.slice(1).forEach(c => { if (!c.favorite && !locked.has(c.uid)) toRemove.push(c.uid); });
-        });
-        if (toRemove.length === 0) return 0;
-
-        // apaga no servidor primeiro; se falhar, nada muda (sem moedas de graça)
-        if (supabase) {
-          const { data } = await supabase.auth.getSession();
-          const userId = data.session?.user?.id;
-          const dbIds = toRemove.filter(x => UUID_RE.test(x));
-          if (userId && dbIds.length > 0) {
-            const { error } = await supabase.rpc('delete_owned_cards', { p_card_ids: dbIds });
-            if (error) return 0;
-          }
+          if (toRemove.length === 0) return 0;
+          set(st => ({
+            cards: st.cards.filter(card => !toRemove.includes(card.uid)),
+            coins: st.coins + toRemove.length * 200,
+            transactions: [{ id: nanoid(8), type: 'earn' as const, amount: toRemove.length * 200, reason: `Conversão de ${toRemove.length} duplicatas`, at: Date.now() }, ...st.transactions].slice(0, 50),
+          }));
+          return toRemove.length;
+        } catch (error) {
+          console.error('[duplicates] conversion failed:', error);
+          toast.error(error instanceof Error ? error.message : 'Não foi possível converter as duplicatas.');
+          return 0;
+        } finally {
+          duplicateConversionPending = false;
         }
-        get().addCoins(toRemove.length * 200, `Conversão de ${toRemove.length} duplicatas`);
-        set(st => ({ cards: st.cards.filter(c => !toRemove.includes(c.uid)) }));
-        if (supabase) {
-          const { data } = await supabase.auth.getSession();
-          const uid = data.session?.user?.id;
-          if (uid) {
-            const allCards = get().cards;
-            const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
-            const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
-            const { data: prof } = await supabase.from('profiles').select('name').eq('id', uid).single();
-            await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
-          }
-        }
-        return toRemove.length;
       },
       recordEvolution: (uid, attr) => set(st => ({
         cards: st.cards.map(c => c.uid === uid ? { ...c, evolutionLog: [...(c.evolutionLog ?? []), { attr, at: Date.now() }] } : c),
@@ -858,37 +924,95 @@ export const useGame = create<GameState & Actions>()(
           seasonStats: { matches: (c.seasonStats?.matches ?? 0) + 1, goals: (c.seasonStats?.goals ?? 0) + goals, assists: (c.seasonStats?.assists ?? 0) + assists },
         } : c),
       })),
-      listCard: (cardUid, price, buyNow, hours) => {
+      listCard: async (cardUid, price, buyNow, hours) => {
+        if (listingsPending.has(cardUid)) return null;
         const c = get().cards.find(x => x.uid === cardUid);
         if (!c) return null;
-        const stNow = get();
-        if (stNow.listings.some(l => l.status === 'active' && l.cardUid === cardUid)) return null; // já anunciada
-        const inSquad = Object.values(stNow.squads).some((sq: any) => sq && ([...(sq.starters ?? []).map((s: any) => s.uid), ...(sq.bench ?? [])]).includes(cardUid));
-        if (inSquad) return null; // remova do elenco antes de anunciar
-        const id = nanoid(8);
-        const listing: Listing = {
-          id, cardUid, seller: 'user', sellerName: 'Você',
-          price, buyNow, bids: [], createdAt: Date.now(),
-          expiresAt: Date.now() + hours * 3600000, status: 'active',
-        };
-        set(st => ({
-          listings: [listing, ...st.listings],
-          cards: st.cards.map(x => x.uid === cardUid ? { ...x, isNew: false } : x),
-        }));
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) {
-              const remote = await createListing({ sellerId: uid, cardUid, cardName: c.name, cardOverall: c.overall, cardPosition: c.position, cardRarity: c.rarity, cardImage: c.image, cardAttributes: { pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical, reflexes: c.reflexes, positioning: c.positioning, handling: c.handling }, price, buyNow, expiresAt: new Date(Date.now() + hours * 3600000).toISOString(), status: 'active' });
-              if (remote) set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, id: remote.id } : l) }));
-            }
-          });
+        listingsPending.add(cardUid);
+        try {
+          if (supabase) {
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+            const sellerId = sessionData.session?.user?.id;
+            if (!sellerId) throw new Error('Entre na sua conta para anunciar uma carta.');
+            const remote = await createListing({
+              sellerId,
+              cardUid,
+              cardName: c.name,
+              cardOverall: c.overall,
+              cardPosition: c.position,
+              cardRarity: c.rarity,
+              cardImage: c.image,
+              cardAttributes: { pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical, reflexes: c.reflexes, positioning: c.positioning, handling: c.handling },
+              price,
+              buyNow,
+              expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
+              status: 'active',
+            });
+            if (!remote) throw new Error('O servidor não confirmou a criação do anúncio.');
+            const listing: Listing = {
+              id: remote.id,
+              cardUid: remote.cardUid,
+              seller: 'user',
+              sellerId,
+              sellerName: 'Você',
+              price: remote.price,
+              buyNow: remote.buyNow,
+              bids: [],
+              createdAt: new Date(remote.createdAt).getTime(),
+              expiresAt: new Date(remote.expiresAt).getTime(),
+              status: 'active',
+              cardName: remote.cardName,
+              cardOverall: remote.cardOverall,
+              cardPosition: remote.cardPosition,
+              cardRarity: remote.cardRarity,
+              cardImage: remote.cardImage,
+              cardAttributes: remote.cardAttributes,
+            };
+            set(st => ({
+              listings: [listing, ...st.listings.filter(item => item.cardUid !== cardUid || item.status !== 'active')],
+              cards: st.cards.map(card => card.uid === cardUid ? { ...card, isNew: false } : card),
+            }));
+            return listing.id;
+          }
+
+          if (get().listings.some(item => item.status === 'active' && item.cardUid === cardUid)) return null;
+          const current = get();
+          const inSquad = Object.values(current.squads).some((squad: any) => squad && ([...(squad.starters ?? []).map((slot: any) => slot.uid), ...(squad.bench ?? [])]).includes(cardUid));
+          if (inSquad) return null;
+          const id = nanoid(8);
+          const listing: Listing = {
+            id, cardUid, seller: 'user', sellerName: 'Você',
+            price, buyNow, bids: [], createdAt: Date.now(),
+            expiresAt: Date.now() + hours * 3600000, status: 'active',
+          };
+          set(st => ({
+            listings: [listing, ...st.listings],
+            cards: st.cards.map(card => card.uid === cardUid ? { ...card, isNew: false } : card),
+          }));
+          return id;
+        } catch (error) {
+          console.error('[marketplace] listing creation failed:', error);
+          toast.error(error instanceof Error ? error.message : 'Não foi possível anunciar a carta.');
+          return null;
+        } finally {
+          listingsPending.delete(cardUid);
         }
-        return id;
       },
-      cancelListing: (id) => {
-        set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'cancelled' } : l) }));
-        if (supabase) cancelListingService(id);
+      cancelListing: async (id) => {
+        const listing = get().listings.find(item => item.id === id);
+        if (!listing || listing.status !== 'active') return false;
+        if (supabase && listing.sellerId) {
+          try {
+            const cancelled = await cancelListingService(id);
+            if (!cancelled) return false;
+          } catch (error) {
+            console.error('[marketplace] listing cancellation failed:', error);
+            return false;
+          }
+        }
+        set(st => ({ listings: st.listings.map(l => l.id === id && l.status === 'active' ? { ...l, status: 'cancelled' } : l) }));
+        return true;
       },
       buyListing: async (id) => {
         const listing = get().listings.find(l => l.id === id);
@@ -999,42 +1123,63 @@ export const useGame = create<GameState & Actions>()(
         get().addXp(10);
         get().updateMissionProgress();
       },
-      completeSBC: (sbcId, cardUids) => {
+      completeSBC: async (sbcId, cardUids) => {
+        if (sbcCompletionsPending.has(sbcId)) return false;
         const sbc = get().sbcs.find(s => s.id === sbcId);
-        if (!sbc) return false;
+        if (!sbc || new Set(cardUids).size !== cardUids.length) return false;
         const cards = get().cards.filter(c => cardUids.includes(c.uid));
         if (cards.length !== cardUids.length) return false;
         const stSbc = get();
-        if (cardUids.some(u => stSbc.listings.some(l => l.status === 'active' && l.cardUid === u))) return false; // anunciada no mercado
-        if (Object.values(stSbc.squads).some((sq: any) => sq && ([...(sq.starters ?? []).map((s: any) => s.uid), ...(sq.bench ?? [])]).some((u: string | null) => u && cardUids.includes(u)))) return false; // está no elenco
-        // validate count
+        if (cardUids.some(u => stSbc.listings.some(l => l.status === 'active' && l.cardUid === u))) return false;
+        if (Object.values(stSbc.squads).some((sq: any) => sq && ([...(sq.starters ?? []).map((s: any) => s.uid), ...(sq.bench ?? [])]).some((u: string | null) => u && cardUids.includes(u)))) return false;
         if (cards.length < sbc.requirements.count) return false;
         if (sbc.requirements.minOverall && cards.some(c => c.overall < sbc.requirements.minOverall!)) return false;
-        if (sbc.requirements.sameClub) {
-          const clubs = new Set(cards.map(c => c.club));
-          if (clubs.size !== 1) return false;
-        }
-        // remove cards
-        set(st => ({ cards: st.cards.filter(c => !cardUids.includes(c.uid)) }));
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) {
-              const dbIds = cardUids.filter(x => UUID_RE.test(x));
-              if (dbIds.length > 0) await supabase!.rpc('delete_owned_cards', { p_card_ids: dbIds });
-              await recordSBCCompletion(uid, sbcId);
+        if (sbc.requirements.sameClub && new Set(cards.map(c => c.club)).size !== 1) return false;
+
+        sbcCompletionsPending.add(sbcId);
+        try {
+          if (supabase) {
+            if (!cardUids.every(uid => UUID_RE.test(uid))) {
+              toast.error('Todas as cartas do SBC precisam estar sincronizadas com sua conta.');
+              return false;
             }
-          });
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+            if (!sessionData.session?.user?.id) throw new Error('Entre na sua conta para concluir o SBC.');
+            const { data, error } = await supabase.rpc('complete_sbc', {
+              p_sbc_id: sbcId,
+              p_card_ids: cardUids,
+            });
+            if (error) throw error;
+            const reward = data as { coins: number; xp: number; level: number; reward_coins: number };
+            const now = Date.now();
+            set(st => ({
+              cards: st.cards.filter(card => !cardUids.includes(card.uid)),
+              coins: reward.coins,
+              xp: reward.xp,
+              level: reward.level,
+              transactions: reward.reward_coins > 0
+                ? [{ id: nanoid(8), type: 'earn' as const, amount: reward.reward_coins, reason: `SBC: ${sbc.title}`, at: now }, ...st.transactions].slice(0, 50)
+                : st.transactions,
+            }));
+            return true;
+          }
+
+          set(st => ({
+            cards: st.cards.filter(card => !cardUids.includes(card.uid)),
+            coins: st.coins + (sbc.reward.type === 'coins' ? Number(sbc.reward.value) : 1000),
+            xp: st.xp + 100,
+            level: levelFromXp(st.xp + 100),
+            transactions: [{ id: nanoid(8), type: 'earn' as const, amount: sbc.reward.type === 'coins' ? Number(sbc.reward.value) : 1000, reason: `SBC: ${sbc.title}`, at: Date.now() }, ...st.transactions].slice(0, 50),
+          }));
+          return true;
+        } catch (error) {
+          console.error('[sbc] completion failed:', error);
+          toast.error(error instanceof Error ? error.message : 'Não foi possível concluir o SBC.');
+          return false;
+        } finally {
+          sbcCompletionsPending.delete(sbcId);
         }
-        // reward
-        if (sbc.reward.type === 'coins') {
-          get().addCoins(Number(sbc.reward.value), `SBC: ${sbc.title}`);
-        } else if (sbc.reward.type === 'pack') {
-          // unlock pack? just grant coins equivalent
-          get().addCoins(1000, `SBC: ${sbc.title}`);
-        }
-        get().addXp(100);
-        return true;
       },
       seedMarket: () => {},
       recordPrice: (cardName, price) => set(st => ({

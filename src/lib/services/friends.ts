@@ -98,26 +98,62 @@ export async function sendRequest(requesterId: string, addresseeId: string): Pro
 
 export async function acceptRequest(friendshipId: string): Promise<boolean> {
   if (!supabase) return false;
-  const { error } = await supabase.from('friendships').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', friendshipId);
-  return !error;
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (sessionError || !userId) return false;
+  const { data, error } = await supabase.from('friendships')
+    .update({ status: 'accepted', updated_at: new Date().toISOString() })
+    .eq('id', friendshipId)
+    .eq('addressee_id', userId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+  return !error && data !== null;
 }
 
 export async function rejectRequest(friendshipId: string): Promise<boolean> {
   if (!supabase) return false;
-  const { error } = await supabase.from('friendships').delete().eq('id', friendshipId);
-  return !error;
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (sessionError || !userId) return false;
+  const { data, error } = await supabase.from('friendships')
+    .delete()
+    .eq('id', friendshipId)
+    .eq('addressee_id', userId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+  return !error && data !== null;
 }
 
 export async function cancelRequest(friendshipId: string): Promise<boolean> {
   if (!supabase) return false;
-  const { error } = await supabase.from('friendships').delete().eq('id', friendshipId);
-  return !error;
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (sessionError || !userId) return false;
+  const { data, error } = await supabase.from('friendships')
+    .delete()
+    .eq('id', friendshipId)
+    .eq('requester_id', userId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+  return !error && data !== null;
 }
 
 export async function removeFriend(friendshipId: string): Promise<boolean> {
   if (!supabase) return false;
-  const { error } = await supabase.from('friendships').delete().eq('id', friendshipId);
-  return !error;
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (sessionError || !userId) return false;
+  const { data, error } = await supabase.from('friendships')
+    .delete()
+    .eq('id', friendshipId)
+    .eq('status', 'accepted')
+    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+    .select('id')
+    .maybeSingle();
+  return !error && data !== null;
 }
 
 export function subscribeFriends(userId: string, onChange: () => void) {

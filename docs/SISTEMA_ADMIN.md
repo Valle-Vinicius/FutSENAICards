@@ -79,6 +79,8 @@ Funcionamento:
 
 **Preview de OVR:** Calculado em tempo real usando `calcOverallLocal()` com os atributos atuais e a raridade/baseOverall selecionadas.
 
+Para as fórmulas por posição, bônus de raridade/especial e diferenças entre cálculo automático, OVR manual e geração por pacote, consulte [Relatório de cálculo do Overall](./SISTEMA_OVERALL.md).
+
 ---
 
 ## RPCs do Admin

@@ -60,6 +60,8 @@ export default function Marketplace() {
   const [listSearch, setListSearch] = useState('');
   const [confirmBuy, setConfirmBuy] = useState<string | null>(null);
   const [buyingAnim, setBuyingAnim] = useState<string | null>(null);
+  const [cancellingListingId, setCancellingListingId] = useState<string | null>(null);
+  const [creatingListing, setCreatingListing] = useState(false);
 
   const cardOf = (uid: string) => cards.find(c => c.uid === uid);
 
@@ -116,11 +118,17 @@ export default function Marketplace() {
     if (ok) toast.success('Lance registrado!'); else toast.error('Lance inválido ou saldo insuficiente.');
   };
 
-  const handleList = () => {
+  const handleList = async () => {
+    if (creatingListing) return;
     if (!listUid || !listPrice) { toast.error('Selecione carta e preço.'); return; }
-    const id = listCard(listUid, Number(listPrice), Number(listBuyNow) || Number(listPrice) * 2, 24);
-    if (id) { toast.success('Carta anunciada!'); setListUid(null); setListPrice(''); setListBuyNow(''); }
-    else toast.error('Erro ao anunciar.');
+    setCreatingListing(true);
+    try {
+      const id = await listCard(listUid, Number(listPrice), Number(listBuyNow) || Number(listPrice) * 2, 24);
+      if (id) { toast.success('Carta anunciada!'); setListUid(null); setListPrice(''); setListBuyNow(''); }
+      else if (!supabase) toast.error('Carta indisponível para anúncio.');
+    } finally {
+      setCreatingListing(false);
+    }
   };
 
   const availableToSell = cards.filter(c => !listings.some(l => l.cardUid === c.uid && l.status === 'active'));
@@ -247,7 +255,7 @@ export default function Marketplace() {
               <input value={listPrice} onChange={e => setListPrice(e.target.value)} placeholder="Preço inicial" className={`flex-1 ${sel}`} />
               <input value={listBuyNow} onChange={e => setListBuyNow(e.target.value)} placeholder="Compra imediata" className={`flex-1 ${sel}`} />
             </div>
-            <button onClick={handleList} className="w-full px-3 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Publicar</button>
+            <button onClick={handleList} disabled={creatingListing} className="w-full px-3 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium disabled:opacity-60">{creatingListing ? 'Publicando...' : 'Publicar'}</button>
           </div>
           <div className="space-y-2">
             {listings.filter(l => l.sellerId === userId).map(l => {
@@ -255,7 +263,14 @@ export default function Marketplace() {
               return (
                 <div key={l.id} className="card-surface p-3 flex items-center justify-between gap-3">
                   <div className="text-sm text-[#252733]">{c?.name} · {l.price.toLocaleString('pt-BR')} moedas · {l.status}</div>
-                  {l.status === 'active' && <button onClick={() => cancelListing(l.id)} className="px-2 py-1 text-xs rounded-lg text-red-600 border border-red-200">Cancelar</button>}
+                  {l.status === 'active' && <button disabled={cancellingListingId !== null} onClick={async () => {
+                    if (cancellingListingId) return;
+                    setCancellingListingId(l.id);
+                    const cancelled = await cancelListing(l.id);
+                    if (cancelled) toast.success('Anúncio cancelado.');
+                    else toast.error('O anúncio não está mais ativo ou não foi possível cancelá-lo.');
+                    setCancellingListingId(null);
+                  }} className="px-2 py-1 text-xs rounded-lg text-red-600 border border-red-200 disabled:opacity-60">{cancellingListingId === l.id ? 'Cancelando...' : 'Cancelar'}</button>}
                 </div>
               );
             })}

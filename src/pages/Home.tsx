@@ -69,10 +69,15 @@ export default function Home() {
     return () => clearInterval(iv);
   }, [event]);
 
-  const handleDaily = () => {
-    const r = claimDaily();
+  const [claimingDaily, setClaimingDaily] = useState(false);
+  const handleDaily = async () => {
+    if (claimingDaily) return;
+    setClaimingDaily(true);
+    const r = await claimDaily();
     if (r.ok) toast.alert(`Recompensa diária: +${r.amount} moedas`);
+    else if (r.error) toast.error(r.error);
     else toast.alert('Recompensa diária já coletada. Volte mais tarde.');
+    setClaimingDaily(false);
   };
 
   return (
@@ -108,7 +113,7 @@ export default function Home() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={handleDaily} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-bold">Recompensa diária</button>
+          <button onClick={handleDaily} disabled={claimingDaily} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-bold disabled:opacity-60">{claimingDaily ? 'Resgatando...' : 'Recompensa diária'}</button>
         </div>
       </div>
 
