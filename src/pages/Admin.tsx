@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
+import { ChevronDown, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -73,10 +74,6 @@ export default function Admin() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [allCards, setAllCards] = useState<any[]>([]);
-  const [loadingCards, setLoadingCards] = useState(false);
-  const [editingCard, setEditingCard] = useState<string | null>(null);
-  const [editOverall, setEditOverall] = useState<number>(0);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [templateAttrs, setTemplateAttrs] = useState<Record<string, any>>({});
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -194,37 +191,6 @@ export default function Admin() {
       seasonStats: { matches: 0, goals: 0, assists: 0 },
     };
   };
-
-  const loadAllCards = async () => {
-    if (!supabase) return;
-    setLoadingCards(true);
-    try {
-      const { data, error } = await supabase.rpc('admin_get_all_cards');
-      if (error) { toast.error('Erro ao carregar cartas: ' + error.message); return; }
-      setAllCards(data || []);
-    } catch (e: any) {
-      toast.error('Erro: ' + (e?.message || 'desconhecido'));
-    } finally {
-      setLoadingCards(false);
-    }
-  };
-
-  const handleUpdateOverall = async (cardId: string, newOverall: number) => {
-    if (!supabase) return;
-    try {
-      const { error } = await supabase.rpc('admin_update_card_overall', { p_card_id: cardId, p_overall: newOverall });
-      if (error) { toast.error('Erro: ' + error.message); return; }
-      toast.success('Overall atualizado!');
-      setAllCards(prev => prev.map(c => c.id === cardId ? { ...c, overall: newOverall } : c));
-      setEditingCard(null);
-    } catch (e: any) {
-      toast.error('Erro: ' + (e?.message || 'desconhecido'));
-    }
-  };
-
-  useEffect(() => {
-    if (userId === ADMIN_USER_ID) loadAllCards();
-  }, [userId]);
 
   const loadTemplateAttrs = (t: any) => {
     setTemplateAttrs({
@@ -407,7 +373,7 @@ export default function Admin() {
           p_positioning: isGK ? form.positioning : null,
           p_handling: isGK ? form.handling : null,
           p_image: imageUrl || null,
-          p_special: 'none',
+          p_special: form.special,
           p_base_rarity: form.baseRarity,
           p_base_overall: ovr,
         });
@@ -435,19 +401,25 @@ export default function Admin() {
     );
   }
 
-  const inputCls = "w-full bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]";
-  const labelCls = "text-xs text-[#858A98] mb-1 block";
+  const inputCls = "w-full h-11 bg-white border border-[#E2E4EA] rounded-xl px-3 text-sm text-[#252733] placeholder:text-[#B7BAC4] transition focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10 disabled:bg-[#F7F7F9] disabled:text-[#858A98]";
+  const labelCls = "text-xs font-semibold text-[#555B68] mb-1.5 block";
 
   return (
     <>
       <div className="p-4 md:p-8 space-y-6">
         <h1 className="text-2xl font-bold text-[#252733]">Painel Administrador</h1>
 
-        <div className="flex flex-col md:flex-row gap-6">
-          <div className="flex-1 card-surface p-4 space-y-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+          <div className="min-w-0 card-surface p-4 md:p-5 space-y-5">
             <h2 className="text-lg font-semibold text-[#252733]">Criar Carta</h2>
 
-            <div>
+            <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
+                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">1</span>
+                Informações básicas
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
               <label className={labelCls}>Nome do Jogador</label>
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Ex: João Marcos" />
             </div>
@@ -456,8 +428,9 @@ export default function Admin() {
               <label className={labelCls}>URL da Imagem</label>
               <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
             </div>
+              </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className={labelCls}>Nacionalidade</label>
                 <input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} className={inputCls} placeholder="Ex: Brasil" />
@@ -471,69 +444,75 @@ export default function Admin() {
                 <input value={form.club} onChange={e => setForm({ ...form, club: e.target.value })} className={inputCls} placeholder="Ex: Santos" />
               </div>
             </div>
+            </section>
 
-            <div className="grid grid-cols-2 gap-3">
+            <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
+                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">2</span>
+                Características
+              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Posição</label>
-                <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className={inputCls}>
-                  {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                <div className="relative">
+                  <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className={`${inputCls} appearance-none pr-10`}>
+                    {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                </div>
               </div>
               <div>
                 <label className={labelCls}>Raridade</label>
-                <select value={isInventory ? form.rarity : form.baseRarity} onChange={e => {
-                  const val = e.target.value as any;
-                  if (isInventory) setForm({ ...form, rarity: val });
-                  else setForm({ ...form, baseRarity: val });
-                }} className={inputCls} disabled={calcMode && isInventory}>
-                  {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
-                </select>
+                <div className="relative">
+                  <select value={isInventory ? form.rarity : form.baseRarity} onChange={e => {
+                    const val = e.target.value as typeof form.rarity;
+                    if (isInventory) setForm({ ...form, rarity: val });
+                    else setForm({ ...form, baseRarity: val });
+                  }} className={`${inputCls} appearance-none pr-10`} disabled={calcMode && isInventory}>
+                    {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                </div>
                 {calcMode && isInventory && <div className="text-[10px] text-[#858A98] mt-1">Modo cálculo: OVR aplicado sobre esta raridade</div>}
               </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
-              <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="w-4 h-4" />
-              <div>
-                <div className="text-sm font-medium text-[#252733]">Calcular OVR automaticamente</div>
-                <div className="text-xs text-[#858A98]">{isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</div>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E9EAF0] bg-[#FAFAFB] p-3.5">
+              <input type="checkbox" checked={form.special === 'legend'} onChange={e => setForm({ ...form, special: e.target.checked ? 'legend' : 'none' })} className="size-4 accent-[#E30613]" />
+              <Crown className="size-4 text-[#D49A1B]" />
+              <span className="text-sm font-medium text-[#252733]">Ídolo / Lenda</span>
+            </label>
+            </section>
+
+            <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
+                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">3</span>
+                Atributos
               </div>
-            </div>
-
-            <div>
-              <label className={labelCls}>Overall {isInventory ? '' : '(base)'} {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
-              <input type="number" value={calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall)} onChange={e => {
-                const val = Number(e.target.value);
-                if (!isInventory) setForm({ ...form, baseOverall: val });
-                else setForm({ ...form, overall: val });
-              }} className={inputCls} min={0} max={99} disabled={calcMode && isInventory} />
-              {isInventory && !calcMode && <div className="text-[10px] text-[#858A98] mt-1">O OVR digitado será salvo como informado; confira a faixa típica da raridade.</div>}
-            </div>
-
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={labelCls}>Velocidade</label>
-                <input type="number" value={form.pace} onChange={e => setForm({ ...form, pace: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                <input type="number" value={form.pace} onChange={e => setForm({ ...form, pace: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
               </div>
               <div>
                 <label className={labelCls}>Chute</label>
-                <input type="number" value={form.shooting} onChange={e => setForm({ ...form, shooting: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                <input type="number" value={form.shooting} onChange={e => setForm({ ...form, shooting: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
               </div>
               <div>
                 <label className={labelCls}>Passe</label>
-                <input type="number" value={form.passing} onChange={e => setForm({ ...form, passing: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                <input type="number" value={form.passing} onChange={e => setForm({ ...form, passing: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
               </div>
               <div>
                 <label className={labelCls}>Drible</label>
-                <input type="number" value={form.dribbling} onChange={e => setForm({ ...form, dribbling: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                <input type="number" value={form.dribbling} onChange={e => setForm({ ...form, dribbling: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
               </div>
               <div>
                 <label className={labelCls}>Defesa</label>
-                <input type="number" value={form.defending} onChange={e => setForm({ ...form, defending: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                <input type="number" value={form.defending} onChange={e => setForm({ ...form, defending: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
               </div>
               <div>
                 <label className={labelCls}>Físico</label>
-                <input type="number" value={form.physical} onChange={e => setForm({ ...form, physical: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                <input type="number" value={form.physical} onChange={e => setForm({ ...form, physical: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
               </div>
             </div>
 
@@ -541,39 +520,64 @@ export default function Admin() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className={labelCls}>Reflexos</label>
-                  <input type="number" value={form.reflexes} onChange={e => setForm({ ...form, reflexes: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                  <input type="number" value={form.reflexes} onChange={e => setForm({ ...form, reflexes: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
                 </div>
                 <div>
                   <label className={labelCls}>Posicionamento</label>
-                  <input type="number" value={form.positioning} onChange={e => setForm({ ...form, positioning: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                  <input type="number" value={form.positioning} onChange={e => setForm({ ...form, positioning: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
                 </div>
                 <div>
                   <label className={labelCls}>Defesa de Bola</label>
-                  <input type="number" value={form.handling} onChange={e => setForm({ ...form, handling: Number(e.target.value) })} className={inputCls} min={0} max={99} />
+                  <input type="number" value={form.handling} onChange={e => setForm({ ...form, handling: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
                 </div>
               </div>
             )}
+            </section>
 
-            {isInventory && (
-              <div>
-                <label className={labelCls}>Especial</label>
-                <select value={form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={inputCls}>
-                  {SPECIALS.map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
-                </select>
-                <div className="text-[10px] text-[#858A98] mt-1">Todas as cartas são da temporada {DEFAULT_EDITION}.</div>
+            <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
+                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">4</span>
+                Configurações
               </div>
-            )}
-
-            <div className="flex items-center gap-3 p-3 bg-[#F7F7F9] rounded-xl">
-              <div className="flex-1">
-                <div className="text-sm font-medium text-[#252733]">Destino da carta</div>
-                <div className="text-xs text-[#858A98]">Onde a carta será disponibilizada</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Especial</label>
+                  <div className="relative">
+                    <select value={form.special === 'legend' ? 'none' : form.special} onChange={e => setForm({ ...form, special: e.target.value })} className={`${inputCls} appearance-none pr-10`}>
+                      {SPECIALS.filter(s => s !== 'legend').map(s => <option key={s} value={s}>{SPECIAL_LABELS[s]}</option>)}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Destino da carta</label>
+                  <div className="relative">
+                    <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value as 'inventory' | 'packs' })} className={`${inputCls} appearance-none pr-10`}>
+                      <option value="inventory">Inventário (admin)</option>
+                      <option value="packs">Pacotes (disponível para todos)</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Overall {isInventory ? '' : '(base)'} {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
+                  <input type="number" value={calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall)} onChange={e => {
+                    const val = Number(e.target.value);
+                    if (!isInventory) setForm({ ...form, baseOverall: val });
+                    else setForm({ ...form, overall: val });
+                  }} className={`${inputCls} text-center text-lg font-bold tabular-nums`} min={0} max={99} disabled={calcMode && isInventory} />
+                  {isInventory && !calcMode && <div className="mt-1 text-[10px] text-[#858A98]">O OVR digitado será salvo como informado; confira a faixa típica da raridade.</div>}
+                </div>
               </div>
-              <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value as any })} className="bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]">
-                <option value="inventory">Inventário (admin)</option>
-                <option value="packs">Pacotes (disponível para todos)</option>
-              </select>
-            </div>
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E9EAF0] bg-[#FAFAFB] p-3.5">
+                <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="size-4 accent-[#E30613]" />
+                <span>
+                  <span className="block text-sm font-medium text-[#252733]">Calcular OVR automaticamente</span>
+                  <span className="block text-xs text-[#858A98]">{isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</span>
+                </span>
+              </label>
+              <div className="text-[10px] text-[#858A98]">Todas as cartas são da temporada {DEFAULT_EDITION}.</div>
+            </section>
 
             <button
               onClick={handleCreate}
@@ -584,8 +588,8 @@ export default function Admin() {
             </button>
           </div>
 
-          <div className="flex flex-col items-center justify-start gap-4 min-w-[200px]">
-            <h2 className="text-lg font-semibold text-[#252733]">Preview</h2>
+          <div className="flex flex-col items-center justify-start gap-4 rounded-2xl border border-[#E9EAF0] bg-white p-4 md:p-5 xl:sticky xl:top-6">
+            <h2 className="text-lg font-semibold text-[#252733]">Prévia</h2>
             {calcMode ? (
               <div className="flex flex-wrap gap-3 justify-center">
                 {RARITIES.map(r => (
@@ -607,69 +611,8 @@ export default function Admin() {
         </div>
 
         <div className="card-surface p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[#252733]">Editar Overall das Cartas</h2>
-            <button onClick={loadAllCards} disabled={loadingCards} className="px-3 py-1.5 rounded-xl bg-[#F7F7F9] text-sm font-medium text-[#252733] disabled:opacity-60">
-              {loadingCards ? 'Carregando...' : 'Atualizar lista'}
-            </button>
-          </div>
-          {loadingCards ? (
-            <div className="text-[#858A98] text-sm">Carregando cartas...</div>
-          ) : allCards.length === 0 ? (
-            <div className="text-[#858A98] text-sm">Nenhuma carta encontrada.</div>
-          ) : (
-            <div className="space-y-2 max-h-[500px] overflow-y-auto">
-              {allCards.map((c: any) => (
-                <div key={c.id} className="flex items-center gap-3 p-2 bg-[#F7F7F9] rounded-xl">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-[#252733] truncate">{c.name}</div>
-                    <div className="text-xs text-[#858A98]">{c.position} · {c.rarity} · {c.club}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {editingCard === c.id ? (
-                      <>
-                        <input
-                          type="number"
-                          value={editOverall}
-                          onChange={e => setEditOverall(Number(e.target.value))}
-                          className="w-16 bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733] text-center"
-                          min={0}
-                          max={99}
-                        />
-                        <button
-                          onClick={() => handleUpdateOverall(c.id, editOverall)}
-                          className="px-2 py-1 rounded-lg bg-[#E30613] text-white text-xs font-bold"
-                        >
-                          OK
-                        </button>
-                        <button
-                          onClick={() => setEditingCard(null)}
-                          className="px-2 py-1 rounded-lg bg-[#E9EAF0] text-[#858A98] text-xs font-bold"
-                        >
-                          X
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-sm font-bold text-[#252733] w-8 text-center">{c.overall}</span>
-                        <button
-                          onClick={() => { setEditingCard(c.id); setEditOverall(c.overall); }}
-                          className="px-2 py-1 rounded-lg bg-[#E9EAF0] text-[#252733] text-xs font-bold hover:bg-[#E30613] hover:text-white transition"
-                        >
-                          Editar
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="card-surface p-4 space-y-4">
-          <h2 className="text-lg font-semibold text-[#252733]">Editar Cartas do Jogo (Templates)</h2>
-          <div className="text-xs text-[#858A98]">Edite os atributos das cartas e templates do jogo. As alterações são sincronizadas no banco e refletidas nos pacotes.</div>
+          <h2 className="text-lg font-semibold text-[#252733]">Editar templates das cartas</h2>
+          <div className="text-xs text-[#858A98]">Os atributos e o overall base dos templates são sincronizados no banco e refletidos nos pacotes.</div>
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
             {allTemplates().map((t: any) => (
               <div key={t.name} className="p-3 bg-[#F7F7F9] rounded-xl space-y-3">
@@ -753,7 +696,7 @@ export default function Admin() {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] text-[#858A98] mb-1 block">Overall Base</label>
-                        <input type="number" value={templateAttrs.baseOverall} onChange={e => setTemplateAttrs({ ...templateAttrs, baseOverall: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
+                        <input type="number" value={templateAttrs.baseOverall} onChange={e => setTemplateAttrs({ ...templateAttrs, baseOverall: Number(e.target.value) })} className="w-full h-11 bg-white border border-[#E2E4EA] rounded-xl px-3 text-center text-base font-bold tabular-nums text-[#252733] transition focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10" min={0} max={99} />
                       </div>
                       <div>
                         <label className="text-[10px] text-[#858A98] mb-1 block">Clube</label>
