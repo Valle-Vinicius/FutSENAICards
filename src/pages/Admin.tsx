@@ -545,7 +545,23 @@ export default function Admin() {
                 </div>
               </div>
               <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E9EAF0] bg-[#FAFAFB] p-3.5">
-                <input type="checkbox" checked={form.calcOverall} onChange={e => setForm({ ...form, calcOverall: e.target.checked })} className="size-4 accent-[#E30613]" />
+                <input
+                  type="checkbox"
+                  checked={form.calcOverall}
+                  onChange={e => {
+                    const calcOverall = e.target.checked;
+                    setForm(prev => ({
+                      ...prev,
+                      calcOverall,
+                      ...(calcOverall
+                        ? prev.destination === 'inventory'
+                          ? { rarity: 'uncommon' }
+                          : { baseRarity: 'uncommon' }
+                        : {}),
+                    }));
+                  }}
+                  className="size-4 accent-[#E30613]"
+                />
                 <span>
                   <span className="block text-sm font-medium text-[#252733]">Calcular OVR automaticamente</span>
                   <span className="block text-xs text-[#858A98]">{isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</span>

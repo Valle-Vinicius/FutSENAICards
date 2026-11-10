@@ -34,8 +34,9 @@ Campos:
 - Atributos: Velocidade, Chute, Passe, Drible, Defesa, Físico
 - (Se GK) Reflexos, Posicionamento, Defesa de Bola
 - Edição (sempre '2025/26' no inventário)
-- Especial (Nenhuma, Time da Semana, Craque da Rodada, Revelação, Lenda, Futsal)
 - Modo: Calcular OVR automaticamente (usa atributos × raridade) ou Manual
+
+Ao ativar o cálculo automático, a raridade da carta no Inventário — ou a raridade base no modo Pacotes — volta para **Incomum** como padrão. No Inventário, a raridade fica bloqueada enquanto o cálculo automático estiver ativo. O título especial não é escolhido no formulário; nos pacotes, ele é definido pelo sorteio da abertura.
 
 #### Modo Pacotes
 Cria um template que será sorteado nos pacotes abertos por qualquer jogador via RPC `create_card_template`.
@@ -44,7 +45,7 @@ Campos adicionais:
 - Raridade Base (raridade usada como base nos pacotes)
 - Overall Base (overall usado nos pacotes)
 
-**Nota:** No modo pacotes, os campos Edição e Especial estão ocultos.
+**Nota:** No modo pacotes, edição e título especial não são definidos pelo template; a temporada é fixa e o título especial é sorteado ao abrir o pacote.
 
 ---
 
