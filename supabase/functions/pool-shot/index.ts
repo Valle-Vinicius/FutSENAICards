@@ -26,7 +26,7 @@ const TABLE_WIDTH = 2.0;
 const TABLE_HEIGHT = 1.0;
 const BALL_RADIUS = 0.025;
 const POCKET_RADIUS = 0.045;
-const FRICTION = 0.985;
+const FRICTION = 0.9945;
 const RESTITUTION = 0.8;
 const FIXED_DT = 1 / 240;
 const MAX_SIM_STEPS = 240 * 10;
@@ -275,6 +275,32 @@ serve(async (req) => {
   state.firstContact = null;
   state.foul = false;
 
+  const { data: shotCount, error: shotCountError } = await supabase
+    .from('pool_shots')
+    .select('seq')
+    .eq('match_id', matchId)
+    .order('seq', { ascending: false })
+    .limit(1);
+  if (shotCountError) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to read shot sequence`, shotCountError.message);
+    return json({ error: 'could not prepare shot' }, origin, 500);
+  }
+  const seq = shotCount?.length ? shotCount[0].seq + 1 : 1;
+  const shotId = crypto.randomUUID();
+  const { error: insertError } = await supabase.from('pool_shots').insert({
+    match_id: matchId,
+    player_id: user.id,
+    seq,
+    angle,
+    power: clampedPower,
+    shot_id: shotId,
+    result: { status: 'started' },
+  });
+  if (insertError) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to publish shot start`, insertError.message);
+    return json({ error: 'could not start shot' }, origin, 500);
+  }
+
   const frames: any[] = [];
   let moving = true;
   let steps = 0;
@@ -346,25 +372,6 @@ serve(async (req) => {
   state.currentPlayer = nextPlayer;
   state.foul = foul;
 
-  // Save shot
-  const { data: shotCount } = await supabase.from('pool_shots').select('seq').eq('match_id', matchId).order('seq', { ascending: false }).limit(1);
-  const seq = shotCount && shotCount.length > 0 ? shotCount[0].seq + 1 : 1;
-  const shotId = crypto.randomUUID();
-  const { data: existingShot } = await supabase.from('pool_shots').select('id').eq('shot_id', shotId).single();
-  if (existingShot) {
-    console.log(`[pool-shot] user=${user.id} matchId=${matchId} 409 shot already processed`);
-    return json({ error: 'shot already processed' }, origin, 409);
-  }
-  await supabase.from('pool_shots').insert({
-    match_id: matchId,
-    player_id: user.id,
-    seq,
-    angle,
-    power: clampedPower,
-    shot_id: shotId,
-    result: { pocketed: pocketedIds, foul, nextPlayer, winner: state.winner, anim },
-  });
-
   // Update match state
   const turnDeadline = new Date(Date.now() + 60000).toISOString();
   const updateData: any = {
@@ -378,7 +385,19 @@ serve(async (req) => {
     updateData.status = 'finished';
     updateData.winner_id = state.winner === 1 ? match.player1_id : match.player2_id;
   }
-  await supabase.from('pool_matches').update(updateData).eq('id', matchId);
+  const { error: matchUpdateError } = await supabase.from('pool_matches').update(updateData).eq('id', matchId);
+  if (matchUpdateError) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to save match state`, matchUpdateError.message);
+    return json({ error: 'could not save shot state' }, origin, 500);
+  }
+  const { error: shotUpdateError } = await supabase
+    .from('pool_shots')
+    .update({ result: { pocketed: pocketedIds, foul, nextPlayer, winner: state.winner, anim } })
+    .eq('shot_id', shotId);
+  if (shotUpdateError) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to save shot animation`, shotUpdateError.message);
+    return json({ error: 'could not save shot animation' }, origin, 500);
+  }
 
   console.log(`[pool-shot] user=${user.id} matchId=${matchId} success nextPlayer=${nextPlayer} winner=${state.winner} foul=${foul}`);
   return json({ anim, seq, finalState: state, pocketed: pocketedIds, foul, nextPlayer, winner: state.winner }, origin, 200);

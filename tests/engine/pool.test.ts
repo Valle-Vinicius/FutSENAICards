@@ -27,6 +27,11 @@ describe('Pool engine', () => {
     expect(lastFrame.balls[0].x).not.toBe(s.balls[0].x);
   });
 
+  it('lets the cue ball roll for several seconds instead of stopping abruptly', () => {
+    const r = simulateShot(createInitialState(), { angle: 0, power: 0.5 });
+    expect(r.frames.length).toBeGreaterThan(300);
+  });
+
   it('conservation: total balls remain 16', () => {
     const s = createInitialState();
     const r = simulateShot(s, { angle: 0, power: 0.5 });

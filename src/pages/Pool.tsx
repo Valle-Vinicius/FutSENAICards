@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import { getLatestPoolShotSeq, getPoolMatch, getPoolShotsAfter, submitShot, abandonPoolMatch } from '../lib/services/pool';
 import type { PoolShotEvent } from '../lib/services/pool';
-import { createInitialState } from '../engine/pool/physics';
+import { createInitialState, simulateShot } from '../engine/pool/physics';
 import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
 import type { Ball, TableState } from '../engine/pool/types';
 
@@ -27,6 +27,16 @@ const BALL_COLORS = [
 ];
 
 const poolBackgrounds = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+
+function compactShotFrames(frames: { balls: { x: number; y: number; pocketed: boolean }[] }[]): number[][] {
+  const toRow = (frame: { balls: { x: number; y: number; pocketed: boolean }[] }) => frame.balls.flatMap(ball => (
+    ball.pocketed ? [-1, -1] : [Math.round(ball.x * 1000), Math.round(ball.y * 1000)]
+  ));
+  const anim: number[][] = [];
+  for (let i = 0; i < frames.length; i += 4) anim.push(toRow(frames[i]));
+  if (frames.length > 0 && (frames.length - 1) % 4 !== 0) anim.push(toRow(frames[frames.length - 1]));
+  return anim;
+}
 
 function drawPoolTable(canvas: HTMLCanvasElement, balls: Ball[], angle: number, showAim: boolean) {
   const ctx = canvas.getContext('2d');
@@ -159,12 +169,30 @@ function drawPoolTable(canvas: HTMLCanvasElement, balls: Ball[], angle: number, 
   if (showAim && cue && !cue.pocketed) {
     const cx = offsetX + cue.x * scale;
     const cy = offsetY + cue.y * scale;
+    const dirX = Math.cos(angle);
+    const dirY = Math.sin(angle);
+    let lineLength = 0.28;
+    for (const ball of balls) {
+      if (ball.pocketed || ball.type === 'cue') continue;
+      const dx = ball.x - cue.x;
+      const dy = ball.y - cue.y;
+      const projection = dx * dirX + dy * dirY;
+      if (projection <= 0) continue;
+      const perpendicularSquared = dx * dx + dy * dy - projection * projection;
+      const diameterSquared = (BALL_RADIUS * 2) ** 2;
+      if (perpendicularSquared > diameterSquared) continue;
+      const contactDistance = projection - Math.sqrt(diameterSquared - perpendicularSquared);
+      if (contactDistance > 0) lineLength = Math.min(lineLength, contactDistance);
+    }
     ctx.beginPath();
     ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(angle) * 120, cy + Math.sin(angle) * 120);
+    ctx.lineTo(
+      offsetX + (cue.x + dirX * (BALL_RADIUS + lineLength)) * scale,
+      offsetY + (cue.y + dirY * (BALL_RADIUS + lineLength)) * scale,
+    );
     ctx.strokeStyle = 'rgba(255,255,255,0.72)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 8]);
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 6]);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -179,6 +207,7 @@ export default function Pool() {
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
   const stateRef = useRef<TableState | null>(null);
+  const pendingOfficialStateRef = useRef<TableState | null>(null);
   const loadedRef = useRef(false);
   const [angle, setAngle] = useState(0);
   const [power, setPower] = useState(0.5);
@@ -251,7 +280,7 @@ export default function Pool() {
 
     const t0 = performance.now();
     const tick = () => {
-      const progress = Math.max(0, Math.min(anim.length - 1, ((performance.now() - t0) / 1000) * 60));
+      const progress = Math.max(0, Math.min(anim.length - 1, ((performance.now() - t0) / 1000) * 48));
       const index = Math.floor(progress);
       const fraction = progress - index;
       const frame = anim[index];
@@ -303,9 +332,17 @@ export default function Pool() {
         queuedAnimationsRef.current.delete(nextSeq);
         shootingRef.current = true;
         setShooting(true);
-        if (shot.playerId !== sessionUserIdRef.current && shot.anim?.length) {
+        if (shot.playerId !== sessionUserIdRef.current) {
           inFlightShotSeqRef.current = shot.seq;
-          await playAnim(shot.anim);
+          const prediction = stateRef.current
+            ? simulateShot(stateRef.current, { angle: shot.angle, power: shot.power })
+            : null;
+          if (prediction) {
+            await playAnim(compactShotFrames(prediction.frames));
+            if (!pendingOfficialStateRef.current) setState(prediction.finalState);
+          } else if (shot.anim?.length) {
+            await playAnim(shot.anim);
+          }
         }
         inFlightShotSeqRef.current = null;
         lastPlayedShotSeqRef.current = shot.seq;
@@ -313,14 +350,20 @@ export default function Pool() {
       }
 
       if (advanced && queuedAnimationsRef.current.size === 0) {
-        const fresh = await getPoolMatch(matchId);
-        if (fresh?.tableState && queuedAnimationsRef.current.size === 0) {
-          const parsed = typeof fresh.tableState === 'string' ? JSON.parse(fresh.tableState) : fresh.tableState;
-          setState({
-            ...parsed,
-            currentPlayer: (fresh.currentPlayer ?? 1) as 1 | 2,
-          });
-          setMatch(fresh);
+        const pendingOfficialState = pendingOfficialStateRef.current;
+        pendingOfficialStateRef.current = null;
+        if (pendingOfficialState) {
+          setState(pendingOfficialState);
+        } else {
+          const fresh = await getPoolMatch(matchId);
+          if (fresh?.tableState && queuedAnimationsRef.current.size === 0) {
+            const parsed = typeof fresh.tableState === 'string' ? JSON.parse(fresh.tableState) : fresh.tableState;
+            setState({
+              ...parsed,
+              currentPlayer: (fresh.currentPlayer ?? 1) as 1 | 2,
+            });
+            setMatch(fresh);
+          }
         }
       }
     } catch (error) {
@@ -355,11 +398,13 @@ export default function Pool() {
     shootingRef.current = true;
     setShooting(true);
     try {
-      const res = await submitShot(match.id, angle, power);
+      const serverShot = submitShot(match.id, angle, power);
+      const prediction = simulateShot(state, { angle, power });
+      await playAnim(compactShotFrames(prediction.frames));
+      const res = await serverShot;
       if (typeof res?.seq === 'number') {
         lastPlayedShotSeqRef.current = Math.max(lastPlayedShotSeqRef.current, res.seq);
       }
-      if (res?.anim) await playAnim(res.anim);
       if (res?.finalState) {
         setState({
           ...res.finalState,
@@ -395,13 +440,14 @@ export default function Pool() {
       .channel(`pool-match-${matchId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
         const row = payload.new;
-        if (shootingRef.current) return; // não sobrescrever durante animação
         if (row?.table_state) {
           const parsed = typeof row.table_state === 'string' ? JSON.parse(row.table_state) : row.table_state;
-          setState(prev => ({
+          const officialState = {
             ...parsed,
-            currentPlayer: ((row as any).current_player ?? prev?.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
-          }));
+            currentPlayer: (row.current_player ?? parsed.currentPlayer ?? 1) as 1 | 2,
+          };
+          if (shootingRef.current) pendingOfficialStateRef.current = officialState;
+          else setState(officialState);
         }
         if (row?.status) {
           setMatch((m: any) => m ? { ...m, status: row.status, currentPlayer: row.current_player, turnDeadline: row.turn_deadline, winnerId: row.winner_id } : m);
@@ -412,6 +458,8 @@ export default function Pool() {
         queueShotAnimation({
           seq: row.seq,
           playerId: row.player_id,
+          angle: row.angle,
+          power: row.power,
           anim: Array.isArray(row.result?.anim) ? row.result.anim : null,
         });
       })

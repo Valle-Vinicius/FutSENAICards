@@ -19,6 +19,8 @@ export interface PoolMatch {
 export interface PoolShotEvent {
   seq: number;
   playerId: string;
+  angle: number;
+  power: number;
   anim: number[][] | null;
 }
 
@@ -39,7 +41,7 @@ export async function getPoolShotsAfter(matchId: string, seq: number): Promise<P
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('pool_shots')
-    .select('seq, player_id, result')
+    .select('seq, player_id, angle, power, result')
     .eq('match_id', matchId)
     .gt('seq', seq)
     .order('seq', { ascending: true });
@@ -47,6 +49,8 @@ export async function getPoolShotsAfter(matchId: string, seq: number): Promise<P
   return (data ?? []).map(shot => ({
     seq: shot.seq,
     playerId: shot.player_id,
+    angle: shot.angle,
+    power: shot.power,
     anim: Array.isArray(shot.result?.anim) ? shot.result.anim : null,
   }));
 }
