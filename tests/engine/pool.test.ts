@@ -1,7 +1,7 @@
 import { createInitialState, simulateShot } from '../../src/engine/pool/physics';
 import { calculateShotTrajectory } from '../../src/engine/pool/trajectory';
 import { BALL_RADIUS } from '../../src/engine/pool/types';
-import { determineWinner } from '../../src/engine/pool/rules';
+import { determineWinner, isValidCuePlacement } from '../../src/engine/pool/rules';
 
 describe('Pool engine', () => {
   it('creates initial state with 16 balls', () => {
@@ -153,5 +153,19 @@ describe('Pool engine', () => {
 
     state.pocketedThisTurn = [15];
     expect(determineWinner(state, false)).toBe(2);
+  });
+
+  it('allows placing the cue ball in a clear area of the table', () => {
+    const state = createInitialState();
+    expect(isValidCuePlacement({ x: 0.25, y: 0.5 }, state.balls)).toBe(true);
+  });
+
+  it('rejects cue placement on another ball, in a pocket, or outside the table', () => {
+    const state = createInitialState();
+    const target = state.balls.find(ball => ball.id === 1)!;
+
+    expect(isValidCuePlacement({ x: target.x, y: target.y }, state.balls)).toBe(false);
+    expect(isValidCuePlacement({ x: 0.01, y: 0.01 }, state.balls)).toBe(false);
+    expect(isValidCuePlacement({ x: -0.1, y: 0.5 }, state.balls)).toBe(false);
   });
 });

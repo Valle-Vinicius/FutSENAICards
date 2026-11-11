@@ -1,4 +1,32 @@
-import { type Ball, type TableState } from './types';
+import { BALL_RADIUS, POCKET_RADIUS, TABLE_HEIGHT, TABLE_WIDTH, type Ball, type TableState } from './types.ts';
+
+const POCKETS = [
+  { x: 0, y: 0 },
+  { x: TABLE_WIDTH / 2, y: 0 },
+  { x: TABLE_WIDTH, y: 0 },
+  { x: 0, y: TABLE_HEIGHT },
+  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT },
+  { x: TABLE_WIDTH, y: TABLE_HEIGHT },
+];
+
+export function isValidCuePlacement(position: { x: number; y: number }, balls: Ball[]): boolean {
+  if (
+    position.x < BALL_RADIUS
+    || position.x > TABLE_WIDTH - BALL_RADIUS
+    || position.y < BALL_RADIUS
+    || position.y > TABLE_HEIGHT - BALL_RADIUS
+  ) return false;
+
+  if (POCKETS.some(pocket => Math.hypot(position.x - pocket.x, position.y - pocket.y) < POCKET_RADIUS)) {
+    return false;
+  }
+
+  return balls.every(ball =>
+    ball.type === 'cue'
+    || ball.pocketed
+    || Math.hypot(position.x - ball.x, position.y - ball.y) >= BALL_RADIUS * 2,
+  );
+}
 
 export function getBallType(ballId: number, state: TableState): Ball['type'] {
   return state.balls.find(b => b.id === ballId)?.type ?? 'solid';

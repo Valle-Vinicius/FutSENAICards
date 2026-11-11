@@ -7,6 +7,7 @@ import { getLatestPoolShotSeq, getPoolMatch, getPoolShotsAfter, getRecentPoolSho
 import type { PoolMatch, PoolShotEvent } from '../lib/services/pool';
 import { getCompetitiveProfile } from '../lib/services/leaderboard';
 import { createInitialState } from '../engine/pool/physics';
+import { isValidCuePlacement } from '../engine/pool/rules';
 import { calculateShotTrajectory } from '../engine/pool/trajectory';
 import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
 import type { Ball, TableState } from '../engine/pool/types';
@@ -323,6 +324,7 @@ export default function Pool() {
   const loadedRef = useRef(false);
   const [angle, setAngle] = useState(0);
   const [power, setPower] = useState(0.5);
+  const [ballInHandPos, setBallInHandPos] = useState<{ x: number; y: number } | null>(null);
   const [shooting, setShooting] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
@@ -360,6 +362,7 @@ export default function Pool() {
     && !match.shotLockId
     && match.lastShotSeq <= lastPlayedShotSeq
     && (!match.turnAvailableAt || Date.parse(match.turnAvailableAt) <= serverNow);
+  const cueInHand = state?.balls.some(ball => ball.type === 'cue' && ball.pocketed) ?? false;
   const pendingCardWagerMatchId = match?.status === 'pending'
     && match.player2Id === sessionUserId
     && match.wagerType === 'card'
@@ -488,17 +491,24 @@ export default function Pool() {
       && remoteAim.playerId === activePlayerId
       && remoteAim.playerId !== sessionUserId
       && now - remoteAim.receivedAt < 2_000;
-    const showAim = isMyTurn ? !shooting : Boolean(remoteAimIsCurrent);
+    const displayBalls = cueInHand && ballInHandPos
+      ? state.balls.map(ball => ball.type === 'cue'
+        ? { ...ball, ...ballInHandPos, pocketed: false }
+        : ball)
+      : state.balls;
+    const showAim = isMyTurn
+      ? !shooting && (!cueInHand || ballInHandPos !== null)
+      : Boolean(remoteAimIsCurrent);
     drawPoolTable(
       canvas,
-      state.balls,
+      displayBalls,
       remoteAimIsCurrent && !isMyTurn ? remoteAim.angle : angle,
       showAim,
       remoteAimIsCurrent && !isMyTurn ? remoteAim.power : power,
       state.assignments,
       state.currentPlayer,
     );
-  }, [state, match, sessionUserId, angle, power, shooting, remoteAim, now, isMyTurn]);
+  }, [state, match, sessionUserId, angle, power, shooting, remoteAim, now, isMyTurn, cueInHand, ballInHandPos]);
 
   useEffect(() => {
     const updateTime = () => setNow(Date.now());
@@ -511,7 +521,7 @@ export default function Pool() {
     if (!state || shooting || !state.balls) return;
     const cue = state.balls.find(ball => ball.type === 'cue');
     const canvas = event.currentTarget;
-    if (!cue || cue.pocketed) return;
+    if (!cue) return;
     const rect = canvas.getBoundingClientRect();
     const pixelX = (event.clientX - rect.left) * canvas.width / rect.width;
     const pixelY = (event.clientY - rect.top) * canvas.height / rect.height;
@@ -521,6 +531,11 @@ export default function Pool() {
     const tableX = (pixelX - offsetX) / scale;
     const tableY = (pixelY - offsetY) / scale;
     if (tableX < 0 || tableX > TABLE_WIDTH || tableY < 0 || tableY > TABLE_HEIGHT) return;
+    if (cue.pocketed) {
+      const position = { x: tableX, y: tableY };
+      if (isValidCuePlacement(position, state.balls)) setBallInHandPos(position);
+      return;
+    }
     const nextAngle = Math.atan2(tableY - cue.y, tableX - cue.x);
     setAngle((nextAngle + Math.PI * 2) % (Math.PI * 2));
   };
@@ -646,18 +661,23 @@ export default function Pool() {
   const handleShoot = async () => {
     if (shooting || !state || !match || !state.balls || !isMyTurn) return;
     if (sessionUserId === null) return;
+    if (cueInHand && !ballInHandPos) {
+      toast.alert('Reposicione a bola branca antes de tacar.');
+      return;
+    }
     localShotPendingRef.current = true;
     shootingRef.current = true;
     setShooting(true);
     setRemoteAim(null);
     try {
-      const res = await submitShot(match.id, angle, power);
+      const res = await submitShot(match.id, angle, power, cueInHand ? ballInHandPos ?? undefined : undefined);
       const recentShots = await getRecentPoolShots(match.id, 12).catch(error => {
         console.error('failed to refresh pool shot history after shot', error);
         return [];
       });
       setShotLog(recentShots);
       if (res?.anim?.length && res?.finalState && typeof res.seq === 'number') {
+        setBallInHandPos(null);
         queueShotAnimation(mapPoolShotEvent({
           seq: res.seq,
           player_id: sessionUserId,
@@ -673,6 +693,7 @@ export default function Pool() {
         if (fresh) setMatch(fresh);
         if (fresh?.tableState && fresh.lastShotSeq <= lastPlayedShotSeqRef.current) {
           const parsed = typeof fresh.tableState === 'string' ? JSON.parse(fresh.tableState) : fresh.tableState;
+          setBallInHandPos(null);
           setState({
             ...parsed,
             currentPlayer: (fresh.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
@@ -1097,9 +1118,15 @@ export default function Pool() {
                     <span className="flex justify-between text-sm font-semibold text-[#555967]"><span>Força</span><span>{Math.round(power * 100)}%</span></span>
                     <input type="range" min={0.1} max={1} step={0.01} value={power} onChange={e => setPower(Number(e.target.value))} className="w-full accent-[#E30613]" disabled={shooting} />
                   </label>
-                  <p className="text-xs text-[#858A98]">Toque ou arraste na mesa para mirar. A projeção considera se a força alcança a bola.</p>
-                  <button onClick={handleShoot} disabled={shooting} className="w-full rounded-xl bg-[#E30613] py-3 font-black tracking-wide text-white shadow-lg shadow-red-900/15 transition hover:bg-[#c9000c] disabled:cursor-not-allowed disabled:opacity-60">
-                    {shooting ? 'ANIMANDO TACADA…' : 'TACAR'}
+                  <p className="text-xs text-[#858A98]">
+                    {cueInHand
+                      ? ballInHandPos
+                        ? 'Branca reposicionada. Toque ou arraste na mesa para mirar.'
+                        : 'Falta: toque ou arraste a branca para um espaço livre da mesa.'
+                      : 'Toque ou arraste na mesa para mirar. A projeção considera se a força alcança a bola.'}
+                  </p>
+                  <button onClick={handleShoot} disabled={shooting || (cueInHand && !ballInHandPos)} className="w-full rounded-xl bg-[#E30613] py-3 font-black tracking-wide text-white shadow-lg shadow-red-900/15 transition hover:bg-[#c9000c] disabled:cursor-not-allowed disabled:opacity-60">
+                    {shooting ? 'ANIMANDO TACADA…' : cueInHand && !ballInHandPos ? 'POSICIONE A BRANCA' : 'TACAR'}
                   </button>
                 </>
               ) : (

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isValidCuePlacement } from '../../../src/engine/pool/rules.ts';
 
 // Origem restrita ao domínio da aplicação em produção, mas aceita localhost e previews Vercel
 const ALLOWED_ORIGINS = [
@@ -329,10 +330,19 @@ serve(async (req) => {
 
   // Ball in hand
   const cue = state.balls.find((b: any) => b.id === 0);
-  if (cue.pocketed && ballInHandPos) {
-    cue.x = Math.max(BALL_RADIUS, Math.min(TABLE_WIDTH - BALL_RADIUS, (ballInHandPos as any).x));
-    cue.y = Math.max(BALL_RADIUS, Math.min(TABLE_HEIGHT - BALL_RADIUS, (ballInHandPos as any).y));
+  if (cue.pocketed) {
+    if (!ballInHandPos) {
+      return json({ error: 'place the cue ball before shooting' }, origin, 400);
+    }
+    const position = ballInHandPos as { x: number; y: number };
+    if (!isValidCuePlacement(position, state.balls)) {
+      return json({ error: 'invalid cue ball placement' }, origin, 400);
+    }
+    cue.x = position.x;
+    cue.y = position.y;
     cue.pocketed = false;
+  } else if (ballInHandPos) {
+    return json({ error: 'cue ball placement is not available' }, origin, 400);
   }
 
   // Apply shot
