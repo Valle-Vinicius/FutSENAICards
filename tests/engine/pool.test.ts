@@ -46,7 +46,7 @@ describe('Pool engine', () => {
     const trajectory = calculateShotTrajectory([cue, target], 0);
 
     expect(trajectory?.objectBallId).toBe(target.id);
-    expect(trajectory?.cueEnd.x).toBeCloseTo(target.x - BALL_RADIUS);
+    expect(trajectory?.cueEnd.x).toBeCloseTo(target.x - BALL_RADIUS * 2);
     expect(trajectory?.cueEnd.y).toBeCloseTo(target.y);
     expect(trajectory?.objectStart).toEqual({ x: target.x, y: target.y });
     expect(trajectory?.objectEnd?.x).toBeGreaterThan(target.x);
@@ -60,19 +60,28 @@ describe('Pool engine', () => {
     const trajectory = calculateShotTrajectory([cue, target], 0);
 
     expect(trajectory?.objectBallId).toBe(target.id);
-    expect(trajectory?.cueEnd.y).toBeLessThan(target.y);
-    expect(Math.hypot(trajectory!.cueEnd.x - target.x, trajectory!.cueEnd.y - target.y)).toBeCloseTo(BALL_RADIUS);
+    expect(trajectory?.cueEnd.y).toBeCloseTo(cue.y);
+    expect(Math.hypot(trajectory!.cueEnd.x - target.x, trajectory!.cueEnd.y - target.y)).toBeCloseTo(BALL_RADIUS * 2);
     expect(trajectory?.objectEnd?.y).toBeGreaterThan(target.y);
   });
 
-  it('limits a clear aiming line and omits the object line when no circle is hit', () => {
+  it('continues a clear aiming line to the table boundary without an object line', () => {
     const cue = { ...createInitialState().balls[0], x: 0.2, y: 0.5 };
     const target = { ...cue, id: 1, type: 'solid' as const, x: 0.5, y: 0.56 };
     const trajectory = calculateShotTrajectory([cue, target], 0);
 
     expect(trajectory?.objectBallId).toBeNull();
     expect(trajectory?.objectEnd).toBeNull();
-    expect(trajectory?.cueEnd.x).toBeCloseTo(cue.x + 0.28);
+    expect(trajectory?.cueEnd.x).toBeCloseTo(2 - BALL_RADIUS);
+  });
+
+  it('detects the first ball even when it is beyond the former short aim limit', () => {
+    const cue = { ...createInitialState().balls[0], x: 0.2, y: 0.5 };
+    const target = { ...cue, id: 1, type: 'solid' as const, x: 0.7, y: 0.5 };
+    const trajectory = calculateShotTrajectory([cue, target], 0);
+
+    expect(trajectory?.objectBallId).toBe(target.id);
+    expect(trajectory?.cueEnd.x).toBeCloseTo(target.x - BALL_RADIUS * 2);
   });
 
   it('selects the nearest collision along the aiming direction', () => {

@@ -13,7 +13,6 @@ export interface ShotTrajectory {
   objectEnd: TrajectoryPoint | null;
 }
 
-const MAX_CUE_TRAJECTORY = 0.28;
 const MAX_OBJECT_TRAJECTORY = 0.2;
 
 function rayCircleDistance(
@@ -59,7 +58,7 @@ export function calculateShotTrajectory(balls: Ball[], angle: number): ShotTraje
   if (!cue || cue.pocketed) return null;
 
   const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-  const maxCueDistance = Math.min(MAX_CUE_TRAJECTORY, distanceToRail(cue, direction));
+  const maxCueDistance = distanceToRail(cue, direction);
   let hit: { ball: Ball; distance: number } | null = null;
 
   for (const ball of balls) {
@@ -85,18 +84,6 @@ export function calculateShotTrajectory(balls: Ball[], angle: number): ShotTraje
   const normal = normalLength > 0
     ? { x: normalX / normalLength, y: normalY / normalLength }
     : direction;
-  const contactPoint = {
-    x: hit.ball.x - normal.x * BALL_RADIUS,
-    y: hit.ball.y - normal.y * BALL_RADIUS,
-  };
-  if (Math.hypot(contactPoint.x - cue.x, contactPoint.y - cue.y) > maxCueDistance) {
-    return {
-      cueEnd: pointAlong(cue, direction, maxCueDistance),
-      objectBallId: null,
-      objectStart: null,
-      objectEnd: null,
-    };
-  }
   const objectStart = { x: hit.ball.x, y: hit.ball.y };
   const maxObjectDistance = Math.min(MAX_OBJECT_TRAJECTORY, distanceToRail(objectStart, normal));
   let objectDistance = maxObjectDistance;
@@ -108,7 +95,7 @@ export function calculateShotTrajectory(balls: Ball[], angle: number): ShotTraje
   }
 
   return {
-    cueEnd: contactPoint,
+    cueEnd: pointAlong(cue, direction, hit.distance),
     objectBallId: hit.ball.id,
     objectStart,
     objectEnd: pointAlong(objectStart, normal, objectDistance),
