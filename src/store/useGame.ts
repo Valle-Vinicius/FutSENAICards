@@ -110,7 +110,7 @@ function scheduleSquadSave(getSquad: () => Squad) {
 
 interface Actions {
   init: () => void;
-  syncUserData: (userId: string) => Promise<void>;
+  syncUserData: (userId: string) => Promise<boolean>;
   claimDemoCoins: () => Promise<boolean>;
   spendCoins: (n: number, reason: string) => boolean;
   addXp: (n: number) => void;
@@ -322,6 +322,7 @@ export const useGame = create<GameState & Actions>()(
             packConfigs: prefs.unlockedPacks ? st.packConfigs.map(p => prefs.unlockedPacks.includes(p.id) ? { ...p, unlocked: true } : p) : st.packConfigs,
           }));
         }
+        return remoteCards !== null;
         } finally { releaseSync(); }
       },
       claimDemoCoins: async () => {

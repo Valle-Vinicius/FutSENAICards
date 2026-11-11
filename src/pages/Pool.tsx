@@ -388,9 +388,21 @@ export default function Pool() {
     const syncKey = `${wagerSyncMatchId}:${wagerSyncMatchStatus}`;
     if (wagerSyncRef.current === syncKey) return;
     wagerSyncRef.current = syncKey;
-    void syncUserData(sessionUserId).catch(error => {
-      console.error('pool wager inventory sync failed', error);
-    });
+    void (async () => {
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          if (await syncUserData(sessionUserId)) return;
+        } catch (error) {
+          lastError = error;
+        }
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
+      }
+      console.error(
+        'pool wager inventory sync failed after retries',
+        lastError ?? new Error('Card inventory was not refreshed from the server.'),
+      );
+    })();
   }, [wagerSyncMatchId, wagerSyncMatchStatus, sessionUserId, syncUserData]);
 
   useEffect(() => {

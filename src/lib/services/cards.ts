@@ -10,7 +10,10 @@ export async function getCards(userId: string): Promise<PlayerCard[] | null> {
   while (true) {
     const { data, error } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).order('id', { ascending: true }).range(from, from + pageSize - 1);
     // erro no meio da paginação: devolve null (e não uma lista parcial como se fosse completa)
-    if (error) return null;
+    if (error) {
+      console.error('[cards] getCards failed', error);
+      return null;
+    }
     const batch = data || [];
     all.push(...batch);
     if (batch.length < pageSize) break;
