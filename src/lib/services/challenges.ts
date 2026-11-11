@@ -18,22 +18,7 @@ export interface Challenge {
   challenged_tactic?: Tactic;
   home_snapshot?: ChallengeTeamSnapshot;
   away_snapshot?: ChallengeTeamSnapshot;
-  wager_type?: 'coins' | 'card' | null;
-  coin_amount?: number | null;
-  challenger_card_id?: string | null;
-  challenged_card_id?: string | null;
-  challenger_card_snapshot?: WagerCardSnapshot | null;
-  challenged_card_snapshot?: WagerCardSnapshot | null;
   created_at: string;
-}
-
-export interface WagerCardSnapshot {
-  id: string;
-  name: string;
-  overall: number;
-  position: string;
-  rarity: string;
-  image: string | null;
 }
 
 export interface ChallengeTeamSnapshot {
@@ -66,36 +51,20 @@ export interface MatchPlaybackState {
   receivedAt?: number;
 }
 
-export async function createChallenge(
-  challengedId: string,
-  wager: { type: 'coins'; amount: number } | { type: 'card'; cardId: string },
-): Promise<Challenge | null> {
-  if (!supabase) throw new Error('Supabase não está configurado.');
-  const { data, error } = await supabase.rpc('create_challenge_with_wager', {
+export async function createChallenge(challengerId: string, challengedId: string): Promise<Challenge | null> {
+  if (!supabase || challengerId === challengedId) return null;
+  const { data, error } = await supabase.rpc('create_challenge', {
     p_challenged_id: challengedId,
-    p_wager_type: wager.type,
-    p_coin_amount: wager.type === 'coins' ? wager.amount : null,
-    p_card_id: wager.type === 'card' ? wager.cardId : null,
   });
   if (error) throw error;
   return data;
 }
 
-export async function acceptChallenge(id: string, cardId?: string): Promise<boolean> {
-  if (!supabase) throw new Error('Supabase não está configurado.');
-  const { data, error } = await supabase.rpc('accept_challenge_with_wager', {
-    p_challenge_id: id,
-    p_card_id: cardId ?? null,
-  });
-  if (error) throw error;
+export async function acceptChallenge(id: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('accept_challenge', { p_challenge_id: id });
+  if (error) return false;
   return data === true;
-}
-
-export async function getAvailableWagerCardIds(): Promise<string[]> {
-  if (!supabase) throw new Error('Supabase não está configurado.');
-  const { data, error } = await supabase.rpc('get_available_wager_card_ids');
-  if (error) throw error;
-  return (data ?? []).map(String);
 }
 
 export async function setReady(id: string, tactic: Tactic): Promise<boolean> {

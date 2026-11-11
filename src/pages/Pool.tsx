@@ -3,13 +3,15 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
-import { getLatestPoolShotSeq, getPoolMatch, getPoolShotsAfter, getRecentPoolShots, getPoolServerClockOffsetMs, mapPoolShotEvent, submitShot, abandonPoolMatch } from '../lib/services/pool';
+import { getLatestPoolShotSeq, getPoolMatch, getPoolShotsAfter, getRecentPoolShots, getPoolServerClockOffsetMs, getAvailableWagerCardIds, mapPoolShotEvent, submitShot, abandonPoolMatch, acceptPoolMatch, rejectPoolMatch } from '../lib/services/pool';
 import type { PoolMatch, PoolShotEvent } from '../lib/services/pool';
 import { getCompetitiveProfile } from '../lib/services/leaderboard';
 import { createInitialState } from '../engine/pool/physics';
 import { calculateShotTrajectory } from '../engine/pool/trajectory';
 import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
 import type { Ball, TableState } from '../engine/pool/types';
+import Card from '../components/Card';
+import { useGame } from '../store/useGame';
 
 const BALL_COLORS = [
   '#f4d43b',
@@ -286,10 +288,16 @@ function formatShotLog(
 export default function Pool() {
   const { matchId } = useParams();
   const navigate = useNavigate();
+  const cards = useGame(s => s.cards);
+  const syncUserData = useGame(s => s.syncUserData);
   const [match, setMatch] = useState<PoolMatch | null>(null);
   const [state, setState] = useState<TableState | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [availableWagerCardIds, setAvailableWagerCardIds] = useState<string[] | null>(null);
+  const [selectedWagerCardId, setSelectedWagerCardId] = useState('');
+  const [wagerCardSearch, setWagerCardSearch] = useState('');
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
   const [playerNames, setPlayerNames] = useState({ player1: 'Jogador 1', player2: 'Jogador 2' });
   const [shotLog, setShotLog] = useState<PoolShotEvent[]>([]);
   const [lastPlayedShotSeq, setLastPlayedShotSeq] = useState(0);
@@ -325,6 +333,7 @@ export default function Pool() {
   const processQueuedAnimationsRef = useRef<() => void>(() => undefined);
   // evita abandono indevido em remount do React StrictMode; só abandona no beforeunload real
   const abandonRef = useRef(false);
+  const wagerSyncRef = useRef<string | null>(null);
   const aimPointerDownRef = useRef(false);
 
   useEffect(() => {
@@ -351,6 +360,38 @@ export default function Pool() {
     && !match.shotLockId
     && match.lastShotSeq <= lastPlayedShotSeq
     && (!match.turnAvailableAt || Date.parse(match.turnAvailableAt) <= serverNow);
+  const pendingCardWagerMatchId = match?.status === 'pending'
+    && match.player2Id === sessionUserId
+    && match.wagerType === 'card'
+    ? match.id
+    : null;
+  const wagerSyncMatchId = match?.id ?? null;
+  const wagerSyncMatchStatus = match?.status ?? null;
+
+  useEffect(() => {
+    if (!pendingCardWagerMatchId) return;
+    let active = true;
+    void getAvailableWagerCardIds().then(ids => {
+      if (active) setAvailableWagerCardIds(ids);
+    }).catch(error => {
+      console.error('pool invite wager cards load failed', error);
+      if (active) {
+        setAvailableWagerCardIds([]);
+        toast.alert('Não foi possível carregar as cartas disponíveis para essa aposta.');
+      }
+    });
+    return () => { active = false; };
+  }, [pendingCardWagerMatchId]);
+
+  useEffect(() => {
+    if (!wagerSyncMatchId || !sessionUserId || !wagerSyncMatchStatus || !['playing', 'finished', 'forfeited', 'declined', 'expired'].includes(wagerSyncMatchStatus)) return;
+    const syncKey = `${wagerSyncMatchId}:${wagerSyncMatchStatus}`;
+    if (wagerSyncRef.current === syncKey) return;
+    wagerSyncRef.current = syncKey;
+    void syncUserData(sessionUserId).catch(error => {
+      console.error('pool wager inventory sync failed', error);
+    });
+  }, [wagerSyncMatchId, wagerSyncMatchStatus, sessionUserId, syncUserData]);
 
   useEffect(() => {
     aimDraftRef.current = { angle, power, isMyTurn, playerId: sessionUserId };
@@ -685,6 +726,9 @@ export default function Pool() {
             turnDeadline: row.turn_deadline ?? current.turnDeadline,
             winnerId: row.winner_id ?? current.winnerId,
             finishReason: row.finish_reason ?? current.finishReason,
+            wagerType: row.wager_type ?? current.wagerType,
+            player1CardSnapshot: row.player1_card_snapshot ?? current.player1CardSnapshot,
+            player2CardSnapshot: row.player2_card_snapshot ?? current.player2CardSnapshot,
           };
           matchRef.current = updated;
           setMatch(updated);
@@ -846,6 +890,14 @@ export default function Pool() {
   if (!match || !state) return <div className="p-8 text-[#858A98]">Partida não encontrada.</div>;
 
   if (match.status === 'pending') {
+    const isInvitedPlayer = sessionUserId === match.player2Id;
+    const wagerCard = cards.find(card => card.uid === selectedWagerCardId);
+    const filteredWagerCards = availableWagerCardIds
+      ? cards.filter(card =>
+        availableWagerCardIds.includes(card.uid)
+        && card.name.toLowerCase().includes(wagerCardSearch.trim().toLowerCase()),
+      )
+      : [];
     return (
       <div className="p-4 md:p-8 space-y-4">
         <div className="card-surface p-4 text-center">
@@ -855,14 +907,74 @@ export default function Pool() {
         </div>
         <div className="card-surface p-8 text-center text-[#858A98]">
           <div className="text-lg font-black text-[#252733]">Convite enviado</div>
-          <div className="mt-2 text-sm">Aguardando {playerNames.player2} aceitar a partida.</div>
+          <div className="mt-2 text-sm">{isInvitedPlayer ? `${playerNames.player1} te desafiou para uma partida de sinuca.` : `Aguardando ${playerNames.player2} aceitar a partida.`}</div>
+          {match.wagerType === 'coins' && <p className="mt-3 text-sm font-medium text-[#252733]">Aposta: {match.stake.toLocaleString('pt-BR')} moedas por jogador · prêmio total de {(match.stake * 2).toLocaleString('pt-BR')} moedas.</p>}
+          {match.wagerType === 'card' && <p className="mt-3 text-sm font-medium text-[#252733]">Aposta: uma carta por jogador. {isInvitedPlayer ? `Carta oferecida: ${match.player1CardSnapshot?.name ?? 'carta' } · ${match.player1CardSnapshot?.overall ?? '—'} OVR · ${match.player1CardSnapshot?.rarity ?? '—'}. Escolha uma carta sua para igualar.` : `Sua carta reservada: ${match.player1CardSnapshot?.name ?? 'carta' } · ${match.player1CardSnapshot?.overall ?? '—'} OVR · ${match.player1CardSnapshot?.rarity ?? '—'}.`}</p>}
+          {isInvitedPlayer && match.wagerType === 'card' && (
+            <div className="mt-4 space-y-3">
+              <input value={wagerCardSearch} onChange={event => setWagerCardSearch(event.target.value)} placeholder="Buscar sua carta..." className="w-full rounded-xl border border-[#E9EAF0] px-3 py-2 text-sm" />
+              {availableWagerCardIds === null ? (
+                <p className="text-sm">Carregando cartas disponíveis...</p>
+              ) : (
+                <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {filteredWagerCards.map(card => (
+                    <div key={card.uid} className={`rounded-2xl p-1 ${selectedWagerCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
+                      <Card card={card} size="sm" onClick={() => setSelectedWagerCardId(card.uid)} />
+                    </div>
+                  ))}
+                  {filteredWagerCards.length === 0 && <p className="col-span-full py-4 text-sm">Nenhuma carta disponível.</p>}
+                </div>
+              )}
+              {wagerCard && <p className="text-xs">Sua aposta: {wagerCard.name} · {wagerCard.overall} OVR · {wagerCard.rarity}.</p>}
+            </div>
+          )}
           {sessionUserId === match.player1Id && (
             <div className="text-xs mt-2 text-[#858A98]">Você criou o desafio.</div>
           )}
           {sessionUserId === match.player2Id && (
             <div className="text-xs mt-2 text-[#858A98]">Você foi desafiado.</div>
           )}
-          <button onClick={handleLeave} className="mt-4 px-4 py-2 rounded-xl border-2 border-[#E9EAF0] text-sm text-[#E30613]">Cancelar partida</button>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {isInvitedPlayer && (
+              <>
+                <button
+                  disabled={acceptingInvite || (match.wagerType === 'card' && !selectedWagerCardId)}
+                  onClick={async () => {
+                    setAcceptingInvite(true);
+                    try {
+                      const accepted = await acceptPoolMatch(match.id, match.wagerType === 'card' ? selectedWagerCardId : undefined);
+                      if (!accepted) {
+                        toast.alert('O convite não está mais disponível.');
+                        return;
+                      }
+                      const updated = await getPoolMatch(match.id);
+                      if (updated) setMatch(updated);
+                      if (sessionUserId) {
+                        void syncUserData(sessionUserId).catch(error => {
+                          console.error('pool wager inventory sync failed', error);
+                        });
+                      }
+                    } catch (error) {
+                      toast.alert(error instanceof Error ? error.message : 'Não foi possível aceitar a aposta.');
+                    } finally {
+                      setAcceptingInvite(false);
+                    }
+                  }}
+                  className="rounded-xl bg-[#E30613] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >{acceptingInvite ? 'Aceitando...' : 'Aceitar aposta e jogar'}</button>
+                <button onClick={async () => {
+                  try {
+                    const rejected = await rejectPoolMatch(match.id);
+                    if (rejected) navigate('/');
+                    else toast.alert('Não foi possível recusar o convite.');
+                  } catch (error) {
+                    toast.alert(error instanceof Error ? error.message : 'Não foi possível recusar o convite.');
+                  }
+                }} className="rounded-xl border border-[#E9EAF0] bg-white px-4 py-2 text-sm font-medium">Recusar</button>
+              </>
+            )}
+            {sessionUserId === match.player1Id && <button onClick={handleLeave} className="rounded-xl border-2 border-[#E9EAF0] px-4 py-2 text-sm text-[#E30613]">Cancelar convite</button>}
+          </div>
         </div>
       </div>
     );
@@ -1056,6 +1168,15 @@ export default function Pool() {
     : finishReason === 'forfeit' && winnerName
       ? `${winnerName} venceu por desistência.`
       : endMessages[finishReason] ?? (match.status === 'forfeited' ? 'A partida foi encerrada por desistência.' : 'A partida foi encerrada.');
+  const wagerResultText = match.wagerType === 'coins'
+    ? winnerName
+      ? `${winnerName} recebeu ${(match.stake * 2).toLocaleString('pt-BR')} moedas.`
+      : 'A aposta em moedas foi devolvida aos dois jogadores.'
+    : match.wagerType === 'card'
+      ? winnerName
+        ? `${winnerName} recebeu a carta apostada pelo adversário.`
+        : 'As cartas apostadas foram devolvidas aos jogadores.'
+      : null;
 
   return (
     <div className="mx-auto max-w-xl p-4 md:p-8">
@@ -1065,6 +1186,7 @@ export default function Pool() {
           {(match.status === 'finished' || match.status === 'forfeited') && winnerName ? `${winnerName} venceu!` : 'Partida encerrada'}
         </h1>
         <p className="mt-3 text-sm text-[#626675]">{endingText}</p>
+        {wagerResultText && <p className="mt-3 rounded-xl bg-[#FFF0F2] p-3 text-sm font-semibold text-[#252733]">{wagerResultText}</p>}
         {shotLog.length > 0 && (
           <div className="mt-5 rounded-xl bg-[#F7F7F9] p-3 text-left text-sm text-[#555967]">
             <b>Última jogada:</b> {formatShotLog(shotLog[shotLog.length - 1], match, playerNames)}

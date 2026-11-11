@@ -5,6 +5,9 @@ export interface PoolMatch {
   player1Id: string;
   player2Id: string;
   stake: number;
+  wagerType: 'coins' | 'card' | null;
+  player1CardSnapshot: PoolWagerCardSnapshot | null;
+  player2CardSnapshot: PoolWagerCardSnapshot | null;
   status: string;
   seed: number;
   tableState: any;
@@ -19,6 +22,15 @@ export interface PoolMatch {
   finishReason: string | null;
   payout: number;
   createdAt: string;
+}
+
+export interface PoolWagerCardSnapshot {
+  id: string;
+  name: string;
+  overall: number;
+  position: string;
+  rarity: string;
+  image: string | null;
 }
 
 export interface PoolShotEvent {
@@ -108,49 +120,39 @@ export async function getRecentPoolShots(matchId: string, limit = 12): Promise<P
   return (data ?? []).map(mapPoolShotEvent).reverse();
 }
 
-async function getActivePoolMatchBetween(player1Id: string, player2Id: string): Promise<string | null> {
-  if (!supabase) return null;
-  const { data } = await supabase
-    .from('pool_matches')
-    .select('id, status, player1_id, player2_id')
-    .or(`and(player1_id.eq.${player1Id},player2_id.eq.${player2Id}),and(player1_id.eq.${player2Id},player2_id.eq.${player1Id})`)
-    .in('status', ['pending', 'accepted', 'playing'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data?.id ?? null;
-}
+export type PoolWager =
+  | { type: 'coins'; amount: number }
+  | { type: 'card'; cardId: string };
 
-export async function createPoolMatch(opponentId: string, stake: number): Promise<{ matchId: string | null; error: string | null }> {
+export async function createPoolMatch(opponentId: string, wager: PoolWager): Promise<{ matchId: string | null; error: string | null }> {
   if (!supabase) return { matchId: null, error: 'Supabase não configurado' };
-  const { data, error } = await supabase.rpc('create_pool_match', { p_opponent: opponentId, p_stake: stake });
+  const { data, error } = await supabase.rpc('create_pool_match_wager', {
+    p_opponent: opponentId,
+    p_wager_type: wager.type,
+    p_stake: wager.type === 'coins' ? wager.amount : null,
+    p_card_id: wager.type === 'card' ? wager.cardId : null,
+  });
   if (error) {
-    const msg = error.message || '';
-    if (msg.includes('Active match exists')) {
-      // tentar abandonar a partida travada e criar novamente
-      try {
-        const { data: sess } = await supabase.auth.getSession();
-        const uid = sess.session?.user?.id;
-        const activeId = uid ? await getActivePoolMatchBetween(uid, opponentId) : null;
-        if (activeId) {
-          await supabase.rpc('abandon_pool_match', { p_id: activeId });
-        }
-        const retry = await supabase.rpc('create_pool_match', { p_opponent: opponentId, p_stake: stake });
-        if (retry.error) return { matchId: null, error: retry.error.message };
-        return { matchId: retry.data as string, error: null };
-      } catch (e: any) {
-        return { matchId: null, error: e?.message || msg };
-      }
-    }
-    return { matchId: null, error: msg };
+    return { matchId: null, error: error.message || 'Não foi possível criar o desafio de sinuca.' };
   }
   return { matchId: data as string, error: null };
 }
 
-export async function acceptPoolMatch(id: string): Promise<boolean> {
-  if (!supabase) return false;
-  const { data, error } = await supabase.rpc('accept_pool_match', { p_id: id });
-  return !error && data === true;
+export async function acceptPoolMatch(id: string, cardId?: string): Promise<boolean> {
+  if (!supabase) throw new Error('Supabase não está configurado.');
+  const { data, error } = await supabase.rpc('accept_pool_match_wager', {
+    p_id: id,
+    p_card_id: cardId ?? null,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
+export async function getAvailableWagerCardIds(): Promise<string[]> {
+  if (!supabase) throw new Error('Supabase não está configurado.');
+  const { data, error } = await supabase.rpc('get_available_wager_card_ids');
+  if (error) throw error;
+  return (data ?? []).map(String);
 }
 
 export async function rejectPoolMatch(id: string): Promise<boolean> {
@@ -174,6 +176,9 @@ export async function getPoolMatch(id: string): Promise<PoolMatch | null> {
     player1Id: data.player1_id,
     player2Id: data.player2_id,
     stake: data.stake,
+    wagerType: data.wager_type ?? (data.stake > 0 ? 'coins' : null),
+    player1CardSnapshot: data.player1_card_snapshot ?? null,
+    player2CardSnapshot: data.player2_card_snapshot ?? null,
     status: data.status,
     seed: data.seed,
     tableState: data.table_state,

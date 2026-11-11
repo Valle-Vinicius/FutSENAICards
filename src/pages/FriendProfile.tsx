@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import * as friendsService from '../lib/services/friends';
+import * as challengesService from '../lib/services/challenges';
 import * as poolService from '../lib/services/pool';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
 import { FORMATIONS_FUTSAL as FS } from '../lib/game';
+import { useGame } from '../store/useGame';
 
 export default function FriendProfile() {
   const { userId } = useParams();
@@ -19,6 +21,17 @@ export default function FriendProfile() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [friendship, setFriendship] = useState<any>(null);
   const [actionMsg, setActionMsg] = useState('');
+  const [poolWagerOpen, setPoolWagerOpen] = useState(false);
+  const [poolWagerType, setPoolWagerType] = useState<'coins' | 'card'>('coins');
+  const [poolCoinChoice, setPoolCoinChoice] = useState('500');
+  const [poolCustomCoins, setPoolCustomCoins] = useState('');
+  const [poolCardId, setPoolCardId] = useState('');
+  const [poolCardSearch, setPoolCardSearch] = useState('');
+  const [availableWagerCardIds, setAvailableWagerCardIds] = useState<string[] | null>(null);
+  const [poolSubmitting, setPoolSubmitting] = useState(false);
+  const currentCoins = useGame(s => s.coins);
+  const myCards = useGame(s => s.cards);
+  const syncUserData = useGame(s => s.syncUserData);
 
   useEffect(() => {
     if (!supabase || !userId) { setLoading(false); return; }
@@ -75,6 +88,21 @@ export default function FriendProfile() {
     })();
   }, [userId]);
 
+  useEffect(() => {
+    if (!poolWagerOpen) return;
+    let active = true;
+    void poolService.getAvailableWagerCardIds().then(ids => {
+      if (active) setAvailableWagerCardIds(ids);
+    }).catch(error => {
+      console.error('pool wager cards load failed', error);
+      if (active) {
+        setAvailableWagerCardIds([]);
+        setActionMsg('Não foi possível carregar as cartas disponíveis para aposta.');
+      }
+    });
+    return () => { active = false; };
+  }, [poolWagerOpen]);
+
   const reloadFriendship = async () => {
     if (!currentUserId || !userId || !supabase) return;
     const { data: f } = await supabase.from('friendships').select('*')
@@ -106,21 +134,55 @@ export default function FriendProfile() {
   };
   const handleChallenge = async () => {
     if (!currentUserId || !userId) return;
-    navigate(`/match?opponent=${userId}&configure=1`);
+    try {
+      const challenge = await challengesService.createChallenge(currentUserId, userId);
+      if (challenge) navigate(`/match?challenge=${challenge.id}`);
+      else setActionMsg('Já existe um desafio ativo entre vocês.');
+    } catch (error) {
+      console.error('challenge creation failed', error);
+      setActionMsg('Não foi possível criar o desafio. Verifique a amizade e tente novamente.');
+    }
   };
 
   const handlePool = async () => {
     if (!currentUserId || !userId) return;
+    setActionMsg('');
+    setAvailableWagerCardIds(null);
+    setPoolWagerOpen(true);
+  };
+
+  const sendPoolChallenge = async () => {
+    if (!userId || !currentUserId) return;
+    const stake = poolCoinChoice === 'custom' ? Number(poolCustomCoins) : Number(poolCoinChoice);
+    if (poolWagerType === 'coins' && (!Number.isInteger(stake) || stake < 1 || stake > 1000000)) {
+      setActionMsg('Informe uma aposta inteira entre 1 e 1.000.000 moedas.');
+      return;
+    }
+    if (poolWagerType === 'card' && !poolCardId) {
+      setActionMsg('Selecione uma carta para apostar.');
+      return;
+    }
+    setPoolSubmitting(true);
+    setActionMsg('');
     try {
-      const result = await poolService.createPoolMatch(userId, 0);
+      const result = await poolService.createPoolMatch(
+        userId,
+        poolWagerType === 'coins'
+          ? { type: 'coins', amount: stake }
+          : { type: 'card', cardId: poolCardId },
+      );
       if (!result.matchId) {
         const msg = result.error?.includes('Active match exists')
-          ? 'Já existe uma partida de sinuca ativa entre vocês.'
+          ? 'Já existe uma partida de sinuca ativa entre vocês. Termine ou cancele esse convite antes de enviar outro.'
           : result.error || 'Não foi possível criar a partida de sinuca.';
         setActionMsg(msg);
         return;
       }
-      setActionMsg('Convite de sinuca enviado. Aguardando aceite...');
+      void syncUserData(currentUserId).catch(error => {
+        console.error('pool wager wallet sync failed', error);
+      });
+      setPoolWagerOpen(false);
+      setActionMsg('Convite de sinuca com aposta enviado. Aguardando aceite...');
       if (supabase) {
         const channel = supabase!.channel(`pool-invite-${result.matchId}`)
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${result.matchId}` }, (payload: any) => {
@@ -138,7 +200,9 @@ export default function FriendProfile() {
       }
     } catch (error) {
       console.error('pool creation failed', error);
-      setActionMsg('Erro ao criar partida de sinuca.');
+      setActionMsg(error instanceof Error ? error.message : 'Erro ao criar partida de sinuca.');
+    } finally {
+      setPoolSubmitting(false);
     }
   };
 
@@ -281,6 +345,64 @@ export default function FriendProfile() {
             {achievements.map((a: any) => (
               <span key={a.id} className="px-3 py-1 rounded-full bg-[#FFF0F2] text-[#E30613] text-xs font-medium">{a.title || a.achievement_id}</span>
             ))}
+          </div>
+        </div>
+      )}
+      {poolWagerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="pool-wager-title">
+          <div className="max-h-[90vh] w-full max-w-3xl space-y-4 overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.2em] text-[#E30613]">Sinuca · desafio com aposta</div>
+              <h2 id="pool-wager-title" className="mt-1 text-xl font-bold text-[#252733]">Escolha o que apostar contra {profile.name}</h2>
+              <p className="mt-1 text-sm text-[#858A98]">O adversário precisa igualar a aposta para aceitar. O vencedor leva o total; se o convite for cancelado, a aposta é devolvida.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {([
+                ['coins', 'Moedas'],
+                ['card', 'Carta'],
+              ] as const).map(([type, label]) => (
+                <button key={type} type="button" aria-pressed={poolWagerType === type} onClick={() => { setPoolWagerType(type); setActionMsg(''); }} className={`rounded-xl border p-3 text-left text-sm font-semibold ${poolWagerType === type ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-[#E9EAF0] text-[#252733]'}`}>
+                  Apostar {label.toLowerCase()}
+                </button>
+              ))}
+            </div>
+            {poolWagerType === 'coins' ? (
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-[#252733]">Valor por jogador</div>
+                <div className="flex flex-wrap gap-2">
+                  {['500', '1000', '5000', 'custom'].map(value => (
+                    <button key={value} type="button" onClick={() => setPoolCoinChoice(value)} className={`rounded-lg border px-3 py-2 text-sm ${poolCoinChoice === value ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-[#E9EAF0]'}`}>
+                      {value === 'custom' ? 'Personalizado' : `${Number(value).toLocaleString('pt-BR')} moedas`}
+                    </button>
+                  ))}
+                </div>
+                {poolCoinChoice === 'custom' && <input type="number" min={1} max={1000000} step={1} value={poolCustomCoins} onChange={event => setPoolCustomCoins(event.target.value)} placeholder="Valor personalizado" className="w-full max-w-xs rounded-xl border border-[#E9EAF0] px-3 py-2 text-sm" />}
+                <p className="text-xs text-[#858A98]">Sua aposta: {(poolCoinChoice === 'custom' ? Number(poolCustomCoins) : Number(poolCoinChoice)).toLocaleString('pt-BR')} moedas · Saldo: {currentCoins.toLocaleString('pt-BR')}.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <input value={poolCardSearch} onChange={event => setPoolCardSearch(event.target.value)} placeholder="Pesquisar sua carta..." className="w-full rounded-xl border border-[#E9EAF0] px-3 py-2 text-sm" />
+                {availableWagerCardIds === null ? (
+                  <p className="text-sm text-[#858A98]">Carregando cartas disponíveis...</p>
+                ) : (
+                  <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4">
+                    {myCards.filter(card => availableWagerCardIds.includes(card.uid) && card.name.toLowerCase().includes(poolCardSearch.trim().toLowerCase())).map(card => (
+                      <div key={card.uid} className={`rounded-2xl p-1 ${poolCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
+                        <Card card={card} size="sm" onClick={() => setPoolCardId(card.uid)} />
+                      </div>
+                    ))}
+                    {myCards.filter(card => availableWagerCardIds.includes(card.uid) && card.name.toLowerCase().includes(poolCardSearch.trim().toLowerCase())).length === 0 && <p className="col-span-full py-4 text-sm text-[#858A98]">Sem cartas disponíveis para aposta.</p>}
+                  </div>
+                )}
+              </div>
+            )}
+            {actionMsg && <p role="alert" className="text-sm text-[#E30613]">{actionMsg}</p>}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={poolSubmitting || (poolWagerType === 'coins' && ((poolCoinChoice === 'custom' ? Number(poolCustomCoins) : Number(poolCoinChoice)) > currentCoins)) || (poolWagerType === 'card' && !poolCardId)} onClick={() => void sendPoolChallenge()} className="rounded-xl bg-[#E30613] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                {poolSubmitting ? 'Enviando...' : 'Enviar convite de sinuca'}
+              </button>
+              <button type="button" onClick={() => { setPoolWagerOpen(false); setActionMsg(''); }} className="rounded-xl border border-[#E9EAF0] px-4 py-2 text-sm font-medium text-[#252733]">Cancelar</button>
+            </div>
           </div>
         </div>
       )}
