@@ -5,6 +5,7 @@ import { toast } from '../store/toast';
 import { getLatestPoolShotSeq, getPoolMatch, getPoolShotsAfter, submitShot, abandonPoolMatch } from '../lib/services/pool';
 import type { PoolShotEvent } from '../lib/services/pool';
 import { createInitialState, simulateShot } from '../engine/pool/physics';
+import { calculateShotTrajectory } from '../engine/pool/trajectory';
 import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
 import type { Ball, TableState } from '../engine/pool/types';
 
@@ -167,34 +168,34 @@ function drawPoolTable(canvas: HTMLCanvasElement, balls: Ball[], angle: number, 
 
   const cue = balls.find(ball => ball.type === 'cue');
   if (showAim && cue && !cue.pocketed) {
-    const cx = offsetX + cue.x * scale;
-    const cy = offsetY + cue.y * scale;
-    const dirX = Math.cos(angle);
-    const dirY = Math.sin(angle);
-    let lineLength = 0.28;
-    for (const ball of balls) {
-      if (ball.pocketed || ball.type === 'cue') continue;
-      const dx = ball.x - cue.x;
-      const dy = ball.y - cue.y;
-      const projection = dx * dirX + dy * dirY;
-      if (projection <= 0) continue;
-      const perpendicularSquared = dx * dx + dy * dy - projection * projection;
-      const diameterSquared = (BALL_RADIUS * 2) ** 2;
-      if (perpendicularSquared > diameterSquared) continue;
-      const contactDistance = projection - Math.sqrt(diameterSquared - perpendicularSquared);
-      if (contactDistance > 0) lineLength = Math.min(lineLength, contactDistance);
-    }
+    const trajectory = calculateShotTrajectory(balls, angle);
+    if (!trajectory) return;
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(
-      offsetX + (cue.x + dirX * (BALL_RADIUS + lineLength)) * scale,
-      offsetY + (cue.y + dirY * (BALL_RADIUS + lineLength)) * scale,
-    );
+    ctx.moveTo(offsetX + cue.x * scale, offsetY + cue.y * scale);
+    ctx.lineTo(offsetX + trajectory.cueEnd.x * scale, offsetY + trajectory.cueEnd.y * scale);
     ctx.strokeStyle = 'rgba(255,255,255,0.72)';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([7, 6]);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    if (trajectory.objectStart && trajectory.objectEnd) {
+      ctx.beginPath();
+      ctx.moveTo(
+        offsetX + trajectory.objectStart.x * scale,
+        offsetY + trajectory.objectStart.y * scale,
+      );
+      ctx.lineTo(
+        offsetX + trajectory.objectEnd.x * scale,
+        offsetY + trajectory.objectEnd.y * scale,
+      );
+      ctx.strokeStyle = 'rgba(98,220,255,0.9)';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 }
 
