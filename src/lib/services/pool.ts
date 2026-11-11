@@ -9,6 +9,9 @@ export interface PoolMatch {
   seed: number;
   tableState: any;
   currentPlayer: number;
+  version: number;
+  lastShotSeq: number;
+  shotLockId: string | null;
   turnDeadline: string | null;
   assignments: { player1: string | null; player2: string | null };
   winnerId: string | null;
@@ -29,9 +32,12 @@ export interface PoolShotEvent {
   firstContact: number | null;
   nextPlayer: number | null;
   winner: number | null;
+  finalState: any | null;
+  playbackAt: string | null;
+  version: number | null;
 }
 
-function mapPoolShot(shot: any): PoolShotEvent {
+export function mapPoolShotEvent(shot: any): PoolShotEvent {
   const result = shot.result ?? {};
   return {
     seq: shot.seq,
@@ -45,7 +51,21 @@ function mapPoolShot(shot: any): PoolShotEvent {
     firstContact: typeof result.firstContact === 'number' ? result.firstContact : null,
     nextPlayer: typeof result.nextPlayer === 'number' ? result.nextPlayer : null,
     winner: typeof result.winner === 'number' ? result.winner : null,
+    finalState: result.finalState && typeof result.finalState === 'object' ? result.finalState : null,
+    playbackAt: typeof result.playbackAt === 'string' ? result.playbackAt : null,
+    version: typeof result.version === 'number' ? result.version : null,
   };
+}
+
+export async function getPoolServerClockOffsetMs(): Promise<number> {
+  if (!supabase) throw new Error('Supabase não está configurado.');
+  const startedAt = Date.now();
+  const { data, error } = await supabase.rpc('pool_server_time');
+  const completedAt = Date.now();
+  if (error) throw error;
+  const serverTime = Date.parse(typeof data === 'string' ? data : String(data));
+  if (!Number.isFinite(serverTime)) throw new Error('O horário do servidor é inválido.');
+  return serverTime - (startedAt + completedAt) / 2;
 }
 
 export async function getLatestPoolShotSeq(matchId: string): Promise<number> {
@@ -70,7 +90,7 @@ export async function getPoolShotsAfter(matchId: string, seq: number): Promise<P
     .gt('seq', seq)
     .order('seq', { ascending: true });
   if (error) throw error;
-  return (data ?? []).map(mapPoolShot);
+  return (data ?? []).map(mapPoolShotEvent);
 }
 
 export async function getRecentPoolShots(matchId: string, limit = 12): Promise<PoolShotEvent[]> {
@@ -82,7 +102,7 @@ export async function getRecentPoolShots(matchId: string, limit = 12): Promise<P
     .order('seq', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []).map(mapPoolShot).reverse();
+  return (data ?? []).map(mapPoolShotEvent).reverse();
 }
 
 async function getActivePoolMatchBetween(player1Id: string, player2Id: string): Promise<string | null> {
@@ -155,6 +175,9 @@ export async function getPoolMatch(id: string): Promise<PoolMatch | null> {
     seed: data.seed,
     tableState: data.table_state,
     currentPlayer: data.current_player,
+    version: data.version ?? 0,
+    lastShotSeq: data.last_shot_seq ?? 0,
+    shotLockId: data.shot_lock_id ?? null,
     turnDeadline: data.turn_deadline,
     assignments: data.assignments,
     winnerId: data.winner_id,

@@ -2,11 +2,13 @@ const mockGetSession = jest.fn();
 const mockRefreshSession = jest.fn();
 const mockInvoke = jest.fn();
 const mockFrom = jest.fn();
+const mockRpc = jest.fn();
 
 jest.mock('../../../src/lib/supabase', () => ({
   get supabase() {
     return {
       from: mockFrom,
+      rpc: mockRpc,
       auth: {
         getSession: mockGetSession,
         refreshSession: mockRefreshSession,
@@ -24,6 +26,7 @@ describe('pool service', () => {
     mockRefreshSession.mockReset();
     mockInvoke.mockReset();
     mockFrom.mockReset();
+    mockRpc.mockReset();
   });
 
   it('renews the session and retries a shot rejected as unauthorized', async () => {
@@ -81,7 +84,15 @@ describe('pool service', () => {
           player_id: 'player-2',
           angle: 0.4,
           power: 0.6,
-          result: { anim: [[1, 2], [3, 4]], pocketed: [3], foul: false, nextPlayer: 2 },
+          result: {
+            anim: [[1, 2], [3, 4]],
+            pocketed: [3],
+            foul: false,
+            nextPlayer: 2,
+            finalState: { balls: [] },
+            playbackAt: '2026-11-11T00:00:02.000Z',
+            version: 4,
+          },
         }],
         error: null,
       }),
@@ -100,9 +111,25 @@ describe('pool service', () => {
       firstContact: null,
       nextPlayer: 2,
       winner: null,
+      finalState: { balls: [] },
+      playbackAt: '2026-11-11T00:00:02.000Z',
+      version: 4,
     }]);
     expect(mockFrom).toHaveBeenCalledWith('pool_shots');
     expect(query.gt).toHaveBeenCalledWith('seq', 3);
     expect(query.order).toHaveBeenCalledWith('seq', { ascending: true });
+  });
+
+  it('estimates the server clock offset from the midpoint of the RPC round trip', async () => {
+    mockRpc.mockResolvedValue({ data: '1970-01-01T00:00:02.000Z', error: null });
+    const now = jest.spyOn(Date, 'now')
+      .mockReturnValueOnce(1_000)
+      .mockReturnValueOnce(3_000);
+
+    const { getPoolServerClockOffsetMs } = await import('../../../src/lib/services/pool');
+
+    await expect(getPoolServerClockOffsetMs()).resolves.toBe(0);
+    expect(mockRpc).toHaveBeenCalledWith('pool_server_time');
+    now.mockRestore();
   });
 });

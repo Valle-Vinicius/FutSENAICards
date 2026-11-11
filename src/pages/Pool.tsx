@@ -3,10 +3,10 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
-import { getLatestPoolShotSeq, getPoolMatch, getPoolShotsAfter, getRecentPoolShots, submitShot, abandonPoolMatch } from '../lib/services/pool';
-import type { PoolShotEvent } from '../lib/services/pool';
+import { getLatestPoolShotSeq, getPoolMatch, getPoolShotsAfter, getRecentPoolShots, getPoolServerClockOffsetMs, mapPoolShotEvent, submitShot, abandonPoolMatch } from '../lib/services/pool';
+import type { PoolMatch, PoolShotEvent } from '../lib/services/pool';
 import { getCompetitiveProfile } from '../lib/services/leaderboard';
-import { createInitialState, simulateShot } from '../engine/pool/physics';
+import { createInitialState } from '../engine/pool/physics';
 import { calculateShotTrajectory } from '../engine/pool/trajectory';
 import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
 import type { Ball, TableState } from '../engine/pool/types';
@@ -30,16 +30,6 @@ const BALL_COLORS = [
 ];
 
 const poolBackgrounds = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
-
-function compactShotFrames(frames: { balls: { x: number; y: number; pocketed: boolean }[] }[]): number[][] {
-  const toRow = (frame: { balls: { x: number; y: number; pocketed: boolean }[] }) => frame.balls.flatMap(ball => (
-    ball.pocketed ? [-1, -1] : [Math.round(ball.x * 1000), Math.round(ball.y * 1000)]
-  ));
-  const anim: number[][] = [];
-  for (let i = 0; i < frames.length; i += 4) anim.push(toRow(frames[i]));
-  if (frames.length > 0 && (frames.length - 1) % 4 !== 0) anim.push(toRow(frames[frames.length - 1]));
-  return anim;
-}
 
 function drawPoolTable(
   canvas: HTMLCanvasElement,
@@ -296,20 +286,31 @@ function formatShotLog(
 export default function Pool() {
   const { matchId } = useParams();
   const navigate = useNavigate();
-  const [match, setMatch] = useState<any>(null);
+  const [match, setMatch] = useState<PoolMatch | null>(null);
   const [state, setState] = useState<TableState | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [playerNames, setPlayerNames] = useState({ player1: 'Jogador 1', player2: 'Jogador 2' });
   const [shotLog, setShotLog] = useState<PoolShotEvent[]>([]);
+  const [lastPlayedShotSeq, setLastPlayedShotSeq] = useState(0);
   const [now, setNow] = useState(0);
+  const [remoteAim, setRemoteAim] = useState<{
+    playerId: string;
+    angle: number;
+    power: number;
+    receivedAt: number;
+  } | null>(null);
   const [howToOpen, setHowToOpen] = useState(() => {
     try { return window.localStorage.getItem('pool-how-to-v1') !== 'seen'; }
     catch { return true; }
   });
   const sessionUserIdRef = useRef<string | null>(null);
   const stateRef = useRef<TableState | null>(null);
-  const pendingOfficialStateRef = useRef<TableState | null>(null);
+  const matchRef = useRef<PoolMatch | null>(null);
+  const aimChannelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
+  const serverClockOffsetRef = useRef(0);
+  const aimDraftRef = useRef({ angle: 0, power: 0.5, isMyTurn: false, playerId: null as string | null });
+  const lastAimBroadcastRef = useRef<{ playerId: string; angle: number; power: number; sentAt: number } | null>(null);
   const loadedRef = useRef(false);
   const [angle, setAngle] = useState(0);
   const [power, setPower] = useState(0.5);
@@ -319,7 +320,6 @@ export default function Pool() {
   const queuedAnimationsRef = useRef(new Map<number, PoolShotEvent>());
   const processingAnimationsRef = useRef(false);
   const lastPlayedShotSeqRef = useRef(0);
-  const inFlightShotSeqRef = useRef<number | null>(null);
   const localShotPendingRef = useRef(false);
   const processQueuedAnimationsRef = useRef<() => void>(() => undefined);
   // evita abandono indevido em remount do React StrictMode; só abandona no beforeunload real
@@ -335,6 +335,25 @@ export default function Pool() {
   }, [state]);
 
   useEffect(() => {
+    matchRef.current = match;
+  }, [match]);
+
+  const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
+  const myNumber = sessionUserId !== null && match
+    ? sessionUserId === match.player1Id ? 1 : sessionUserId === match.player2Id ? 2 : null
+    : null;
+  const isMyTurn = isMatchActive
+    && state !== null
+    && myNumber !== null
+    && myNumber === match.currentPlayer
+    && !match.shotLockId
+    && match.lastShotSeq <= lastPlayedShotSeq;
+
+  useEffect(() => {
+    aimDraftRef.current = { angle, power, isMyTurn, playerId: sessionUserId };
+  }, [angle, power, isMyTurn, sessionUserId]);
+
+  useEffect(() => {
     if (!matchId || loadedRef.current) return;
     loadedRef.current = true;
     (async () => {
@@ -345,7 +364,9 @@ export default function Pool() {
           uid = data.session?.user?.id ?? null;
           setSessionUserId(uid);
         }
-        lastPlayedShotSeqRef.current = await getLatestPoolShotSeq(matchId);
+        const latestShotSeq = await getLatestPoolShotSeq(matchId);
+        lastPlayedShotSeqRef.current = latestShotSeq;
+        setLastPlayedShotSeq(latestShotSeq);
         const m = await getPoolMatch(matchId);
         console.log('[Pool] loaded match:', m);
         if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
@@ -382,10 +403,43 @@ export default function Pool() {
   }, [matchId, navigate]);
 
   useEffect(() => {
+    if (!matchId) return;
+    let active = true;
+    const syncClock = async () => {
+      try {
+        const offset = await getPoolServerClockOffsetMs();
+        if (active) serverClockOffsetRef.current = offset;
+      } catch (error) {
+        console.error('pool server clock sync failed', error);
+      }
+    };
+    void syncClock();
+    const timer = window.setInterval(syncClock, 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [matchId]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !state) return;
-    drawPoolTable(canvas, state.balls, angle, !shooting, power, state.assignments, state.currentPlayer);
-  }, [state, angle, power, shooting]);
+    const activePlayerId = state.currentPlayer === 1 ? match?.player1Id : match?.player2Id;
+    const remoteAimIsCurrent = remoteAim
+      && remoteAim.playerId === activePlayerId
+      && remoteAim.playerId !== sessionUserId
+      && now - remoteAim.receivedAt < 2_000;
+    const showAim = isMyTurn ? !shooting : Boolean(remoteAimIsCurrent);
+    drawPoolTable(
+      canvas,
+      state.balls,
+      remoteAimIsCurrent && !isMyTurn ? remoteAim.angle : angle,
+      showAim,
+      remoteAimIsCurrent && !isMyTurn ? remoteAim.power : power,
+      state.assignments,
+      state.currentPlayer,
+    );
+  }, [state, match, sessionUserId, angle, power, shooting, remoteAim, now, isMyTurn]);
 
   useEffect(() => {
     const updateTime = () => setNow(Date.now());
@@ -416,15 +470,24 @@ export default function Pool() {
   useEffect(() => { shootingRef.current = shooting; }, [shooting]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
-  const playAnim = useCallback((anim: number[][]) => new Promise<void>(resolve => {
-    if (anim.length === 0) {
+  const playAnim = useCallback((shot: PoolShotEvent) => new Promise<void>(resolve => {
+    const anim = shot.anim;
+    if (!anim?.length) {
       resolve();
       return;
     }
 
-    const t0 = performance.now();
+    const parsedPlaybackAt = shot.playbackAt ? Date.parse(shot.playbackAt) : Number.NaN;
+    const playbackAt = Number.isFinite(parsedPlaybackAt)
+      ? parsedPlaybackAt
+      : Date.now() + serverClockOffsetRef.current;
     const tick = () => {
-      const progress = Math.max(0, Math.min(anim.length - 1, ((performance.now() - t0) / 1000) * 48));
+      const serverNow = Date.now() + serverClockOffsetRef.current;
+      if (serverNow < playbackAt) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      const progress = Math.max(0, Math.min(anim.length - 1, ((serverNow - playbackAt) / 1000) * 48));
       const index = Math.floor(progress);
       const fraction = progress - index;
       const frame = anim[index];
@@ -444,18 +507,27 @@ export default function Pool() {
             pocketed: false,
           };
         });
-        drawPoolTable(canvasRef.current, balls, 0, false);
+        const finalState = shot.finalState as TableState | null;
+        drawPoolTable(
+          canvasRef.current,
+          balls,
+          0,
+          false,
+          power,
+          finalState?.assignments ?? stateRef.current?.assignments,
+          finalState?.currentPlayer ?? stateRef.current?.currentPlayer,
+        );
       }
       if (index < anim.length - 1) rafRef.current = requestAnimationFrame(tick);
       else resolve();
     };
     rafRef.current = requestAnimationFrame(tick);
-  }), []);
+  }), [power]);
 
   const addQueuedShot = useCallback((shot: PoolShotEvent) => {
-    if (shot.playerId === sessionUserIdRef.current && localShotPendingRef.current) return;
-    const newestKnownSeq = Math.max(lastPlayedShotSeqRef.current, inFlightShotSeqRef.current ?? 0);
-    if (shot.seq <= newestKnownSeq || queuedAnimationsRef.current.has(shot.seq)) return;
+    if (shot.seq <= lastPlayedShotSeqRef.current) return;
+    const existing = queuedAnimationsRef.current.get(shot.seq);
+    if (existing?.anim?.length && existing.finalState) return;
     queuedAnimationsRef.current.set(shot.seq, shot);
   }, []);
 
@@ -463,59 +535,38 @@ export default function Pool() {
     if (processingAnimationsRef.current || localShotPendingRef.current || !matchId) return;
     processingAnimationsRef.current = true;
     try {
-      let advanced = false;
       while (true) {
-        const nextSeq = Math.max(lastPlayedShotSeqRef.current, inFlightShotSeqRef.current ?? 0) + 1;
+        const nextSeq = lastPlayedShotSeqRef.current + 1;
         let shot = queuedAnimationsRef.current.get(nextSeq);
         if (!shot && queuedAnimationsRef.current.size > 0) {
           const missingShots = await getPoolShotsAfter(matchId, lastPlayedShotSeqRef.current);
           missingShots.forEach(addQueuedShot);
           shot = queuedAnimationsRef.current.get(nextSeq);
         }
-        if (!shot) break;
+        if (!shot?.anim?.length || !shot.finalState) break;
         queuedAnimationsRef.current.delete(nextSeq);
+        setRemoteAim(null);
         shootingRef.current = true;
         setShooting(true);
-        if (shot.playerId !== sessionUserIdRef.current) {
-          inFlightShotSeqRef.current = shot.seq;
-          const prediction = stateRef.current
-            ? simulateShot(stateRef.current, { angle: shot.angle, power: shot.power })
-            : null;
-          if (prediction) {
-            await playAnim(compactShotFrames(prediction.frames));
-            if (!pendingOfficialStateRef.current) setState(prediction.finalState);
-          } else if (shot.anim?.length) {
-            await playAnim(shot.anim);
-          }
-        }
-        inFlightShotSeqRef.current = null;
+        await playAnim(shot);
         lastPlayedShotSeqRef.current = shot.seq;
-        advanced = true;
-      }
-
-      if (advanced && queuedAnimationsRef.current.size === 0) {
-        const pendingOfficialState = pendingOfficialStateRef.current;
-        pendingOfficialStateRef.current = null;
-        if (pendingOfficialState) {
-          setState(pendingOfficialState);
-        } else {
-          const fresh = await getPoolMatch(matchId);
-          if (fresh?.tableState && queuedAnimationsRef.current.size === 0) {
-            const parsed = typeof fresh.tableState === 'string' ? JSON.parse(fresh.tableState) : fresh.tableState;
-            setState({
-              ...parsed,
-              currentPlayer: (fresh.currentPlayer ?? 1) as 1 | 2,
-            });
-            setMatch(fresh);
-          }
+        setLastPlayedShotSeq(shot.seq);
+        setState({
+          ...(shot.finalState as TableState),
+          currentPlayer: (shot.nextPlayer ?? shot.finalState.currentPlayer ?? 1) as 1 | 2,
+        });
+        const fresh = await getPoolMatch(matchId);
+        if (fresh && fresh.lastShotSeq >= shot.seq) {
+          setMatch(fresh);
         }
       }
     } catch (error) {
-      console.error('opponent shot animation failed', error);
+      console.error('authoritative pool shot playback failed', error);
     } finally {
       processingAnimationsRef.current = false;
       const nextSeq = lastPlayedShotSeqRef.current + 1;
-      if (queuedAnimationsRef.current.has(nextSeq)) {
+      const nextShot = queuedAnimationsRef.current.get(nextSeq);
+      if (nextShot?.anim?.length && nextShot.finalState) {
         processQueuedAnimationsRef.current();
       } else {
         shootingRef.current = false;
@@ -534,43 +585,40 @@ export default function Pool() {
   }, [addQueuedShot, processQueuedAnimations]);
 
   const handleShoot = async () => {
-    if (shooting || !state || !match || !state.balls) return;
+    if (shooting || !state || !match || !state.balls || !isMyTurn) return;
     if (sessionUserId === null) return;
-    const myNumber = sessionUserId === match.player1Id ? 1 : sessionUserId === match.player2Id ? 2 : null;
-    if (myNumber === null || myNumber !== state.currentPlayer) return;
     localShotPendingRef.current = true;
     shootingRef.current = true;
     setShooting(true);
+    setRemoteAim(null);
     try {
-      const serverShot = submitShot(match.id, angle, power);
-      const prediction = simulateShot(state, { angle, power });
-      await playAnim(compactShotFrames(prediction.frames));
-      const res = await serverShot;
+      const res = await submitShot(match.id, angle, power);
       const recentShots = await getRecentPoolShots(match.id, 12).catch(error => {
         console.error('failed to refresh pool shot history after shot', error);
         return [];
       });
       setShotLog(recentShots);
-      if (typeof res?.seq === 'number') {
-        lastPlayedShotSeqRef.current = Math.max(lastPlayedShotSeqRef.current, res.seq);
-      }
-      if (res?.finalState) {
-        setState({
-          ...res.finalState,
-          currentPlayer: (res.finalState.currentPlayer ?? 1) as 1 | 2,
-        });
+      if (res?.anim?.length && res?.finalState && typeof res.seq === 'number') {
+        queueShotAnimation(mapPoolShotEvent({
+          seq: res.seq,
+          player_id: sessionUserId,
+          angle,
+          power,
+          result: res,
+        }));
         const fresh = await getPoolMatch(match.id);
         if (fresh) setMatch(fresh);
       } else {
         toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
         const fresh = await getPoolMatch(match.id);
-        if (fresh?.tableState) {
+        if (fresh) setMatch(fresh);
+        if (fresh?.tableState && fresh.lastShotSeq <= lastPlayedShotSeqRef.current) {
           const parsed = typeof fresh.tableState === 'string' ? JSON.parse(fresh.tableState) : fresh.tableState;
           setState({
             ...parsed,
             currentPlayer: (fresh.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
           });
-        } else setState(createInitialState());
+        }
       }
     } catch (e) {
       console.error('shot failed', e);
@@ -579,7 +627,7 @@ export default function Pool() {
       localShotPendingRef.current = false;
       shootingRef.current = false;
       setShooting(false);
-      if (queuedAnimationsRef.current.size > 0) void processQueuedAnimations();
+      if (queuedAnimationsRef.current.size > 0) processQueuedAnimationsRef.current();
     }
   };
 
@@ -593,66 +641,133 @@ export default function Pool() {
       }
     };
     const channel = supabase
-      .channel(`pool-match-${matchId}`)
+      .channel(`pool-match-${matchId}`, { config: { private: true } })
+      .on('broadcast', { event: 'aim_update' }, ({ payload }: { payload?: any }) => {
+        const playerId = payload?.playerId;
+        const angleValue = payload?.angle;
+        const powerValue = payload?.power;
+        const currentMatch = matchRef.current;
+        const activePlayerId = currentMatch?.currentPlayer === 1 ? currentMatch.player1Id : currentMatch?.player2Id;
+        if (
+          typeof playerId !== 'string'
+          || playerId === sessionUserIdRef.current
+          || playerId !== activePlayerId
+          || typeof angleValue !== 'number'
+          || !Number.isFinite(angleValue)
+          || typeof powerValue !== 'number'
+          || !Number.isFinite(powerValue)
+          || powerValue < 0
+          || powerValue > 1
+        ) return;
+        setRemoteAim({ playerId, angle: angleValue, power: powerValue, receivedAt: Date.now() });
+      })
+      .on('broadcast', { event: 'aim_clear' }, ({ payload }: { payload?: any }) => {
+        setRemoteAim(current => current?.playerId === payload?.playerId ? null : current);
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
         const row = payload.new;
-        if (row?.table_state) {
+        const current = matchRef.current;
+        if (current && row) {
+          const updated: PoolMatch = {
+            ...current,
+            status: row.status ?? current.status,
+            currentPlayer: row.current_player ?? current.currentPlayer,
+            version: row.version ?? current.version,
+            lastShotSeq: row.last_shot_seq ?? current.lastShotSeq,
+            shotLockId: row.shot_lock_id ?? null,
+            turnDeadline: row.turn_deadline ?? current.turnDeadline,
+            winnerId: row.winner_id ?? current.winnerId,
+            finishReason: row.finish_reason ?? current.finishReason,
+          };
+          matchRef.current = updated;
+          setMatch(updated);
+        }
+        if (row?.table_state && (row.last_shot_seq ?? 0) <= lastPlayedShotSeqRef.current && !shootingRef.current) {
           const parsed = typeof row.table_state === 'string' ? JSON.parse(row.table_state) : row.table_state;
           const officialState = {
             ...parsed,
             currentPlayer: (row.current_player ?? parsed.currentPlayer ?? 1) as 1 | 2,
           };
-          if (shootingRef.current) pendingOfficialStateRef.current = officialState;
-          else setState(officialState);
-        }
-        if (row?.status) {
-          setMatch((m: any) => m ? {
-            ...m,
-            status: row.status,
-            currentPlayer: row.current_player,
-            turnDeadline: row.turn_deadline,
-            winnerId: row.winner_id,
-            finishReason: row.finish_reason,
-          } : m);
+          setState(officialState);
         }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pool_shots', filter: `match_id=eq.${matchId}` }, async (payload: any) => {
-        const row = payload.new;
-        queueShotAnimation({
-          seq: row.seq,
-          playerId: row.player_id,
-          angle: row.angle,
-          power: row.power,
-          anim: Array.isArray(row.result?.anim) ? row.result.anim : null,
-          pocketed: Array.isArray(row.result?.pocketed) ? row.result.pocketed : [],
-          foul: typeof row.result?.foul === 'boolean' ? row.result.foul : null,
-          foulReason: typeof row.result?.foulReason === 'string' ? row.result.foulReason : null,
-          firstContact: typeof row.result?.firstContact === 'number' ? row.result.firstContact : null,
-          nextPlayer: typeof row.result?.nextPlayer === 'number' ? row.result.nextPlayer : null,
-          winner: typeof row.result?.winner === 'number' ? row.result.winner : null,
-        });
+        queueShotAnimation(mapPoolShotEvent(payload.new));
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pool_shots', filter: `match_id=eq.${matchId}` }, () => {
         void refreshShotHistory();
       })
-      .subscribe();
+      .subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          aimChannelRef.current = channel;
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('pool realtime channel subscription failed', error);
+          aimChannelRef.current = null;
+        } else if (status === 'CLOSED') {
+          aimChannelRef.current = null;
+        }
+      });
+    const broadcastTimer = window.setInterval(() => {
+      const currentChannel = aimChannelRef.current;
+      const draft = aimDraftRef.current;
+      const previous = lastAimBroadcastRef.current;
+      if (!currentChannel || !draft.playerId) return;
+      if (!draft.isMyTurn || shootingRef.current) {
+        if (previous?.playerId === draft.playerId) {
+          lastAimBroadcastRef.current = null;
+          void currentChannel.send({
+            type: 'broadcast',
+            event: 'aim_clear',
+            payload: { playerId: draft.playerId },
+          }).then(status => {
+            if (status !== 'ok') console.error('pool aim clear broadcast failed', status);
+          });
+        }
+        return;
+      }
+      const sentAt = Date.now();
+      if (
+        previous
+        && previous.playerId === draft.playerId
+        && previous.angle === draft.angle
+        && previous.power === draft.power
+        && sentAt - previous.sentAt < 1_000
+      ) return;
+      lastAimBroadcastRef.current = {
+        playerId: draft.playerId,
+        angle: draft.angle,
+        power: draft.power,
+        sentAt,
+      };
+      void currentChannel.send({
+        type: 'broadcast',
+        event: 'aim_update',
+        payload: { playerId: draft.playerId, angle: draft.angle, power: draft.power },
+      }).then(status => {
+        if (status !== 'ok') console.error('pool aim broadcast failed', status);
+      });
+    }, 50);
     let matchPollCount = 0;
     const interval = setInterval(async () => {
       try {
         matchPollCount += 1;
         if (matchPollCount % 3 === 0) await refreshShotHistory();
-        const afterSeq = Math.max(lastPlayedShotSeqRef.current, inFlightShotSeqRef.current ?? 0);
-        const newShots = await getPoolShotsAfter(matchId, afterSeq);
+        const newestQueuedSeq = Math.max(
+          lastPlayedShotSeqRef.current,
+          ...queuedAnimationsRef.current.keys(),
+        );
+        const newShots = await getPoolShotsAfter(matchId, newestQueuedSeq);
         newShots.forEach(queueShotAnimation);
         if (shootingRef.current || queuedAnimationsRef.current.size > 0) return;
         if (matchPollCount % 3 !== 0) return;
         const m = await getPoolMatch(matchId);
         if (m) {
           setMatch(m);
-          if (m.tableState) {
+          matchRef.current = m;
+          if (m.tableState && m.lastShotSeq <= lastPlayedShotSeqRef.current) {
             const parsed = typeof m.tableState === 'string' ? JSON.parse(m.tableState) : m.tableState;
             setState(prev => {
-              if (newShots.length > 0 || (prev && prev.currentPlayer === (m.currentPlayer ?? parsed.currentPlayer ?? 1))) return prev;
+              if (prev && prev.currentPlayer === (m.currentPlayer ?? parsed.currentPlayer ?? 1)) return prev;
               return {
                 ...parsed,
                 currentPlayer: (m.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
@@ -664,7 +779,13 @@ export default function Pool() {
         console.error('pool match polling failed', error);
       }
     }, 1000);
-    return () => { supabase!.removeChannel(channel); clearInterval(interval); };
+    return () => {
+      aimChannelRef.current = null;
+      lastAimBroadcastRef.current = null;
+      supabase!.removeChannel(channel);
+      clearInterval(broadcastTimer);
+      clearInterval(interval);
+    };
   }, [matchId, loading, queueShotAnimation]);
 
   useEffect(() => {
@@ -682,14 +803,10 @@ export default function Pool() {
     };
   }, [matchId, match]);
 
-  const isMatchActive = match?.status === 'accepted' || match?.status === 'playing';
-  const myNumber = sessionUserId !== null && match
-    ? sessionUserId === match.player1Id ? 1 : sessionUserId === match.player2Id ? 2 : null
-    : null;
-  const isMyTurn = isMatchActive && state !== null && myNumber !== null && myNumber === state.currentPlayer;
   const activePlayerNumber = state?.currentPlayer ?? 1;
   const activePlayerName = activePlayerNumber === 1 ? playerNames.player1 : playerNames.player2;
   const activeAssignedType = state?.assignments[`player${activePlayerNumber}` as 'player1' | 'player2'] ?? null;
+  const playbackPending = Boolean(match && match.lastShotSeq > lastPlayedShotSeq);
   const ownBallsRemaining = state && activeAssignedType
     ? state.balls.filter(ball => ball.type === activeAssignedType && !ball.pocketed).length
     : null;
@@ -698,6 +815,7 @@ export default function Pool() {
     : null;
 
   const handleLeave = async () => {
+    if (!match) return;
     const message = match.status === 'pending'
       ? 'Cancelar este convite e sair da partida?'
       : 'Sair agora contará como desistência e dará a vitória ao adversário. Deseja continuar?';
@@ -747,7 +865,7 @@ export default function Pool() {
               {isMyTurn ? 'Sua vez de jogar' : `Vez de ${activePlayerName}`}
             </div>
             <p className="mt-1 max-w-2xl text-sm text-[#626675]">
-              {shooting
+              {shooting || playbackPending || match.shotLockId
                 ? 'Tacada em andamento… acompanhe as bolas.'
                 : !state.assignments.player1
                   ? 'Mesa aberta: a primeira bola encaçapada (exceto a 8) define lisas ou listradas.'
@@ -846,7 +964,7 @@ export default function Pool() {
                 </>
               ) : (
                 <div className="rounded-xl bg-[#F7F7F9] p-4 text-center text-sm font-medium text-[#858A98]">
-                  {shooting ? 'A bola está rolando…' : 'Aguardando a vez do adversário…'}
+                  {shooting || playbackPending || match.shotLockId ? 'Sincronizando a tacada…' : 'Aguardando a vez do adversário…'}
                 </div>
               )}
             </div>
@@ -903,6 +1021,7 @@ export default function Pool() {
     : match.winnerId === match.player2Id
       ? playerNames.player2
       : state.winner === 1 ? playerNames.player1 : state.winner === 2 ? playerNames.player2 : null;
+  const finishReason = match.finishReason ?? '';
   const endMessages: Record<string, string> = {
     declined: 'O convite foi recusado.',
     expired: 'O convite expirou antes de ser aceito.',
@@ -915,10 +1034,10 @@ export default function Pool() {
     eight_early: 'A bola 8 foi encaçapada antes de limpar o grupo.',
   };
   const endingText = match.status === 'finished'
-    ? `${winnerName ? `${winnerName} venceu.` : 'A partida foi encerrada.'} ${endMessages[match.finishReason] ?? ''}`.trim()
-    : match.finishReason === 'forfeit' && winnerName
+    ? `${winnerName ? `${winnerName} venceu.` : 'A partida foi encerrada.'} ${endMessages[finishReason] ?? ''}`.trim()
+    : finishReason === 'forfeit' && winnerName
       ? `${winnerName} venceu por desistência.`
-      : endMessages[match.finishReason] ?? (match.status === 'forfeited' ? 'A partida foi encerrada por desistência.' : 'A partida foi encerrada.');
+      : endMessages[finishReason] ?? (match.status === 'forfeited' ? 'A partida foi encerrada por desistência.' : 'A partida foi encerrada.');
 
   return (
     <div className="mx-auto max-w-xl p-4 md:p-8">

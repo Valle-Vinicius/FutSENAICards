@@ -236,6 +236,17 @@ serve(async (req) => {
     return json({ error: 'not your turn' }, origin, 403);
   }
 
+  const staleLockBefore = new Date(Date.now() - 60_000).toISOString();
+  const { error: clearStaleLockError } = await supabase
+    .from('pool_matches')
+    .update({ shot_lock_id: null, shot_lock_at: null })
+    .eq('id', matchId)
+    .lt('shot_lock_at', staleLockBefore);
+  if (clearStaleLockError) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to clear stale shot lock`, clearStaleLockError.message);
+    return json({ error: 'could not lock shot' }, origin, 500);
+  }
+
   // Validate turn deadline - usar horário do servidor
   const now = new Date();
   if (match.turn_deadline) {
@@ -243,12 +254,27 @@ serve(async (req) => {
     console.log(`[pool-shot] user=${user.id} matchId=${matchId} now=${now.toISOString()} deadline=${deadline.toISOString()}`);
     if (deadline < now) {
       const winnerId = match.current_player === 1 ? match.player2_id : match.player1_id;
-      await supabase.from('pool_matches').update({
-        status: 'finished',
-        winner_id: winnerId,
-        finish_reason: 'turn_expired',
-        updated_at: now.toISOString(),
-      }).eq('id', matchId);
+      const { data: expiredRows, error: expireError } = await supabase
+        .from('pool_matches')
+        .update({
+          status: 'finished',
+          winner_id: winnerId,
+          finish_reason: 'turn_expired',
+          updated_at: now.toISOString(),
+        })
+        .eq('id', matchId)
+        .eq('version', match.version ?? 0)
+        .eq('current_player', match.current_player)
+        .in('status', ['accepted', 'playing'])
+        .is('shot_lock_id', null)
+        .select('id');
+      if (expireError) {
+        console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to expire turn`, expireError.message);
+        return json({ error: 'could not validate turn deadline' }, origin, 500);
+      }
+      if (!expiredRows?.length) {
+        return json({ error: 'shot already in progress or match changed; refresh and try again' }, origin, 409);
+      }
       console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 turn expired, winner=${winnerId}`);
       return json({ error: 'turn expired', winner: winnerId }, origin, 400);
     }
@@ -256,6 +282,26 @@ serve(async (req) => {
     console.log(`[pool-shot] user=${user.id} matchId=${matchId} WARNING turn_deadline is null`);
   }
 
+  const shotId = crypto.randomUUID();
+  const { data: lockRows, error: lockError } = await supabase
+    .from('pool_matches')
+    .update({ shot_lock_id: shotId, shot_lock_at: new Date().toISOString() })
+    .eq('id', matchId)
+    .eq('version', match.version ?? 0)
+    .eq('current_player', match.current_player)
+    .in('status', ['accepted', 'playing'])
+    .is('shot_lock_id', null)
+    .select('id');
+  if (lockError) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to acquire shot lock`, lockError.message);
+    return json({ error: 'could not lock shot' }, origin, 500);
+  }
+  if (!lockRows?.length) {
+    return json({ error: 'shot already in progress or match changed; refresh and try again' }, origin, 409);
+  }
+
+  let finalized = false;
+  try {
   // Load or create table state
   let state = match.table_state ? (typeof match.table_state === 'string' ? JSON.parse(match.table_state) : match.table_state) : null;
   if (!state) {
@@ -291,20 +337,6 @@ serve(async (req) => {
     return json({ error: 'could not prepare shot' }, origin, 500);
   }
   const seq = shotCount?.length ? shotCount[0].seq + 1 : 1;
-  const shotId = crypto.randomUUID();
-  const { error: insertError } = await supabase.from('pool_shots').insert({
-    match_id: matchId,
-    player_id: user.id,
-    seq,
-    angle,
-    power: clampedPower,
-    shot_id: shotId,
-    result: { status: 'started' },
-  });
-  if (insertError) {
-    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to publish shot start`, insertError.message);
-    return json({ error: 'could not start shot' }, origin, 500);
-  }
 
   const frames: any[] = [];
   let moving = true;
@@ -387,44 +419,68 @@ serve(async (req) => {
   state.currentPlayer = nextPlayer;
   state.foul = foul;
 
-  // Update match state
+  // Persist the authoritative result and animation in one database transaction.
   const turnDeadline = new Date(Date.now() + 60000).toISOString();
-  const updateData: any = {
-    table_state: JSON.stringify(state),
-    current_player: nextPlayer,
-    turn_deadline: turnDeadline,
-    updated_at: new Date().toISOString(),
-    version: (match.version || 0) + 1,
-  };
-  if (state.winner) {
-    updateData.status = 'finished';
-    updateData.winner_id = state.winner === 1 ? match.player1_id : match.player2_id;
-    updateData.finish_reason = eightPocketed && (ownType === null || ownRemaining > 0 || foul) ? 'eight_early' : 'eight_pocketed';
-  }
-  const { error: matchUpdateError } = await supabase.from('pool_matches').update(updateData).eq('id', matchId);
-  if (matchUpdateError) {
-    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to save match state`, matchUpdateError.message);
+  const finishReason = state.winner
+    ? eightPocketed && (ownType === null || ownRemaining > 0 || foul) ? 'eight_early' : 'eight_pocketed'
+    : null;
+  const { data: finalizedShot, error: finalizeError } = await supabase.rpc('finalize_pool_shot', {
+    p_match_id: matchId,
+    p_player_id: user.id,
+    p_shot_id: shotId,
+    p_seq: seq,
+    p_angle: angle,
+    p_power: clampedPower,
+    p_result: {
+      pocketed: pocketedIds,
+      foul,
+      foulReason,
+      firstContact: state.firstContact,
+      nextPlayer,
+      winner: state.winner,
+      anim,
+    },
+    p_final_state: state,
+    p_current_player: nextPlayer,
+    p_turn_deadline: turnDeadline,
+    p_winner_id: state.winner ? (state.winner === 1 ? match.player1_id : match.player2_id) : null,
+    p_finish_reason: finishReason,
+    p_expected_version: match.version ?? 0,
+  });
+  if (finalizeError || !finalizedShot || finalizedShot.error) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to atomically save shot`, finalizeError?.message ?? finalizedShot?.error);
     return json({ error: 'could not save shot state' }, origin, 500);
   }
-  const { error: shotUpdateError } = await supabase
-    .from('pool_shots')
-    .update({
-      result: {
-        pocketed: pocketedIds,
-        foul,
-        foulReason,
-        firstContact: state.firstContact,
-        nextPlayer,
-        winner: state.winner,
-        anim,
-      },
-    })
-    .eq('shot_id', shotId);
-  if (shotUpdateError) {
-    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to save shot animation`, shotUpdateError.message);
-    return json({ error: 'could not save shot animation' }, origin, 500);
-  }
+  finalized = true;
 
   console.log(`[pool-shot] user=${user.id} matchId=${matchId} success nextPlayer=${nextPlayer} winner=${state.winner} foul=${foul}`);
-  return json({ anim, seq, finalState: state, pocketed: pocketedIds, foul, foulReason, firstContact: state.firstContact, nextPlayer, winner: state.winner }, origin, 200);
+  return json({
+    anim,
+    seq,
+    shotId,
+    playbackAt: finalizedShot.playbackAt,
+    version: finalizedShot.version,
+    finalState: state,
+    pocketed: pocketedIds,
+    foul,
+    foulReason,
+    firstContact: state.firstContact,
+    nextPlayer,
+    winner: state.winner,
+  }, origin, 200);
+  } catch (error) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} shot processing failed`, error);
+    return json({ error: 'shot processing failed' }, origin, 500);
+  } finally {
+    if (!finalized) {
+      const { error: releaseError } = await supabase
+        .from('pool_matches')
+        .update({ shot_lock_id: null, shot_lock_at: null })
+        .eq('id', matchId)
+        .eq('shot_lock_id', shotId);
+      if (releaseError) {
+        console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to release shot lock`, releaseError.message);
+      }
+    }
+  }
 });
