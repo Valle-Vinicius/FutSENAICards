@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import {
   getCompetitiveLeaderboard,
   getCompetitiveProfile,
+  getPoolCompetitiveLeaderboard,
   type CompetitiveDivision,
   type CompetitivePlayer,
   type CompetitiveProfile,
@@ -41,7 +42,7 @@ function DivisionBadge({ division }: { division: CompetitiveDivision | null }) {
   );
 }
 
-function Podium({ players }: { players: CompetitivePlayer[] }) {
+function Podium({ players, isPool }: { players: CompetitivePlayer[]; isPool: boolean }) {
   const order = [players[1], players[0], players[2]];
   return (
     <section className="card-surface p-5 md:p-7">
@@ -64,7 +65,7 @@ function Podium({ players }: { players: CompetitivePlayer[] }) {
                 className={`flex min-w-0 flex-col items-center rounded-2xl border border-[#E9EAF0] bg-white px-2 py-4 text-center ${isFirst ? 'min-h-52 shadow-[0_4px_18px_rgba(37,39,51,0.08)] md:min-h-56' : 'min-h-44 md:min-h-48'}`}
               >
                 {isFirst ? <Crown className="mb-2 h-5 w-5 text-[#E30613]" /> : <Medal className="mb-2 h-5 w-5 text-[#858A98]" />}
-                <Link to={`/leaderboard/player/${player.userId}`} aria-label={`Perfil competitivo de ${player.name}`}>
+                <Link to={isPool ? `/profile/${player.userId}` : `/leaderboard/player/${player.userId}`} aria-label={`Perfil de ${player.name}`}>
                   <Avatar name={player.name} url={player.avatarUrl} size={isFirst ? 'lg' : 'md'} />
                 </Link>
                 <div className="mt-2 w-full truncate text-sm font-semibold text-[#252733]">{player.name}</div>
@@ -121,6 +122,7 @@ function SelfSummary({ profile }: { profile: CompetitiveProfile }) {
 }
 
 export default function Leaderboard() {
+  const [mode, setMode] = useState<'pvp' | 'pool'>('pvp');
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<CompetitiveProfile | null>(null);
   const [leaders, setLeaders] = useState<CompetitivePlayer[]>([]);
@@ -172,10 +174,13 @@ export default function Leaderboard() {
     let active = true;
     setLoading(true);
     setError('');
+    const getPlayers = mode === 'pool' ? getPoolCompetitiveLeaderboard : getCompetitiveLeaderboard;
     void Promise.all([
-      getCompetitiveLeaderboard({ limit: PAGE_SIZE, offset, division: division || null, search: debouncedSearch }),
-      getCompetitiveLeaderboard({ limit: 3 }),
-      getCompetitiveProfile(userId),
+      mode === 'pool'
+        ? getPoolCompetitiveLeaderboard({ limit: PAGE_SIZE, offset, search: debouncedSearch })
+        : getCompetitiveLeaderboard({ limit: PAGE_SIZE, offset, division: division || null, search: debouncedSearch }),
+      getPlayers({ limit: 3 }),
+      mode === 'pvp' ? getCompetitiveProfile(userId) : Promise.resolve(null),
     ]).then(([page, top, ownProfile]) => {
       if (!active) return;
       setPlayers(page);
@@ -188,7 +193,7 @@ export default function Leaderboard() {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [userId, offset, division, debouncedSearch, refreshKey]);
+  }, [userId, mode, offset, division, debouncedSearch, refreshKey]);
 
   const changeFilter = (next: CompetitiveDivision | '') => {
     setDivision(next);
@@ -205,12 +210,16 @@ export default function Leaderboard() {
         <div>
           <div className="text-xs font-bold tracking-[0.2em] text-[#E30613]">COMPETIÇÃO X1</div>
           <h1 className="mt-1 text-2xl font-semibold text-[#252733] md:text-3xl">LEADERBOARD</h1>
-          <p className="mt-1 text-sm text-[#858A98]">Ranking competitivo de partidas PvP oficiais.</p>
+          <p className="mt-1 text-sm text-[#858A98]">{mode === 'pvp' ? 'Ranking competitivo de partidas PvP oficiais.' : 'Ranking competitivo de partidas oficiais de sinuca.'}</p>
         </div>
-        <Link to="/leaderboard/player/me" className="text-sm font-medium text-[#E30613] hover:underline">Ver meu perfil competitivo</Link>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" aria-pressed={mode === 'pvp'} onClick={() => { setMode('pvp'); setDivision(''); setOffset(0); }} className={`rounded-xl border px-3 py-2 text-sm font-medium ${mode === 'pvp' ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-[#E9EAF0]'}`}>X1 PvP</button>
+          <button type="button" aria-pressed={mode === 'pool'} onClick={() => { setMode('pool'); setDivision(''); setOffset(0); }} className={`rounded-xl border px-3 py-2 text-sm font-medium ${mode === 'pool' ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-[#E9EAF0]'}`}>Sinuca</button>
+          {mode === 'pvp' && <Link to="/leaderboard/player/me" className="self-center text-sm font-medium text-[#E30613] hover:underline">Ver meu perfil competitivo</Link>}
+        </div>
       </header>
 
-      {profile && <SelfSummary profile={profile} />}
+      {mode === 'pvp' && profile && <SelfSummary profile={profile} />}
       {error && (
         <div role="alert" className="card-surface flex flex-wrap items-center justify-between gap-3 p-4 text-sm text-[#E30613]">
           <span>{error}</span>
@@ -218,7 +227,7 @@ export default function Leaderboard() {
         </div>
       )}
 
-      <Podium players={leaders} />
+      <Podium players={leaders} isPool={mode === 'pool'} />
 
       <section className="card-surface overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-[#E9EAF0] p-4 md:flex-row md:items-center md:justify-between">
@@ -231,18 +240,21 @@ export default function Leaderboard() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
               <input value={search} onChange={event => changeSearch(event.target.value)} placeholder="Buscar jogador..." className="w-full rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] py-2 pl-9 pr-3 text-sm text-[#252733] sm:w-52" />
             </label>
-            <select value={division} onChange={event => changeFilter(event.target.value as CompetitiveDivision | '')} className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm text-[#252733]">
-              <option value="">Todas as divisões</option>
-              {DIVISIONS.map(item => <option key={item} value={item}>{item}</option>)}
-            </select>
+            {mode === 'pvp' && (
+              <select value={division} onChange={event => changeFilter(event.target.value as CompetitiveDivision | '')} className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm text-[#252733]">
+                <option value="">Todas as divisões</option>
+                {DIVISIONS.map(item => <option key={item} value={item}>{item}</option>)}
+              </select>
+            )}
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[680px] text-left text-sm">
             <thead className="bg-[#F7F7F9] text-[10px] uppercase tracking-wide text-[#858A98]">
               <tr>
-                <th className="px-4 py-3">Pos.</th><th className="px-4 py-3">Jogador</th><th className="px-4 py-3">ELO</th>
-                <th className="px-4 py-3">Divisão</th><th className="px-4 py-3">Partidas</th><th className="px-4 py-3">V</th>
+                <th className="px-4 py-3">Pos.</th><th className="px-4 py-3">Jogador</th><th className="px-4 py-3">{mode === 'pool' ? 'ELO sinuca' : 'ELO'}</th>
+                {mode === 'pvp' && <th className="px-4 py-3">Divisão</th>}
+                <th className="px-4 py-3">{mode === 'pool' ? 'Sinucas' : 'Partidas'}</th><th className="px-4 py-3">V</th>
                 <th className="px-4 py-3">D</th><th className="px-4 py-3">Aproveitamento</th>
               </tr>
             </thead>
@@ -254,13 +266,13 @@ export default function Leaderboard() {
                     <motion.tr key={player.userId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`border-t border-[#E9EAF0] ${player.userId === userId ? 'bg-[#FFF0F2]/60' : 'hover:bg-[#F7F7F9]'}`}>
                       <td className="px-4 py-3 font-semibold text-[#858A98]">#{player.position}</td>
                       <td className="px-4 py-3">
-                        <Link to={`/leaderboard/player/${player.userId}`} className="flex items-center gap-3 font-medium text-[#252733] hover:text-[#E30613]">
+                        <Link to={mode === 'pool' ? `/profile/${player.userId}` : `/leaderboard/player/${player.userId}`} className="flex items-center gap-3 font-medium text-[#252733] hover:text-[#E30613]">
                           <Avatar name={player.name} url={player.avatarUrl} size="sm" />
                           <span className="max-w-48 truncate">{player.name}{player.userId === userId ? ' (você)' : ''}</span>
                         </Link>
                       </td>
                       <td className="px-4 py-3 font-bold tabular-nums text-[#E30613]">{player.rating}</td>
-                      <td className="px-4 py-3"><DivisionBadge division={player.division} /></td>
+                      {mode === 'pvp' && <td className="px-4 py-3"><DivisionBadge division={player.division} /></td>}
                       <td className="px-4 py-3 text-[#252733]">{player.matchesPlayed}</td>
                       <td className="px-4 py-3 text-[#252733]">{player.wins}</td>
                       <td className="px-4 py-3 text-[#252733]">{player.losses}</td>
@@ -270,9 +282,9 @@ export default function Leaderboard() {
                 })}
               </AnimatePresence>
               {!loading && players.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-[#858A98]">Nenhum jogador encontrado.</td></tr>
+                <tr><td colSpan={mode === 'pvp' ? 8 : 7} className="px-4 py-10 text-center text-sm text-[#858A98]">Nenhum jogador encontrado.</td></tr>
               )}
-              {loading && <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-[#858A98]">Carregando classificação...</td></tr>}
+              {loading && <tr><td colSpan={mode === 'pvp' ? 8 : 7} className="px-4 py-10 text-center text-sm text-[#858A98]">Carregando classificação...</td></tr>}
             </tbody>
           </table>
         </div>

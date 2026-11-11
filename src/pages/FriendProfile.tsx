@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import * as friendsService from '../lib/services/friends';
-import * as challengesService from '../lib/services/challenges';
 import * as poolService from '../lib/services/pool';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
@@ -107,14 +106,7 @@ export default function FriendProfile() {
   };
   const handleChallenge = async () => {
     if (!currentUserId || !userId) return;
-    try {
-      const ch = await challengesService.createChallenge(currentUserId, userId);
-      if (ch) navigate(`/match?challenge=${ch.id}`);
-      else setActionMsg('Já existe um desafio ativo entre vocês.');
-    } catch (error) {
-      console.error('challenge creation failed', error);
-      setActionMsg('Não foi possível criar o desafio. Verifique a amizade e tente novamente.');
-    }
+    navigate(`/match?opponent=${userId}&configure=1`);
   };
 
   const handlePool = async () => {

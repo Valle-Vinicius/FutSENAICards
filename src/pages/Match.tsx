@@ -6,6 +6,7 @@ import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam, MATCH_DURATION_MINUTES } from '../engine/match';
 import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import PvpResultScreen, { type SnapshotCardDetails } from '../components/PvpResultScreen';
+import Card from '../components/Card';
 import * as challengesService from '../lib/services/challenges';
 import type { MatchPlaybackState } from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
@@ -28,6 +29,8 @@ const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possessi
 
 function MatchInner() {
   const cards = useGame(s => s.cards);
+  const coins = useGame(s => s.coins);
+  const recentTransfers = useGame(s => s.recentTransfers);
   const squads = useGame(s => s.squads);
   const savedSquads = useGame(s => s.savedSquads);
   const sport = 'futsal' as const;
@@ -54,6 +57,16 @@ function MatchInner() {
   const navigate = useNavigate();
   const opponentId = searchParams.get('opponent');
   const challengeId = searchParams.get('challenge');
+  const configureChallenge = searchParams.get('configure') === '1' && !!opponentId;
+  const [wagerType, setWagerType] = useState<'coins' | 'card'>('coins');
+  const [coinAmountChoice, setCoinAmountChoice] = useState('500');
+  const [customCoinAmount, setCustomCoinAmount] = useState('');
+  const [wagerCardId, setWagerCardId] = useState('');
+  const [availableWagerCardIds, setAvailableWagerCardIds] = useState<string[] | null>(null);
+  const [wagerCardSearch, setWagerCardSearch] = useState('');
+  const [wagerError, setWagerError] = useState('');
+  const [wagerSubmitting, setWagerSubmitting] = useState(false);
+  const [acceptCardId, setAcceptCardId] = useState('');
   const [opponentName, setOpponentName] = useState<string>('IA');
   const [opponentPlayers, setOpponentPlayers] = useState<MatchPlayer[] | null>(null);
   const [opponentPlayersOwner, setOpponentPlayersOwner] = useState<string | null>(null);
@@ -392,19 +405,8 @@ function MatchInner() {
     }
 
     setRematchLoading(true);
-    try {
-      const newChallenge = await challengesService.createChallenge(currentUserId, opponentId);
-      if (!newChallenge) {
-        toast.info('Já existe um desafio ativo entre vocês.');
-        return;
-      }
-      navigate(`/match?challenge=${newChallenge.id}`);
-    } catch (error) {
-      console.error('PvP rematch creation failed', error);
-      toast.error('Não foi possível criar a revanche. Confirme se vocês ainda são amigos.');
-    } finally {
-      setRematchLoading(false);
-    }
+    navigate(`/match?opponent=${opponentId}&configure=1`);
+    setRematchLoading(false);
   };
 
   // opponent fetch
@@ -472,6 +474,45 @@ function MatchInner() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId]);
+
+  useEffect(() => {
+    const needsCard = configureChallenge || (
+      challenge?.status === 'pending'
+      && challenge.wager_type === 'card'
+      && currentUserId === challenge.challenged_id
+    );
+    if (!needsCard) return;
+    let active = true;
+    setAvailableWagerCardIds(null);
+    void challengesService.getAvailableWagerCardIds().then(ids => {
+      if (active) setAvailableWagerCardIds(ids);
+    }).catch(error => {
+      if (active) {
+        console.error('available wager cards load failed', error);
+        setWagerError('Não foi possível carregar as cartas disponíveis para aposta.');
+        setAvailableWagerCardIds([]);
+      }
+    });
+    return () => { active = false; };
+  }, [configureChallenge, challenge?.status, challenge?.wager_type, challenge?.challenged_id, currentUserId]);
+
+  useEffect(() => {
+    if (!configureChallenge || !supabase) return;
+    let active = true;
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setWagerError(error.message);
+        return;
+      }
+      const id = data.session?.user.id ?? null;
+      currentUserIdRef.current = id;
+      setCurrentUserId(id);
+    }).catch(error => {
+      if (active) setWagerError(error instanceof Error ? error.message : 'Não foi possível verificar sua sessão.');
+    });
+    return () => { active = false; };
+  }, [configureChallenge]);
 
   // load both squads as soon as the challenge is accepted (covers: page load, accept click, realtime, polling)
   useEffect(() => {
@@ -658,8 +699,136 @@ function MatchInner() {
   const toSvgY = (v: number) => (v / 100) * 64;
 
   const currentFrame = result ? result.frames[Math.min(Math.floor(frameIndex), result.frames.length - 1)] : null;
+  const availableWagerCards = availableWagerCardIds
+    ? cards.filter(card => availableWagerCardIds.includes(card.uid))
+    : [];
+  const searchedWagerCards = availableWagerCards.filter(card =>
+    card.name.toLowerCase().includes(wagerCardSearch.trim().toLowerCase()),
+  );
+  const chosenWagerCard = cards.find(card => card.uid === wagerCardId);
+  const cardMarketPrice = chosenWagerCard
+    ? recentTransfers.filter(transfer => transfer.cardName === chosenWagerCard.name).sort((a, b) => b.at - a.at)[0]?.price
+    : undefined;
+  const chosenAcceptanceCard = cards.find(card => card.uid === acceptCardId);
+  const selectedCoinAmount = coinAmountChoice === 'custom' ? Number(customCoinAmount) : Number(coinAmountChoice);
+
+  const submitWagerChallenge = async () => {
+    if (!opponentId || !currentUserId) {
+      setWagerError('Não foi possível identificar os jogadores do desafio.');
+      return;
+    }
+    if (wagerType === 'coins' && (!Number.isInteger(selectedCoinAmount) || selectedCoinAmount < 1 || selectedCoinAmount > 1000000)) {
+      setWagerError('Informe uma aposta inteira entre 1 e 1.000.000 moedas.');
+      return;
+    }
+    if (wagerType === 'card' && !wagerCardId) {
+      setWagerError('Selecione uma carta para colocar em disputa.');
+      return;
+    }
+    setWagerSubmitting(true);
+    setWagerError('');
+    try {
+      const challenge = await challengesService.createChallenge(
+        opponentId,
+        wagerType === 'coins'
+          ? { type: 'coins', amount: selectedCoinAmount }
+          : { type: 'card', cardId: wagerCardId },
+      );
+      if (!challenge) {
+        setWagerError('Já existe um desafio ativo entre vocês.');
+        return;
+      }
+      navigate(`/match?challenge=${challenge.id}`);
+    } catch (error) {
+      console.error('challenge creation failed', error);
+      setWagerError(error instanceof Error ? error.message : 'Não foi possível criar o desafio.');
+    } finally {
+      setWagerSubmitting(false);
+    }
+  };
 
   if (challengeLoading || loadingOpp) return <div className="p-8 text-[#858A98]">Carregando...</div>;
+
+  if (configureChallenge) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-5 p-4 md:p-8">
+        <header>
+          <div className="text-xs font-bold tracking-[0.2em] text-[#E30613]">X1 PvP</div>
+          <h1 className="mt-1 text-2xl font-semibold text-[#252733] md:text-3xl">Monte o desafio</h1>
+          <p className="mt-1 text-sm text-[#858A98]">Escolha sua aposta. O adversário precisa aceitar os mesmos termos e colocar o ativo correspondente.</p>
+        </header>
+        <section className="card-surface space-y-4 p-4 md:p-6">
+          <div className="text-sm font-semibold text-[#252733]">Desafiando {opponentName}</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {([
+              ['coins', 'Apostar moedas'],
+              ['card', 'Apostar uma carta'],
+            ] as const).map(([type, label]) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => { setWagerType(type); setWagerError(''); }}
+                aria-pressed={wagerType === type}
+                className={`rounded-xl border p-4 text-left text-sm font-semibold ${wagerType === type ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-[#E9EAF0] text-[#252733]'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {wagerType === 'coins' ? (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-[#252733]">Valor por jogador</label>
+              <div className="flex flex-wrap gap-2">
+                {['500', '1000', '5000', 'custom'].map(value => (
+                  <button key={value} type="button" onClick={() => setCoinAmountChoice(value)} className={`rounded-lg border px-3 py-2 text-sm ${coinAmountChoice === value ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-[#E9EAF0]'}`}>
+                    {value === 'custom' ? 'Personalizado' : `${Number(value).toLocaleString('pt-BR')} moedas`}
+                  </button>
+                ))}
+              </div>
+              {coinAmountChoice === 'custom' && (
+                <input
+                  type="number"
+                  min={1}
+                  max={1000000}
+                  step={1}
+                  value={customCoinAmount}
+                  onChange={event => setCustomCoinAmount(event.target.value)}
+                  placeholder="Valor personalizado"
+                  className="w-full max-w-xs rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm"
+                />
+              )}
+              <p className="text-xs text-[#858A98]">Cada jogador coloca {Number.isFinite(selectedCoinAmount) ? selectedCoinAmount.toLocaleString('pt-BR') : '—'} moedas. Seu saldo atual: {coins.toLocaleString('pt-BR')}.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-[#858A98]">Escolha a carta que ficará reservada até o resultado oficial. O adversário seleciona a carta dele ao aceitar.</p>
+              <input value={wagerCardSearch} onChange={event => setWagerCardSearch(event.target.value)} placeholder="Buscar carta..." className="w-full rounded-xl border border-[#E9EAF0] px-3 py-2 text-sm" />
+              {availableWagerCardIds === null ? (
+                <p className="text-sm text-[#858A98]">Carregando suas cartas disponíveis...</p>
+              ) : (
+                <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {searchedWagerCards.map(card => (
+                    <div key={card.uid} className={`rounded-2xl p-1 ${wagerCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
+                      <Card card={card} size="sm" onClick={() => setWagerCardId(card.uid)} />
+                    </div>
+                  ))}
+                  {searchedWagerCards.length === 0 && <p className="col-span-full py-4 text-sm text-[#858A98]">Nenhuma carta disponível para aposta.</p>}
+                </div>
+              )}
+              {chosenWagerCard && <p className="text-xs text-[#858A98]">Selecionada: {chosenWagerCard.name} · {chosenWagerCard.overall} OVR · {chosenWagerCard.rarity}. Última negociação registrada: {cardMarketPrice ? `${cardMarketPrice.toLocaleString('pt-BR')} moedas` : 'sem histórico disponível'}.</p>}
+            </div>
+          )}
+          {wagerError && <p role="alert" className="text-sm text-[#E30613]">{wagerError}</p>}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={wagerSubmitting || !currentUserId || (wagerType === 'coins' && selectedCoinAmount > coins) || (wagerType === 'card' && !wagerCardId)} onClick={() => void submitWagerChallenge()} className="btn btn-primary disabled:opacity-50">
+              {wagerSubmitting ? 'Enviando...' : 'Enviar desafio'}
+            </button>
+            <button type="button" onClick={() => navigate(`/profile/${opponentId}`)} className="btn btn-secondary">Voltar</button>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   if (challengeId && challenge && challenge.status === 'pending') {
     const isChallenger = currentUserId === challenge.challenger_id;
@@ -667,7 +836,13 @@ function MatchInner() {
       return (
         <div className="p-4 md:p-8 space-y-4">
           <h1 className="text-2xl font-semibold text-[#252733]">Desafio enviado</h1>
-          <div className="card-surface p-4 text-sm text-[#858A98]">Aguardando o adversario aceitar...</div>
+          <div className="card-surface space-y-2 p-4 text-sm text-[#858A98]">
+            <p>Aguardando o adversário aceitar...</p>
+            {challenge.wager_type === 'coins' && <p>Aposta: {Number(challenge.coin_amount).toLocaleString('pt-BR')} moedas por jogador.</p>}
+            {challenge.wager_type === 'card' && (
+              <p>Sua carta reservada: {challenge.challenger_card_snapshot?.name ?? 'Carta selecionada'} · {challenge.challenger_card_snapshot?.overall ?? '—'} OVR · {challenge.challenger_card_snapshot?.rarity ?? '—'}.</p>
+            )}
+          </div>
           <button
             onClick={async () => {
               const ok = await challengesService.rejectChallenge(challengeId);
@@ -689,9 +864,45 @@ function MatchInner() {
       <div className="p-4 md:p-8 space-y-4">
         <h1 className="text-2xl font-semibold text-[#252733]">Desafio PvP</h1>
         <div className="card-surface p-4 space-y-3">
-          <div className="text-sm text-[#252733]">Voce foi desafiado!</div>
+          <div className="text-sm text-[#252733]">Você foi desafiado!</div>
+          {challenge.wager_type === 'coins' && (
+            <p className="text-sm text-[#858A98]">Aposta: {Number(challenge.coin_amount).toLocaleString('pt-BR')} moedas por jogador. Ao aceitar, esse valor será reservado do seu saldo.</p>
+          )}
+          {challenge.wager_type === 'card' && (
+            <>
+              <p className="text-sm text-[#858A98]">Aposta: uma carta por jogador. Carta do desafiante: {challenge.challenger_card_snapshot?.name ?? 'carta selecionada'} · {challenge.challenger_card_snapshot?.overall ?? '—'} OVR · {challenge.challenger_card_snapshot?.rarity ?? '—'}. Escolha a sua para aceitar.</p>
+              <input value={wagerCardSearch} onChange={event => setWagerCardSearch(event.target.value)} placeholder="Buscar sua carta..." className="w-full rounded-xl border border-[#E9EAF0] px-3 py-2 text-sm" />
+              {availableWagerCardIds === null ? (
+                <p className="text-sm text-[#858A98]">Carregando cartas disponíveis...</p>
+              ) : (
+                <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {searchedWagerCards.map(card => (
+                    <div key={card.uid} className={`rounded-2xl p-1 ${acceptCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
+                      <Card card={card} size="sm" onClick={() => setAcceptCardId(card.uid)} />
+                    </div>
+                  ))}
+                  {searchedWagerCards.length === 0 && <p className="col-span-full py-4 text-sm text-[#858A98]">Nenhuma carta disponível para aposta.</p>}
+                </div>
+              )}
+              {chosenAcceptanceCard && <p className="text-xs text-[#858A98]">Sua aposta: {chosenAcceptanceCard.name} · {chosenAcceptanceCard.overall} OVR · {chosenAcceptanceCard.rarity}.</p>}
+            </>
+          )}
+          {wagerError && <p role="alert" className="text-sm text-[#E30613]">{wagerError}</p>}
           <div className="flex gap-2">
-            <button onClick={async () => { const ok = await challengesService.acceptChallenge(challengeId); const ch = await challengesService.getChallenge(challengeId); if (!ok && ch?.status !== 'accepted') toast.error('Não foi possível aceitar o desafio.'); if (ch) applyChallengeRow(ch); }} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Aceitar</button>
+            <button
+              disabled={challenge.wager_type === 'card' && !acceptCardId}
+              onClick={async () => {
+                try {
+                  const ok = await challengesService.acceptChallenge(challengeId, challenge.wager_type === 'card' ? acceptCardId : undefined);
+                  const ch = await challengesService.getChallenge(challengeId);
+                  if (!ok && ch?.status !== 'accepted') toast.error('Não foi possível aceitar o desafio.');
+                  if (ch) applyChallengeRow(ch);
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Não foi possível aceitar o desafio.');
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium disabled:opacity-50"
+            >Aceitar</button>
             <button
               onClick={async () => {
                 const ok = await challengesService.rejectChallenge(challengeId);
@@ -961,18 +1172,34 @@ function MatchInner() {
         );
       }
 
+      const wagerWinnerId = result.homeScore === result.awayScore
+        ? null
+        : result.homeScore > result.awayScore ? challenge?.challenger_id : challenge?.challenged_id;
+      const wagerSummary = challenge?.wager_type === 'coins'
+        ? wagerWinnerId
+          ? `${wagerWinnerId === challenge.challenger_id ? challenge.home_snapshot?.name ?? 'O desafiante' : challenge.away_snapshot?.name ?? 'O adversário'} venceu e recebeu ${((challenge.coin_amount ?? 0) * 2).toLocaleString('pt-BR')} moedas.`
+          : 'Empate: as duas apostas em moedas foram devolvidas.'
+        : challenge?.wager_type === 'card'
+          ? wagerWinnerId
+            ? `${(wagerWinnerId === challenge.challenger_id ? challenge.challenged_card_snapshot?.name : challenge.challenger_card_snapshot?.name) ?? 'A carta adversária'} foi transferida ao vencedor.`
+            : 'Empate: as duas cartas apostadas foram devolvidas.'
+          : null;
+
       return (
-        <PvpResultScreen
-          result={result}
-          mySide={myMatchSide}
-          homeSnapshot={challenge?.home_snapshot ?? null}
-          awaySnapshot={challenge?.away_snapshot ?? null}
-          cardDetailsById={officialSnapshotCardDetails?.key === snapshotCardDetailsKey ? officialSnapshotCardDetails.byId : {}}
-          rewardsSyncStatus={rewardsSyncStatus}
-          onRematch={() => { void startPvpRematch(); }}
-          rematchLoading={rematchLoading}
-          onMenu={() => navigate('/')}
-        />
+        <div className="space-y-3">
+          {wagerSummary && <div className="mx-auto max-w-5xl rounded-2xl border border-[#E9EAF0] bg-white p-4 text-sm text-[#252733]">{wagerSummary}</div>}
+          <PvpResultScreen
+            result={result}
+            mySide={myMatchSide}
+            homeSnapshot={challenge?.home_snapshot ?? null}
+            awaySnapshot={challenge?.away_snapshot ?? null}
+            cardDetailsById={officialSnapshotCardDetails?.key === snapshotCardDetailsKey ? officialSnapshotCardDetails.byId : {}}
+            rewardsSyncStatus={rewardsSyncStatus}
+            onRematch={() => { void startPvpRematch(); }}
+            rematchLoading={rematchLoading}
+            onMenu={() => navigate('/')}
+          />
+        </div>
       );
     }
 

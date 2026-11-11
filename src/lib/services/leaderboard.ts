@@ -109,6 +109,33 @@ export async function getCompetitiveLeaderboard(options: {
   }));
 }
 
+export async function getPoolCompetitiveLeaderboard(options: {
+  limit?: number;
+  offset?: number;
+  search?: string;
+} = {}): Promise<CompetitivePlayer[]> {
+  if (!supabase) throw new Error('Supabase não está configurado.');
+  const { data, error } = await supabase.rpc('pool_competitive_list_players', {
+    p_limit: options.limit ?? 20,
+    p_offset: options.offset ?? 0,
+    p_search: options.search?.trim() || null,
+  });
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map(row => ({
+    userId: String(row.user_id),
+    position: Number(row.player_position),
+    name: String(row.name ?? 'Jogador'),
+    avatarUrl: typeof row.avatar_url === 'string' ? row.avatar_url : null,
+    rating: Number(row.rating),
+    peakRating: Number(row.peak_rating),
+    matchesPlayed: Number(row.matches_played),
+    wins: Number(row.wins),
+    losses: Number(row.losses),
+    draws: Number(row.draws),
+    division: null,
+  }));
+}
+
 export async function searchCompetitiveHeadToHeadOpponents(
   userId: string,
   search: string,
