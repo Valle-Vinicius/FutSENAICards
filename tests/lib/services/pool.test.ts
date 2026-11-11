@@ -91,6 +91,7 @@ describe('pool service', () => {
             nextPlayer: 2,
             finalState: { balls: [] },
             playbackAt: '2026-11-11T00:00:02.000Z',
+            turnAvailableAt: '2026-11-11T00:00:10.000Z',
             version: 4,
           },
         }],
@@ -113,6 +114,7 @@ describe('pool service', () => {
       winner: null,
       finalState: { balls: [] },
       playbackAt: '2026-11-11T00:00:02.000Z',
+      turnAvailableAt: '2026-11-11T00:00:10.000Z',
       version: 4,
     }]);
     expect(mockFrom).toHaveBeenCalledWith('pool_shots');

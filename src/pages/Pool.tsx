@@ -294,6 +294,7 @@ export default function Pool() {
   const [shotLog, setShotLog] = useState<PoolShotEvent[]>([]);
   const [lastPlayedShotSeq, setLastPlayedShotSeq] = useState(0);
   const [now, setNow] = useState(0);
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(0);
   const [remoteAim, setRemoteAim] = useState<{
     playerId: string;
     angle: number;
@@ -342,12 +343,14 @@ export default function Pool() {
   const myNumber = sessionUserId !== null && match
     ? sessionUserId === match.player1Id ? 1 : sessionUserId === match.player2Id ? 2 : null
     : null;
+  const serverNow = now + serverClockOffsetMs;
   const isMyTurn = isMatchActive
     && state !== null
     && myNumber !== null
     && myNumber === match.currentPlayer
     && !match.shotLockId
-    && match.lastShotSeq <= lastPlayedShotSeq;
+    && match.lastShotSeq <= lastPlayedShotSeq
+    && (!match.turnAvailableAt || Date.parse(match.turnAvailableAt) <= serverNow);
 
   useEffect(() => {
     aimDraftRef.current = { angle, power, isMyTurn, playerId: sessionUserId };
@@ -408,7 +411,10 @@ export default function Pool() {
     const syncClock = async () => {
       try {
         const offset = await getPoolServerClockOffsetMs();
-        if (active) serverClockOffsetRef.current = offset;
+        if (active) {
+          serverClockOffsetRef.current = offset;
+          setServerClockOffsetMs(offset);
+        }
       } catch (error) {
         console.error('pool server clock sync failed', error);
       }
@@ -444,7 +450,7 @@ export default function Pool() {
   useEffect(() => {
     const updateTime = () => setNow(Date.now());
     updateTime();
-    const timer = window.setInterval(updateTime, 1000);
+    const timer = window.setInterval(updateTime, 250);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -675,6 +681,7 @@ export default function Pool() {
             version: row.version ?? current.version,
             lastShotSeq: row.last_shot_seq ?? current.lastShotSeq,
             shotLockId: row.shot_lock_id ?? null,
+            turnAvailableAt: row.turn_available_at ?? current.turnAvailableAt,
             turnDeadline: row.turn_deadline ?? current.turnDeadline,
             winnerId: row.winner_id ?? current.winnerId,
             finishReason: row.finish_reason ?? current.finishReason,
@@ -807,11 +814,18 @@ export default function Pool() {
   const activePlayerName = activePlayerNumber === 1 ? playerNames.player1 : playerNames.player2;
   const activeAssignedType = state?.assignments[`player${activePlayerNumber}` as 'player1' | 'player2'] ?? null;
   const playbackPending = Boolean(match && match.lastShotSeq > lastPlayedShotSeq);
+  const waitingForTurnStart = Boolean(
+    match
+    && myNumber !== null
+    && match.currentPlayer === myNumber
+    && match.turnAvailableAt
+    && Date.parse(match.turnAvailableAt) > serverNow,
+  );
   const ownBallsRemaining = state && activeAssignedType
     ? state.balls.filter(ball => ball.type === activeAssignedType && !ball.pocketed).length
     : null;
   const remainingSeconds = match?.turnDeadline
-    ? Math.max(0, Math.ceil((new Date(match.turnDeadline).getTime() - now) / 1000))
+    ? Math.max(0, Math.ceil((new Date(match.turnDeadline).getTime() - serverNow) / 1000))
     : null;
 
   const handleLeave = async () => {
@@ -854,7 +868,7 @@ export default function Pool() {
     );
   }
 
-  if (match.status === 'playing' || match.status === 'accepted') {
+  if (match.status === 'playing' || match.status === 'accepted' || playbackPending || shooting) {
     return (
       <div className="mx-auto w-full max-w-7xl space-y-4 p-3 sm:p-5 lg:p-6">
         <div className={`card-surface flex flex-wrap items-center justify-between gap-4 border-l-4 p-4 sm:p-5 ${isMyTurn ? 'border-l-[#16834a]' : 'border-l-[#2877db]'}`}>
@@ -867,6 +881,8 @@ export default function Pool() {
             <p className="mt-1 max-w-2xl text-sm text-[#626675]">
               {shooting || playbackPending || match.shotLockId
                 ? 'Tacada em andamento… acompanhe as bolas.'
+                : waitingForTurnStart
+                  ? 'Aguardando todos os dispositivos concluírem a animação sincronizada.'
                 : !state.assignments.player1
                   ? 'Mesa aberta: a primeira bola encaçapada (exceto a 8) define lisas ou listradas.'
                   : isMyTurn && ownBallsRemaining === 0
@@ -964,7 +980,9 @@ export default function Pool() {
                 </>
               ) : (
                 <div className="rounded-xl bg-[#F7F7F9] p-4 text-center text-sm font-medium text-[#858A98]">
-                  {shooting || playbackPending || match.shotLockId ? 'Sincronizando a tacada…' : 'Aguardando a vez do adversário…'}
+                  {shooting || playbackPending || match.shotLockId || waitingForTurnStart
+                    ? 'Sincronizando a tacada…'
+                    : 'Aguardando a vez do adversário…'}
                 </div>
               )}
             </div>

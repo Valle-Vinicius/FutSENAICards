@@ -236,7 +236,25 @@ serve(async (req) => {
     return json({ error: 'not your turn' }, origin, 403);
   }
 
-  const staleLockBefore = new Date(Date.now() - 60_000).toISOString();
+  const { data: serverTime, error: serverTimeError } = await supabase.rpc('pool_server_time');
+  if (serverTimeError) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to read server time`, serverTimeError.message);
+    return json({ error: 'could not validate server time' }, origin, 500);
+  }
+  const serverNowMs = Date.parse(typeof serverTime === 'string' ? serverTime : String(serverTime));
+  if (!Number.isFinite(serverNowMs)) {
+    console.error(`[pool-shot] user=${user.id} matchId=${matchId} received invalid server time`);
+    return json({ error: 'could not validate server time' }, origin, 500);
+  }
+  const now = new Date(serverNowMs);
+  if (match.turn_available_at && new Date(match.turn_available_at).getTime() > now.getTime()) {
+    return json({
+      error: 'wait for the synchronized shot animation to finish',
+      turnAvailableAt: match.turn_available_at,
+    }, origin, 409);
+  }
+
+  const staleLockBefore = new Date(now.getTime() - 60_000).toISOString();
   const { error: clearStaleLockError } = await supabase
     .from('pool_matches')
     .update({ shot_lock_id: null, shot_lock_at: null })
@@ -248,7 +266,6 @@ serve(async (req) => {
   }
 
   // Validate turn deadline - usar horário do servidor
-  const now = new Date();
   if (match.turn_deadline) {
     const deadline = new Date(match.turn_deadline);
     console.log(`[pool-shot] user=${user.id} matchId=${matchId} now=${now.toISOString()} deadline=${deadline.toISOString()}`);
@@ -266,6 +283,7 @@ serve(async (req) => {
         .eq('version', match.version ?? 0)
         .eq('current_player', match.current_player)
         .in('status', ['accepted', 'playing'])
+        .lte('turn_available_at', now.toISOString())
         .is('shot_lock_id', null)
         .select('id');
       if (expireError) {
@@ -285,7 +303,7 @@ serve(async (req) => {
   const shotId = crypto.randomUUID();
   const { data: lockRows, error: lockError } = await supabase
     .from('pool_matches')
-    .update({ shot_lock_id: shotId, shot_lock_at: new Date().toISOString() })
+    .update({ shot_lock_id: shotId, shot_lock_at: now.toISOString() })
     .eq('id', matchId)
     .eq('version', match.version ?? 0)
     .eq('current_player', match.current_player)
@@ -459,6 +477,7 @@ serve(async (req) => {
     seq,
     shotId,
     playbackAt: finalizedShot.playbackAt,
+    turnAvailableAt: finalizedShot.turnAvailableAt,
     version: finalizedShot.version,
     finalState: state,
     pocketed: pocketedIds,

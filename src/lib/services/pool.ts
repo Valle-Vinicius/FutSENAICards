@@ -12,6 +12,7 @@ export interface PoolMatch {
   version: number;
   lastShotSeq: number;
   shotLockId: string | null;
+  turnAvailableAt: string | null;
   turnDeadline: string | null;
   assignments: { player1: string | null; player2: string | null };
   winnerId: string | null;
@@ -34,6 +35,7 @@ export interface PoolShotEvent {
   winner: number | null;
   finalState: any | null;
   playbackAt: string | null;
+  turnAvailableAt: string | null;
   version: number | null;
 }
 
@@ -53,6 +55,7 @@ export function mapPoolShotEvent(shot: any): PoolShotEvent {
     winner: typeof result.winner === 'number' ? result.winner : null,
     finalState: result.finalState && typeof result.finalState === 'object' ? result.finalState : null,
     playbackAt: typeof result.playbackAt === 'string' ? result.playbackAt : null,
+    turnAvailableAt: typeof result.turnAvailableAt === 'string' ? result.turnAvailableAt : null,
     version: typeof result.version === 'number' ? result.version : null,
   };
 }
@@ -178,6 +181,7 @@ export async function getPoolMatch(id: string): Promise<PoolMatch | null> {
     version: data.version ?? 0,
     lastShotSeq: data.last_shot_seq ?? 0,
     shotLockId: data.shot_lock_id ?? null,
+    turnAvailableAt: data.turn_available_at ?? null,
     turnDeadline: data.turn_deadline,
     assignments: data.assignments,
     winnerId: data.winner_id,
