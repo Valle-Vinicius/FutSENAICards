@@ -12,6 +12,7 @@ export interface PoolMatch {
   turnDeadline: string | null;
   assignments: { player1: string | null; player2: string | null };
   winnerId: string | null;
+  finishReason: string | null;
   payout: number;
   createdAt: string;
 }
@@ -22,6 +23,29 @@ export interface PoolShotEvent {
   angle: number;
   power: number;
   anim: number[][] | null;
+  pocketed: number[];
+  foul: boolean | null;
+  foulReason: string | null;
+  firstContact: number | null;
+  nextPlayer: number | null;
+  winner: number | null;
+}
+
+function mapPoolShot(shot: any): PoolShotEvent {
+  const result = shot.result ?? {};
+  return {
+    seq: shot.seq,
+    playerId: shot.player_id,
+    angle: shot.angle,
+    power: shot.power,
+    anim: Array.isArray(result.anim) ? result.anim : null,
+    pocketed: Array.isArray(result.pocketed) ? result.pocketed : [],
+    foul: typeof result.foul === 'boolean' ? result.foul : null,
+    foulReason: typeof result.foulReason === 'string' ? result.foulReason : null,
+    firstContact: typeof result.firstContact === 'number' ? result.firstContact : null,
+    nextPlayer: typeof result.nextPlayer === 'number' ? result.nextPlayer : null,
+    winner: typeof result.winner === 'number' ? result.winner : null,
+  };
 }
 
 export async function getLatestPoolShotSeq(matchId: string): Promise<number> {
@@ -46,13 +70,19 @@ export async function getPoolShotsAfter(matchId: string, seq: number): Promise<P
     .gt('seq', seq)
     .order('seq', { ascending: true });
   if (error) throw error;
-  return (data ?? []).map(shot => ({
-    seq: shot.seq,
-    playerId: shot.player_id,
-    angle: shot.angle,
-    power: shot.power,
-    anim: Array.isArray(shot.result?.anim) ? shot.result.anim : null,
-  }));
+  return (data ?? []).map(mapPoolShot);
+}
+
+export async function getRecentPoolShots(matchId: string, limit = 12): Promise<PoolShotEvent[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('pool_shots')
+    .select('seq, player_id, angle, power, result')
+    .eq('match_id', matchId)
+    .order('seq', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map(mapPoolShot).reverse();
 }
 
 async function getActivePoolMatchBetween(player1Id: string, player2Id: string): Promise<string | null> {
@@ -128,6 +158,7 @@ export async function getPoolMatch(id: string): Promise<PoolMatch | null> {
     turnDeadline: data.turn_deadline,
     assignments: data.assignments,
     winnerId: data.winner_id,
+    finishReason: data.finish_reason,
     payout: data.payout,
     createdAt: data.created_at,
   };

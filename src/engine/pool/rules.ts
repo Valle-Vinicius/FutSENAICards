@@ -22,11 +22,11 @@ export function isFoul(state: TableState, shot: { firstContact: number | null; p
 }
 
 export function determineWinner(state: TableState, foul: boolean): 1 | 2 | null {
-  const eightPocketed = state.pocketedThisTurn.includes(8);
+  const eightPocketed = state.pocketedThisTurn.some(ballId => getBallType(ballId, state) === 'eight');
   if (!eightPocketed) return null;
   const playerType = getPlayerType(state, state.currentPlayer);
   const ownRemaining = state.balls.filter(b => b.type === playerType && !b.pocketed).length;
-  if (ownRemaining > 0 || foul) {
+  if (!playerType || ownRemaining > 0 || foul) {
     return state.currentPlayer === 1 ? 2 : 1;
   }
   return state.currentPlayer;

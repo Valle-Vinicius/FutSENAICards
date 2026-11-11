@@ -76,7 +76,13 @@ describe('pool service', () => {
       gt: jest.fn(() => query),
       order: jest.fn(() => query),
       then: (resolve: (value: unknown) => void) => resolve({
-        data: [{ seq: 4, player_id: 'player-2', result: { anim: [[1, 2], [3, 4]] } }],
+        data: [{
+          seq: 4,
+          player_id: 'player-2',
+          angle: 0.4,
+          power: 0.6,
+          result: { anim: [[1, 2], [3, 4]], pocketed: [3], foul: false, nextPlayer: 2 },
+        }],
         error: null,
       }),
     });
@@ -85,7 +91,15 @@ describe('pool service', () => {
     await expect(getPoolShotsAfter('match-1', 3)).resolves.toEqual([{
       seq: 4,
       playerId: 'player-2',
+      angle: 0.4,
+      power: 0.6,
       anim: [[1, 2], [3, 4]],
+      pocketed: [3],
+      foul: false,
+      foulReason: null,
+      firstContact: null,
+      nextPlayer: 2,
+      winner: null,
     }]);
     expect(mockFrom).toHaveBeenCalledWith('pool_shots');
     expect(query.gt).toHaveBeenCalledWith('seq', 3);

@@ -243,7 +243,12 @@ serve(async (req) => {
     console.log(`[pool-shot] user=${user.id} matchId=${matchId} now=${now.toISOString()} deadline=${deadline.toISOString()}`);
     if (deadline < now) {
       const winnerId = match.current_player === 1 ? match.player2_id : match.player1_id;
-      await supabase.from('pool_matches').update({ status: 'finished', winner_id: winnerId, updated_at: now.toISOString() }).eq('id', matchId);
+      await supabase.from('pool_matches').update({
+        status: 'finished',
+        winner_id: winnerId,
+        finish_reason: 'turn_expired',
+        updated_at: now.toISOString(),
+      }).eq('id', matchId);
       console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 turn expired, winner=${winnerId}`);
       return json({ error: 'turn expired', winner: winnerId }, origin, 400);
     }
@@ -320,25 +325,35 @@ serve(async (req) => {
   // Determine foul
   const pocketedIds = state.pocketedThisTurn;
   let foul = false;
-  if (state.firstContact === null) foul = true;
+  let foulReason: string | null = null;
+  if (state.firstContact === null) {
+    foul = true;
+    foulReason = 'no_contact';
+  }
   else {
     const firstBall = state.balls.find((b: any) => b.id === state.firstContact);
     const playerType = state.assignments[`player${state.currentPlayer}`];
     if (playerType && firstBall && firstBall.type !== playerType && firstBall.type !== 'eight') {
       const ownLeft = state.balls.filter((b: any) => b.type === playerType && !b.pocketed).length;
-      if (ownLeft > 0) foul = true;
+      if (ownLeft > 0) {
+        foul = true;
+        foulReason = 'wrong_first_ball';
+      }
     }
   }
-  if (pocketedIds.includes(0)) foul = true;
+  if (pocketedIds.includes(0)) {
+    foul = true;
+    foulReason ??= 'cue_pocketed';
+  }
 
-  // 8-ball (id 15) pocketed
-  const eightPocketed = pocketedIds.includes(15);
+  const eightPocketed = state.balls.some((ball: any) => ball.type === 'eight' && pocketedIds.includes(ball.id));
   const ownType = state.assignments[`player${state.currentPlayer}`];
   const ownRemaining = state.balls.filter((b: any) => b.type === ownType && !b.pocketed).length;
   if (eightPocketed) {
-    if (ownRemaining > 0 || foul) {
+    if (ownType === null || ownRemaining > 0 || foul) {
       state.winner = state.currentPlayer === 1 ? 2 : 1;
       foul = true;
+      foulReason = 'eight_early';
     } else if (!foul) {
       state.winner = state.currentPlayer;
     }
@@ -384,6 +399,7 @@ serve(async (req) => {
   if (state.winner) {
     updateData.status = 'finished';
     updateData.winner_id = state.winner === 1 ? match.player1_id : match.player2_id;
+    updateData.finish_reason = eightPocketed && (ownType === null || ownRemaining > 0 || foul) ? 'eight_early' : 'eight_pocketed';
   }
   const { error: matchUpdateError } = await supabase.from('pool_matches').update(updateData).eq('id', matchId);
   if (matchUpdateError) {
@@ -392,7 +408,17 @@ serve(async (req) => {
   }
   const { error: shotUpdateError } = await supabase
     .from('pool_shots')
-    .update({ result: { pocketed: pocketedIds, foul, nextPlayer, winner: state.winner, anim } })
+    .update({
+      result: {
+        pocketed: pocketedIds,
+        foul,
+        foulReason,
+        firstContact: state.firstContact,
+        nextPlayer,
+        winner: state.winner,
+        anim,
+      },
+    })
     .eq('shot_id', shotId);
   if (shotUpdateError) {
     console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to save shot animation`, shotUpdateError.message);
@@ -400,5 +426,5 @@ serve(async (req) => {
   }
 
   console.log(`[pool-shot] user=${user.id} matchId=${matchId} success nextPlayer=${nextPlayer} winner=${state.winner} foul=${foul}`);
-  return json({ anim, seq, finalState: state, pocketed: pocketedIds, foul, nextPlayer, winner: state.winner }, origin, 200);
+  return json({ anim, seq, finalState: state, pocketed: pocketedIds, foul, foulReason, firstContact: state.firstContact, nextPlayer, winner: state.winner }, origin, 200);
 });

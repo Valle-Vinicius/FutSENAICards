@@ -1,4 +1,4 @@
-import { BALL_RADIUS, TABLE_HEIGHT, TABLE_WIDTH } from './types';
+import { BALL_RADIUS, FIXED_DT, FRICTION, TABLE_HEIGHT, TABLE_WIDTH } from './types';
 import type { Ball } from './types';
 
 export interface TrajectoryPoint {
@@ -14,6 +14,7 @@ export interface ShotTrajectory {
 }
 
 const MAX_OBJECT_TRAJECTORY = 0.2;
+const MIN_VELOCITY = 0.001;
 
 function rayCircleDistance(
   origin: TrajectoryPoint,
@@ -53,12 +54,19 @@ function pointAlong(origin: TrajectoryPoint, direction: TrajectoryPoint, distanc
   };
 }
 
-export function calculateShotTrajectory(balls: Ball[], angle: number): ShotTrajectory | null {
+function shotTravelDistance(power: number): number {
+  const initialVelocity = Math.max(0, Math.min(1, power)) * 8;
+  if (initialVelocity <= MIN_VELOCITY) return 0;
+  const steps = Math.ceil(Math.log(MIN_VELOCITY / initialVelocity) / Math.log(FRICTION));
+  return initialVelocity * FIXED_DT * (1 - Math.pow(FRICTION, steps)) / (1 - FRICTION);
+}
+
+export function calculateShotTrajectory(balls: Ball[], angle: number, power = 1): ShotTrajectory | null {
   const cue = balls.find(ball => ball.type === 'cue');
   if (!cue || cue.pocketed) return null;
 
   const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-  const maxCueDistance = distanceToRail(cue, direction);
+  const maxCueDistance = Math.min(distanceToRail(cue, direction), shotTravelDistance(power));
   let hit: { ball: Ball; distance: number } | null = null;
 
   for (const ball of balls) {

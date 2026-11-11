@@ -1,12 +1,14 @@
 import { createInitialState, simulateShot } from '../../src/engine/pool/physics';
 import { calculateShotTrajectory } from '../../src/engine/pool/trajectory';
 import { BALL_RADIUS } from '../../src/engine/pool/types';
+import { determineWinner } from '../../src/engine/pool/rules';
 
 describe('Pool engine', () => {
   it('creates initial state with 16 balls', () => {
     const s = createInitialState();
     expect(s.balls.length).toBe(16);
     expect(s.balls[0].type).toBe('cue');
+    expect(s.balls.filter(ball => ball.type === 'eight').map(ball => ball.id)).toEqual([15]);
   });
 
   it('determinism: same state + same shot = same result', () => {
@@ -91,5 +93,65 @@ describe('Pool engine', () => {
     const trajectory = calculateShotTrajectory([cue, far, near], 0);
 
     expect(trajectory?.objectBallId).toBe(near.id);
+  });
+
+  it('only predicts a collision when the chosen power can physically reach it', () => {
+    const cue = { ...createInitialState().balls[0], x: 0.2, y: 0.5 };
+    const target = { ...cue, id: 1, type: 'solid' as const, x: 1.5, y: 0.5 };
+    const lowPower = calculateShotTrajectory([cue, target], 0, 0.1);
+    const highPower = calculateShotTrajectory([cue, target], 0, 0.5);
+
+    expect(lowPower?.objectBallId).toBeNull();
+    expect(highPower?.objectBallId).toBe(target.id);
+  });
+
+  it('lets a 25% shot reach a ball that is within its physical travel distance', () => {
+    const cue = { ...createInitialState().balls[0], x: 0.2, y: 0.5 };
+    const target = { ...cue, id: 1, type: 'solid' as const, x: 1.4, y: 0.5 };
+    const trajectory = calculateShotTrajectory([cue, target], 0, 0.25);
+
+    expect(trajectory?.objectBallId).toBe(target.id);
+  });
+
+  it('does not end a game when a non-eight ball is pocketed', () => {
+    const state = createInitialState();
+    state.assignments.player1 = 'solid';
+    state.assignments.player2 = 'stripe';
+    state.balls = state.balls.map(ball => ({
+      ...ball,
+      pocketed: ball.id !== 0 && ball.id !== 1,
+      x: ball.id === 0 ? 0.14 : ball.id === 1 ? 0.065 : ball.x,
+      y: ball.id === 0 ? 0.14 : ball.id === 1 ? 0.065 : ball.y,
+    }));
+
+    const result = simulateShot(state, { angle: Math.PI * 1.25, power: 1 });
+
+    expect(result.pocketed).toContain(1);
+    expect(result.finalState.winner).toBeNull();
+  });
+
+  it('does not allow winning the 8-ball while the table is still open', () => {
+    const state = createInitialState();
+    state.balls = state.balls.map(ball => ({
+      ...ball,
+      pocketed: ball.id !== 0 && ball.id !== 15,
+      x: ball.id === 0 ? 0.14 : ball.id === 15 ? 0.065 : ball.x,
+      y: ball.id === 0 ? 0.14 : ball.id === 15 ? 0.065 : ball.y,
+    }));
+
+    const result = simulateShot(state, { angle: Math.PI * 1.25, power: 1 });
+
+    expect(result.pocketed).toContain(15);
+    expect(result.finalState.winner).toBe(2);
+    expect(result.foul).toBe(true);
+  });
+
+  it('identifies the 8-ball by type rather than mistaking a striped ball ID for it', () => {
+    const state = createInitialState();
+    state.pocketedThisTurn = [8];
+    expect(determineWinner(state, false)).toBeNull();
+
+    state.pocketedThisTurn = [15];
+    expect(determineWinner(state, false)).toBe(2);
   });
 });
