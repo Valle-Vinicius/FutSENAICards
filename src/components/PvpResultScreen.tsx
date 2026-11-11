@@ -75,6 +75,7 @@ const EVENT_ICON: Record<MatchEvent['type'], typeof Goal> = {
   yellow: Award,
   halftime: Clock3,
   fulltime: Trophy,
+  penalty: Goal,
 };
 
 const RARITY_KEYS = Object.keys(RARITY_META) as Rarity[];
@@ -311,7 +312,10 @@ export default function PvpResultScreen({
   const awayPossession = homePossessionTotal ? 100 - homePossession : 0;
   const myScore = mySide === 'home' ? result.homeScore : result.awayScore;
   const opponentScore = mySide === 'home' ? result.awayScore : result.homeScore;
-  const outcome = myScore === opponentScore ? 'draw' : myScore > opponentScore ? 'win' : 'loss';
+  const decidedWinner = result.winnerSide
+    ?? result.penalties?.winnerSide
+    ?? (myScore === opponentScore ? null : myScore > opponentScore ? mySide : mySide === 'home' ? 'away' : 'home');
+  const outcome = decidedWinner === null ? 'draw' : decidedWinner === mySide ? 'win' : 'loss';
   const outcomeLabel = outcome === 'win' ? 'VITÓRIA' : outcome === 'loss' ? 'DERROTA' : 'EMPATE';
   const outcomeColor = outcome === 'win' ? 'text-[#E30613]' : outcome === 'loss' ? 'text-[#858A98]' : 'text-[#252733]';
   const homeName = result.config.homeName || homeSnapshot?.name || 'Desafiante';
@@ -381,6 +385,14 @@ export default function PvpResultScreen({
               <div className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#858A98]">
                 {result.durationMinutes || 90} minutos · apito final
               </div>
+              {result.penalties && (
+                <div className="mt-2 rounded-xl border border-[#E9EAF0] bg-white/80 px-3 py-2">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#858A98]">Decisão por pênaltis</div>
+                  <div className="mt-1 text-xl font-black tabular-nums text-[#252733]">
+                    {result.penalties.homeScore} <span className="text-[#858A98]">–</span> {result.penalties.awayScore}
+                  </div>
+                </div>
+              )}
             </div>
             <div className={`order-3 text-center ${mySide === 'away' ? 'md:text-right' : 'md:text-left'}`}>
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#858A98]">Desafiado · Visitante</div>

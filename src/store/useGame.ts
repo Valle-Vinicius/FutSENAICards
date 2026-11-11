@@ -290,7 +290,7 @@ export const useGame = create<GameState & Actions>()(
         if (hasSaved) set({ savedSquads: squads });
         // load primary squad into active squad
         const primary = await getPrimarySquadService(userId);
-        if (primary && hasSaved && !squadSavePending) {
+        if (primary && !squadSavePending) {
           const positions = (FORMATIONS_FUTSAL as any)[primary.formation] || (FORMATIONS_FUTSAL as any)['1-2-1'];
           const starters = positions.map((pos: string, i: number) => ({ position: pos, uid: primary.starters[i] ?? null }));
           set(st => ({ squads: { ...st.squads, futsal: { sport: 'futsal', formation: primary.formation, starters, bench: primary.bench } } }));
@@ -749,6 +749,8 @@ export const useGame = create<GameState & Actions>()(
         }
       },
       setPrimarySquad: (id) => {
+        if (!get().savedSquads.some(s => s.id === id)) return;
+        get().loadSquad(id);
         set(st => ({
           savedSquads: st.savedSquads.map(s => ({ ...s, isPrimary: s.id === id ? true : (s.sport === st.savedSquads.find(x=>x.id===id)?.sport ? false : s.isPrimary) }))
         }));

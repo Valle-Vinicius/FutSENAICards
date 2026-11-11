@@ -27,7 +27,11 @@ describe('PvP challenge simulation', () => {
     const r = runClient(4242);
     expect(r.durationMinutes).toBe(90);
     expect(r.events.find(event => event.type === 'halftime')?.minute).toBe(45);
-    expect(r.events[r.events.length - 1]).toMatchObject({ type: 'fulltime', minute: 90 });
+    expect(r.events.find(event => event.type === 'fulltime')).toMatchObject({ type: 'fulltime', minute: 90 });
+    if (r.homeScore === r.awayScore) {
+      expect(r.penalties).not.toBeNull();
+      expect(r.winnerSide).toBe(r.penalties?.winnerSide);
+    }
     expect(r.config.homePlayers.map(p => p.id)).toEqual(['h1_home', 'h2_home', 'h3_home', 'h4_home', 'h5_home']);
     expect(r.config.awayPlayers.map(p => p.id)).toEqual(['a1_away', 'a2_away', 'a3_away', 'a4_away', 'a5_away']);
     expect(r.config.awayName).toBe('Bia');

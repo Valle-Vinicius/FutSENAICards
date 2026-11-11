@@ -38,7 +38,7 @@ export interface MatchConfig {
 
 export interface MatchEvent {
   minute: number;
-  type: 'kickoff' | 'pass' | 'dribble' | 'shot' | 'goal' | 'save' | 'miss' | 'tackle' | 'foul' | 'yellow' | 'halftime' | 'fulltime';
+  type: 'kickoff' | 'pass' | 'dribble' | 'shot' | 'goal' | 'save' | 'miss' | 'tackle' | 'foul' | 'yellow' | 'halftime' | 'fulltime' | 'penalty';
   team: 'home' | 'away' | 'neutral';
   playerId?: string;
   assistId?: string;
@@ -91,6 +91,22 @@ export interface MatchResult {
   playerStats: Record<string, PlayerStats>;
   teamStats: { home: TeamStats; away: TeamStats };
   durationMinutes: number;
+  winnerSide?: 'home' | 'away' | null;
+  penalties?: PenaltyShootout | null;
+}
+
+export interface PenaltyShootout {
+  homeScore: number;
+  awayScore: number;
+  winnerSide: 'home' | 'away';
+  kicks: {
+    team: 'home' | 'away';
+    playerId: string;
+    scored: boolean;
+    homeScore: number;
+    awayScore: number;
+    suddenDeath: boolean;
+  }[];
 }
 
 // ---------- seeded rng ----------
@@ -464,6 +480,95 @@ export function simulateMatch(config: MatchConfig): MatchResult {
 
   events.push({ minute: totalMinutes, type: 'fulltime', team: 'neutral', description: `Fim de jogo. ${config.homeName} ${homeScore} x ${awayScore} ${config.awayName}.` });
 
+  let penalties: PenaltyShootout | null = null;
+  let winnerSide: 'home' | 'away' | null = homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : null;
+  if (config.mode === 'pvp' && winnerSide === null) {
+    let penaltyHome = 0;
+    let penaltyAway = 0;
+    const kicks: PenaltyShootout['kicks'] = [];
+    const homeShooters = homePlayers.filter(player => !player.isGK);
+    const awayShooters = awayPlayers.filter(player => !player.isGK);
+    const homeKeeper = homePlayers.find(player => player.isGK)!;
+    const awayKeeper = awayPlayers.find(player => player.isGK)!;
+    const takeKick = (team: 'home' | 'away', round: number, suddenDeath: boolean) => {
+      const shooters = team === 'home' ? homeShooters : awayShooters;
+      const keeper = team === 'home' ? awayKeeper : homeKeeper;
+      const shooter = shooters[(round - 1) % shooters.length];
+      const keeperSkill = keeper.attrs.reflexes ?? keeper.attrs.defending;
+      const scoreChance = clamp(0.7 + (shooter.attrs.shooting - keeperSkill) / 250, 0.5, 0.9);
+      const scored = rng() < scoreChance;
+      if (scored) {
+        if (team === 'home') penaltyHome += 1;
+        else penaltyAway += 1;
+      }
+      kicks.push({
+        team,
+        playerId: shooter.id,
+        scored,
+        homeScore: penaltyHome,
+        awayScore: penaltyAway,
+        suddenDeath,
+      });
+      events.push({
+        minute: totalMinutes,
+        type: 'penalty',
+        team,
+        playerId: shooter.id,
+        description: `${shooter.name} ${scored ? 'converte' : 'erra'} a cobrança${suddenDeath ? ' na morte súbita' : ''}. Pênaltis: ${penaltyHome} x ${penaltyAway}.`,
+      });
+    };
+
+    for (let round = 1; round <= 5; round += 1) {
+      takeKick('home', round, false);
+      takeKick('away', round, false);
+      const homeRemaining = 5 - round;
+      const awayRemaining = homeRemaining;
+      if (penaltyHome > penaltyAway + awayRemaining || penaltyAway > penaltyHome + homeRemaining) break;
+    }
+
+    let suddenDeathRound = 1;
+    while (penaltyHome === penaltyAway && suddenDeathRound <= 20) {
+      takeKick('home', 5 + suddenDeathRound, true);
+      takeKick('away', 5 + suddenDeathRound, true);
+      suddenDeathRound += 1;
+    }
+    if (penaltyHome === penaltyAway) {
+      const scoringTeam = rng() < 0.5 ? 'home' : 'away';
+      const missTeam = scoringTeam === 'home' ? 'away' : 'home';
+      for (const [team, scored] of [[scoringTeam, true], [missTeam, false]] as const) {
+        const shooters = team === 'home' ? homeShooters : awayShooters;
+        const shooter = shooters[(5 + suddenDeathRound - 1) % shooters.length];
+        if (scored) {
+          if (team === 'home') penaltyHome += 1;
+          else penaltyAway += 1;
+        }
+        kicks.push({
+          team,
+          playerId: shooter.id,
+          scored,
+          homeScore: penaltyHome,
+          awayScore: penaltyAway,
+          suddenDeath: true,
+        });
+        events.push({
+          minute: totalMinutes,
+          type: 'penalty',
+          team,
+          playerId: shooter.id,
+          description: `${shooter.name} ${scored ? 'converte' : 'erra'} a cobrança decisiva. Pênaltis: ${penaltyHome} x ${penaltyAway}.`,
+        });
+      }
+    }
+    winnerSide = penaltyHome > penaltyAway ? 'home' : 'away';
+    penalties = { homeScore: penaltyHome, awayScore: penaltyAway, winnerSide, kicks };
+    events.push({
+      minute: totalMinutes,
+      type: 'penalty',
+      team: winnerSide,
+      description: `${winnerSide === 'home' ? config.homeName : config.awayName} vence nos pênaltis por ${penaltyHome} x ${penaltyAway}.`,
+    });
+  }
+
   return {
     config,
     homeScore,
@@ -473,6 +578,8 @@ export function simulateMatch(config: MatchConfig): MatchResult {
     playerStats: stats,
     teamStats,
     durationMinutes: totalMinutes,
+    winnerSide,
+    penalties,
   };
 }
 

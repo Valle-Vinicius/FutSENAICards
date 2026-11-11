@@ -904,8 +904,8 @@ function MatchInner() {
     const homePlayers = result.config.homePlayers;
     const awayPlayers = result.config.awayPlayers;
     const playerById = (id: string) => [...homePlayers, ...awayPlayers].find(p => p.id === id);
-    const shownHomeScore = challengeId && myMatchSide === 'away' ? result.awayScore : result.homeScore;
-    const shownAwayScore = challengeId && myMatchSide === 'away' ? result.homeScore : result.awayScore;
+    const shownHomeScore = challengeId && myMatchSide === 'away' ? currentFrame.awayScore : currentFrame.homeScore;
+    const shownAwayScore = challengeId && myMatchSide === 'away' ? currentFrame.homeScore : currentFrame.awayScore;
     const activeSpeed = challengeId ? playbackState?.speed ?? 1 : speed;
     const isPlaying = challengeId ? playbackState?.status === 'playing' : playing;
     return (

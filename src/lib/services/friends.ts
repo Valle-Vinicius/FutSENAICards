@@ -22,16 +22,54 @@ function isOnline(lastSeen?: string): boolean {
   return diff < 5 * 60 * 1000;
 }
 
-export async function searchUsers(query: string, currentUserId: string): Promise<FriendUser[]> {
+async function getVisibleProfiles(): Promise<FriendUser[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, name, avatar_url, last_seen')
-    .ilike('name', `%${query}%`)
-    .neq('id', currentUserId)
-    .limit(20);
-  if (error) return [];
-  return (data || []).map((u: any) => ({ id: u.id, name: u.name, avatar_url: u.avatar_url, last_seen: u.last_seen, online: isOnline(u.last_seen) }));
+  const { data, error } = await supabase.rpc('get_visible_friend_profiles');
+  if (error) {
+    console.error('visible friend profiles query failed', error);
+    return [];
+  }
+  return (data || []).map((u: any) => ({
+    id: u.user_id,
+    name: u.name,
+    avatar_url: u.avatar_url,
+    last_seen: u.last_seen,
+    online: isOnline(u.last_seen),
+  }));
+}
+
+export async function searchUsers(query: string): Promise<FriendUser[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('discover_addable_users', {
+    p_search: query.trim() || null,
+    p_limit: 50,
+    p_offset: 0,
+  });
+  if (error) throw error;
+  return (data || []).map((u: any) => ({
+    id: u.user_id,
+    name: u.name,
+    avatar_url: u.avatar_url,
+    last_seen: u.last_seen,
+    online: isOnline(u.last_seen),
+  }));
+}
+
+export async function getAddableUsers(offset = 0): Promise<FriendUser[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('discover_addable_users', {
+    p_search: null,
+    p_limit: 50,
+    p_offset: offset,
+  });
+  if (error) throw error;
+  return (data || []).map((u: any) => ({
+    id: u.user_id,
+    name: u.name,
+    avatar_url: u.avatar_url,
+    last_seen: u.last_seen,
+    online: isOnline(u.last_seen),
+  }));
 }
 
 export async function getFriends(userId: string): Promise<FriendUser[]> {
@@ -41,11 +79,15 @@ export async function getFriends(userId: string): Promise<FriendUser[]> {
     .select('requester_id, addressee_id')
     .eq('status', 'accepted')
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
-  if (error) return [];
+  if (error) {
+    console.error('friends list query failed', error);
+    return [];
+  }
   const friendIds = (data || []).map((f: any) => f.requester_id === userId ? f.addressee_id : f.requester_id);
   if (friendIds.length === 0) return [];
-  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url, last_seen').in('id', friendIds);
-  return (profiles || []).map((u: any) => ({ id: u.id, name: u.name, avatar_url: u.avatar_url, last_seen: u.last_seen, online: isOnline(u.last_seen) }));
+  const profiles = await getVisibleProfiles();
+  const profileMap = new Map(profiles.map(profile => [profile.id, profile]));
+  return friendIds.map(id => profileMap.get(id)).filter((profile): profile is FriendUser => !!profile);
 }
 
 export async function getPendingReceived(userId: string): Promise<{ friendship: Friendship; user: FriendUser }[]> {
@@ -55,14 +97,17 @@ export async function getPendingReceived(userId: string): Promise<{ friendship: 
     .select('*')
     .eq('addressee_id', userId)
     .eq('status', 'pending');
-  if (error) return [];
+  if (error) {
+    console.error('received friend requests query failed', error);
+    return [];
+  }
   const requesterIds = (data || []).map((f: any) => f.requester_id);
   if (requesterIds.length === 0) return [];
-  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url, last_seen').in('id', requesterIds);
-  const profileMap = new Map((profiles || []).map((u: any) => [u.id, u]));
+  const profiles = await getVisibleProfiles();
+  const profileMap = new Map(profiles.map(profile => [profile.id, profile]));
   return (data || []).map((f: any) => ({
     friendship: f,
-    user: { id: f.requester_id, name: profileMap.get(f.requester_id)?.name || 'Usuário', avatar_url: profileMap.get(f.requester_id)?.avatar_url, last_seen: profileMap.get(f.requester_id)?.last_seen, online: isOnline(profileMap.get(f.requester_id)?.last_seen) },
+    user: profileMap.get(f.requester_id) ?? { id: f.requester_id, name: 'Usuário' },
   }));
 }
 
@@ -73,14 +118,17 @@ export async function getPendingSent(userId: string): Promise<{ friendship: Frie
     .select('*')
     .eq('requester_id', userId)
     .eq('status', 'pending');
-  if (error) return [];
+  if (error) {
+    console.error('sent friend requests query failed', error);
+    return [];
+  }
   const addresseeIds = (data || []).map((f: any) => f.addressee_id);
   if (addresseeIds.length === 0) return [];
-  const { data: profiles } = await supabase.from('profiles').select('id, name, avatar_url, last_seen').in('id', addresseeIds);
-  const profileMap = new Map((profiles || []).map((u: any) => [u.id, u]));
+  const profiles = await getVisibleProfiles();
+  const profileMap = new Map(profiles.map(profile => [profile.id, profile]));
   return (data || []).map((f: any) => ({
     friendship: f,
-    user: { id: f.addressee_id, name: profileMap.get(f.addressee_id)?.name || 'Usuário', avatar_url: profileMap.get(f.addressee_id)?.avatar_url, last_seen: profileMap.get(f.addressee_id)?.last_seen, online: isOnline(profileMap.get(f.addressee_id)?.last_seen) },
+    user: profileMap.get(f.addressee_id) ?? { id: f.addressee_id, name: 'Usuário' },
   }));
 }
 

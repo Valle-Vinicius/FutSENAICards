@@ -278,6 +278,27 @@ describe('PvP result screen', () => {
     expect(screen.getByRole('link', { name: /Detalhes da partida/ }).getAttribute('href')).toBe('#match-details');
   });
 
+  it('shows a winner and the shootout score when regulation time is tied', () => {
+    renderScreen({
+      result: {
+        ...result,
+        homeScore: 1,
+        awayScore: 1,
+        winnerSide: 'home',
+        penalties: {
+          homeScore: 4,
+          awayScore: 3,
+          winnerSide: 'home',
+          kicks: [],
+        },
+      },
+    });
+
+    expect(screen.getByText('VITÓRIA')).toBeTruthy();
+    expect(screen.getByText('Decisão por pênaltis')).toBeTruthy();
+    expect(screen.getByText(/4.*3/)).toBeTruthy();
+  });
+
   it('renders missing artwork and incomplete statistics without substituting another card', () => {
     renderScreen({
       homeSnapshot: null,

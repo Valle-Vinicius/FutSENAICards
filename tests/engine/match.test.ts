@@ -48,6 +48,62 @@ describe('simulateMatch', () => {
     expect(totalShots).toBeGreaterThanOrEqual(r.teamStats.home.shotsOnTarget + r.teamStats.away.shotsOnTarget);
   });
 
+  it('resolves a tied PvP score with a deterministic penalty shootout', () => {
+    const home = createPlayersFromCards(homeCards as any, 'home', '1-2-1', 'futsal');
+    const away = createPlayersFromCards(awayCards as any, 'away', '1-2-1', 'futsal');
+    const config = {
+      sport: 'futsal' as const,
+      mode: 'pvp' as const,
+      homeName: 'H',
+      awayName: 'A',
+      homePlayers: home,
+      awayPlayers: away,
+      homeFormation: '1-2-1',
+      awayFormation: '1-2-1',
+      homeTactic: 'balanced' as const,
+      awayTactic: 'balanced' as const,
+      awayDifficulty: 'normal' as const,
+      seed: 42,
+      minutes: 0.5,
+    };
+    const first = simulateMatch(config);
+    const second = simulateMatch({
+      ...config,
+      homePlayers: home.map(player => ({ ...player })),
+      awayPlayers: away.map(player => ({ ...player })),
+    });
+
+    expect(first.homeScore).toBe(first.awayScore);
+    expect(first.penalties).not.toBeNull();
+    expect(first.winnerSide).toBe(first.penalties?.winnerSide);
+    expect(first.penalties?.homeScore).not.toBe(first.penalties?.awayScore);
+    expect(first.penalties).toEqual(second.penalties);
+    expect(first.events.filter(event => event.type === 'penalty').length).toBeGreaterThan(0);
+  });
+
+  it('keeps friendly draws without running a penalty shootout', () => {
+    const home = createPlayersFromCards(homeCards as any, 'home', '1-2-1', 'futsal');
+    const away = createPlayersFromCards(awayCards as any, 'away', '1-2-1', 'futsal');
+    const result = simulateMatch({
+      sport: 'futsal',
+      homeName: 'H',
+      awayName: 'A',
+      homePlayers: home,
+      awayPlayers: away,
+      homeFormation: '1-2-1',
+      awayFormation: '1-2-1',
+      homeTactic: 'balanced',
+      awayTactic: 'balanced',
+      awayDifficulty: 'normal',
+      seed: 42,
+      minutes: 0.5,
+    });
+
+    expect(result.homeScore).toBe(result.awayScore);
+    expect(result.penalties).toBeNull();
+    expect(result.winnerSide).toBeNull();
+  });
+
   it('different seeds can produce different results', () => {
     const home = createPlayersFromCards(homeCards as any, 'home', '1-2-1', 'futsal');
     const away = createPlayersFromCards(awayCards as any, 'away', '1-2-1', 'futsal');
