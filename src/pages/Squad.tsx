@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import { Star } from 'lucide-react';
 import Card from '../components/Card';
 import { squadOverall } from '../store/useGame';
 import { FORMATIONS_FUTSAL as FS } from '../lib/game';
+import { RARITY_META } from '../types';
 
 const futsalFormations = Object.keys(FS);
+
+function normalizeSearch(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
+}
 
 export default function Squad() {
   const sport = 'futsal' as const;
@@ -25,6 +30,9 @@ export default function Squad() {
   const [criteria, setCriteria] = useState<'overall'|'balance'|'position'>('overall');
   const [saveName, setSaveName] = useState('');
   const [msg, setMsg] = useState('');
+  const [search, setSearch] = useState('');
+  const [visibleCardCount, setVisibleCardCount] = useState(36);
+  const deferredSearch = useDeferredValue(search);
 
   const formations = futsalFormations;
   const squad = squads[sport];
@@ -37,8 +45,35 @@ export default function Squad() {
 
   const ovrs = squadOverall(squad, cards);
 
-  const usedUids = new Set([...squad.starters.map(s=>s.uid), ...squad.bench].filter(Boolean) as string[]);
-  const available = cards.filter(c => !usedUids.has(c.uid));
+  const cardsByUid = useMemo(() => new Map(cards.map(card => [card.uid, card])), [cards]);
+  const usedUids = useMemo(
+    () => new Set([...squad.starters.map(slot => slot.uid), ...squad.bench].filter(Boolean) as string[]),
+    [squad.starters, squad.bench],
+  );
+  const available = useMemo(
+    () => cards.filter(card => !usedUids.has(card.uid)),
+    [cards, usedUids],
+  );
+  const filteredAvailable = useMemo(() => {
+    const query = normalizeSearch(deferredSearch.trim());
+    if (!query) return available;
+    return available.filter(card => {
+      const positionLabel = card.position === 'GK'
+        ? 'goleiro'
+        : card.position === 'Pivo'
+          ? 'pivô'
+          : card.position;
+      return [
+        card.name,
+        card.club,
+        card.position,
+        positionLabel,
+        card.rarity,
+        RARITY_META[card.rarity]?.label,
+      ].some(value => normalizeSearch(String(value ?? '')).includes(query));
+    });
+  }, [available, deferredSearch]);
+  const visibleCards = filteredAvailable.slice(0, visibleCardCount);
 
   const handleSlotClick = (index: number, bench: boolean, benchIndex?: number) => {
     if (bench) {
@@ -48,7 +83,7 @@ export default function Squad() {
     }
     const slot = squad.starters[index];
     if (selected) {
-      const card = cards.find(c => c.uid === selected);
+      const card = cardsByUid.get(selected);
       if (card && card.position !== slot.position) {
         if (!confirm('Posição inadequada. Deseja continuar?')) return;
       }
@@ -113,13 +148,13 @@ export default function Squad() {
 
   const filledCount = squad.starters.filter(s => s.uid).length;
   const attrs = squad.starters.map(s => {
-    const c = s.uid ? cards.find(x => x.uid === s.uid) : null;
+    const c = s.uid ? cardsByUid.get(s.uid) : null;
     return c ? (c.pace+c.shooting+c.passing+c.dribbling+c.defending+c.physical)/6 : 0;
   }).filter(v => v > 0);
   const avgAttr = attrs.length ? Math.round(attrs.reduce((a,b)=>a+b,0)/attrs.length) : 0;
 
   const outOfPosition = squad.starters.filter(s => {
-    const c = s.uid ? cards.find(x => x.uid === s.uid) : null;
+    const c = s.uid ? cardsByUid.get(s.uid) : null;
     return c && c.position !== s.position;
   }).length;
 
@@ -162,7 +197,7 @@ export default function Squad() {
           <div className="relative bg-gradient-to-b from-green-50 to-green-100 rounded-xl border-2 border-green-200 p-2">
             <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
               {squad.starters.map((slot, i) => {
-                const card = slot.uid ? cards.find(c => c.uid === slot.uid) : null;
+                const card = slot.uid ? cardsByUid.get(slot.uid) : null;
                 const outPos = card && card.position !== slot.position;
                 return (
                 <button key={i} onClick={() => handleSlotClick(i, false)}
@@ -179,7 +214,7 @@ export default function Squad() {
             <div className="text-xs text-[#858A98] mb-2">Reservas</div>
             <div className="flex gap-2 flex-wrap">
               {squad.bench.map((uid, i) => {
-                const card = uid ? cards.find(c => c.uid === uid) : null;
+                const card = uid ? cardsByUid.get(uid) : null;
                 return (
                   <button key={i} onClick={() => handleSlotClick(0, true, i)}
                     className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] bg-white flex items-center justify-center text-xs">
@@ -194,9 +229,22 @@ export default function Squad() {
         <div className="space-y-4">
           <div className="card-surface p-4">
             <div className="text-sm font-medium mb-3 text-[#858A98]">Inventário disponível ({available.length})</div>
-            <div className="text-xs text-[#858A98] mb-2">Selecione uma carta e clique em um slot.</div>
+            <input
+              type="search"
+              value={search}
+              onChange={event => {
+                setSearch(event.target.value);
+                setVisibleCardCount(36);
+              }}
+              placeholder="Buscar por jogador, clube, posição ou raridade..."
+              aria-label="Buscar cartas do elenco"
+              className="w-full mb-2 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm"
+            />
+            <div className="text-xs text-[#858A98] mb-2">
+              {filteredAvailable.length} resultados. Selecione uma carta e clique em um slot.
+            </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[320px] overflow-auto">
-              {available.map(c => (
+              {visibleCards.map(c => (
                 <div key={c.uid} onClick={() => setSelected(s => s === c.uid ? null : c.uid)}
                   draggable
                   onDragStart={() => setSelected(c.uid)}
@@ -205,7 +253,16 @@ export default function Squad() {
                 </div>
               ))}
             </div>
-            {available.length === 0 && <div className="text-[#858A98] text-sm">Nenhuma carta disponível.</div>}
+            {filteredAvailable.length === 0 && <div className="text-[#858A98] text-sm">Nenhuma carta encontrada.</div>}
+            {visibleCards.length < filteredAvailable.length && (
+              <button
+                type="button"
+                onClick={() => setVisibleCardCount(count => count + 36)}
+                className="mt-3 w-full rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm font-medium text-[#858A98]"
+              >
+                Carregar mais cartas ({filteredAvailable.length - visibleCards.length} restantes)
+              </button>
+            )}
           </div>
 
           <div className="card-surface p-4 space-y-2">

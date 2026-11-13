@@ -136,6 +136,8 @@ Quando o usuário faz login, a função `syncUserData(uid)` é chamada para sinc
 7. Carrega configurações (`getSettings`)
 8. Carrega dados do perfil (`profiles`): coins, xp, nível, avatar, packs_opened
 
+Na tela `/squad`, o elenco ativo é salvo automaticamente pelo RPC `set_primary_squad`, que substitui o principal do usuário de forma transacional. As escalações nomeadas persistem os IDs das cartas (não os objetos de slot), e o inventário da tela é pesquisável e renderizado em lotes para evitar montar milhares de componentes de uma vez.
+
 ### Sincronização de Cartas
 
 As cartas locais e remotas são mescladas:

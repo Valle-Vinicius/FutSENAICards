@@ -101,11 +101,17 @@ function scheduleSquadSave(getSquad: () => Squad) {
     try {
       const { data } = await supabase!.auth.getSession();
       const uid = data.session?.user?.id;
-      if (!uid) return;
+      if (!uid) {
+        console.error('[squad] autosave skipped: no authenticated user');
+        toast.error('Não foi possível salvar o elenco: sessão não autenticada.');
+        return;
+      }
       const ok = await upsertPrimarySquad(uid, getSquad());
       if (ok && !squadSaveTimer) squadSavePending = false;
+      else if (!ok) toast.error('Não foi possível salvar o elenco. Tente novamente.');
     } catch (e) {
       console.error('[squad] autosave falhou', e);
+      toast.error('Não foi possível salvar o elenco. Tente novamente.');
     }
   }, 500);
 }
@@ -740,7 +746,7 @@ export const useGame = create<GameState & Actions>()(
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
             if (uid) {
-              const remote = await saveSquadService(uid, squad, name);
+              const remote = await saveSquadService(uid, squad, name, saved.isPrimary);
               if (remote) {
                 set(st => ({ savedSquads: st.savedSquads.map(x => x.id === id ? { ...x, id: remote.id } : x) }));
               }
