@@ -336,9 +336,7 @@ export const useGame = create<GameState & Actions>()(
         // load primary squad into active squad
         const primary = await getPrimarySquadService(userId);
         if (primary && !squadSavePending) {
-          const positions = (FORMATIONS_FUTSAL as any)[primary.formation] || (FORMATIONS_FUTSAL as any)['1-2-1'];
-          const starters = positions.map((pos: string, i: number) => ({ position: pos, uid: primary.starters[i] ?? null }));
-          set(st => ({ squads: { ...st.squads, futsal: { sport: 'futsal', formation: primary.formation, starters, bench: primary.bench } } }));
+          set(st => ({ squads: { ...st.squads, futsal: primary } }));
         }
         const listings = await getListings();
             if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
