@@ -17,9 +17,24 @@ export default function CardDetail() {
 
   const isGK = card.position === 'GK';
   // mesmos atributos que aparecem na carta (Card.tsx)
-  const attrs = isGK
-    ? [['Reflexos', card.reflexes ?? 0], ['Posicionamento', card.positioning ?? 0], ['Manuseio', card.handling ?? 0], ['Velocidade', card.pace], ['Defesa', card.defending], ['Físico', card.physical]]
-    : [['Velocidade', card.pace], ['Chute', card.shooting], ['Passe', card.passing], ['Drible', card.dribbling], ['Defesa', card.defending], ['Físico', card.physical]];
+  const attrs: { label: string; value: number }[] = isGK
+    ? [
+        { label: 'Reflexos', value: card.reflexes ?? 0 },
+        { label: 'Posicionamento', value: card.positioning ?? 0 },
+        { label: 'Manuseio', value: card.handling ?? 0 },
+        { label: 'Velocidade', value: card.pace },
+        { label: 'Defesa', value: card.defending },
+        { label: 'Físico', value: card.physical },
+      ]
+    : [
+        { label: 'Velocidade', value: card.pace },
+        { label: 'Chute', value: card.shooting },
+        { label: 'Passe', value: card.passing },
+        { label: 'Drible', value: card.dribbling },
+        { label: 'Defesa', value: card.defending },
+        { label: 'Físico', value: card.physical },
+      ];
+  attrs.push(...(card.extraStats ?? []));
   const upgradable: { key: UpgradeAttr; label: string; v: number }[] = isGK
     ? [
         { key: 'reflexes', label: 'Reflexos', v: card.reflexes ?? 0 },
@@ -60,11 +75,11 @@ export default function CardDetail() {
         <div className="card-surface p-4">
           <div className="font-semibold mb-2 text-[#252733]">Atributos</div>
           <div className="space-y-2">
-            {attrs.map(([l, v]) => (
-              <div key={l as string}>
-                <div className="flex justify-between text-xs mb-1 text-[#858A98]"><span>{l}</span><span className="font-bold text-[#252733]">{v}</span></div>
+            {attrs.map(({ label, value }) => (
+              <div key={label}>
+                <div className="flex justify-between text-xs mb-1 text-[#858A98]"><span>{label}</span><span className="font-bold text-[#252733]">{value}</span></div>
                 <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden">
-                  <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, v as number)}%` }} />
+                  <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, value)}%` }} />
                 </div>
               </div>
             ))}

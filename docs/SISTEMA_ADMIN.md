@@ -53,6 +53,8 @@ Campos adicionais:
 
 Templates marcados como exclusivos do Off-Sale são gravados com `pack_group = 'off_sale'`. A RPC de abertura filtra esse grupo no servidor, impedindo que apareçam nos pacotes normais. Templates existentes e criados para pacotes normais permanecem no grupo `standard`.
 
+Ao escolher **Somente Pacote Off-Sale (zoeira)**, o admin também pode cadastrar até 10 estatísticas extras, com rótulos de até 30 caracteres e valores inteiros de 0 a 99. Elas aparecem junto aos atributos no detalhe da carta, mas não participam do OVR nem das melhorias de atributos.
+
 ---
 
 ### 2. Editar Overall das Cartas
@@ -105,7 +107,7 @@ Cria um template para pacotes:
 ### `admin_create_pack_template`
 
 Cria um template e o associa a um grupo de pacotes:
-- Params: mesmos campos de `create_card_template`, mais `p_pack_group` (`standard` ou `off_sale`)
+- Params: mesmos campos de `create_card_template`, mais `p_pack_group` (`standard` ou `off_sale`) e `p_extra_stats` (lista de `{ label, value }`)
 - Retorna: uuid (id do template)
 - Segurança: security definer, apenas admin
 
@@ -171,6 +173,7 @@ A função `validateRarityOverall(rarity, overall)` verifica se o overall está 
 - `supabase/migrations/20261107000000_fix_create_card_template.sql` - base_overall/base_rarity
 - `supabase/migrations/20261107060000_admin_upsert_template.sql` - upsert por nome
 - `supabase/migrations/20261112180000_off_sale_pack.sql` - grupo exclusivo do Pacote Off-Sale e filtro server-side
+- `supabase/migrations/20261112200000_off_sale_extra_stats.sql` - estatísticas extras persistidas, exibidas e excluídas do cálculo de OVR
 
 ---
 

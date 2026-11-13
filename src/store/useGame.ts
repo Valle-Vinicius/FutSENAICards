@@ -50,6 +50,7 @@ interface OpenPackRow {
   positioning: number | null;
   handling: number | null;
   image: string | null;
+  extra_stats?: { label: string; value: number }[] | null;
   choice_id: string | null;
   remaining_coins: number;
   created_at: string;
@@ -78,6 +79,7 @@ function mapOpenPackCard(row: OpenPackRow): PlayerCard {
     reflexes: row.reflexes ?? undefined,
     positioning: row.positioning ?? undefined,
     handling: row.handling ?? undefined,
+    extraStats: row.extra_stats ?? undefined,
     image: row.image || allTemplates().find(template => template.name === row.name)?.image,
     favorite: false,
     isNew: true,

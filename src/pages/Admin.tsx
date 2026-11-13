@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
-import type { PlayerCard, Position, Rarity } from '../types';
+import type { ExtraStat, PlayerCard, Position, Rarity } from '../types';
 import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall, allTemplates, loadDbTemplates } from '../data/players';
 import { validateRarityOverall } from '../lib/game';
 import { useGame } from '../store/useGame';
@@ -69,6 +69,7 @@ export default function Admin() {
   const [templateAttrs, setTemplateAttrs] = useState<Record<string, any>>({});
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templates, setTemplates] = useState(() => allTemplates());
+  const [extraStats, setExtraStats] = useState<ExtraStat[]>([]);
   const [form, setForm] = useState(() => {
     const initialTeams = [...new Set(allTemplates().map(template => template.club).filter(Boolean))];
     return {
@@ -293,6 +294,20 @@ export default function Admin() {
       toast.error('A imagem deve usar uma URL HTTP(S) ou um caminho local iniciado por /.');
       return;
     }
+    const normalizedExtraStats = extraStats.map(stat => ({ label: stat.label.trim(), value: stat.value }));
+    if (isOffSale) {
+      if (normalizedExtraStats.length > 10 || normalizedExtraStats.some(stat =>
+        !stat.label || stat.label.length > 30 || !Number.isInteger(stat.value) || stat.value < 0 || stat.value > 99
+      )) {
+        toast.error('Cada estatística extra precisa de um nome (até 30 caracteres) e um valor inteiro entre 0 e 99; limite de 10.');
+        return;
+      }
+      const labels = normalizedExtraStats.map(stat => stat.label.toLocaleLowerCase());
+      if (new Set(labels).size !== labels.length) {
+        toast.error('Os nomes das estatísticas extras não podem se repetir.');
+        return;
+      }
+    }
     setCreating(true);
     try {
       const rarityForVal = isInventory ? rarityToUse : form.baseRarity;
@@ -389,13 +404,18 @@ export default function Admin() {
           p_base_overall: ovr,
         };
         const { error } = isOffSale
-          ? await supabase.rpc('admin_create_pack_template', { ...templateParams, p_pack_group: 'off_sale' })
+          ? await supabase.rpc('admin_create_pack_template', {
+              ...templateParams,
+              p_pack_group: 'off_sale',
+              p_extra_stats: normalizedExtraStats,
+            })
           : await supabase.rpc('create_card_template', templateParams);
         if (error) { toast.error('Erro: ' + error.message); return; }
         await loadDbTemplates();
         setTemplates(allTemplates());
         toast.success('Carta adicionada aos pacotes!');
       }
+      if (isOffSale) setExtraStats([]);
       setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams) }));
     } catch (e: any) {
       toast.error('Erro: ' + (e?.message || 'desconhecido'));
@@ -590,6 +610,53 @@ export default function Admin() {
                   <span className="block text-xs text-[#858A98]">{isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</span>
                 </span>
               </label>
+              {isOffSale && (
+                <div className="rounded-xl border border-[#E9EAF0] bg-[#FAFAFB] p-3.5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium text-[#252733]">Estatísticas extras</div>
+                      <div className="text-xs text-[#858A98]">Aparecem nos atributos da carta, mas não alteram OVR nem evolução.</div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={extraStats.length >= 10}
+                      onClick={() => setExtraStats(stats => [...stats, { label: '', value: 50 }])}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#E9EAF0] text-xs font-semibold text-[#252733] disabled:opacity-50"
+                    >
+                      Adicionar estatística
+                    </button>
+                  </div>
+                  {extraStats.map((stat, index) => (
+                    <div key={index} className="grid grid-cols-[minmax(0,1fr)_88px_40px] gap-2">
+                      <input
+                        value={stat.label}
+                        maxLength={30}
+                        aria-label={`Nome da estatística extra ${index + 1}`}
+                        onChange={e => setExtraStats(stats => stats.map((item, i) => i === index ? { ...item, label: e.target.value } : item))}
+                        className={`${inputCls} h-10`}
+                        placeholder="Ex: Sorte"
+                      />
+                      <input
+                        type="number"
+                        value={stat.value}
+                        min={0}
+                        max={99}
+                        aria-label={`Valor da estatística extra ${index + 1}`}
+                        onChange={e => setExtraStats(stats => stats.map((item, i) => i === index ? { ...item, value: Number(e.target.value) } : item))}
+                        className={`${inputCls} h-10 text-center`}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Remover estatística extra ${index + 1}`}
+                        onClick={() => setExtraStats(stats => stats.filter((_, i) => i !== index))}
+                        className="grid place-items-center rounded-lg border border-[#E9EAF0] bg-white text-[#858A98] hover:text-[#E30613]"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="text-[10px] text-[#858A98]">Todas as cartas são da temporada {DEFAULT_EDITION}.</div>
             </section>
 

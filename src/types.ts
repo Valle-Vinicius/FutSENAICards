@@ -26,6 +26,11 @@ export const SPECIAL_META: Record<SpecialEdition, { label: string; color: string
 
 export type UpgradeAttr = 'pace' | 'shooting' | 'passing' | 'dribbling' | 'defending' | 'physical' | 'reflexes' | 'positioning' | 'handling';
 
+export interface ExtraStat {
+  label: string;
+  value: number;
+}
+
 export interface PlayerCard {
   uid: string; // unique instance id
   playerId: string;
@@ -56,6 +61,7 @@ export interface PlayerCard {
   reflexes?: number;
   positioning?: number;
   handling?: number;
+  extraStats?: ExtraStat[];
   obtainedAt: number;
   schemaVersion?: number;
   favorite: boolean;

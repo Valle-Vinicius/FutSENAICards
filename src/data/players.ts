@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { Position, PlayerCard, Rarity } from '../types';
+import type { Position, PlayerCard, Rarity, ExtraStat } from '../types';
 
 import enzothomas from '../imagens/enzothomas.jpg';
 import gabrielortelan from '../imagens/gabrielortelan.jpg';
@@ -31,6 +31,7 @@ export interface PlayerTemplate {
   baseOverall?: number;
   special?: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal';
   packGroup?: 'standard' | 'off_sale';
+  extraStats?: ExtraStat[];
 }
 
 export const RARITY_MODIFIER: Record<Rarity, number> = {
@@ -170,6 +171,7 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
     defending: attrs.defending,
     physical: attrs.physical,
     ...(gk ? { reflexes: gk.reflexes, positioning: gk.positioning, handling: gk.handling } : {}),
+    ...(t.extraStats ? { extraStats: t.extraStats.map(stat => ({ ...stat })) } : {}),
     obtainedAt: Date.now(),
     favorite: false,
     isNew: true,
@@ -215,6 +217,7 @@ export async function loadDbTemplates() {
     baseOverall: t.base_overall || undefined,
     special: t.special || 'none',
     packGroup: t.pack_group === 'off_sale' ? 'off_sale' : 'standard',
+    extraStats: Array.isArray(t.extra_stats) ? t.extra_stats as ExtraStat[] : [],
   }));
   setDbTemplates(templates);
   console.log('[loadDbTemplates] carregados', templates.length, 'templates:', templates.map(t => t.name));
