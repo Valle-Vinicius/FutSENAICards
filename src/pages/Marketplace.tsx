@@ -5,13 +5,30 @@ import Card from '../components/Card';
 import { getPlayerImage } from '../data/players';
 import ConfirmModal from '../components/ConfirmModal';
 import { supabase } from '../lib/supabase';
-import { getListings } from '../lib/services/marketplace';
+import { getListings, toGameListing, type ListingRecord } from '../lib/services/marketplace';
+
+function applyRemoteListings(remoteListings: ListingRecord[]) {
+  useGame.setState(state => ({
+    listings: [
+      ...remoteListings.map(toGameListing),
+      ...state.listings.filter(listing => listing.status !== 'active'),
+      ...state.listings
+        .filter(listing => listing.status === 'active' && listing.expiresAt <= Date.now())
+        .map(listing => ({ ...listing, status: 'expired' as const })),
+    ],
+  }));
+}
 
 export default function Marketplace() {
   const listings = useGame(s => s.listings);
   const cards = useGame(s => s.cards);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [marketNow, setMarketNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setMarketNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
@@ -22,9 +39,7 @@ export default function Marketplace() {
     const channel = supabase!.channel('marketplace-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => {
         getListings().then(listings => {
-          if (listings.length > 0) {
-            useGame.setState({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
-          }
+          if (listings !== null) applyRemoteListings(listings);
         });
       })
       .subscribe();
@@ -34,9 +49,7 @@ export default function Marketplace() {
   useEffect(() => {
     setLoading(true);
     getListings().then(listings => {
-      if (listings.length > 0) {
-        useGame.setState({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
-      }
+      if (listings !== null) applyRemoteListings(listings);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -65,7 +78,7 @@ export default function Marketplace() {
 
   const cardOf = (uid: string) => cards.find(c => c.uid === uid);
 
-  const activeListings = listings.filter(l => l.status === 'active').filter(l => {
+  const activeListings = listings.filter(l => l.status === 'active' && l.expiresAt > marketNow).filter(l => {
     const c = cardOf(l.cardUid);
     if (q && c && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
     if (pos && c && c.position !== pos) return false;
@@ -104,7 +117,10 @@ export default function Marketplace() {
         if (c) { recordTransfer(c.name, listing!.buyNow > 0 ? listing!.buyNow : listing!.price, 'buy'); recordPrice(c.name, listing!.buyNow > 0 ? listing!.buyNow : listing!.price); }
         toast.success('Compra realizada!');
       } else {
-        toast.error('Saldo insuficiente ou indisponível.');
+        const failedListing = useGame.getState().listings.find(l => l.id === confirmBuy);
+        toast.error(failedListing?.status === 'expired' || (failedListing && failedListing.expiresAt <= Date.now())
+          ? 'Esse anúncio expirou e não está mais disponível.'
+          : 'Saldo insuficiente ou indisponível.');
       }
       setBuyingAnim(null);
       setConfirmBuy(null);
@@ -131,7 +147,7 @@ export default function Marketplace() {
     }
   };
 
-  const availableToSell = cards.filter(c => !listings.some(l => l.cardUid === c.uid && l.status === 'active'));
+  const availableToSell = cards.filter(c => !listings.some(l => l.cardUid === c.uid && l.status === 'active' && l.expiresAt > marketNow));
 
   const sel = 'bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]';
 
@@ -260,10 +276,11 @@ export default function Marketplace() {
           <div className="space-y-2">
             {listings.filter(l => l.sellerId === userId).map(l => {
               const c = cardOf(l.cardUid);
+              const expired = l.status === 'active' && l.expiresAt <= marketNow;
               return (
                 <div key={l.id} className="card-surface p-3 flex items-center justify-between gap-3">
-                  <div className="text-sm text-[#252733]">{c?.name} · {l.price.toLocaleString('pt-BR')} moedas · {l.status}</div>
-                  {l.status === 'active' && <button disabled={cancellingListingId !== null} onClick={async () => {
+                  <div className="text-sm text-[#252733]">{c?.name || l.cardName || 'Carta'} · {l.price.toLocaleString('pt-BR')} moedas · {expired ? 'expirado' : l.status}</div>
+                  {l.status === 'active' && !expired && <button disabled={cancellingListingId !== null} onClick={async () => {
                     if (cancellingListingId) return;
                     setCancellingListingId(l.id);
                     const cancelled = await cancelListing(l.id);

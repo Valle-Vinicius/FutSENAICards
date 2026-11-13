@@ -60,6 +60,7 @@ jest.mock('../../src/lib/services/leaderboard', () => ({
 }));
 jest.mock('../../src/lib/services/marketplace', () => ({
   getListings: mockGetListings,
+  toGameListing: jest.fn(),
   createListing: mockCreateListing,
   cancelListing: mockCancelListing,
 }));

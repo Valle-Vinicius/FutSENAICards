@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { getPlayerImage } from '../../data/players';
+import type { Listing } from '../../types';
 
 export interface ListingRecord {
   id: string;
@@ -20,10 +21,42 @@ export interface ListingRecord {
   createdAt: string;
 }
 
-export async function getListings(): Promise<ListingRecord[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase.from('listings').select('*, cards(*), profiles:seller_id(name)').eq('status', 'active').order('created_at', { ascending: false });
-  if (error) return [];
+export function toGameListing(listing: ListingRecord): Listing {
+  return {
+    id: listing.id,
+    cardUid: listing.cardUid,
+    seller: listing.sellerId ? 'user' : 'npc',
+    sellerId: listing.sellerId,
+    sellerName: listing.sellerName || (listing.sellerId ? 'Usuário' : 'Mercado'),
+    price: listing.price,
+    buyNow: listing.buyNow,
+    bids: [],
+    createdAt: new Date(listing.createdAt).getTime(),
+    expiresAt: new Date(listing.expiresAt).getTime(),
+    status: listing.status as Listing['status'],
+    cardName: listing.cardName,
+    cardOverall: listing.cardOverall,
+    cardPosition: listing.cardPosition,
+    cardRarity: listing.cardRarity,
+    cardImage: listing.cardImage,
+    cardAttributes: listing.cardAttributes,
+  };
+}
+
+export async function getListings(): Promise<ListingRecord[] | null> {
+  if (!supabase) return null;
+  const { error: expirationError } = await supabase.rpc('expire_marketplace_listings');
+  if (expirationError) console.error('[marketplace] listing expiration failed:', expirationError);
+  const { data, error } = await supabase
+    .from('listings')
+    .select('*, cards(*), profiles:seller_id(name)')
+    .eq('status', 'active')
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('[marketplace] listing fetch failed:', error);
+    return null;
+  }
   return (data || []).map((l: any) => {
     const c = Array.isArray(l.cards) ? l.cards[0] : l.cards;
     const sellerProfile = Array.isArray(l.profiles) ? l.profiles[0] : l.profiles;
@@ -53,6 +86,8 @@ export async function createListing(listing: Omit<ListingRecord, 'id' | 'created
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listing.cardUid)) {
     throw new Error('A carta precisa estar sincronizada antes de ser anunciada.');
   }
+  const { error: expirationError } = await supabase.rpc('expire_marketplace_listings');
+  if (expirationError) throw expirationError;
   const { data, error } = await supabase.rpc('create_listing', {
     p_card_id: listing.cardUid,
     p_price: listing.price,

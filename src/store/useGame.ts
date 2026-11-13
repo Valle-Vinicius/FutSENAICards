@@ -14,7 +14,7 @@ import { getMissions, upsertMissions } from '../lib/services/missions';
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { updateCollectorRanking } from '../lib/services/leaderboard';
-import { getListings, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
+import { getListings, toGameListing, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, overallFromAttributes } from '../data/players';
 
 // --- Elenco ativo: autosave + serialização do sync ---
@@ -28,6 +28,28 @@ let duplicateConversionPending = false;
 const sbcCompletionsPending = new Set<string>();
 const listingsPending = new Set<string>();
 let demoCoinClaimPending = false;
+
+function isResponse(value: unknown): value is Response {
+  return typeof value === 'object'
+    && value !== null
+    && 'clone' in value
+    && typeof value.clone === 'function';
+}
+
+async function getFunctionErrorCode(error: unknown): Promise<string | undefined> {
+  if (typeof error !== 'object' || error === null || !('context' in error)) return undefined;
+  const context = error.context;
+  if (!isResponse(context)) return undefined;
+  try {
+    const body: unknown = await context.clone().json();
+    return typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string'
+      ? body.error
+      : undefined;
+  } catch (parseError) {
+    console.error('[marketplace] failed to read purchase error:', parseError);
+    return undefined;
+  }
+}
 
 interface OpenPackRow {
   uid: string;
@@ -339,7 +361,17 @@ export const useGame = create<GameState & Actions>()(
           set(st => ({ squads: { ...st.squads, futsal: primary } }));
         }
         const listings = await getListings();
-            if (listings.length > 0) set({ listings: listings.map(l => ({ id: l.id, cardUid: l.cardUid, seller: l.sellerId ? 'user' : 'npc', sellerId: l.sellerId, sellerName: l.sellerName || (l.sellerId ? 'Usuário' : 'Mercado'), price: l.price, buyNow: l.buyNow, bids: [], createdAt: new Date(l.createdAt).getTime(), expiresAt: new Date(l.expiresAt).getTime(), status: l.status as any, cardName: l.cardName, cardOverall: l.cardOverall, cardPosition: l.cardPosition, cardRarity: l.cardRarity, cardImage: l.cardImage, cardAttributes: l.cardAttributes })) });
+        if (listings !== null) {
+          set(st => ({
+            listings: [
+              ...listings.map(toGameListing),
+              ...st.listings.filter(listing => listing.status !== 'active'),
+              ...st.listings
+                .filter(listing => listing.status === 'active' && listing.expiresAt <= Date.now())
+                .map(listing => ({ ...listing, status: 'expired' as const })),
+            ],
+          }));
+        }
         const remoteMissions = await getMissions(userId);
         if (remoteMissions.length > 0) set({ missions: remoteMissions });
         else await upsertMissions(userId, get().missions);
@@ -1094,6 +1126,11 @@ export const useGame = create<GameState & Actions>()(
         if (get().coins < cost) return false;
         if (supabase) {
           const { data, error } = await supabase.functions.invoke('buy-listing', { body: { listingId: id } });
+          const errorCode = data?.error || await getFunctionErrorCode(error);
+          if (errorCode === 'expired') {
+            set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'expired' } : l) }));
+            return false;
+          }
           if (error || !data?.ok) return false;
           // refresh cards and coins from Supabase
           const uid = (await supabase.auth.getSession()).data.session?.user?.id;
