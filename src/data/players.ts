@@ -29,6 +29,7 @@ export interface PlayerTemplate {
   image: string;
   baseRarity: Rarity;
   baseOverall?: number;
+  autoCalculateOverall?: boolean;
   special?: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal';
   packGroup?: 'standard' | 'off_sale';
   extraStats?: ExtraStat[];
@@ -102,6 +103,12 @@ export function overallFromAttributes(position: Position, a: Attrs6, gkAttribute
 export function calculateOverall(t: PlayerTemplate): number {
   if (t.baseOverall !== undefined) return t.baseOverall;
   return overallFromAttributes(t.position, t.attributes, t.gkAttributes);
+}
+
+export function isAutoCalculatedTemplate(t: PlayerTemplate): boolean {
+  if (t.autoCalculateOverall !== undefined) return t.autoCalculateOverall;
+  return t.baseOverall === undefined
+    || t.baseOverall === overallFromAttributes(t.position, t.attributes, t.gkAttributes);
 }
 
 /** Recalcula uma carta existente a partir do template (atributos × raridade, overall dentro da faixa). */
@@ -215,6 +222,7 @@ export async function loadDbTemplates() {
     image: t.image || '',
     baseRarity: (t.base_rarity as Rarity) || 'uncommon',
     baseOverall: t.base_overall ?? undefined,
+    autoCalculateOverall: t.auto_calculate_overall ?? undefined,
     special: t.special || 'none',
     packGroup: t.pack_group === 'off_sale' ? 'off_sale' : 'standard',
     extraStats: Array.isArray(t.extra_stats) ? t.extra_stats as ExtraStat[] : [],

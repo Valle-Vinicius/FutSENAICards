@@ -80,6 +80,8 @@ Os atributos exibidos nessa carta são multiplicados por 1,10 e arredondados ind
 4. **Carta criada no Admin com cálculo automático:** o OVR é calculado pelos atributos e posição. O modo fixa a raridade em Incomum, cujo multiplicador é 1,00× e cujo bônus de OVR é zero. No modo Inventário, o Admin envia os atributos já ajustados pelo multiplicador selecionado.
 5. **Template criado no Admin com cálculo automático:** o OVR calculado é salvo como OVR base do template, usando os atributos sem multiplicador de raridade.
 
+O modo automático do template é persistido em `card_templates.auto_calculate_overall`. Ao editar um template, o checkbox é carregado com esse valor. Templates antigos sem o indicador são considerados automáticos quando o OVR base coincide com a fórmula posicional (ou quando o OVR base está ausente). Ao salvar mudanças no template, as cartas existentes de mesmo nome recebem os novos dados; o OVR é recalculado com o OVR base escolhido, os bônus de raridade/especial e o delta das evoluções da carta.
+
 Ao abrir pacotes, o servidor usa `base_overall` do template, quando preenchido; se estiver nulo, aplica a fórmula posicional aos atributos base. Depois soma os bônus da raridade sorteada e do especial sorteado ou configurado no template.
 
 ## Evolução de atributos

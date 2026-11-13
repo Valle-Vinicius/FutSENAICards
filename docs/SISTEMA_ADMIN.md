@@ -42,7 +42,7 @@ Campos:
 Ao ativar o cálculo automático, a raridade (ou raridade base no modo Pacotes) volta para **Incomum** e fica bloqueada enquanto o cálculo automático estiver ativo. O título especial não é escolhido no formulário; nos pacotes, ele é definido pelo sorteio da abertura. A coleção filtra por clube usando o valor salvo na carta, por isso o clube é sorteado da lista padronizada.
 
 #### Modo Pacotes
-Cria um template que será sorteado nos pacotes abertos por qualquer jogador via RPC `create_card_template`.
+Cria um template que será sorteado nos pacotes abertos por qualquer jogador via RPC `admin_save_template`.
 
 Campos adicionais:
 - Raridade Base (raridade usada como base nos pacotes)
@@ -70,8 +70,12 @@ Lista os templates base do jogo (templates estáticos em `src/data/players.ts` e
 Funcionamento:
 1. Clique em "Editar" em qualquer carta
 2. O template é carregado no mesmo formulário de criação, incluindo informações básicas, imagem, posição, raridade, atributos, destino do pacote e estatísticas extras Off-Sale
-3. Modifique os campos; o OVR é calculado em tempo real quando essa opção está ativa
+3. Modifique os campos; o OVR é calculado em tempo real quando essa opção está ativa e o checkmark é carregado do template
 4. Clique em "Salvar alterações" para validar e salvar pelo RPC `admin_save_template`
+
+Ao salvar, os dados alterados são aplicados também às cartas antigas com o mesmo nome. Atributos são recalculados conforme a raridade de cada carta; o OVR recebe o OVR base (calculado ou manual), os bônus de raridade/especial e os incrementos de evolução existentes. Idade, posição, clube, nacionalidade, imagem, grupo do pacote e estatísticas extras também são sincronizados.
+
+O modo automático fica salvo em `card_templates.auto_calculate_overall`. Para templates antigos sem essa informação, a migration marca o modo automático quando o OVR base salvo coincide com a fórmula posicional dos atributos (ou quando não havia OVR base).
 
 **Campos editáveis:**
 - Posição, Nacionalidade, Idade, Clube e Imagem URL (o nome é a chave do template e não pode ser alterado)
@@ -113,11 +117,12 @@ Cria um template e o associa a um grupo de pacotes:
 
 ### `admin_save_template`
 
-Atualiza um template por nome e sincroniza o grupo de pacote e as estatísticas extras:
-- Params: dados de template, `p_pack_group` (`standard` ou `off_sale`) e `p_extra_stats`
+Cria ou atualiza um template por nome, salva o modo de OVR e sincroniza os dados nas cartas já geradas:
+- Params: dados de template, `p_pack_group` (`standard` ou `off_sale`), `p_extra_stats` e `p_auto_calculate_overall`
 - Retorna: uuid (id do template)
 - Segurança: security definer, apenas admin
 - Usa `ON CONFLICT (name) DO UPDATE` para atualizar se já existir
+- Recalcula os atributos e o OVR das cartas antigas do mesmo nome sem apagar seus pontos de evolução
 
 ### `admin_get_all_cards`
 
@@ -142,8 +147,9 @@ Atualiza o overall de uma carta específica:
 2. Os valores do template são carregados no formulário de criação
 3. Admin modifica os campos e o destino; as validações são as mesmas da criação
 4. Admin clica em "Salvar alterações"
-5. O formulário chama `admin_save_template` e atualiza também o grupo e as estatísticas extras
-6. Mensagem de sucesso: "Template atualizado com sucesso!"
+5. O formulário chama `admin_save_template`, atualiza o grupo, as estatísticas extras e o modo de OVR
+6. As cartas antigas do template são sincronizadas no mesmo salvamento
+7. Mensagem de sucesso: "Template atualizado com sucesso!"
 
 ---
 

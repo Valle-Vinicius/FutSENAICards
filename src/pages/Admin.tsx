@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
 import type { ExtraStat, PlayerCard, Position, Rarity } from '../types';
-import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall, allTemplates, loadDbTemplates } from '../data/players';
+import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall, isAutoCalculatedTemplate, allTemplates, loadDbTemplates } from '../data/players';
 import { validateRarityOverall } from '../lib/game';
 import { validateExtraStats } from '../lib/extraStats';
 import { useGame } from '../store/useGame';
@@ -165,7 +165,9 @@ export default function Admin() {
     };
     const ovr = isInventory && !calcMode && rarity === form.rarity
       ? form.overall
-      : calcOverallLocal(previewAttrs, form.position, rarity, 'none');
+      : isInventory
+        ? calcOverallLocal(previewAttrs, form.position, rarity, 'none')
+        : Math.min(99, (calcMode ? calculatedOverall : form.baseOverall) + (RARITY_OVR_BONUS[rarity as Rarity] ?? 0));
     return {
       uid: 'preview-' + rarity,
       playerId: form.name.toLowerCase().replace(/\s+/g, '-') + '-' + rarity,
@@ -201,6 +203,13 @@ export default function Admin() {
   };
 
   const startEditingTemplate = (template: ReturnType<typeof allTemplates>[number]) => {
+    const autoCalculateOverall = isAutoCalculatedTemplate(template);
+    const calculatedBaseOverall = calcBaseOverallLocal({
+      ...template.attributes,
+      reflexes: template.gkAttributes?.reflexes,
+      positioning: template.gkAttributes?.positioning,
+      handling: template.gkAttributes?.handling,
+    }, template.position);
     setEditingTemplate(template.name);
     setExtraStats(template.extraStats?.map(stat => ({ ...stat })) ?? []);
     setForm({
@@ -209,10 +218,10 @@ export default function Admin() {
       club: template.club,
       nationality: template.nationality,
       position: template.position,
-      rarity: template.baseRarity,
-      overall: template.baseOverall ?? calculateOverall(template),
-      baseOverall: template.baseOverall ?? calculateOverall(template),
-      baseRarity: template.baseRarity,
+      rarity: autoCalculateOverall ? 'uncommon' : template.baseRarity,
+      overall: autoCalculateOverall ? calculatedBaseOverall : template.baseOverall ?? calculateOverall(template),
+      baseOverall: autoCalculateOverall ? calculatedBaseOverall : template.baseOverall ?? calculateOverall(template),
+      baseRarity: autoCalculateOverall ? 'uncommon' : template.baseRarity,
       pace: template.attributes.pace,
       shooting: template.attributes.shooting,
       passing: template.attributes.passing,
@@ -223,7 +232,7 @@ export default function Admin() {
       positioning: template.gkAttributes?.positioning ?? 0,
       handling: template.gkAttributes?.handling ?? 0,
       imageUrl: template.image || '',
-      calcOverall: false,
+      calcOverall: autoCalculateOverall,
       destination: template.packGroup === 'off_sale' ? 'off_sale' : 'packs',
     });
     document.getElementById('card-template-form')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
@@ -311,6 +320,7 @@ export default function Admin() {
           p_base_overall: ovrForVal,
           p_pack_group: isOffSale ? 'off_sale' : 'standard',
           p_extra_stats: isOffSale ? normalizedExtraStats : [],
+          p_auto_calculate_overall: calcMode,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         await loadDbTemplates();
@@ -399,21 +409,19 @@ export default function Admin() {
           p_positioning: isGK ? form.positioning : null,
           p_handling: isGK ? form.handling : null,
           p_image: imageUrl || null,
-          p_special: 'none',
           p_base_rarity: form.baseRarity,
           p_base_overall: ovr,
         };
-        const { error } = isOffSale
-          ? await supabase.rpc('admin_create_pack_template', {
-              ...templateParams,
-              p_pack_group: 'off_sale',
-              p_extra_stats: normalizedExtraStats,
-            })
-          : await supabase.rpc('create_card_template', templateParams);
+        const { error } = await supabase.rpc('admin_save_template', {
+          ...templateParams,
+          p_pack_group: isOffSale ? 'off_sale' : 'standard',
+          p_extra_stats: isOffSale ? normalizedExtraStats : [],
+          p_auto_calculate_overall: calcMode,
+        });
         if (error) { toast.error('Erro: ' + error.message); return; }
         await loadDbTemplates();
         setTemplates(allTemplates());
-        toast.success('Carta adicionada aos pacotes!');
+        toast.success(isOffSale ? 'Carta adicionada ao Pacote Off-Sale!' : 'Carta adicionada aos pacotes!');
       }
       if (isOffSale) setExtraStats([]);
       setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams) }));
