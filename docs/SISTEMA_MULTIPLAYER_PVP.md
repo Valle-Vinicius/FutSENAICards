@@ -41,6 +41,10 @@ O sistema PvP permite que jogadores desafiem amigos para partidas de futsal. Dif
 
 ## Sistema de Rating Competitivo (Elo)
 
+### Elegibilidade de cartas
+
+Cartas do Pacote Off-Sale não podem ser usadas em desafios PvP/X1. A regra é verificada ao carregar o elenco e novamente no servidor ao congelar os snapshots e solicitar a simulação, portanto não depende apenas da interface. Cartas Off-Sale já existentes são identificadas e marcadas durante a migration pelo nome do template.
+
 ### Tabela: `player_competitive_ratings`
 
 | Coluna | Tipo | Descrição |

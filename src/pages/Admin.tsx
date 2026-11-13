@@ -8,6 +8,7 @@ import Card from '../components/Card';
 import type { ExtraStat, PlayerCard, Position, Rarity } from '../types';
 import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall, allTemplates, loadDbTemplates } from '../data/players';
 import { validateRarityOverall } from '../lib/game';
+import { validateExtraStats } from '../lib/extraStats';
 import { useGame } from '../store/useGame';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
@@ -66,8 +67,6 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
-  const [templateAttrs, setTemplateAttrs] = useState<Record<string, any>>({});
-  const [savingTemplate, setSavingTemplate] = useState(false);
   const [templates, setTemplates] = useState(() => allTemplates());
   const [extraStats, setExtraStats] = useState<ExtraStat[]>([]);
   const [form, setForm] = useState(() => {
@@ -76,6 +75,7 @@ export default function Admin() {
       name: '',
       age: 20,
       club: randomTeam(initialTeams),
+      nationality: DEFAULT_NATIONALITY,
       position: 'Ala',
       rarity: 'uncommon',
       overall: 80,
@@ -119,7 +119,7 @@ export default function Admin() {
 
   const isGK = form.position === 'GK';
   const calcMode = form.calcOverall;
-  const isInventory = form.destination === 'inventory';
+  const isInventory = !editingTemplate && form.destination === 'inventory';
   const isOffSale = form.destination === 'off_sale';
   const teams = [...new Set(templates.map(template => template.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
@@ -200,80 +200,56 @@ export default function Admin() {
     };
   };
 
-  const loadTemplateAttrs = (t: any) => {
-    setTemplateAttrs({
-      name: t.name,
-      position: t.position,
-      nationality: t.nationality,
-      age: t.age,
-      club: t.club,
-      pace: t.attributes.pace,
-      shooting: t.attributes.shooting,
-      passing: t.attributes.passing,
-      dribbling: t.attributes.dribbling,
-      defending: t.attributes.defending,
-      physical: t.attributes.physical,
-      reflexes: t.gkAttributes?.reflexes ?? 0,
-      positioning: t.gkAttributes?.positioning ?? 0,
-      handling: t.gkAttributes?.handling ?? 0,
-      baseRarity: t.baseRarity,
-      baseOverall: t.baseOverall ?? 80,
-      special: 'none',
-      imageUrl: t.image || '',
+  const startEditingTemplate = (template: ReturnType<typeof allTemplates>[number]) => {
+    setEditingTemplate(template.name);
+    setExtraStats(template.extraStats?.map(stat => ({ ...stat })) ?? []);
+    setForm({
+      name: template.name,
+      age: template.age,
+      club: template.club,
+      nationality: template.nationality,
+      position: template.position,
+      rarity: template.baseRarity,
+      overall: template.baseOverall ?? calculateOverall(template),
+      baseOverall: template.baseOverall ?? calculateOverall(template),
+      baseRarity: template.baseRarity,
+      pace: template.attributes.pace,
+      shooting: template.attributes.shooting,
+      passing: template.attributes.passing,
+      dribbling: template.attributes.dribbling,
+      defending: template.attributes.defending,
+      physical: template.attributes.physical,
+      reflexes: template.gkAttributes?.reflexes ?? 0,
+      positioning: template.gkAttributes?.positioning ?? 0,
+      handling: template.gkAttributes?.handling ?? 0,
+      imageUrl: template.image || '',
+      calcOverall: false,
+      destination: template.packGroup === 'off_sale' ? 'off_sale' : 'packs',
     });
+    document.getElementById('card-template-form')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleSaveTemplate = async () => {
-    if (!supabase || !templateAttrs.name) return;
-    setSavingTemplate(true);
-    try {
-      const isGK = templateAttrs.position === 'GK';
-      const { error } = await supabase.rpc('admin_upsert_template', {
-        p_name: templateAttrs.name,
-        p_position: templateAttrs.position,
-        p_nationality: templateAttrs.nationality,
-        p_age: templateAttrs.age,
-        p_club: templateAttrs.club,
-        p_pace: templateAttrs.pace,
-        p_shooting: templateAttrs.shooting,
-        p_passing: templateAttrs.passing,
-        p_dribbling: templateAttrs.dribbling,
-        p_defending: templateAttrs.defending,
-        p_physical: templateAttrs.physical,
-        p_reflexes: isGK ? templateAttrs.reflexes : null,
-        p_positioning: isGK ? templateAttrs.positioning : null,
-        p_handling: isGK ? templateAttrs.handling : null,
-        p_image: templateAttrs.imageUrl || null,
-        p_base_rarity: templateAttrs.baseRarity,
-        p_base_overall: templateAttrs.baseOverall,
-        p_special: 'none',
-      });
-      if (error) { toast.error('Erro: ' + error.message); return; }
-      await loadDbTemplates();
-      setTemplates(allTemplates());
-      toast.success('Template atualizado com sucesso!');
-      setEditingTemplate(null);
-    } catch (e: any) {
-      toast.error('Erro: ' + (e?.message || 'desconhecido'));
-    } finally {
-      setSavingTemplate(false);
-    }
-  };
-
-  const calcTemplateOverall = (attrs: any, position: string, rarity: string, special: string) => {
-    const t = {
-      attributes: { pace: attrs.pace, shooting: attrs.shooting, passing: attrs.passing, dribbling: attrs.dribbling, defending: attrs.defending, physical: attrs.physical },
-      gkAttributes: attrs.reflexes ? { reflexes: attrs.reflexes, positioning: attrs.positioning, handling: attrs.handling } : undefined,
-      position: position as Position,
-      baseOverall: attrs.baseOverall,
-    };
-    const base = calculateOverall(t as any);
-    return Math.min(99, base + (RARITY_OVR_BONUS[rarity as Rarity] ?? 0) + (SPECIAL_OVR_BONUS[special] ?? 0));
+  const cancelTemplateEdit = () => {
+    setEditingTemplate(null);
+    setExtraStats([]);
+    setForm(prev => ({
+      ...prev,
+      name: '',
+      nationality: DEFAULT_NATIONALITY,
+      imageUrl: '',
+      club: randomTeam(teams),
+      destination: 'inventory',
+      calcOverall: false,
+    }));
   };
 
   const handleCreate = async () => {
     if (!supabase || !form.name.trim()) { toast.error('Nome obrigatório.'); return; }
-    if (teams.length === 0 || !teams.includes(form.club)) { toast.error('Não há times cadastrados para realizar o sorteio.'); return; }
+    if (!form.club.trim() || (!editingTemplate && (teams.length === 0 || !teams.includes(form.club)))) {
+      toast.error(editingTemplate ? 'Clube obrigatório.' : 'Não há times cadastrados para realizar o sorteio.');
+      return;
+    }
+    if (editingTemplate && !form.nationality.trim()) { toast.error('Nacionalidade obrigatória.'); return; }
     const fields = [
       ['Velocidade', form.pace],
       ['Chute', form.shooting],
@@ -296,15 +272,9 @@ export default function Admin() {
     }
     const normalizedExtraStats = extraStats.map(stat => ({ label: stat.label.trim(), value: stat.value }));
     if (isOffSale) {
-      if (normalizedExtraStats.length > 10 || normalizedExtraStats.some(stat =>
-        !stat.label || stat.label.length > 30 || !Number.isInteger(stat.value) || stat.value < 0 || stat.value > 99
-      )) {
-        toast.error('Cada estatística extra precisa de um nome (até 30 caracteres) e um valor inteiro entre 0 e 99; limite de 10.');
-        return;
-      }
-      const labels = normalizedExtraStats.map(stat => stat.label.toLocaleLowerCase());
-      if (new Set(labels).size !== labels.length) {
-        toast.error('Os nomes das estatísticas extras não podem se repetir.');
+      const extraStatsError = validateExtraStats(normalizedExtraStats);
+      if (extraStatsError) {
+        toast.error(extraStatsError);
         return;
       }
     }
@@ -318,6 +288,36 @@ export default function Admin() {
       }
       if (!validateRarityOverall(rarityForVal as Rarity, ovrForVal)) {
         toast.warning(`Atenção: OVR ${ovrForVal} fora da banda típica para ${RARITY_LABELS[rarityForVal]}.`);
+      }
+
+      if (editingTemplate) {
+        const { error } = await supabase.rpc('admin_save_template', {
+          p_name: editingTemplate,
+          p_position: form.position,
+          p_nationality: form.nationality.trim(),
+          p_age: Number(form.age),
+          p_club: form.club.trim(),
+          p_pace: form.pace,
+          p_shooting: form.shooting,
+          p_passing: form.passing,
+          p_dribbling: form.dribbling,
+          p_defending: form.defending,
+          p_physical: form.physical,
+          p_reflexes: isGK ? form.reflexes : null,
+          p_positioning: isGK ? form.positioning : null,
+          p_handling: isGK ? form.handling : null,
+          p_image: imageUrl || null,
+          p_base_rarity: form.baseRarity,
+          p_base_overall: ovrForVal,
+          p_pack_group: isOffSale ? 'off_sale' : 'standard',
+          p_extra_stats: isOffSale ? normalizedExtraStats : [],
+        });
+        if (error) { toast.error('Erro: ' + error.message); return; }
+        await loadDbTemplates();
+        setTemplates(allTemplates());
+        toast.success('Template atualizado com sucesso!');
+        cancelTemplateEdit();
+        return;
       }
 
       if (isInventory) {
@@ -339,7 +339,7 @@ export default function Admin() {
           p_handling: isGK ? attrsMod.handling : null,
           p_special: 'none',
           p_image: imageUrl || null,
-          p_nationality: DEFAULT_NATIONALITY,
+          p_nationality: form.nationality.trim(),
           p_age: Number(form.age),
           p_club: club,
         });
@@ -386,7 +386,7 @@ export default function Admin() {
         const templateParams = {
           p_name: form.name.trim(),
           p_position: form.position,
-          p_nationality: DEFAULT_NATIONALITY,
+          p_nationality: form.nationality.trim(),
           p_age: Number(form.age) || 20,
           p_club: club,
           p_pace: form.pace,
@@ -445,8 +445,21 @@ export default function Admin() {
         <h1 className="text-2xl font-bold text-[#252733]">Painel Administrador</h1>
 
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-          <div className="min-w-0 card-surface p-4 md:p-5 space-y-5">
-            <h2 className="text-lg font-semibold text-[#252733]">Criar Carta</h2>
+          <div id="card-template-form" className="min-w-0 card-surface p-4 md:p-5 space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-[#252733]">
+                {editingTemplate ? `Editar template: ${editingTemplate}` : 'Criar Carta'}
+              </h2>
+              {editingTemplate && (
+                <button
+                  type="button"
+                  onClick={cancelTemplateEdit}
+                  className="rounded-lg border border-[#E9EAF0] bg-white px-3 py-2 text-xs font-semibold text-[#555B68]"
+                >
+                  Cancelar edição
+                </button>
+              )}
+            </div>
 
             <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
               <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
@@ -456,7 +469,7 @@ export default function Admin() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>Nome do Jogador</label>
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Ex: João Marcos" />
+                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Ex: João Marcos" readOnly={!!editingTemplate} />
                 </div>
                 <div>
                   <label className={labelCls}>URL da Imagem</label>
@@ -467,15 +480,19 @@ export default function Admin() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className={labelCls}>Nacionalidade</label>
-                <div className={`${inputCls} flex items-center bg-[#F7F7F9]`}>{DEFAULT_NATIONALITY}</div>
+                {editingTemplate
+                  ? <input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} className={inputCls} maxLength={50} />
+                  : <div className={`${inputCls} flex items-center bg-[#F7F7F9]`}>{DEFAULT_NATIONALITY}</div>}
               </div>
               <div>
                 <label className={labelCls}>Idade</label>
                 <input type="number" value={form.age} onChange={e => setForm({ ...form, age: Number(e.target.value) })} className={inputCls} min={14} max={60} />
               </div>
               <div>
-                <label className={labelCls}>Time (sorteado)</label>
-                <div className={`${inputCls} flex items-center bg-[#F7F7F9]`}>{form.club || 'Aguardando sorteio...'}</div>
+                <label className={labelCls}>{editingTemplate ? 'Clube' : 'Time (sorteado)'}</label>
+                {editingTemplate
+                  ? <input value={form.club} onChange={e => setForm({ ...form, club: e.target.value })} className={inputCls} maxLength={80} />
+                  : <div className={`${inputCls} flex items-center bg-[#F7F7F9]`}>{form.club || 'Aguardando sorteio...'}</div>}
               </div>
             </div>
             </section>
@@ -573,8 +590,12 @@ export default function Admin() {
                 <div>
                   <label className={labelCls}>Destino da carta</label>
                   <div className="relative">
-                    <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value as 'inventory' | 'packs' | 'off_sale' })} className={`${inputCls} appearance-none pr-10`}>
-                      <option value="inventory">Inventário (admin)</option>
+                    <select value={form.destination} onChange={e => {
+                      const destination = e.target.value as 'inventory' | 'packs' | 'off_sale';
+                      setForm({ ...form, destination });
+                      if (destination !== 'off_sale') setExtraStats([]);
+                    }} className={`${inputCls} appearance-none pr-10`}>
+                      {!editingTemplate && <option value="inventory">Inventário (admin)</option>}
                       <option value="packs">Pacotes (disponível para todos)</option>
                       <option value="off_sale">Somente Pacote Off-Sale (zoeira)</option>
                     </select>
@@ -640,7 +661,7 @@ export default function Admin() {
                         type="number"
                         value={stat.value}
                         min={0}
-                        max={99}
+                        max={999}
                         aria-label={`Valor da estatística extra ${index + 1}`}
                         onChange={e => setExtraStats(stats => stats.map((item, i) => i === index ? { ...item, value: Number(e.target.value) } : item))}
                         className={`${inputCls} h-10 text-center`}
@@ -662,10 +683,10 @@ export default function Admin() {
 
             <button
               onClick={handleCreate}
-              disabled={creating || !form.name.trim() || !form.club || teams.length === 0}
+              disabled={creating || !form.name.trim() || !form.club.trim() || (!editingTemplate && teams.length === 0)}
               className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
             >
-              {creating ? 'Criando...' : isInventory ? 'Criar no Inventário' : isOffSale ? 'Adicionar somente ao Pacote Off-Sale' : 'Adicionar aos Pacotes'}
+              {creating ? 'Salvando...' : editingTemplate ? 'Salvar alterações' : isInventory ? 'Criar no Inventário' : isOffSale ? 'Adicionar somente ao Pacote Off-Sale' : 'Adicionar aos Pacotes'}
             </button>
           </div>
 
@@ -682,107 +703,23 @@ export default function Admin() {
           <h2 className="text-lg font-semibold text-[#252733]">Editar templates das cartas</h2>
           <div className="text-xs text-[#858A98]">Os atributos e o overall base dos templates são sincronizados no banco e refletidos nos pacotes.</div>
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
-            {allTemplates().map((t: any) => (
+            {allTemplates().map(t => (
               <div key={t.name} className="p-3 bg-[#F7F7F9] rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-bold text-[#252733]">{t.name}</div>
-                    <div className="text-xs text-[#858A98]">{t.position} · {t.club} · OVR {t.baseOverall ?? calculateOverall(t as any)}</div>
+                    <div className="text-xs text-[#858A98]">
+                      {t.position} · {t.club} · OVR {t.baseOverall ?? calculateOverall(t)}
+                      {t.packGroup === 'off_sale' && <span className="ml-2 font-semibold text-[#E30613]">Off-Sale</span>}
+                    </div>
                   </div>
                   <button
-                    onClick={() => {
-                      if (editingTemplate === t.name) {
-                        setEditingTemplate(null);
-                      } else {
-                        setEditingTemplate(t.name);
-                        loadTemplateAttrs(t);
-                      }
-                    }}
+                    onClick={() => editingTemplate === t.name ? cancelTemplateEdit() : startEditingTemplate(t)}
                     className="px-3 py-1.5 rounded-xl bg-[#E9EAF0] text-[#252733] text-xs font-bold hover:bg-[#E30613] hover:text-white transition"
                   >
-                    {editingTemplate === t.name ? 'Fechar' : 'Editar'}
+                    {editingTemplate === t.name ? 'Cancelar' : 'Editar'}
                   </button>
                 </div>
-                {editingTemplate === t.name && (
-                  <div className="space-y-3 pt-2 border-t border-[#E9EAF0]">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Velocidade</label>
-                        <input type="number" value={templateAttrs.pace} onChange={e => setTemplateAttrs({ ...templateAttrs, pace: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Chute</label>
-                        <input type="number" value={templateAttrs.shooting} onChange={e => setTemplateAttrs({ ...templateAttrs, shooting: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Passe</label>
-                        <input type="number" value={templateAttrs.passing} onChange={e => setTemplateAttrs({ ...templateAttrs, passing: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Drible</label>
-                        <input type="number" value={templateAttrs.dribbling} onChange={e => setTemplateAttrs({ ...templateAttrs, dribbling: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Defesa</label>
-                        <input type="number" value={templateAttrs.defending} onChange={e => setTemplateAttrs({ ...templateAttrs, defending: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Físico</label>
-                        <input type="number" value={templateAttrs.physical} onChange={e => setTemplateAttrs({ ...templateAttrs, physical: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                      </div>
-                    </div>
-                    {templateAttrs.position === 'GK' && (
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[10px] text-[#858A98] mb-1 block">Reflexos</label>
-                          <input type="number" value={templateAttrs.reflexes} onChange={e => setTemplateAttrs({ ...templateAttrs, reflexes: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-[#858A98] mb-1 block">Posicionamento</label>
-                          <input type="number" value={templateAttrs.positioning} onChange={e => setTemplateAttrs({ ...templateAttrs, positioning: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-[#858A98] mb-1 block">Defesa de Bola</label>
-                          <input type="number" value={templateAttrs.handling} onChange={e => setTemplateAttrs({ ...templateAttrs, handling: Number(e.target.value) })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" min={0} max={99} />
-                        </div>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Posição</label>
-                        <select value={templateAttrs.position} onChange={e => setTemplateAttrs({ ...templateAttrs, position: e.target.value })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]">
-                          {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Raridade Base</label>
-                        <select value={templateAttrs.baseRarity} onChange={e => setTemplateAttrs({ ...templateAttrs, baseRarity: e.target.value })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]">
-                          {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Overall Base</label>
-                        <input type="number" value={templateAttrs.baseOverall} onChange={e => setTemplateAttrs({ ...templateAttrs, baseOverall: Number(e.target.value) })} className="w-full h-11 bg-white border border-[#E2E4EA] rounded-xl px-3 text-center text-base font-bold tabular-nums text-[#252733] transition focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10" min={0} max={99} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[#858A98] mb-1 block">Clube</label>
-                        <input type="text" value={templateAttrs.club} onChange={e => setTemplateAttrs({ ...templateAttrs, club: e.target.value })} className="w-full bg-white border border-[#E9EAF0] rounded-lg px-2 py-1 text-sm text-[#252733]" />
-                      </div>
-                    </div>
-                    <div className="text-xs text-[#858A98]">
-                      OVR calculado: {calcTemplateOverall(templateAttrs, templateAttrs.position, templateAttrs.baseRarity, 'none')}
-                    </div>
-                    <button
-                      onClick={handleSaveTemplate}
-                      disabled={savingTemplate}
-                      className="w-full py-2 rounded-xl bg-[#E30613] text-white font-bold text-sm disabled:opacity-60"
-                    >
-                      {savingTemplate ? 'Salvando...' : 'Salvar Template'}
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
           </div>

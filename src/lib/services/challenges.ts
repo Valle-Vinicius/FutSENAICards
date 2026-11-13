@@ -70,7 +70,8 @@ export async function acceptChallenge(id: string): Promise<boolean> {
 export async function setReady(id: string, tactic: Tactic): Promise<boolean> {
   if (!supabase) return false;
   const { data, error } = await supabase.rpc('set_challenge_ready', { p_challenge_id: id, p_tactic: tactic });
-  return !error && data === true;
+  if (error) throw new Error(error.message);
+  return data === true;
 }
 
 export async function abandonChallenge(id: string): Promise<boolean> {

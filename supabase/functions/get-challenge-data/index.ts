@@ -82,10 +82,13 @@ Deno.serve(async req => {
 
       const { data: cards, error: cardsError } = await supabase
         .from('cards')
-        .select('id,name,position,overall,pace,shooting,passing,dribbling,defending,physical,reflexes,positioning,handling')
+        .select('id,name,position,overall,pace,shooting,passing,dribbling,defending,physical,reflexes,positioning,handling,pack_group')
         .eq('user_id', userId)
         .in('id', starterIds);
       if (cardsError) throw cardsError;
+      if (cards?.some(card => card.pack_group === 'off_sale')) {
+        throw new RequestError('Cartas Off-Sale não podem ser usadas no X1. Troque-as no seu elenco e tente novamente.', 422);
+      }
 
       const cardsById = new Map((cards ?? []).map((card: any) => [card.id, card]));
       const orderedCards = starterIds
@@ -160,9 +163,12 @@ Deno.serve(async req => {
     if (cardIds.length > 0) {
       const { data: cardDetails, error: cardDetailsError } = await supabase
         .from('cards')
-        .select('id,nationality,age,club,rarity,edition,special,image,xp')
+        .select('id,nationality,age,club,rarity,edition,special,image,xp,pack_group')
         .in('id', cardIds);
       if (cardDetailsError) throw cardDetailsError;
+      if (cardDetails?.some(card => card.pack_group === 'off_sale')) {
+        throw new RequestError('Cartas Off-Sale não podem ser usadas no X1. Troque-as no seu elenco e tente novamente.', 422);
+      }
       for (const card of cardDetails ?? []) {
         cardDetailsById[card.id] = card;
       }

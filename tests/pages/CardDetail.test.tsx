@@ -31,7 +31,7 @@ describe('Card detail extra stats', () => {
       dribbling: 70,
       defending: 70,
       physical: 70,
-      extraStats: [{ label: 'Sorte', value: 99 }],
+      extraStats: [{ label: 'Sorte', value: 999 }],
       obtainedAt: 0,
       favorite: false,
       isNew: false,
@@ -43,7 +43,7 @@ describe('Card detail extra stats', () => {
     };
     mockedUseGame.mockImplementation(selector => selector(state as unknown as ReturnType<typeof useGame.getState>));
 
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={['/card/card-1']}>
         <Routes>
           <Route path="/card/:uid" element={<CardDetail />} />
@@ -52,7 +52,8 @@ describe('Card detail extra stats', () => {
     );
 
     expect(screen.getByText('Sorte')).toBeInTheDocument();
-    expect(screen.getByText('99')).toBeInTheDocument();
+    expect(screen.getByText('999')).toHaveClass('rgb-text');
+    expect(container.querySelector('.rgb-stat')).toBeInTheDocument();
     expect(screen.getByText('80')).toBeInTheDocument();
   });
 });

@@ -22,6 +22,7 @@ type ChallengeSquads = {
 };
 
 const MIN_STARTERS = 5;
+const OFF_SALE_PVP_MESSAGE = 'Cartas Off-Sale não podem ser usadas no X1. Troque-as no seu elenco e tente novamente.';
 
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
 const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressao alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
@@ -57,6 +58,7 @@ function MatchInner() {
   const [opponentName, setOpponentName] = useState<string>('IA');
   const [opponentPlayers, setOpponentPlayers] = useState<MatchPlayer[] | null>(null);
   const [opponentPlayersOwner, setOpponentPlayersOwner] = useState<string | null>(null);
+  const [opponentError, setOpponentError] = useState<string | null>(null);
   const [opponentFormation, setOpponentFormation] = useState<string>('1-2-1');
   const [loadingOpp, setLoadingOpp] = useState(false);
   const [challenge, setChallenge] = useState<any>(null);
@@ -300,6 +302,17 @@ function MatchInner() {
     // ---------- friend (opponent) / AI ----------
     setResultConfirmed(false);
     if (!homeInfo) { toast.error('Escalação incompleta.'); return; }
+    if (opponentId && supabase) {
+      const { data: teamCards, error } = await supabase
+        .from('cards')
+        .select('pack_group')
+        .in('id', homeInfo.cards.map(card => card.uid));
+      if (error) { toast.error('Não foi possível validar seu elenco para o X1: ' + error.message); return; }
+      if (teamCards?.some(card => card.pack_group === 'off_sale')) {
+        toast.error(OFF_SALE_PVP_MESSAGE);
+        return;
+      }
+    }
     if (opponentId && (!opponentPlayers || opponentPlayersOwner !== opponentId)) {
       toast.error('Não foi possível carregar o elenco do amigo (ele precisa ter 5 titulares salvos).');
       return;
@@ -413,6 +426,7 @@ function MatchInner() {
     let cancelled = false;
     setOpponentPlayers(null);
     setOpponentPlayersOwner(null);
+    setOpponentError(null);
     setLoadingOpp(true);
     (async () => {
       try {
@@ -425,10 +439,15 @@ function MatchInner() {
         const formation = sq?.formation || '1-2-1';
         setOpponentFormation(formation);
         const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
-        const { data: cs } = await supabase.from('cards').select('*').eq('user_id', opponentId);
+        const { data: cs, error: cardsError } = await supabase.from('cards').select('*').eq('user_id', opponentId);
+        if (cardsError) throw cardsError;
         if (cancelled) return;
         const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
         const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
+        if (starterCards.some(card => card.pack_group === 'off_sale')) {
+          setOpponentError(OFF_SALE_PVP_MESSAGE);
+          return;
+        }
         if (starterCards.length >= 5) {
           const mapped = starterCards.map((c: any) => ({
             uid: c.id, name: c.name, position: c.position, overall: c.overall,
@@ -440,7 +459,10 @@ function MatchInner() {
           setOpponentPlayersOwner(opponentId);
         }
       } catch (e) {
-        if (!cancelled) console.error('opponent fetch failed', e);
+        if (!cancelled) {
+          console.error('opponent fetch failed', e);
+          setOpponentError('Não foi possível carregar o elenco do amigo.');
+        }
       } finally {
         if (!cancelled) setLoadingOpp(false);
       }
@@ -788,6 +810,8 @@ function MatchInner() {
               const ch = await challengesService.getChallenge(challengeId);
               if (ch) applyChallengeRow(ch);
               if (ok) await loadChallengeSquads();
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : 'Não foi possível confirmar presença no X1.');
             } finally {
               setReadyLoading(false);
             }
@@ -830,6 +854,7 @@ function MatchInner() {
             </select>
             {!homeInfo && !challengeSquads && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
             {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {Math.round(homeInfo.cards.reduce((a: number, c: any) => a + (c.overall ?? 0), 0) / homeInfo.cards.length)}</div>}
+            {opponentError && <div className="text-xs text-red-600 mt-2">{opponentError}</div>}
           </div>
           {!opponentId && !challengeId && (
             <div>

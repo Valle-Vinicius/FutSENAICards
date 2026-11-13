@@ -214,7 +214,7 @@ export async function loadDbTemplates() {
     gkAttributes: t.gk_attributes || undefined,
     image: t.image || '',
     baseRarity: (t.base_rarity as Rarity) || 'uncommon',
-    baseOverall: t.base_overall || undefined,
+    baseOverall: t.base_overall ?? undefined,
     special: t.special || 'none',
     packGroup: t.pack_group === 'off_sale' ? 'off_sale' : 'standard',
     extraStats: Array.isArray(t.extra_stats) ? t.extra_stats as ExtraStat[] : [],

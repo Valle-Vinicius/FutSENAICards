@@ -53,7 +53,7 @@ Campos adicionais:
 
 Templates marcados como exclusivos do Off-Sale são gravados com `pack_group = 'off_sale'`. A RPC de abertura filtra esse grupo no servidor, impedindo que apareçam nos pacotes normais. Templates existentes e criados para pacotes normais permanecem no grupo `standard`.
 
-Ao escolher **Somente Pacote Off-Sale (zoeira)**, o admin também pode cadastrar até 10 estatísticas extras, com rótulos de até 30 caracteres e valores inteiros de 0 a 99. Elas aparecem junto aos atributos no detalhe da carta, mas não participam do OVR nem das melhorias de atributos.
+Ao escolher **Somente Pacote Off-Sale (zoeira)**, o admin também pode cadastrar até 10 estatísticas extras, com rótulos de até 30 caracteres e valores inteiros de 0 a 999. Valores acima de 99 usam o destaque colorido das estatísticas de Ícone. Elas aparecem junto aos atributos no detalhe da carta, mas não participam do OVR nem das melhorias de atributos.
 
 ---
 
@@ -69,18 +69,18 @@ Lista os templates base do jogo (templates estáticos em `src/data/players.ts` e
 
 Funcionamento:
 1. Clique em "Editar" em qualquer carta
-2. Modifique os atributos desejados
-3. O OVR é recalculado em tempo real
-4. Clique em "Salvar Template" para salvar via RPC `admin_upsert_template`
+2. O template é carregado no mesmo formulário de criação, incluindo informações básicas, imagem, posição, raridade, atributos, destino do pacote e estatísticas extras Off-Sale
+3. Modifique os campos; o OVR é calculado em tempo real quando essa opção está ativa
+4. Clique em "Salvar alterações" para validar e salvar pelo RPC `admin_save_template`
 
 **Campos editáveis:**
-- Nome, Posição, Nacionalidade, Idade, Clube
+- Posição, Nacionalidade, Idade, Clube e Imagem URL (o nome é a chave do template e não pode ser alterado)
 - Velocidade, Chute, Passe, Drible, Defesa, Físico
 - (Se GK) Reflexos, Posicionamento, Defesa de Bola
-- Imagem URL
 - Raridade Base
 - Overall Base
-- Especial
+- Destino (pacote normal ou Off-Sale)
+- (Se Off-Sale) até 10 estatísticas extras, com valores entre 0 e 999
 
 **Preview de OVR:** Calculado em tempo real usando `calcOverallLocal()` com os atributos atuais e a raridade/baseOverall selecionadas.
 
@@ -111,10 +111,10 @@ Cria um template e o associa a um grupo de pacotes:
 - Retorna: uuid (id do template)
 - Segurança: security definer, apenas admin
 
-### `admin_upsert_template`
+### `admin_save_template`
 
-Cria ou atualiza um template por nome (upsert):
-- Params: Mesmo que `create_card_template`
+Atualiza um template por nome e sincroniza o grupo de pacote e as estatísticas extras:
+- Params: dados de template, `p_pack_group` (`standard` ou `off_sale`) e `p_extra_stats`
 - Retorna: uuid (id do template)
 - Segurança: security definer, apenas admin
 - Usa `ON CONFLICT (name) DO UPDATE` para atualizar se já existir
@@ -139,13 +139,11 @@ Atualiza o overall de uma carta específica:
 ## Fluxo de Edição de Template
 
 1. Admin clica em "Editar" em um template (ex: Pietro Guedes)
-2. `loadTemplateAttrs(t)` carrega os atributos atuais do template no estado
-3. Admin modifica os atributos desejados
-4. `calcTemplateOverall()` recalcula o OVR em tempo real
-5. Admin clica em "Salvar Template"
-6. `handleSaveTemplate()` chama `admin_upsert_template` com todos os parâmetros
-7. O template é atualizado no banco
-8. Mensagem de sucesso: "Template atualizado! Recarregue a página para ver as mudanças."
+2. Os valores do template são carregados no formulário de criação
+3. Admin modifica os campos e o destino; as validações são as mesmas da criação
+4. Admin clica em "Salvar alterações"
+5. O formulário chama `admin_save_template` e atualiza também o grupo e as estatísticas extras
+6. Mensagem de sucesso: "Template atualizado com sucesso!"
 
 ---
 
@@ -173,7 +171,7 @@ A função `validateRarityOverall(rarity, overall)` verifica se o overall está 
 - `supabase/migrations/20261107000000_fix_create_card_template.sql` - base_overall/base_rarity
 - `supabase/migrations/20261107060000_admin_upsert_template.sql` - upsert por nome
 - `supabase/migrations/20261112180000_off_sale_pack.sql` - grupo exclusivo do Pacote Off-Sale e filtro server-side
-- `supabase/migrations/20261112200000_off_sale_extra_stats.sql` - estatísticas extras persistidas, exibidas e excluídas do cálculo de OVR
+- `supabase/migrations/20261112200000_off_sale_extra_stats.sql` - estatísticas extras, editor de templates, marcação das cartas Off-Sale e bloqueio no X1
 
 ---
 
@@ -185,7 +183,7 @@ A função `validateRarityOverall(rarity, overall)` verifica se o overall está 
 | playerId com espaços | `replace(lower(name), ' ', '-')` |
 | Imagem vazia vira nome | Usar `p_image` diretamente |
 | Double-counting de mod de raridade | Passar atributos crus para calcOverall |
-| Sem edição de template existente | Criado `admin_upsert_template` com ON CONFLICT |
+| Edição de template diferente do formulário de criação | Edição agora carrega e reutiliza o formulário completo |
 | delete_owned_cards falhava (uuid=text) | Corrigido para `id::text = any(p_card_ids)` |
 
 ---
