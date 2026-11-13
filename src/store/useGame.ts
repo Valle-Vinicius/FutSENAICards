@@ -233,6 +233,12 @@ export const useGame = create<GameState & Actions>()(
         const fixedPacks = s.packConfigs.filter(p => !p.id.startsWith('futsal_')).map(p =>
           p.id === 'position_gk' ? { ...p, position: 'GK' as any, sport: 'futsal' as any } : p
         );
+        const configuredPackIds = new Set(fixedPacks.map(p => p.id));
+        for (const pack of DEFAULT_PACKS) {
+          if (!configuredPackIds.has(pack.id)) {
+            fixedPacks.push({ ...pack, probabilities: { ...pack.probabilities } });
+          }
+        }
         set({ packConfigs: fixedPacks });
         if (s.events.length === 0) {
           const now = Date.now();

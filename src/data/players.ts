@@ -30,6 +30,7 @@ export interface PlayerTemplate {
   baseRarity: Rarity;
   baseOverall?: number;
   special?: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal';
+  packGroup?: 'standard' | 'off_sale';
 }
 
 export const RARITY_MODIFIER: Record<Rarity, number> = {
@@ -213,6 +214,7 @@ export async function loadDbTemplates() {
     baseRarity: (t.base_rarity as Rarity) || 'uncommon',
     baseOverall: t.base_overall || undefined,
     special: t.special || 'none',
+    packGroup: t.pack_group === 'off_sale' ? 'off_sale' : 'standard',
   }));
   setDbTemplates(templates);
   console.log('[loadDbTemplates] carregados', templates.length, 'templates:', templates.map(t => t.name));
@@ -238,7 +240,8 @@ export function getPlayerImage(name: string): string | undefined {
 }
 
 export function randomTemplate(positionFilter?: Position): PlayerTemplate {
-  const pool = positionFilter ? allTemplates().filter(t => t.position === positionFilter) : allTemplates();
+  const standardTemplates = allTemplates().filter(t => t.packGroup !== 'off_sale');
+  const pool = positionFilter ? standardTemplates.filter(t => t.position === positionFilter) : standardTemplates;
   if (pool.length === 0) return TEMPLATES[0];
   return pool[Math.floor(Math.random() * pool.length)];
 }

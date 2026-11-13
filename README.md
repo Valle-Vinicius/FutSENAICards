@@ -196,6 +196,7 @@ HashRouter com as seguintes rotas:
 - Pacote Lendas.
 - Pacote Goleiros.
 - Escolha Especial (choice).
+- Pacote Off-Sale, com cartas zoeiras cadastradas exclusivamente pelo admin.
 
 ### Propriedades
 - `id`, `name`, `price`, `cards`.

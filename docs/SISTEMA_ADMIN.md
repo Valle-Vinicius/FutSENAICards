@@ -47,8 +47,11 @@ Cria um template que será sorteado nos pacotes abertos por qualquer jogador via
 Campos adicionais:
 - Raridade Base (raridade usada como base nos pacotes)
 - Overall Base (overall usado nos pacotes)
+- Destino: pacotes normais ou exclusivamente o **Pacote Off-Sale (zoeira)**
 
 **Nota:** No modo pacotes, edição e título especial não são definidos pelo template; a temporada é fixa e o título especial é sorteado ao abrir o pacote. A nacionalidade continua fixa em `Brasil` e o clube é sorteado entre os times existentes.
+
+Templates marcados como exclusivos do Off-Sale são gravados com `pack_group = 'off_sale'`. A RPC de abertura filtra esse grupo no servidor, impedindo que apareçam nos pacotes normais. Templates existentes e criados para pacotes normais permanecem no grupo `standard`.
 
 ---
 
@@ -96,6 +99,13 @@ Cria uma carta no inventário do admin:
 
 Cria um template para pacotes:
 - Params: p_name, p_position, p_nationality, p_age, p_club, p_pace, p_shooting, p_passing, p_dribbling, p_defending, p_physical, p_reflexes, p_positioning, p_handling, p_image, p_special, p_base_rarity, p_base_overall
+- Retorna: uuid (id do template)
+- Segurança: security definer, apenas admin
+
+### `admin_create_pack_template`
+
+Cria um template e o associa a um grupo de pacotes:
+- Params: mesmos campos de `create_card_template`, mais `p_pack_group` (`standard` ou `off_sale`)
 - Retorna: uuid (id do template)
 - Segurança: security definer, apenas admin
 
@@ -160,6 +170,7 @@ A função `validateRarityOverall(rarity, overall)` verifica se o overall está 
 - `supabase/migrations/20261106050000_admin_create_card.sql` - RPC create_card
 - `supabase/migrations/20261107000000_fix_create_card_template.sql` - base_overall/base_rarity
 - `supabase/migrations/20261107060000_admin_upsert_template.sql` - upsert por nome
+- `supabase/migrations/20261112180000_off_sale_pack.sql` - grupo exclusivo do Pacote Off-Sale e filtro server-side
 
 ---
 

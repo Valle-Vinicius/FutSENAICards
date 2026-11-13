@@ -91,7 +91,7 @@ export default function Admin() {
       handling: 0,
       imageUrl: '',
       calcOverall: false,
-      destination: 'inventory' as 'inventory' | 'packs',
+      destination: 'inventory' as 'inventory' | 'packs' | 'off_sale',
     };
   });
 
@@ -119,6 +119,7 @@ export default function Admin() {
   const isGK = form.position === 'GK';
   const calcMode = form.calcOverall;
   const isInventory = form.destination === 'inventory';
+  const isOffSale = form.destination === 'off_sale';
   const teams = [...new Set(templates.map(template => template.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   const rarityToUse = calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity;
@@ -367,7 +368,7 @@ export default function Admin() {
       } else {
         const ovr = calcMode ? calculatedOverall : form.baseOverall;
         const club = form.club;
-        const { error } = await supabase.rpc('create_card_template', {
+        const templateParams = {
           p_name: form.name.trim(),
           p_position: form.position,
           p_nationality: DEFAULT_NATIONALITY,
@@ -386,7 +387,10 @@ export default function Admin() {
           p_special: 'none',
           p_base_rarity: form.baseRarity,
           p_base_overall: ovr,
-        });
+        };
+        const { error } = isOffSale
+          ? await supabase.rpc('admin_create_pack_template', { ...templateParams, p_pack_group: 'off_sale' })
+          : await supabase.rpc('create_card_template', templateParams);
         if (error) { toast.error('Erro: ' + error.message); return; }
         await loadDbTemplates();
         setTemplates(allTemplates());
@@ -549,9 +553,10 @@ export default function Admin() {
                 <div>
                   <label className={labelCls}>Destino da carta</label>
                   <div className="relative">
-                    <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value as 'inventory' | 'packs' })} className={`${inputCls} appearance-none pr-10`}>
+                    <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value as 'inventory' | 'packs' | 'off_sale' })} className={`${inputCls} appearance-none pr-10`}>
                       <option value="inventory">Inventário (admin)</option>
                       <option value="packs">Pacotes (disponível para todos)</option>
+                      <option value="off_sale">Somente Pacote Off-Sale (zoeira)</option>
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
                   </div>
@@ -593,7 +598,7 @@ export default function Admin() {
               disabled={creating || !form.name.trim() || !form.club || teams.length === 0}
               className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
             >
-              {creating ? 'Criando...' : isInventory ? 'Criar no Inventário' : 'Adicionar aos Pacotes'}
+              {creating ? 'Criando...' : isInventory ? 'Criar no Inventário' : isOffSale ? 'Adicionar somente ao Pacote Off-Sale' : 'Adicionar aos Pacotes'}
             </button>
           </div>
 

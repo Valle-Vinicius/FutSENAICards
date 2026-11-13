@@ -92,6 +92,17 @@ export const DEFAULT_PACKS: PackDef[] = [
     description: 'Escolha 1 entre 3 atletas especiais.',
     choice: 3,
   },
+  {
+    id: 'off_sale',
+    name: 'Pacote Off-Sale',
+    price: 500,
+    cards: 3,
+    probabilities: { common: 0.62, uncommon: 0.25, rare: 0.10, epic: 0.025, legendary: 0.004, icon: 0.001 },
+    unlocked: true,
+    sport: 'futsal',
+    color: '#a855f7',
+    description: 'Cartas zoeiras, exclusivas deste pacote.',
+  },
 ];
 
 export function rollRarity(prob: Record<Rarity, number>): Rarity {
