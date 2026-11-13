@@ -20,6 +20,8 @@ import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, 
 // --- Elenco ativo: autosave + serialização do sync ---
 let squadSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let squadSavePending = false; // true enquanto há alteração local ainda não confirmada no servidor
+let squadSaveVersion = 0;
+let squadSaveChain: Promise<void> = Promise.resolve();
 let syncChain: Promise<void> = Promise.resolve();
 let dailyClaimPending = false;
 let duplicateConversionPending = false;
@@ -92,28 +94,56 @@ function mapOpenPackCard(row: OpenPackRow): PlayerCard {
   };
 }
 
-function scheduleSquadSave(getSquad: () => Squad) {
-  if (!supabase) return;
-  squadSavePending = true;
-  if (squadSaveTimer) clearTimeout(squadSaveTimer);
-  squadSaveTimer = setTimeout(async () => {
-    squadSaveTimer = null;
+function persistSquad(getSquad: () => Squad, version: number): Promise<boolean> {
+  const squad = getSquad();
+  const save = squadSaveChain.then(async () => {
+    if (!supabase) {
+      if (version === squadSaveVersion && !squadSaveTimer) squadSavePending = false;
+      return true;
+    }
     try {
-      const { data } = await supabase!.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
       const uid = data.session?.user?.id;
       if (!uid) {
         console.error('[squad] autosave skipped: no authenticated user');
         toast.error('Não foi possível salvar o elenco: sessão não autenticada.');
-        return;
+        return false;
       }
-      const ok = await upsertPrimarySquad(uid, getSquad());
-      if (ok && !squadSaveTimer) squadSavePending = false;
-      else if (!ok) toast.error('Não foi possível salvar o elenco. Tente novamente.');
+      const ok = await upsertPrimarySquad(uid, squad);
+      if (!ok) {
+        toast.error('Não foi possível salvar o elenco. Tente novamente.');
+        return false;
+      }
+      if (version === squadSaveVersion && !squadSaveTimer) squadSavePending = false;
+      return true;
     } catch (e) {
       console.error('[squad] autosave falhou', e);
       toast.error('Não foi possível salvar o elenco. Tente novamente.');
+      return false;
     }
+  });
+  squadSaveChain = save.then(() => undefined, () => undefined);
+  return save;
+}
+
+function scheduleSquadSave(getSquad: () => Squad) {
+  if (!supabase) return;
+  squadSavePending = true;
+  const version = ++squadSaveVersion;
+  if (squadSaveTimer) clearTimeout(squadSaveTimer);
+  squadSaveTimer = setTimeout(() => {
+    squadSaveTimer = null;
+    void persistSquad(getSquad, version);
   }, 500);
+}
+
+function flushSquadSave(getSquad: () => Squad): Promise<boolean> {
+  if (squadSaveTimer) clearTimeout(squadSaveTimer);
+  squadSaveTimer = null;
+  squadSavePending = true;
+  const version = ++squadSaveVersion;
+  return persistSquad(getSquad, version);
 }
 
 interface Actions {
@@ -129,6 +159,7 @@ interface Actions {
   updateMissionProgress: () => void;
   claimMission: (id: string) => Promise<boolean>;
   setSquadSport: (sport: 'futsal') => void;
+  flushSquadSave: (sport: 'futsal') => Promise<boolean>;
   assignSlot: (sport: 'futsal', index: number, cardUid: string | null, bench?: boolean, benchIndex?: number) => void;
   clearSlot: (sport: 'futsal', index: number, bench?: boolean, benchIndex?: number) => void;
   setFormation: (sport: 'futsal', formation: string) => void;
@@ -663,6 +694,7 @@ export const useGame = create<GameState & Actions>()(
         return true;
       },
       setSquadSport: () => {},
+      flushSquadSave: sport => flushSquadSave(() => get().squads[sport]),
       assignSlot: (sport, index, cardUid, bench, benchIndex) => {
         set(st => {
           const squad = { ...st.squads[sport] };

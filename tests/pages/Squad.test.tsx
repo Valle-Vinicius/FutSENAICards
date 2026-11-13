@@ -3,6 +3,8 @@ import Squad from '../../src/pages/Squad';
 import { useGame } from '../../src/store/useGame';
 import type { PlayerCard } from '../../src/types';
 
+const mockFlushSquadSave = jest.fn();
+
 jest.mock('nanoid', () => ({ nanoid: () => 'test-id' }));
 jest.mock('../../src/lib/supabase', () => ({ supabase: null }));
 
@@ -13,6 +15,8 @@ jest.mock('../../src/components/Card', () => ({
 
 describe('squad builder inventory', () => {
   beforeEach(() => {
+    mockFlushSquadSave.mockReset();
+    mockFlushSquadSave.mockResolvedValue(true);
     const cards = Array.from({ length: 100 }, (_, index) => ({
       uid: `card-${index}`,
       playerId: `player-${index}`,
@@ -44,6 +48,7 @@ describe('squad builder inventory', () => {
         },
       },
       savedSquads: [],
+      flushSquadSave: mockFlushSquadSave,
     });
   });
 
@@ -62,6 +67,25 @@ describe('squad builder inventory', () => {
     await waitFor(() => {
       expect(screen.getAllByTestId('inventory-card')).toHaveLength(1);
       expect(screen.getByText('Busca exata')).toBeTruthy();
+    });
+  });
+
+  it('waits for the generated squad to be saved before showing success', async () => {
+    let finishSave!: (saved: boolean) => void;
+    mockFlushSquadSave.mockImplementation(() => new Promise(resolve => { finishSave = resolve; }));
+    render(<Squad />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Montar melhor time' }));
+
+    await waitFor(() => {
+      expect(mockFlushSquadSave).toHaveBeenCalledWith('futsal');
+    });
+    expect((screen.getByRole('button', { name: 'Salvando elenco...' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText('Time montado e salvo.')).toBeNull();
+
+    finishSave(true);
+    await waitFor(() => {
+      expect(screen.getByText('Time montado e salvo.')).toBeTruthy();
     });
   });
 });

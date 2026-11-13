@@ -1,7 +1,9 @@
 alter table public.squads
   add column if not exists bench jsonb not null default '[]'::jsonb;
 
-create or replace function public.set_primary_squad(
+drop function if exists public.set_primary_squad(text, jsonb, jsonb);
+
+create function public.set_primary_squad(
   p_formation text,
   p_starters jsonb,
   p_bench jsonb default '[]'::jsonb

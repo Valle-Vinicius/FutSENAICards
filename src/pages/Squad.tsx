@@ -21,6 +21,7 @@ export default function Squad() {
   const assign = useGame(s => s.assignSlot);
   const clear = useGame(s => s.clearSlot);
   const setFormation = useGame(s => s.setFormation);
+  const flushSquadSave = useGame(s => s.flushSquadSave);
   const saveSquad = useGame(s => s.saveSquad);
   const deleteSquad = useGame(s => s.deleteSquad);
   const loadSquad = useGame(s => s.loadSquad);
@@ -30,6 +31,7 @@ export default function Squad() {
   const [criteria, setCriteria] = useState<'overall'|'balance'|'position'>('overall');
   const [saveName, setSaveName] = useState('');
   const [msg, setMsg] = useState('');
+  const [autoBuildSaving, setAutoBuildSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [visibleCardCount, setVisibleCardCount] = useState(36);
   const deferredSearch = useDeferredValue(search);
@@ -94,7 +96,9 @@ export default function Squad() {
     }
   };
 
-  const autoBuild = () => {
+  const autoBuild = async () => {
+    if (autoBuildSaving) return;
+    setAutoBuildSaving(true);
     const allCards = [...cards];
     const slots = squad.starters.map(s => s.position);
     const assigned = new Set<string>();
@@ -119,8 +123,13 @@ export default function Squad() {
     newStartersUids.forEach((uid, i) => {
       if (uid) assign(sport, i, uid, false);
     });
-    setMsg('Time montado automaticamente.');
-    setTimeout(() => setMsg(''), 2000);
+    try {
+      const saved = await flushSquadSave(sport);
+      setMsg(saved ? 'Time montado e salvo.' : 'Time montado, mas não foi possível salvar.');
+      setTimeout(() => setMsg(''), 3000);
+    } finally {
+      setAutoBuildSaving(false);
+    }
   };
 
   const handleSave = () => {
@@ -186,7 +195,13 @@ export default function Squad() {
             <option value="balance">Melhor equilíbrio</option>
             <option value="position">Melhor adequação</option>
           </select>
-          <button onClick={autoBuild} className="px-3 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Montar melhor time</button>
+          <button
+            onClick={() => void autoBuild()}
+            disabled={autoBuildSaving}
+            className="px-3 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium disabled:opacity-50"
+          >
+            {autoBuildSaving ? 'Salvando elenco...' : 'Montar melhor time'}
+          </button>
         </div>
         {msg && <span className="text-sm text-[#E30613]">{msg}</span>}
       </div>
