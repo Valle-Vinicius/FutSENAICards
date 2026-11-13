@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
@@ -23,37 +23,53 @@ export default function Collection() {
   const [album, setAlbum] = useState(false);
   const navigate = useNavigate();
 
+  const deferredQ = useDeferredValue(q);
+  const deferredPos = useDeferredValue(pos);
+  const deferredRar = useDeferredValue(rar);
+  const deferredClub = useDeferredValue(club);
+  const deferredSort = useDeferredValue(sort);
+
   const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'];
   const rankOf = (r: Rarity) => RARITY_ORDER.indexOf(r);
 
-  const filtered = cards.filter(c => {
-    if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
-    if (pos && c.position !== pos) return false;
-    if (rar && c.rarity !== rar) return false;
-    if (club && c.club !== club) return false;
-    return true;
-  }).sort((a, b) => {
-    // desempate estável: raridade, overall, nome
-    if (sort === 'overall') return b.overall - a.overall || rankOf(b.rarity) - rankOf(a.rarity) || a.name.localeCompare(b.name);
-    if (sort === 'rarity') return rankOf(b.rarity) - rankOf(a.rarity) || b.overall - a.overall || a.name.localeCompare(b.name);
-    if (sort === 'name') return a.name.localeCompare(b.name) || b.overall - a.overall;
-    return b.obtainedAt - a.obtainedAt;
-  });
+  const filtered = useMemo(() => {
+    const query = deferredQ.trim().toLowerCase();
+    return [...cards].filter(c => {
+      if (query && !c.name.toLowerCase().includes(query)) return false;
+      if (deferredPos && c.position !== deferredPos) return false;
+      if (deferredRar && c.rarity !== deferredRar) return false;
+      if (deferredClub && c.club !== deferredClub) return false;
+      return true;
+    }).sort((a, b) => {
+      if (deferredSort === 'overall') return b.overall - a.overall || rankOf(b.rarity) - rankOf(a.rarity) || a.name.localeCompare(b.name);
+      if (deferredSort === 'rarity') return rankOf(b.rarity) - rankOf(a.rarity) || b.overall - a.overall || a.name.localeCompare(b.name);
+      if (deferredSort === 'name') return a.name.localeCompare(b.name) || b.overall - a.overall;
+      return b.obtainedAt - a.obtainedAt;
+    });
+  }, [cards, deferredQ, deferredPos, deferredRar, deferredClub, deferredSort]);
 
   // "únicas" = nomes distintos (mesmo critério do "converter duplicatas")
-  const unique = new Set(cards.map(c => c.name)).size;
-  const clubs = [...new Set(cards.map(c => c.club).filter(Boolean))].sort();
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  useEffect(() => { setPage(1); }, [q, pos, rar, club, sort]);
+  const unique = useMemo(() => new Set(cards.map(c => c.name)).size, [cards]);
+  const clubs = useMemo(() => [...new Set(cards.map(c => c.club).filter(Boolean))].sort(), [cards]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)), [filtered.length]);
+  useEffect(() => { setPage(1); }, [deferredQ, deferredPos, deferredRar, deferredClub, deferredSort]);
   // se o total de páginas diminuir (ex.: depois de converter duplicatas), volta para uma página válida
   useEffect(() => { setPage(p => Math.min(p, totalPages)); }, [totalPages]);
 
   // melhor cópia de cada jogador para o álbum
-  const bestByName = new Map<string, PlayerCard>();
-  for (const c of cards) {
-    const cur = bestByName.get(c.name);
-    if (!cur || rankOf(c.rarity) > rankOf(cur.rarity) || (rankOf(c.rarity) === rankOf(cur.rarity) && c.overall > cur.overall)) bestByName.set(c.name, c);
-  }
+  const bestByName = useMemo(() => {
+    const byName = new Map<string, PlayerCard>();
+    for (const c of cards) {
+      const cur = byName.get(c.name);
+      if (!cur || rankOf(c.rarity) > rankOf(cur.rarity) || (rankOf(c.rarity) === rankOf(cur.rarity) && c.overall > cur.overall)) byName.set(c.name, c);
+    }
+    return byName;
+  }, [cards]);
+
+  const pageCards = useMemo(() => {
+    const start = (Math.min(page, totalPages) - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page, totalPages]);
 
   const openCard = (c: PlayerCard) => {
     if (c.isNew) markSeen([c.uid]);
@@ -118,7 +134,7 @@ export default function Collection() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-            {filtered.slice((Math.min(page, totalPages) - 1) * PAGE_SIZE, Math.min(page, totalPages) * PAGE_SIZE).map(c => (
+            {pageCards.map(c => (
               <Card key={c.uid} card={c} size="sm" onClick={() => openCard(c)} isNew={c.isNew} />
             ))}
           </div>
