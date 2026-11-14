@@ -1019,7 +1019,7 @@ function MatchInner() {
       <div className="p-4 md:p-8 space-y-6">
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada{opponentId ? ` vs ${opponentName}` : challengeId ? ' (PvP)' : ''}</h1>
         {showTacticPreview ? (
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+          <div className="grid gap-4 md:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
             <div className="card-surface order-1 min-w-0 p-4 space-y-4 md:col-start-1 md:row-start-1">
               {setupControls}
             </div>

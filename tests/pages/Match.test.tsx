@@ -107,7 +107,7 @@ describe('match playback', () => {
     );
 
     const preview = screen.getByRole('img', { name: /Prévia equilibrada/ });
-    expect(preview.getAttribute('viewBox')).toBe('0 0 100 50');
+    expect(preview.getAttribute('viewBox')).toBe('0 0 50 100');
     expect(preview.querySelectorAll('[data-team="home"]')).toHaveLength(5);
     expect(preview.querySelectorAll('[data-team="away"]')).toHaveLength(5);
     expect(screen.getByText('Pressão e linha defensiva não mudam no motor atual.')).toBeTruthy();

@@ -118,6 +118,12 @@ body {
 .rgb-stat { animation: rgbBg 2.5s linear infinite; }
 .rgb-text { animation: rgbText 2.5s linear infinite; }
 
+@keyframes tactic-preview-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.tactic-preview-fade { animation: tactic-preview-fade 150ms ease-out both; }
+
 @keyframes rgbText {
   0% { color: #ff0040; }
   25% { color: #ff8c00; }

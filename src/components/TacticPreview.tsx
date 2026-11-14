@@ -1,5 +1,4 @@
 import { useEffect, useId, useState } from 'react';
-import { motion } from 'framer-motion';
 import { basePositions, type Tactic } from '../engine/match';
 import { tacticPreviews } from '../data/tacticPreviews';
 
@@ -32,6 +31,10 @@ function interpolatePoint(from: Point, to: Point, progress: number): Point {
     x: from.x + (to.x - from.x) * eased,
     y: from.y + (to.y - from.y) * eased,
   };
+}
+
+function toCourtPoint(point: Point): Point {
+  return { x: point.y, y: 100 - point.x };
 }
 
 function getPreviewPlayers(formation: string, side: 'home' | 'away', ball: Point): PreviewPlayer[] {
@@ -84,7 +87,10 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
     const startedAt = performance.now();
     let frameId = 0;
     const animate = (now: number) => {
-      setElapsed((now - startedAt) % CYCLE_DURATION_MS);
+      const timeSinceStart = now - startedAt;
+      if (Number.isFinite(timeSinceStart)) {
+        setElapsed(Math.max(0, timeSinceStart) % CYCLE_DURATION_MS);
+      }
       frameId = window.requestAnimationFrame(animate);
     };
     frameId = window.requestAnimationFrame(animate);
@@ -96,24 +102,23 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
     ? 1
     : (elapsed % PHASE_DURATION_MS) / PHASE_DURATION_MS;
   const route = BALL_ROUTES[tactic];
-  const ball = reduceMotion
+  const horizontalBall = reduceMotion
     ? route[2]
     : interpolatePoint(route[phase], route[(phase + 1) % route.length], phaseProgress);
-  const passTarget = reduceMotion ? { x: 98, y: 25 } : route[(phase + 1) % route.length];
-  const homePlayers = getPreviewPlayers(formation, 'home', ball);
-  const awayPlayers = getPreviewPlayers('1-2-1', 'away', ball);
+  const horizontalPassTarget = reduceMotion ? { x: 98, y: 25 } : route[(phase + 1) % route.length];
+  const ball = toCourtPoint(horizontalBall);
+  const passTarget = toCourtPoint(horizontalPassTarget);
+  const homePlayers = getPreviewPlayers(formation, 'home', horizontalBall);
+  const awayPlayers = getPreviewPlayers('1-2-1', 'away', horizontalBall);
   const teams = [
     { side: 'away' as const, players: awayPlayers, color: '#173B6B' },
     { side: 'home' as const, players: homePlayers, color: '#E30613' },
   ];
 
   return (
-    <motion.section
+    <section
       key={tactic}
-      initial={reduceMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: reduceMotion ? 0 : 0.15 }}
-      className="card-surface min-w-0 p-4"
+      className={`min-w-0 ${reduceMotion ? '' : 'tactic-preview-fade'}`}
       aria-label={`Prévia da tática ${copy.title}`}
     >
       <header className="mb-3">
@@ -121,55 +126,58 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
         <p className="mt-1 text-xs leading-relaxed text-[#858A98]">{copy.description}</p>
       </header>
 
-      <div className="overflow-hidden rounded-xl bg-slate-950 p-1.5">
+      <div className="flex justify-center">
         <svg
-          viewBox="0 0 100 50"
-          className="block h-auto w-full"
+          viewBox="0 0 50 100"
+          className="mx-auto block max-w-full"
+          style={{ height: 'min(72vh, 720px)', width: 'auto' }}
           role="img"
           aria-label={copy.ariaLabel}
         >
           <defs>
             <clipPath id={`${id}-clip`}>
-              <rect x="1" y="1" width="98" height="48" rx="1.5" />
+              <rect x="1" y="1" width="48" height="98" rx="1.5" />
             </clipPath>
             <marker id={`${id}-arrow`} markerWidth="3" markerHeight="3" refX="2.5" refY="1.5" orient="auto">
               <path d="M 0 0 L 3 1.5 L 0 3 z" fill="#fff" />
             </marker>
           </defs>
-          <rect width="100" height="50" rx="2" fill="#9A6845" />
+          <rect width="50" height="100" rx="2" fill="#9A6845" />
           <g clipPath={`url(#${id}-clip)`}>
-            {Array.from({ length: 10 }, (_, index) => (
+            {Array.from({ length: 20 }, (_, index) => (
               <rect
                 key={index}
-                x={index * 10}
-                y="0"
-                width="10"
-                height="50"
+                x="0"
+                y={index * 5}
+                width="50"
+                height="5"
                 fill={index % 2 === 0 ? '#B9845B' : '#A8734F'}
                 opacity="0.75"
               />
             ))}
           </g>
-          <rect x="1.5" y="1.5" width="97" height="47" rx="1.5" fill="none" stroke="#fff" strokeWidth="0.45" />
-          <line x1="50" y1="1.5" x2="50" y2="48.5" stroke="#fff" strokeWidth="0.4" />
-          <circle cx="50" cy="25" r="7.5" fill="none" stroke="#fff" strokeWidth="0.4" />
-          <circle cx="50" cy="25" r="0.6" fill="#fff" />
-          <path d="M 1.5 10 A 15 15 0 0 1 16.5 25 A 15 15 0 0 1 1.5 40" fill="none" stroke="#fff" strokeWidth="0.4" />
-          <path d="M 98.5 10 A 15 15 0 0 0 83.5 25 A 15 15 0 0 0 98.5 40" fill="none" stroke="#fff" strokeWidth="0.4" />
-          <rect x="0.5" y="21.25" width="1.7" height="7.5" fill="none" stroke="#fff" strokeWidth="0.4" />
-          <rect x="97.8" y="21.25" width="1.7" height="7.5" fill="none" stroke="#fff" strokeWidth="0.4" />
+          <rect x="1.5" y="1.5" width="47" height="97" rx="1.5" fill="none" stroke="#fff" strokeWidth="0.45" />
+          <line x1="1.5" y1="50" x2="48.5" y2="50" stroke="#fff" strokeWidth="0.4" />
+          <circle cx="25" cy="50" r="7.5" fill="none" stroke="#fff" strokeWidth="0.4" />
+          <circle cx="25" cy="50" r="0.6" fill="#fff" />
+          <path d="M 10 1.5 A 15 15 0 0 1 25 16.5 A 15 15 0 0 1 40 1.5" fill="none" stroke="#fff" strokeWidth="0.4" />
+          <path d="M 10 98.5 A 15 15 0 0 0 25 83.5 A 15 15 0 0 0 40 98.5" fill="none" stroke="#fff" strokeWidth="0.4" />
+          <rect x="21.25" y="0.5" width="7.5" height="1.7" fill="none" stroke="#fff" strokeWidth="0.4" />
+          <rect x="21.25" y="97.8" width="7.5" height="1.7" fill="none" stroke="#fff" strokeWidth="0.4" />
 
           <g aria-hidden="true">
             {teams.flatMap(({ side, players, color }) => players.map((player, index) => {
               const distance = Math.hypot(player.x - player.baseX, player.y - player.baseY);
               if (distance < 0.15) return null;
+              const start = toCourtPoint({ x: player.baseX, y: player.baseY });
+              const end = toCourtPoint(player);
               return (
                 <line
                   key={`${side}-move-${index}`}
-                  x1={player.baseX}
-                  y1={player.baseY}
-                  x2={player.x}
-                  y2={player.y}
+                  x1={start.x}
+                  y1={start.y}
+                  x2={end.x}
+                  y2={end.y}
                   stroke={color}
                   strokeWidth="0.4"
                   strokeDasharray="1 1"
@@ -188,28 +196,31 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
             />
           </g>
 
-          {teams.flatMap(({ side, players, color }) => players.map(player => (
-            <g key={`${side}-${player.number}`} data-team={side} aria-hidden="true">
-              <circle
-                cx={player.x}
-                cy={player.y}
-                r="2.45"
-                fill={player.isGoalkeeper ? '#FDE047' : color}
-                stroke={player.isGoalkeeper ? '#252733' : '#fff'}
-                strokeWidth="0.45"
-              />
-              <text
-                x={player.x}
-                y={player.y + 0.65}
-                textAnchor="middle"
-                fontSize="1.55"
-                fontWeight="900"
-                fill={player.isGoalkeeper ? '#252733' : '#fff'}
-              >
-                {player.number}
-              </text>
-            </g>
-          )))}
+          {teams.flatMap(({ side, players, color }) => players.map(player => {
+            const position = toCourtPoint(player);
+            return (
+              <g key={`${side}-${player.number}`} data-team={side} aria-hidden="true">
+                <circle
+                  cx={position.x}
+                  cy={position.y}
+                  r="2.45"
+                  fill={player.isGoalkeeper ? '#FDE047' : color}
+                  stroke={player.isGoalkeeper ? '#252733' : '#fff'}
+                  strokeWidth="0.45"
+                />
+                <text
+                  x={position.x}
+                  y={position.y + 0.65}
+                  textAnchor="middle"
+                  fontSize="1.55"
+                  fontWeight="900"
+                  fill={player.isGoalkeeper ? '#252733' : '#fff'}
+                >
+                  {player.number}
+                </text>
+              </g>
+            );
+          }))}
           <circle cx={ball.x} cy={ball.y} r="1.55" fill="#fff" stroke="#252733" strokeWidth="0.4" />
         </svg>
       </div>
@@ -238,6 +249,6 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
       <p className="mt-3 border-t border-[#E9EAF0] pt-2 text-[10px] leading-relaxed text-[#858A98]">
         Prévia ilustrativa: o motor considera tentativas de passe e frequência de chute. Pressão e linha defensiva ainda não alteram a simulação.
       </p>
-    </motion.section>
+    </section>
   );
 }
