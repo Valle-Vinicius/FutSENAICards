@@ -112,10 +112,15 @@ describe('match playback', () => {
     expect(preview.querySelectorAll('[data-team="away"]')).toHaveLength(5);
     expect(screen.getByText('Pressão e linha defensiva não mudam no motor atual.')).toBeTruthy();
 
-    fireEvent.change(screen.getAllByRole('combobox')[2], { target: { value: 'counter' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Difícil' }));
+    expect(screen.getByLabelText('Confronto').textContent).toContain('IA Difícil');
+    expect(screen.getByLabelText('Confronto').textContent).toContain('OVR 82');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Contra-ataque' }));
 
     expect(screen.getByRole('img', { name: /Prévia de contra-ataque/ })).toBeTruthy();
     expect(screen.getByText('Tenta o chute com mais frequência.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Iniciar partida' }).closest('.card-surface')).toBeTruthy();
   });
 
   it('shows only events up to the current frame and records solo rewards when playback starts', () => {

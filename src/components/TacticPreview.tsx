@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react';
+import { Info } from 'lucide-react';
 import { basePositions, type Tactic } from '../engine/match';
 import { tacticPreviews } from '../data/tacticPreviews';
 
@@ -118,22 +119,20 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
   return (
     <section
       key={tactic}
-      className={`min-w-0 ${reduceMotion ? '' : 'tactic-preview-fade'}`}
+      className={`match-tactic-preview card-surface mx-auto grid min-h-0 w-full max-w-3xl grid-cols-1 items-center content-center gap-4 p-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)] md:gap-8 md:p-6 ${reduceMotion ? '' : 'tactic-preview-fade'}`}
       aria-label={`Prévia da tática ${copy.title}`}
     >
-      <header className="mb-3">
-        <h2 className="text-base font-semibold text-[#252733]">{copy.title}</h2>
-        <p className="mt-1 text-xs leading-relaxed text-[#858A98]">{copy.description}</p>
-      </header>
-
-      <div className="flex justify-center">
-        <svg
-          viewBox="0 0 50 100"
-          className="mx-auto block max-w-full"
-          style={{ height: 'min(72vh, 720px)', width: 'auto' }}
-          role="img"
-          aria-label={copy.ariaLabel}
-        >
+      <div className="match-tactic-court flex h-[min(70dvh,640px)] min-h-0 flex-col items-center justify-center md:h-full">
+        <span className="mb-2 shrink-0 rounded-full bg-[#FFF0F2] px-3 py-1 text-[11px] font-medium text-[#E30613]">
+          {PHASE_LABELS[phase]}
+        </span>
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <svg
+            viewBox="0 0 50 100"
+            className="mx-auto block h-full w-auto max-h-[640px] max-w-full"
+            role="img"
+            aria-label={copy.ariaLabel}
+          >
           <defs>
             <clipPath id={`${id}-clip`}>
               <rect x="1" y="1" width="48" height="98" rx="1.5" />
@@ -222,33 +221,45 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
             );
           }))}
           <circle cx={ball.x} cy={ball.y} r="1.55" fill="#fff" stroke="#252733" strokeWidth="0.4" />
-        </svg>
+          </svg>
+        </div>
+        <div className="mt-2 flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-[#858A98]" aria-hidden="true">
+          <span><span className="text-[#E30613]">●</span> Seu time</span>
+          <span><span className="text-[#173B6B]">●</span> Adversário</span>
+          <span><span className="text-[#252733]">○</span> Bola</span>
+        </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#858A98]" aria-hidden="true">
-        <span><span className="text-[#E30613]">●</span> Seu time</span>
-        <span><span className="text-[#173B6B]">●</span> Adversário</span>
-        <span><span className="text-[#252733]">○</span> Bola</span>
-        <span className="ml-auto">{PHASE_LABELS[phase]}</span>
-      </div>
-
-      <div className="mt-3 space-y-3" aria-live="polite" aria-atomic="true">
-        <div>
-          <h3 className="text-xs font-semibold text-emerald-700">Melhora</h3>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-emerald-700">
+      <div className="min-w-0" aria-live="polite" aria-atomic="true">
+        <header className="mb-4">
+          <h2 className="text-lg font-semibold text-[#252733]">{copy.title}</h2>
+          <p className="tactic-preview-description mt-1 text-sm leading-relaxed text-[#858A98]">{copy.description}</p>
+        </header>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-emerald-700">Melhora</h3>
+            <ul className="mt-1 list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-emerald-700">
             {copy.melhora.map(item => <li key={item}>{item}</li>)}
-          </ul>
-        </div>
-        <div>
-          <h3 className="text-xs font-semibold text-orange-700">Piora</h3>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-orange-700">
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-orange-700">Piora</h3>
+            <ul className="mt-1 list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-orange-700">
             {copy.piora.map(item => <li key={item}>{item}</li>)}
-          </ul>
+            </ul>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            aria-label="Sobre esta prévia"
+            title="Prévia ilustrativa: o motor considera tentativas de passe e frequência de chute. Pressão e linha defensiva ainda não alteram a simulação."
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[#858A98] hover:bg-[#F0F1F4] focus-visible:outline-2 focus-visible:outline-[#E30613]"
+          >
+            <Info size={16} aria-hidden="true" />
+          </button>
         </div>
       </div>
-      <p className="mt-3 border-t border-[#E9EAF0] pt-2 text-[10px] leading-relaxed text-[#858A98]">
-        Prévia ilustrativa: o motor considera tentativas de passe e frequência de chute. Pressão e linha defensiva ainda não alteram a simulação.
-      </p>
     </section>
   );
 }

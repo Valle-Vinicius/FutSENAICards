@@ -51,6 +51,7 @@ export default function Layout() {
   const pendingFriends = useGame(s => s.pendingFriends);
   const transactions = useGame(s => s.transactions);
   const location = useLocation();
+  const isMatchRoute = location.pathname === '/match';
   const navigate = useNavigate();
   const title = TITLES[location.pathname] || 'Futsenai';
   const lvlXp = (level - 1) * 500;
@@ -117,7 +118,7 @@ export default function Layout() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col md:flex-row bg-[#F7F7F9] overflow-hidden">
+    <div className="h-[100dvh] flex flex-col md:flex-row bg-[#F7F7F9]">
       <aside className="hidden md:flex w-64 flex-col p-4 bg-white border-r border-[#E9EAF0]">
         <div className="mb-6 px-2">
           <div className="text-xl font-bold tracking-tight text-[#252733]">
@@ -179,7 +180,7 @@ export default function Layout() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-[#E9EAF0]">
           <div className="text-sm text-[#858A98]">
             Futsenai <span className="mx-1">/</span> <span className="text-[#252733] font-medium">{title}</span>
@@ -226,7 +227,7 @@ export default function Layout() {
           </div>
         </div>
 
-        <main className="flex-1 min-w-0 overflow-auto pb-20 md:pb-0">
+        <main className={`flex-1 min-w-0 min-h-0 overflow-auto pb-20 md:pb-0 ${isMatchRoute ? 'match-route-main' : ''}`}>
           {pendingChallengeId && (
             <div className="m-4 card-surface p-3 flex items-center justify-between gap-3">
               <div className="text-sm text-[#252733]">Você foi desafiado para um X1!</div>
@@ -248,6 +249,7 @@ export default function Layout() {
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
+              className={isMatchRoute ? 'match-route-content' : ''}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}

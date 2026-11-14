@@ -3,10 +3,12 @@ import { useGame } from '../store/useGame';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
-import { simulateMatch, createPlayersFromCards, makeAwayTeam, MATCH_DURATION_MINUTES } from '../engine/match';
+import { simulateMatch, createPlayersFromCards, makeAwayTeam, MATCH_DURATION_MINUTES, AI_BASE_OVR } from '../engine/match';
 import type { MatchEvent, MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import PvpResultScreen, { type SnapshotCardDetails } from '../components/PvpResultScreen';
 import TacticPreview from '../components/TacticPreview';
+import { ArrowRight, CircleDot, Scale, Shield, Zap, ChevronDown } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import * as challengesService from '../lib/services/challenges';
 import type { MatchPlaybackState } from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
@@ -28,6 +30,8 @@ const OFF_SALE_PVP_MESSAGE = 'Cartas Off-Sale não podem ser usadas no X1. Troqu
 
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
 const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressão alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
+const TACTIC_ICON: Record<Tactic, LucideIcon> = { balanced: Scale, possession: CircleDot, highpress: Zap, counter: ArrowRight, compact: Shield };
+const DIFFICULTY_LABEL = { easy: 'Fácil', normal: 'Normal', hard: 'Difícil' } as const;
 const TEAM_COLORS = { home: '#E30613', away: '#173B6B' } as const;
 
 function MatchInner() {
@@ -976,68 +980,165 @@ function MatchInner() {
   if (step === 'setup') {
     const activeOpponentPlayers = opponentPlayersOwner === opponentId ? opponentPlayers : null;
     const showTacticPreview = !opponentId && !challengeId;
-    const setupControls = (
-      <>
-        <div>
-          <label className="text-sm text-[#858A98]">Escalação</label>
-          <select value={selectedSquadId ?? ''} onChange={e => setSelectedSquadId(e.target.value || null)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-            <option value="">Escalação atual</option>
-            {mySaved.map(s => <option key={s.id} value={s.id}>{s.name} ({s.formation})</option>)}
-          </select>
-          {!homeInfo && !challengeSquads && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
-          {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {Math.round(homeInfo.cards.reduce((a: number, c: any) => a + (c.overall ?? 0), 0) / homeInfo.cards.length)}</div>}
-          {opponentError && <div className="text-xs text-red-600 mt-2">{opponentError}</div>}
-        </div>
-        {!opponentId && !challengeId && (
-          <div>
-            <label className="text-sm text-[#858A98]">Dificuldade</label>
-            <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-              <option value="easy">Fácil</option>
-              <option value="normal">Normal</option>
-              <option value="hard">Difícil</option>
-            </select>
+    if (showTacticPreview) {
+      const savedSquad = mySaved.find(saved => saved.id === selectedSquadId);
+      const homeOverall = homeInfo
+        ? Math.round(homeInfo.cards.reduce((sum: number, card: any) => sum + (card.overall ?? 0), 0) / homeInfo.cards.length)
+        : null;
+      return (
+        <div className="match-setup-screen h-full min-h-0 overflow-hidden overscroll-none flex flex-col gap-4 p-4 md:p-6">
+          <header className="match-setup-header shrink-0 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-xl md:text-2xl font-semibold text-[#252733]">Partida simulada</h1>
+            <div className="flex items-center gap-2 text-xs md:text-sm text-[#858A98]" aria-label="Confronto">
+              <span className="rounded-full bg-white px-3 py-1.5">
+                Seu time · OVR <strong className="text-[#252733]">{homeOverall ?? '—'}</strong>
+              </span>
+              <span aria-hidden="true">×</span>
+              <span className="rounded-full bg-white px-3 py-1.5">
+                IA {DIFFICULTY_LABEL[difficulty]} · OVR <strong className="text-[#252733]">{AI_BASE_OVR[difficulty]}</strong>
+              </span>
+            </div>
+          </header>
+
+          <div className="match-setup-screen__body mx-auto grid w-full min-h-0 max-w-6xl gap-4 md:grid-cols-[320px_minmax(0,1fr)] md:gap-6 md:grid-rows-[minmax(0,1fr)]">
+            <section className="match-setup-screen__left card-surface flex h-full min-h-0 flex-col gap-4 p-4">
+              <div className="shrink-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-semibold text-[#252733]">Escalação</h2>
+                    <div className="mt-1 truncate text-sm font-medium text-[#252733]">
+                      {savedSquad?.name ?? 'Escalação atual'}
+                    </div>
+                    <div className="text-xs text-[#858A98]">
+                      {homeInfo?.formation ?? squad.formation} · OVR {homeOverall ?? '—'}
+                    </div>
+                  </div>
+                  <details className="relative shrink-0">
+                    <summary className="flex h-9 cursor-pointer list-none items-center gap-1 rounded-lg border border-[#E9EAF0] bg-white px-2.5 text-xs font-medium text-[#252733] hover:bg-[#F7F7F9] focus-visible:outline-2 focus-visible:outline-[#E30613]">
+                      Trocar <ChevronDown size={14} aria-hidden="true" />
+                    </summary>
+                    <div className="absolute right-0 top-full z-30 mt-2 w-64 card-surface p-3">
+                      <label htmlFor="match-squad-select" className="mb-1 block text-xs text-[#858A98]">Escolher escalação</label>
+                      <select
+                        id="match-squad-select"
+                        value={selectedSquadId ?? ''}
+                        onChange={event => {
+                          setSelectedSquadId(event.target.value || null);
+                          event.currentTarget.closest('details')?.removeAttribute('open');
+                        }}
+                        className="w-full bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm"
+                      >
+                        <option value="">Escalação atual</option>
+                        {mySaved.map(saved => <option key={saved.id} value={saved.id}>{saved.name} ({saved.formation})</option>)}
+                      </select>
+                    </div>
+                  </details>
+                </div>
+                {!homeInfo && <div className="mt-1 text-xs text-red-600">Escalação incompleta.</div>}
+                {opponentError && <div className="mt-2 text-xs text-red-600">{opponentError}</div>}
+              </div>
+
+              <fieldset className="shrink-0">
+                <legend className="mb-2 text-sm font-semibold text-[#252733]">Dificuldade</legend>
+                <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F0F1F4] p-1" role="group" aria-label="Dificuldade da IA">
+                  {(['easy', 'normal', 'hard'] as const).map(level => (
+                    <button
+                      key={level}
+                      type="button"
+                      aria-pressed={difficulty === level}
+                      onClick={() => setDifficulty(level)}
+                      className={`rounded-lg px-1.5 py-2 text-xs font-medium transition-colors ${difficulty === level ? 'bg-white text-[#E30613] shadow-sm' : 'text-[#858A98] hover:text-[#252733]'}`}
+                    >
+                      {DIFFICULTY_LABEL[level]}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset className="min-h-0">
+                <legend className="mb-2 text-sm font-semibold text-[#252733]">Tática</legend>
+                <div className="grid gap-1" role="radiogroup" aria-label="Tática">
+                  {TACTICS.map(tactic => {
+                    const Icon = TACTIC_ICON[tactic];
+                    return (
+                      <label
+                        key={tactic}
+                        className={`tactic-radio-option flex h-11 min-w-0 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors focus-within:ring-2 focus-within:ring-[#E30613] ${homeTactic === tactic ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-transparent text-[#858A98] hover:border-[#E9EAF0] hover:bg-white'}`}
+                      >
+                        <input
+                          type="radio"
+                          name="home-tactic"
+                          value={tactic}
+                          checked={homeTactic === tactic}
+                          onChange={() => setHomeTactic(tactic)}
+                          className="sr-only"
+                        />
+                        <Icon size={16} aria-hidden="true" />
+                        <span className="truncate">{TACTIC_LABEL[tactic]}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <button
+                onClick={startMatch}
+                disabled={!homeInfo}
+                className="mt-auto w-full shrink-0 rounded-xl bg-[#E30613] px-4 py-3 font-bold text-white disabled:opacity-40"
+              >
+                Iniciar partida
+              </button>
+            </section>
+            <div className="match-setup-screen__preview min-h-0 min-w-0">
+              <TacticPreview tactic={homeTactic} formation={homeInfo?.formation ?? squad.formation} reduceMotion={reduceMotion} />
+            </div>
           </div>
-        )}
-        <div>
-          <label className="text-sm text-[#858A98]">Tática</label>
-          <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-            {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
-          </select>
         </div>
-      </>
-    );
-    const startButton = (
-      <button
-        onClick={startMatch}
-        disabled={!homeInfo || (!!opponentId && !activeOpponentPlayers)}
-        className={`w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40 ${showTacticPreview ? 'order-3 md:col-start-1 md:row-start-2' : ''}`}
-      >
-        Iniciar partida
-      </button>
-    );
+      );
+    }
+
     return (
       <div className="p-4 md:p-8 space-y-6">
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada{opponentId ? ` vs ${opponentName}` : challengeId ? ' (PvP)' : ''}</h1>
-        {showTacticPreview ? (
-          <div className="grid gap-4 md:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
-            <div className="card-surface order-1 min-w-0 p-4 space-y-4 md:col-start-1 md:row-start-1">
-              {setupControls}
-            </div>
-            <div className="order-2 min-w-0 md:col-start-2 md:row-start-1">
-              <TacticPreview
-                tactic={homeTactic}
-                formation={homeInfo?.formation ?? squad.formation}
-                reduceMotion={reduceMotion}
-              />
-            </div>
-            {startButton}
+        <div className="card-surface max-w-2xl p-4 space-y-4">
+          <div>
+            <label className="text-sm text-[#858A98]">Escalação</label>
+            <select value={selectedSquadId ?? ''} onChange={e => setSelectedSquadId(e.target.value || null)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+              <option value="">Escalação atual</option>
+              {mySaved.map(s => <option key={s.id} value={s.id}>{s.name} ({s.formation})</option>)}
+            </select>
+            {!homeInfo && !challengeSquads && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
+            {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {Math.round(homeInfo.cards.reduce((a: number, c: any) => a + (c.overall ?? 0), 0) / homeInfo.cards.length)}</div>}
+            {opponentError && <div className="text-xs text-red-600 mt-2">{opponentError}</div>}
           </div>
-        ) : (
-          <div className="card-surface max-w-2xl p-4 space-y-4">
-            {setupControls}
-            {startButton}
+          <div>
+            <label className="text-sm text-[#858A98]">Tática</label>
+            <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+              {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
+            </select>
           </div>
-        )}
+          {!opponentId && !challengeId && (
+            <>
+              <div>
+                <label className="text-sm text-[#858A98]">Dificuldade</label>
+                <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+                  <option value="easy">Fácil</option>
+                  <option value="normal">Normal</option>
+                  <option value="hard">Difícil</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-[#858A98]">Tática</label>
+                <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+                  {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+          <button onClick={startMatch} disabled={!homeInfo || (!!opponentId && !activeOpponentPlayers)} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
+            Iniciar partida
+          </button>
+        </div>
       </div>
     );
   }
