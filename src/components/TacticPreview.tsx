@@ -119,7 +119,7 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
   return (
     <section
       key={tactic}
-      className={`match-tactic-preview card-surface mx-auto grid min-h-0 w-full max-w-3xl grid-cols-1 items-center content-center gap-4 p-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)] md:gap-8 md:p-6 ${reduceMotion ? '' : 'tactic-preview-fade'}`}
+      className={`match-tactic-preview card-surface mx-auto grid min-h-0 w-full max-w-3xl grid-cols-1 items-center content-center gap-4 p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] md:gap-8 md:p-6 ${reduceMotion ? '' : 'tactic-preview-fade'}`}
       aria-label={`Prévia da tática ${copy.title}`}
     >
       <div className="match-tactic-court flex h-[min(70dvh,640px)] min-h-0 flex-col items-center justify-center md:h-full">
