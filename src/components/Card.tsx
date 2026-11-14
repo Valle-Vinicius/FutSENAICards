@@ -4,17 +4,19 @@ import { RARITY_META, SPECIAL_META } from '../types';
 import { getPlayerImage } from '../data/players';
 import { Circle, Star } from 'lucide-react';
 
-export default function Card({ card, size = 'md', onClick, isNew }: { card: PlayerCard; size?: 'sm'|'md'|'lg'; onClick?: () => void; isNew?: boolean }) {
+export default function Card({ card, size = 'md', onClick, isNew }: { card: PlayerCard; size?: 'sm'|'md'|'lg'|'fluid'; onClick?: () => void; isNew?: boolean }) {
   const meta = RARITY_META[card.rarity] ?? RARITY_META.common;
   const img = card.image || getPlayerImage(card.name);
   const isGK = card.position === 'GK';
-  const dims = size === 'sm' ? 'w-36 h-52' : size === 'lg' ? 'w-60 h-84' : 'w-48 h-64';
-  const attrFont = size === 'sm' ? 'text-[10px]' : 'text-[11px]';
+  const compact = size === 'sm' || size === 'fluid';
+  const dims = size === 'fluid' ? 'w-full aspect-[7/10]' : size === 'sm' ? 'w-36 h-52' : size === 'lg' ? 'w-60 h-84' : 'w-48 h-64';
+  const attrFont = 'text-[11px]';
   const nameFont = size === 'sm' ? 'text-sm' : 'text-base';
 
   const attrs = isGK
     ? [{l:'REF',v:card.reflexes ?? 0},{l:'POS',v:card.positioning ?? 0},{l:'HAN',v:card.handling ?? 0},{l:'VEL',v:card.pace},{l:'DEF',v:card.defending},{l:'FIS',v:card.physical}]
     : [{l:'VEL',v:card.pace},{l:'CHU',v:card.shooting},{l:'PAS',v:card.passing},{l:'DRI',v:card.dribbling},{l:'DEF',v:card.defending},{l:'FIS',v:card.physical}];
+  const visibleAttrs = compact ? [...attrs].sort((a, b) => b.v - a.v).slice(0, 3) : attrs;
 
   return (
     <motion.div
@@ -27,7 +29,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
       className={`${dims} relative cursor-pointer select-none rounded-2xl overflow-hidden max-w-full ${card.rarity === 'icon' ? 'rgb-card' : ''}`}
       style={{ border: card.rarity === 'icon' ? '4px solid #ff0040' : `2px solid ${meta.color}`, boxShadow: `0 8px 24px rgba(37,39,51,0.15)` }}
     >
-      {isNew && <span className="absolute top-16 right-2 z-20 bg-[#E30613] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">NOVA</span>}
+      {isNew && <span className={`absolute ${compact ? 'top-10' : 'top-16'} right-2 z-20 bg-[#E30613] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow`}>NOVA</span>}
 
       {img ? (
         <img src={img} alt={card.name} className="absolute inset-0 w-full h-full object-cover object-top" />
@@ -49,15 +51,17 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
         {card.overall}
       </div>
 
-      <div className="absolute top-10 right-2 z-10 text-[8px] text-white/70 max-w-[35%] truncate">
-        {card.edition}
-      </div>
+      {!compact && (
+        <div className="absolute top-10 right-2 z-10 text-[8px] text-white/70 max-w-[35%] truncate">
+          {card.edition}
+        </div>
+      )}
 
       <div className="absolute bottom-0 left-0 right-0 p-2.5 z-10">
-        <div className="text-[10px] text-white/80 truncate">{card.position} · {card.club}</div>
+        <div className="text-[10px] text-white/80 truncate">{compact ? card.position : `${card.position} · ${card.club}`}</div>
         <div className={`${nameFont} font-bold text-white leading-tight line-clamp-2 mt-0.5`}>{card.name}</div>
-        <div className={`grid grid-cols-6 gap-1 mt-1.5 ${attrFont}`}>
-          {attrs.map(a => (
+        <div className={`grid ${compact ? 'grid-cols-3' : 'grid-cols-6'} gap-1 mt-1.5 ${attrFont}`}>
+          {visibleAttrs.map(a => (
             <div key={a.l} className={`flex flex-col items-center rounded py-0.5 px-0.5 ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-black/50'}`}>
               <span className="text-white/70 leading-none">{a.l}</span>
               <span className="font-bold text-white leading-none mt-0.5">{a.v}</span>

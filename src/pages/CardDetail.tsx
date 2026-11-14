@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
@@ -10,9 +11,13 @@ export default function CardDetail() {
   const { uid } = useParams();
   const navigate = useNavigate();
   const cards = useGame(s => s.cards);
+  const markSeen = useGame(s => s.markSeen);
   const toggleFav = useGame(s => s.toggleFavorite);
   const upgradePlayer = useGame(s => s.upgradePlayer);
   const card = cards.find(c => c.uid === uid);
+  useEffect(() => {
+    if (card?.isNew) markSeen([card.uid]);
+  }, [card?.uid, card?.isNew, markSeen]);
   if (!card) return <div className="p-8 text-[#252733]">Carta não encontrada. <button onClick={()=>navigate('/collection')} className="text-[#E30613]">Voltar</button></div>;
 
   const isGK = card.position === 'GK';

@@ -34,10 +34,11 @@ describe('Card detail extra stats', () => {
       extraStats: [{ label: 'Sorte', value: 999 }],
       obtainedAt: 0,
       favorite: false,
-      isNew: false,
+      isNew: true,
     };
     const state = {
       cards: [card],
+      markSeen: jest.fn(),
       toggleFavorite: jest.fn(),
       upgradePlayer: jest.fn(),
     };
@@ -55,5 +56,6 @@ describe('Card detail extra stats', () => {
     expect(screen.getByText('999')).toHaveClass('rgb-text');
     expect(container.querySelector('.rgb-stat')).toBeInTheDocument();
     expect(screen.getByText('80')).toBeInTheDocument();
+    expect(state.markSeen).toHaveBeenCalledWith(['card-1']);
   });
 });

@@ -25,6 +25,7 @@ let squadSaveChain: Promise<void> = Promise.resolve();
 let syncChain: Promise<void> = Promise.resolve();
 let dailyClaimPending = false;
 let duplicateConversionPending = false;
+export const DUPLICATE_CONVERSION_REWARD = 200;
 const sbcCompletionsPending = new Set<string>();
 const listingsPending = new Set<string>();
 let demoCoinClaimPending = false;
@@ -200,7 +201,7 @@ interface Actions {
   addPlayerXp: (uid: string, amount: number) => void;
   upgradePlayer: (uid: string, attr: UpgradeAttr) => boolean;
   recordMatchStats: (uid: string, goals: number, assists: number) => void;
-  convertDuplicates: () => Promise<number>;
+  convertDuplicates: () => Promise<number | null>;
   recordEvolution: (uid: string, attr: string) => void;
   listCard: (cardUid: string, price: number, buyNow: number, hours: number) => Promise<string | null>;
   cancelListing: (id: string) => Promise<boolean>;
@@ -950,7 +951,7 @@ export const useGame = create<GameState & Actions>()(
         return true;
       },
       convertDuplicates: async () => {
-        if (duplicateConversionPending) return 0;
+        if (duplicateConversionPending) return null;
         duplicateConversionPending = true;
         try {
           if (supabase) {
@@ -1008,14 +1009,14 @@ export const useGame = create<GameState & Actions>()(
           if (toRemove.length === 0) return 0;
           set(st => ({
             cards: st.cards.filter(card => !toRemove.includes(card.uid)),
-            coins: st.coins + toRemove.length * 200,
-            transactions: [{ id: nanoid(8), type: 'earn' as const, amount: toRemove.length * 200, reason: `Conversão de ${toRemove.length} duplicatas`, at: Date.now() }, ...st.transactions].slice(0, 50),
+            coins: st.coins + toRemove.length * DUPLICATE_CONVERSION_REWARD,
+            transactions: [{ id: nanoid(8), type: 'earn' as const, amount: toRemove.length * DUPLICATE_CONVERSION_REWARD, reason: `Conversão de ${toRemove.length} duplicatas`, at: Date.now() }, ...st.transactions].slice(0, 50),
           }));
           return toRemove.length;
         } catch (error) {
           console.error('[duplicates] conversion failed:', error);
           toast.error(error instanceof Error ? error.message : 'Não foi possível converter as duplicatas.');
-          return 0;
+          return null;
         } finally {
           duplicateConversionPending = false;
         }
