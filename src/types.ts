@@ -13,6 +13,8 @@ export const RARITY_META: Record<Rarity, { label: string; color: string; glow: s
   icon: { label: 'Ícone', color: '#fbbf24', glow: 'rgba(251,191,36,0.8)', minOvr: 95, maxOvr: 99 },
 };
 
+export const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'];
+
 export type SpecialEdition = 'none' | 'totw' | 'potm' | 'revelation' | 'legend' | 'futsal';
 
 export const SPECIAL_META: Record<SpecialEdition, { label: string; color: string }> = {

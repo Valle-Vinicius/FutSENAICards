@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { PlayerCard } from '../../src/types';
 import { useGame } from '../../src/store/useGame';
 import { toast } from '../../src/store/toast';
@@ -60,7 +60,20 @@ function renderCollection(cards: PlayerCard[]) {
     convertDuplicates: jest.fn().mockResolvedValue(1),
   };
   mockedUseGame.mockImplementation(selector => selector(state as unknown as ReturnType<typeof useGame.getState>));
-  return { state, ...render(<MemoryRouter><Collection /></MemoryRouter>) };
+  return {
+    state,
+    ...render(
+      <MemoryRouter>
+        <Collection />
+        <LocationDisplay />
+      </MemoryRouter>,
+    ),
+  };
+}
+
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="current-location">{location.pathname}{location.search}</div>;
 }
 
 describe('Collection page', () => {
@@ -73,6 +86,9 @@ describe('Collection page', () => {
     renderCollection([makeCard('rare-1'), makeCard('rare-2'), makeCard('common-1', 'common')]);
 
     expect(screen.getAllByRole('button', { name: 'Thiago Tavares' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Comparar' })).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Comparar' })[0]);
+    expect(screen.getByTestId('current-location')).toHaveTextContent('/compare?a=rare-1');
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar 1 cópia de Thiago Tavares' }));
     expect(screen.getAllByRole('button', { name: 'Thiago Tavares' })).toHaveLength(3);
   });

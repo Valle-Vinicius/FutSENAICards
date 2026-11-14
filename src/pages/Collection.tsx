@@ -1,18 +1,17 @@
 import { Fragment, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Lock } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, Lock } from 'lucide-react';
 import { useGame, DUPLICATE_CONVERSION_REWARD } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
 import ConfirmModal from '../components/ConfirmModal';
 import type { PlayerCard, Rarity } from '../types';
-import { RARITY_META } from '../types';
+import { RARITY_META, RARITY_ORDER } from '../types';
 import { allTemplates } from '../data/players';
 import { totalUpgrades } from '../lib/game';
 import { supabase } from '../lib/supabase';
 
 const PAGE_SIZE = 24;
-const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'];
 
 type CardGroup = { key: string; cards: PlayerCard[] };
 
@@ -292,7 +291,16 @@ export default function Collection() {
           {allTemplates().map(template => {
             const owned = bestByName.get(template.name);
             return owned ? (
-              <Card key={template.name} card={owned} size="fluid" onClick={() => openCard(owned)} />
+              <div key={template.name} className="min-w-0 space-y-2">
+                <Card card={owned} size="fluid" onClick={() => openCard(owned)} />
+                <button
+                  type="button"
+                  onClick={() => navigate(`/compare?a=${encodeURIComponent(owned.uid)}`)}
+                  className="btn btn-secondary btn-sm w-full justify-center"
+                >
+                  <ArrowLeftRight className="h-4 w-4" /> Comparar
+                </button>
+              </div>
             ) : (
               <div key={template.name} className="flex aspect-[7/10] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#E9EAF0] bg-white/60 text-xs text-[#858A98]">
                 <Lock className="h-6 w-6 opacity-30" />
@@ -311,24 +319,42 @@ export default function Collection() {
               const expanded = expandedGroups.has(group.key);
               return (
                 <Fragment key={group.key}>
-                  <div className="relative min-w-0">
-                    <Card card={card} size="fluid" onClick={() => openCard(card)} isNew={card.isNew} />
-                    {groupDuplicates && group.cards.length > 1 && (
-                      <button
-                        type="button"
-                        aria-expanded={expanded}
-                        aria-label={`${expanded ? 'Ocultar' : 'Mostrar'} ${group.cards.length - 1} ${group.cards.length === 2 ? 'cópia' : 'cópias'} de ${card.name}`}
-                        onClick={() => toggleGroup(group.key)}
-                        className="absolute right-2 top-20 z-30 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#252733] shadow"
-                      >
-                        ×{group.cards.length}
-                      </button>
-                    )}
+                  <div className="min-w-0 space-y-2">
+                    <div className="relative">
+                      <Card card={card} size="fluid" onClick={() => openCard(card)} isNew={card.isNew} />
+                      {groupDuplicates && group.cards.length > 1 && (
+                        <button
+                          type="button"
+                          aria-expanded={expanded}
+                          aria-label={`${expanded ? 'Ocultar' : 'Mostrar'} ${group.cards.length - 1} ${group.cards.length === 2 ? 'cópia' : 'cópias'} de ${card.name}`}
+                          onClick={() => toggleGroup(group.key)}
+                          className="absolute right-2 top-20 z-30 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#252733] shadow"
+                        >
+                          ×{group.cards.length}
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/compare?a=${encodeURIComponent(card.uid)}`)}
+                      className="btn btn-secondary btn-sm w-full justify-center"
+                    >
+                      <ArrowLeftRight className="h-4 w-4" /> Comparar
+                    </button>
                   </div>
                   {expanded && group.cards.length > 1 && (
                     <div className="[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))] col-span-full grid gap-4 rounded-xl border border-dashed border-[#E9EAF0] bg-white/50 p-3">
                       {group.cards.slice(1).map(copy => (
-                        <Card key={copy.uid} card={copy} size="fluid" onClick={() => openCard(copy)} isNew={copy.isNew} />
+                        <div key={copy.uid} className="min-w-0 space-y-2">
+                          <Card card={copy} size="fluid" onClick={() => openCard(copy)} isNew={copy.isNew} />
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/compare?a=${encodeURIComponent(copy.uid)}`)}
+                            className="btn btn-secondary btn-sm w-full justify-center"
+                          >
+                            <ArrowLeftRight className="h-4 w-4" /> Comparar
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}

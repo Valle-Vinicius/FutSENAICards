@@ -1,203 +1,405 @@
-import { useState, useMemo } from 'react';
-import { useGame } from '../store/useGame';
-import { X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { ArrowLeftRight, X } from 'lucide-react';
 import Card from '../components/Card';
+import { RARITY_META, RARITY_ORDER, type PlayerCard } from '../types';
+import { normalizeSearch } from '../lib/text';
+import { useGame } from '../store/useGame';
 
-const isGK = (p: string) => p === 'GK';
+const LINE_ATTRIBUTES = [
+  { key: 'pace', label: 'Velocidade' },
+  { key: 'shooting', label: 'Chute' },
+  { key: 'passing', label: 'Passe' },
+  { key: 'dribbling', label: 'Drible' },
+  { key: 'defending', label: 'Defesa' },
+  { key: 'physical', label: 'Físico' },
+] as const;
+const GOALKEEPER_ATTRIBUTES = [
+  { key: 'reflexes', label: 'Reflexos' },
+  { key: 'positioning', label: 'Posicionamento' },
+  { key: 'handling', label: 'Manuseio' },
+  { key: 'pace', label: 'Velocidade' },
+  { key: 'defending', label: 'Defesa' },
+  { key: 'physical', label: 'Físico' },
+] as const;
+const SHARED_ATTRIBUTES = [
+  { key: 'pace', label: 'Velocidade' },
+  { key: 'defending', label: 'Defesa' },
+  { key: 'physical', label: 'Físico' },
+] as const;
+
+type AttributeKey = typeof LINE_ATTRIBUTES[number]['key']
+  | typeof GOALKEEPER_ATTRIBUTES[number]['key'];
+type ComparisonAttribute = { key: AttributeKey; label: string; a: number; b: number };
+type CompareSide = 'a' | 'b';
+
+function isGoalkeeper(card: PlayerCard) {
+  return card.position === 'GK';
+}
+
+function attributeValue(card: PlayerCard, key: AttributeKey) {
+  const value = card[key];
+  return typeof value === 'number' ? value : 0;
+}
+
+function compareAttributes(a: PlayerCard, b: PlayerCard): ComparisonAttribute[] {
+  const attributes = isGoalkeeper(a) !== isGoalkeeper(b)
+    ? SHARED_ATTRIBUTES
+    : isGoalkeeper(a) ? GOALKEEPER_ATTRIBUTES : LINE_ATTRIBUTES;
+  return attributes.map(({ key, label }) => ({
+    key,
+    label,
+    a: attributeValue(a, key),
+    b: attributeValue(b, key),
+  }));
+}
+
+function AttributeRows({ rows }: { rows: ComparisonAttribute[] }) {
+  return (
+    <div className="space-y-3">
+      {rows.map(row => {
+        const aWins = row.a > row.b;
+        const bWins = row.b > row.a;
+        const barWidthA = `${Math.min(100, Math.max(0, row.a)) / 99 * 100}%`;
+        const barWidthB = `${Math.min(100, Math.max(0, row.b)) / 99 * 100}%`;
+        return (
+          <div key={row.key} className="space-y-1">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <span className={`text-lg font-bold ${aWins ? 'text-[#E30613]' : 'text-[#252733]'}`}>{row.a}</span>
+              <span className="text-center text-xs font-medium text-[#858A98]">{row.label}</span>
+              <span className={`text-right text-lg font-bold ${bWins ? 'text-[#E30613]' : 'text-[#252733]'}`}>{row.b}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3" aria-hidden="true">
+              <div className="flex h-2 justify-end overflow-hidden rounded-full bg-[#E9EAF0]">
+                <div className="h-full rounded-full" style={{ width: barWidthA, backgroundColor: aWins ? '#E30613' : '#858A98' }} />
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#E9EAF0]">
+                <div className="h-full rounded-full" style={{ width: barWidthB, backgroundColor: bWins ? '#E30613' : '#858A98' }} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function Compare() {
+  const location = useLocation();
   const cards = useGame(s => s.cards);
+  const compareHistory = useGame(s => s.compareHistory);
   const addHistory = useGame(s => s.addCompareHistory);
-  const [aUid, setAUid] = useState<string | null>(null);
-  const [bUid, setBUid] = useState<string | null>(null);
-  const [pickerFor, setPickerFor] = useState<'a' | 'b' | null>(null);
+  const [aUid, setAUid] = useState<string | null>(() => new URLSearchParams(location.search).get('a'));
+  const [bUid, setBUid] = useState<string | null>(() => {
+    const params = new URLSearchParams(location.search);
+    const requestedAUid = params.get('a');
+    const requestedBUid = params.get('b');
+    return requestedAUid === requestedBUid ? null : requestedBUid;
+  });
+  const [pickerFor, setPickerFor] = useState<CompareSide | null>(null);
   const [q, setQ] = useState('');
   const [pos, setPos] = useState('');
   const [rar, setRar] = useState('');
-  const [sort, setSort] = useState('overall');
+  const [sort, setSort] = useState<'overall' | 'name'>('overall');
+  const aPickerButton = useRef<HTMLButtonElement>(null);
+  const bPickerButton = useRef<HTMLButtonElement>(null);
+  const pickerTrigger = useRef<HTMLButtonElement | null>(null);
+  const pickerSearch = useRef<HTMLInputElement>(null);
 
-  const a = cards.find(c => c.uid === aUid) || null;
-  const b = cards.find(c => c.uid === bUid) || null;
+  const closePicker = useCallback(() => {
+    setPickerFor(null);
+    setQ('');
+    setPos('');
+    setRar('');
+    window.setTimeout(() => pickerTrigger.current?.focus(), 0);
+  }, []);
+
+  useEffect(() => {
+    if (!pickerFor) return;
+    const focusSearch = window.setTimeout(() => pickerSearch.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closePicker();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.clearTimeout(focusSearch);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [pickerFor, closePicker]);
+
+  const a = cards.find(card => card.uid === aUid) || null;
+  const b = cards.find(card => card.uid === bUid) || null;
+  const differentPositions = Boolean(a && b && a.position !== b.position);
+  const mixedGoalkeeperMatch = Boolean(a && b && isGoalkeeper(a) !== isGoalkeeper(b));
+  const attributes = a && b ? compareAttributes(a, b) : [];
+  const aWins = attributes.filter(attribute => attribute.a > attribute.b).length;
+  const bWins = attributes.filter(attribute => attribute.b > attribute.a).length;
+  const higherOverall = a && b
+    ? a.overall > b.overall ? a : b.overall > a.overall ? b : null
+    : null;
+
+  useEffect(() => {
+    if (a && b) addHistory(a.uid, b.uid);
+  }, [a, b, addHistory]);
 
   const filtered = useMemo(() => {
-    let list = cards.filter(c => {
-      if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
-      if (pos && c.position !== pos) return false;
-      if (rar && c.rarity !== rar) return false;
-      return true;
-    });
-    list = list.sort((x,y) => sort === 'name' ? x.name.localeCompare(y.name) : y.overall - x.overall);
-    return list;
+    const query = normalizeSearch(q.trim());
+    return cards.filter(card => {
+      if (pos && card.position !== pos) return false;
+      if (rar && card.rarity !== rar) return false;
+      if (!query) return true;
+      return [card.name, card.club, card.position, RARITY_META[card.rarity]?.label]
+        .some(value => normalizeSearch(String(value ?? '')).includes(query));
+    }).sort((left, right) => sort === 'name'
+      ? left.name.localeCompare(right.name)
+      : right.overall - left.overall);
   }, [cards, q, pos, rar, sort]);
 
-  const pick = (uid: string) => {
-    if (pickerFor === 'a') setAUid(uid);
-    else if (pickerFor === 'b') setBUid(uid);
-    setPickerFor(null);
-    setQ(''); setPos(''); setRar('');
-    if (pickerFor === 'a' && bUid) addHistory(uid, bUid);
-    if (pickerFor === 'b' && aUid) addHistory(aUid, uid);
+  const visibleHistory = compareHistory.flatMap(entry => {
+    const left = cards.find(card => card.uid === entry.aUid);
+    const right = cards.find(card => card.uid === entry.bUid);
+    return left && right ? [{ ...entry, left, right }] : [];
+  }).slice(0, 5);
+
+  const openPicker = (side: CompareSide) => {
+    pickerTrigger.current = side === 'a' ? aPickerButton.current : bPickerButton.current;
+    setQ('');
+    setPos('');
+    setRar('');
+    setPickerFor(side);
   };
 
-  const swap = () => { const t = aUid; setAUid(bUid); setBUid(t); };
-  const clear = () => { setAUid(null); setBUid(null); };
+  const pick = (uid: string) => {
+    if (uid === (pickerFor === 'a' ? bUid : aUid)) return;
+    const nextAUid = pickerFor === 'a' ? uid : aUid;
+    const nextBUid = pickerFor === 'b' ? uid : bUid;
+    setAUid(nextAUid);
+    setBUid(nextBUid);
+    closePicker();
+  };
 
-  const samePos = a && b && a.position === b.position;
+  const clearSide = (side: CompareSide) => {
+    if (side === 'a') setAUid(null);
+    else setBUid(null);
+  };
 
-  const lineAttrs = (c: any) => isGK(c.position)
-    ? [{ k:'REF', v: c.reflexes ?? 0 }, { k:'POS', v: c.positioning ?? 0 }, { k:'HAN', v: c.handling ?? 0 }, { k:'VEL', v: c.pace }, { k:'DEF', v: c.defending }, { k:'FIS', v: c.physical }]
-    : [{ k:'VEL', v: c.pace }, { k:'CHU', v: c.shooting }, { k:'PAS', v: c.passing }, { k:'DRI', v: c.dribbling }, { k:'DEF', v: c.defending }, { k:'FIS', v: c.physical }];
+  const restoreHistory = (leftUid: string, rightUid: string) => {
+    setAUid(leftUid);
+    setBUid(rightUid);
+  };
 
-  const attrsA = a ? lineAttrs(a) : [];
-  const attrsB = b ? lineAttrs(b) : [];
-
-  // analysis
-  const analysisLines: string[] = [];
-  if (a && b) {
-    if (a.overall > b.overall) analysisLines.push(`${a.name} possui maior overall (${a.overall} vs ${b.overall}).`);
-    else if (b.overall > a.overall) analysisLines.push(`${b.name} possui maior overall (${b.overall} vs ${a.overall}).`);
-    else analysisLines.push(`Ambos têm o mesmo overall (${a.overall}).`);
-    // per attribute strengths
-    attrsA.forEach((at, i) => {
-      const va = at.v, vb = attrsB[i].v;
-      if (va > vb) analysisLines.push(`${a.name} se destaca em ${at.k} (+${va - vb}).`);
-      else if (vb > va) analysisLines.push(`${b.name} se destaca em ${at.k} (+${vb - va}).`);
-    });
-    // position suitability
-    if (a.position === b.position) {
-      analysisLines.push(`Ambos atuam na mesma posição (${a.position}), permitindo comparação direta.`);
+  const analysis: string[] = [];
+  if (a && b && attributes.length > 0) {
+    if (higherOverall) {
+      const lower = higherOverall.uid === a.uid ? b : a;
+      const difference = Math.abs(a.overall - b.overall);
+      analysis.push(`${higherOverall.name} tem overall ${difference} ${difference === 1 ? 'ponto' : 'pontos'} maior (${higherOverall.overall} contra ${lower.overall}).`);
     } else {
-      analysisLines.push(`${a.name} é ${a.position}; ${b.name} é ${b.position}. Adequação depende da necessidade tática.`);
+      analysis.push(`Os dois têm o mesmo overall: ${a.overall}.`);
     }
-    const strongA = attrsA.filter((at,i) => at.v > attrsB[i].v).map(x=>x.k);
-    const strongB = attrsB.filter((at,i) => at.v > attrsA[i].v).map(x=>x.k);
-    if (strongA.length) analysisLines.push(`Pontos fortes de ${a.name}: ${strongA.join(', ')}.`);
-    if (strongB.length) analysisLines.push(`Pontos fortes de ${b.name}: ${strongB.join(', ')}.`);
+
+    const bestA = attributes.filter(attribute => attribute.a > attribute.b)
+      .sort((left, right) => (right.a - right.b) - (left.a - left.b))[0];
+    const bestB = attributes.filter(attribute => attribute.b > attribute.a)
+      .sort((left, right) => (right.b - right.a) - (left.b - left.a))[0];
+    const advantages = [
+      bestA && `${a.name} tem sua maior vantagem em ${bestA.label} (+${bestA.a - bestA.b})`,
+      bestB && `${b.name} tem sua maior vantagem em ${bestB.label} (+${bestB.b - bestB.a})`,
+    ].filter(Boolean);
+    analysis.push(advantages.length ? `${advantages.join('; ')}.` : 'Os atributos comparados estão empatados.');
+
+    if (mixedGoalkeeperMatch) {
+      analysis.push(`Como ${a.position === 'GK' ? a.name : b.name} é goleiro e o outro é jogador de linha, só foram comparados VEL, DEF e FIS.`);
+    } else if (differentPositions) {
+      analysis.push(`${a.name} atua como ${a.position} e ${b.name} como ${b.position}; a escolha também depende da posição necessária.`);
+    } else {
+      analysis.push(`Os dois atuam como ${a.position}, então a comparação usa os seis atributos da posição.`);
+    }
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Comparar jogadores</h1>
-        <div className="flex gap-2">
-          <button onClick={swap} disabled={!a || !b} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] text-sm font-medium disabled:opacity-40">Inverter</button>
-          <button onClick={clear} disabled={!a && !b} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] text-sm font-medium disabled:opacity-40">Limpar</button>
-        </div>
-      </div>
+    <main className="mx-auto w-full max-w-4xl space-y-5 p-4 md:p-8">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Comparar jogadores</h1>
+        {a && b && (
+          <button
+            type="button"
+            onClick={() => { setAUid(b.uid); setBUid(a.uid); }}
+            className="btn btn-secondary btn-sm"
+          >
+            <ArrowLeftRight className="h-4 w-4" /> Inverter
+          </button>
+        )}
+      </header>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {(['a','b'] as const).map(side => {
-          const c = side === 'a' ? a : b;
+      <section className="grid grid-cols-2 items-start gap-3 md:grid-cols-[minmax(144px,1fr)_minmax(300px,2fr)_minmax(144px,1fr)]">
+        {(['a', 'b'] as const).map(side => {
+          const card = side === 'a' ? a : b;
+          const triggerRef = side === 'a' ? aPickerButton : bPickerButton;
           return (
-            <div key={side} className="card-surface p-4 flex flex-col items-center gap-3">
-              <div className="text-sm font-semibold text-[#858A98]">Jogador {side.toUpperCase()}</div>
-              {c ? (
-                <>
-                  <Card card={c} size="md" />
-                  <button onClick={() => setPickerFor(side)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] text-sm font-medium">Substituir</button>
-                  <button onClick={() => side === 'a' ? setAUid(null) : setBUid(null)} className="px-3 py-1.5 rounded-xl text-[#858A98] text-xs">Remover</button>
-                </>
-              ) : (
-                <>
-                  <div className="w-44 h-60 rounded-2xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-[#858A98] text-sm">
+            <div key={side} className={`flex min-w-0 flex-col items-center gap-2 ${side === 'a' ? 'md:col-start-1 md:row-start-1' : 'col-start-2 md:col-start-3 md:row-start-1'}`}>
+              <h2 className="text-sm font-semibold text-[#858A98]">Jogador {side.toUpperCase()}</h2>
+              <div className="relative">
+                {card ? (
+                  <>
+                    <Card card={card} size="sm" />
+                    <button
+                      type="button"
+                      aria-label={`Remover ${card.name}`}
+                      onClick={() => clearSide(side)}
+                      className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#858A98] shadow hover:text-[#E30613]"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex h-52 w-36 items-center justify-center rounded-2xl border-2 border-dashed border-[#E9EAF0] text-sm text-[#858A98]">
                     Nenhum jogador
                   </div>
-                  <button onClick={() => setPickerFor(side)} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Selecionar jogador</button>
-                </>
-              )}
+                )}
+              </div>
+              <button
+                ref={triggerRef}
+                type="button"
+                onClick={() => openPicker(side)}
+                className="btn btn-secondary btn-sm w-36 justify-center"
+              >
+                {card ? 'Trocar' : 'Selecionar'}
+              </button>
             </div>
           );
         })}
-      </div>
+
+        {a && b && (
+          <section className="card-surface col-span-2 space-y-3 p-4 md:col-span-1 md:col-start-2 md:row-start-1">
+            <h2 className="text-center text-base font-semibold text-[#252733]">Atributos em comparação</h2>
+            {mixedGoalkeeperMatch && (
+              <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
+                Goleiros e jogadores de linha só têm 3 atributos em comum.
+              </p>
+            )}
+            <AttributeRows rows={attributes} />
+          </section>
+        )}
+      </section>
 
       {a && b && (
         <>
-          <div className="card-surface p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-[#252733]">Comparação de atributos</h2>
-              <div className="text-sm text-[#858A98]">
-                Diferença de overall: <span className="font-bold text-[#E30613]">{Math.abs(a.overall - b.overall)}</span>
-                {samePos && <span className="ml-2 text-xs">(mesma posição)</span>}
-              </div>
-            </div>
-            <div className="space-y-3">
-              {attrsA.map((at, i) => {
-                const va = at.v, vb = attrsB[i].v;
-                const leftBetter = va > vb, rightBetter = vb > va;
-                return (
-                  <div key={at.k}>
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-medium text-[#252733]">{a.name}: {va}</span>
-                      <span className="text-[#858A98]">{at.k}</span>
-                      <span className="font-medium text-[#252733]">{b.name}: {vb}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-[#E9EAF0] rounded-full overflow-hidden flex justify-end">
-                        <div className="h-full rounded-full" style={{ width: `${(va/99)*100}%`, background: leftBetter ? '#E30613' : '#858A98' }} />
-                      </div>
-                      <div className="text-[10px] text-[#858A98] w-8 text-center">{va - vb > 0 ? `+${va-vb}` : va-vb}</div>
-                      <div className="flex-1 h-2 bg-[#E9EAF0] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${(vb/99)*100}%`, background: rightBetter ? '#E30613' : '#858A98' }} />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="card-surface p-4">
-            <h2 className="text-lg font-semibold text-[#252733] mb-2">Análise da comparação</h2>
-            <ul className="space-y-1 text-sm text-[#252733]">
-              {analysisLines.map((l, i) => <li key={i}>• {l}</li>)}
-            </ul>
-            <p className="text-xs text-[#858A98] mt-3">
-              A análise é calculada a partir dos atributos reais. Nenhum jogador é absolutamente melhor em todas as situações.
+          <section role="status" className="card-surface p-4 text-center">
+            <p className="font-semibold text-[#252733]">
+              {aWins === bWins
+                ? aWins === 0
+                  ? `Empate: os ${attributes.length} atributos estão iguais.`
+                  : `Empate em atributos: ${a.name} e ${b.name} vencem em ${aWins} de ${attributes.length} cada.`
+                : `${aWins > bWins ? a.name : b.name} vence em ${Math.max(aWins, bWins)} de ${attributes.length} atributos.`}
             </p>
-          </div>
+            <p className="mt-1 text-sm text-[#858A98]">
+              {higherOverall
+                ? `${higherOverall.name} tem o maior overall (${higherOverall.overall}).`
+                : `Os dois têm o mesmo overall (${a.overall}).`}
+            </p>
+          </section>
+          <section className="card-surface mx-auto max-w-prose p-4">
+            <h2 className="mb-2 font-semibold text-[#252733]">Análise</h2>
+            <ul className="space-y-1 text-sm text-[#252733]">
+              {analysis.map((sentence, index) => <li key={index}>{sentence}</li>)}
+            </ul>
+          </section>
         </>
       )}
 
+      {visibleHistory.length > 0 && (
+        <section className="card-surface p-4">
+          <h2 className="mb-2 font-semibold text-[#252733]">Comparações recentes</h2>
+          <div className="flex flex-wrap gap-2">
+            {visibleHistory.map(entry => (
+              <button
+                key={`${entry.aUid}:${entry.bUid}:${entry.at}`}
+                type="button"
+                onClick={() => restoreHistory(entry.aUid, entry.bUid)}
+                className="btn btn-secondary btn-sm"
+              >
+                {entry.left.name} × {entry.right.name}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {!a && !b && (
-        <div className="card-surface p-6 text-center text-[#858A98]">
+        <div className="text-center text-sm text-[#858A98]">
           Selecione dois jogadores para comparar seus atributos.
         </div>
       )}
 
-      {/* Picker modal */}
       {pickerFor && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setPickerFor(null)}>
-          <div className="card-surface w-full max-w-2xl max-h-[80vh] overflow-auto p-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-[#252733]">Selecionar jogador {pickerFor.toUpperCase()}</h3>
-              <button onClick={() => setPickerFor(null)} className="text-[#858A98]"><X className="w-4 h-4" /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closePicker}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="compare-picker-title"
+            className="card-surface max-h-[85vh] w-full max-w-3xl overflow-auto p-4"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 id="compare-picker-title" className="font-semibold text-[#252733]">
+                Selecionar jogador {pickerFor.toUpperCase()}
+              </h2>
+              <button type="button" aria-label="Fechar seletor" onClick={closePicker} className="btn btn-ghost btn-sm">
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar..." className="flex-1 min-w-[140px] bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
-              <select value={pos} onChange={e=>setPos(e.target.value)} className="bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-                <option value="">Posição</option>
-                {[...new Set(cards.map(c=>c.position))].map(p => <option key={p} value={p}>{p}</option>)}
+            <div className="mb-3 flex flex-wrap gap-2">
+              <input
+                ref={pickerSearch}
+                type="search"
+                value={q}
+                onChange={event => setQ(event.target.value)}
+                placeholder="Buscar por nome ou clube..."
+                aria-label="Buscar jogador"
+                className="min-w-[160px] flex-1 rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm"
+              />
+              <select value={pos} onChange={event => setPos(event.target.value)} aria-label="Filtrar posição" className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm">
+                <option value="">Todas as posições</option>
+                {[...new Set(cards.map(card => card.position))].map(position => (
+                  <option key={position} value={position}>{position}</option>
+                ))}
               </select>
-              <select value={rar} onChange={e=>setRar(e.target.value)} className="bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-                <option value="">Raridade</option>
-                {['common','uncommon','rare','epic','legendary','icon'].map(r => <option key={r} value={r}>{r}</option>)}
+              <select value={rar} onChange={event => setRar(event.target.value)} aria-label="Filtrar raridade" className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm">
+                <option value="">Todas as raridades</option>
+                {RARITY_ORDER.map(rarity => (
+                  <option key={rarity} value={rarity}>{RARITY_META[rarity].label}</option>
+                ))}
               </select>
-              <select value={sort} onChange={e=>setSort(e.target.value)} className="bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+              <select value={sort} onChange={event => setSort(event.target.value as typeof sort)} aria-label="Ordenar cartas" className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm">
                 <option value="overall">Overall</option>
                 <option value="name">Nome</option>
               </select>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {filtered.map(c => (
-                <div key={c.uid} onClick={() => pick(c.uid)} className="cursor-pointer hover:scale-105 transition">
-                  <Card card={c} size="sm" />
-                </div>
-              ))}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {filtered.map(card => {
+                const disabled = card.uid === (pickerFor === 'a' ? bUid : aUid);
+                return (
+                  <button
+                    key={card.uid}
+                    type="button"
+                    disabled={disabled}
+                    aria-label={`Selecionar ${card.name}${disabled ? ', já está do outro lado' : ''}`}
+                    onClick={() => pick(card.uid)}
+                    className="flex justify-center rounded-2xl text-left transition enabled:hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Card card={card} size="sm" />
+                  </button>
+                );
+              })}
             </div>
-            {filtered.length === 0 && <div className="text-center text-[#858A98] py-6">Nenhuma carta.</div>}
-          </div>
+            {filtered.length === 0 && <div className="py-6 text-center text-[#858A98]">Nenhuma carta encontrada.</div>}
+          </section>
         </div>
       )}
-    </div>
+    </main>
   );
 }

@@ -16,6 +16,7 @@ const mockUpdateCollectorRanking = jest.fn();
 const mockGetListings = jest.fn();
 const mockCreateListing = jest.fn();
 const mockCancelListing = jest.fn();
+const mockPersistComparePair = jest.fn();
 const profileQuery = {
   select: jest.fn(),
   eq: jest.fn(),
@@ -64,11 +65,15 @@ jest.mock('../../src/lib/services/marketplace', () => ({
   createListing: mockCreateListing,
   cancelListing: mockCancelListing,
 }));
+jest.mock('../../src/lib/services/compare', () => ({
+  persistComparePair: mockPersistComparePair,
+}));
 
 import { useGame } from '../../src/store/useGame';
 
 describe('primary squad sync', () => {
   beforeEach(() => {
+    mockPersistComparePair.mockReset();
     mockGetCards.mockResolvedValue(null);
     mockGetSavedSquads.mockResolvedValue([]);
     mockGetMissions.mockResolvedValue([]);
@@ -114,6 +119,25 @@ describe('primary squad sync', () => {
       'card-ala-1',
       'card-ala-2',
       'card-pivo',
+    ]);
+  });
+
+  it('only adds and persists a comparison pair when it differs from the latest pair', () => {
+    useGame.setState({ compareHistory: [] });
+    const addCompareHistory = useGame.getState().addCompareHistory;
+
+    addCompareHistory('card-a', 'card-b');
+    addCompareHistory('card-b', 'card-a');
+    addCompareHistory('card-a', 'card-c');
+    addCompareHistory('card-a', 'card-a');
+
+    expect(useGame.getState().compareHistory.map(({ aUid, bUid }) => [aUid, bUid])).toEqual([
+      ['card-a', 'card-c'],
+      ['card-a', 'card-b'],
+    ]);
+    expect(mockPersistComparePair.mock.calls).toEqual([
+      ['card-a', 'card-b'],
+      ['card-a', 'card-c'],
     ]);
   });
 });

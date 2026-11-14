@@ -4,6 +4,7 @@ import Card from '../components/Card';
 import { useGame, squadOverall } from '../store/useGame';
 import { toast } from '../store/toast';
 import { DEFAULT_FUTSAL_FORMATION, FORMATIONS_FUTSAL, normalizeFutsalFormation } from '../lib/game';
+import { normalizeSearch } from '../lib/text';
 import { RARITY_META } from '../types';
 import type { Position, SavedSquad } from '../types';
 
@@ -29,10 +30,6 @@ type SelectedSource =
   | { type: 'inventory'; uid: string }
   | { type: 'starter'; index: number }
   | { type: 'bench'; index: number };
-
-function normalizeSearch(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
-}
 
 export default function Squad() {
   const sport = 'futsal' as const;

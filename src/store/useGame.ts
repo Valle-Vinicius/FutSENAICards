@@ -15,6 +15,7 @@ import { getAchievements, upsertAchievements } from '../lib/services/achievement
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, toGameListing, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
+import { persistComparePair } from '../lib/services/compare';
 import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, overallFromAttributes } from '../data/players';
 
 // --- Elenco ativo: autosave + serialização do sync ---
@@ -919,17 +920,19 @@ export const useGame = create<GameState & Actions>()(
         scheduleSquadSave(() => get().squads[sport]);
       },
       addCompareHistory: (aUid, bUid) => {
-        set(st => ({ compareHistory: [{ aUid, bUid, at: Date.now() }, ...st.compareHistory].slice(0, 20) }));
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) {
-              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
-              const prefs = prof?.preferences || {};
-              await supabase!.from('profiles').update({ preferences: { ...prefs, compareHistory: get().compareHistory } }).eq('id', uid);
-            }
-          });
-        }
+        if (aUid === bUid) return;
+        let isNewPair = false;
+        set(st => {
+          const previous = st.compareHistory[0];
+          const isRepeated = previous && (
+            (previous.aUid === aUid && previous.bUid === bUid)
+            || (previous.aUid === bUid && previous.bUid === aUid)
+          );
+          if (isRepeated) return st;
+          isNewPair = true;
+          return { compareHistory: [{ aUid, bUid, at: Date.now() }, ...st.compareHistory].slice(0, 20) };
+        });
+        if (isNewPair) persistComparePair(aUid, bUid);
       },
       addMatchHistory: (entry) => {
         if (entry.challengeId) {
