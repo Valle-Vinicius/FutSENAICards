@@ -258,8 +258,16 @@ export function simulateMatch(config: MatchConfig): MatchResult {
     });
   }
 
-  const homeMid = homePlayers.find(p => !p.isGK)!;
-  const awayMid = awayPlayers.find(p => !p.isGK)!;
+  const kickoffPlayer = (players: MatchPlayer[]) =>
+    players.filter(player => !player.isGK).reduce((nearest, player) =>
+      dist(player.x, player.y, 50, 50) < dist(nearest.x, nearest.y, 50, 50) ? player : nearest,
+    players.find(player => !player.isGK)!);
+  const homeMid = kickoffPlayer(homePlayers);
+  const awayMid = kickoffPlayer(awayPlayers);
+  homeMid.x = 50;
+  homeMid.y = 50;
+  homeMid.targetX = 50;
+  homeMid.targetY = 50;
   const allPlayers = [...homePlayers, ...awayPlayers];
   const byId = (id: string) => allPlayers.find(p => p.id === id)!;
 
@@ -315,16 +323,16 @@ export function simulateMatch(config: MatchConfig): MatchResult {
       const formationPosition = formationPositions[teamPlayers.indexOf(player)];
       if (!formationPosition) return;
 
+      if (ball.holder === player.id) {
+        player.targetX = player.x;
+        player.targetY = player.y;
+        return;
+      }
+
       const attackDirection = player.team === 'home' ? 1 : -1;
       if (player.isGK) {
         player.targetX = formationPosition.x;
         player.targetY = clamp(50 + (ball.y - 50) * 0.35, 42, 58);
-        return;
-      }
-
-      if (ball.holder === player.id) {
-        player.targetX = player.x;
-        player.targetY = player.y;
         return;
       }
 
@@ -343,6 +351,15 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   }
 
   updateTargets();
+  frames.push({
+    minute: 0,
+    half,
+    homeScore,
+    awayScore,
+    ball: { x: ball.x, y: ball.y, holder: ball.holder },
+    players: allPlayers.map(player => ({ id: player.id, x: player.x, y: player.y, team: player.team })),
+    lastEvent: events[events.length - 1],
+  });
 
   // main loop
   while (minute < totalMinutes) {
@@ -359,6 +376,10 @@ export function simulateMatch(config: MatchConfig): MatchResult {
         const bp = awayBasePositions[i];
         if (bp) { p.x = bp.x; p.y = bp.y; p.targetX = bp.x; p.targetY = bp.y; }
       });
+      homeMid.x = 50;
+      homeMid.y = 50;
+      homeMid.targetX = 50;
+      homeMid.targetY = 50;
       ball = { x: 50, y: 50, holder: homeMid.id };
       events.push({ minute, type: 'halftime', team: 'neutral', description: `Intervalo. Placar: ${homeScore} x ${awayScore}.` });
     }
@@ -461,7 +482,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
 
       // pass decision
       const passProb = 0.7 * tactic.passRisk;
-      if (!actionResolved && rng() < passProb) {
+      if (!actionResolved && (holder.isGK || rng() < passProb)) {
         // choose teammate
         const mates = isHome ? homePlayers : awayPlayers;
         const candidates = mates.filter(m => m.id !== holder.id);
@@ -490,6 +511,16 @@ export function simulateMatch(config: MatchConfig): MatchResult {
           if (isHome) teamStats.home.passCompleted++; else teamStats.away.passCompleted++;
           ball.holder = best.id;
           ball.x = best.x; ball.y = best.y;
+          events.push({
+            minute,
+            type: 'pass',
+            team,
+            playerId: holder.id,
+            assistId: best.id,
+            description: holder.isGK
+              ? `${holder.name} repõe a bola para ${best.name}.`
+              : `${holder.name} toca para ${best.name}.`,
+          });
           // move ball holder target forward
           best.targetX = clamp(best.x + (isHome ? 8 : -8), 5, 95);
         }
@@ -553,7 +584,12 @@ export function simulateMatch(config: MatchConfig): MatchResult {
     });
 
     if (goalScoredBy) {
-      ball = { x: 50, y: 50, holder: goalScoredBy === 'home' ? awayMid.id : homeMid.id };
+      const restartPlayer = goalScoredBy === 'home' ? awayMid : homeMid;
+      restartPlayer.x = 50;
+      restartPlayer.y = 50;
+      restartPlayer.targetX = 50;
+      restartPlayer.targetY = 50;
+      ball = { x: 50, y: 50, holder: restartPlayer.id };
     }
   }
 

@@ -1210,7 +1210,22 @@ function MatchInner() {
                     </g>
                   );
                 })}
-                <circle cx={displayFrame?.ball.x ?? currentFrame.ball.x} cy={toSvgY(displayFrame?.ball.y ?? currentFrame.ball.y)} r="1.65" fill="#fff" stroke="#0F172A" strokeWidth="0.4" filter="url(#futsal-ball-shadow)" />
+                {(() => {
+                  const ball = displayFrame?.ball ?? currentFrame.ball;
+                  const holder = ball.holder ? playersById.get(ball.holder) : undefined;
+                  const keeperOffset = holder?.isGK ? (holder.team === 'home' ? 3.2 : -3.2) : 0;
+                  return (
+                    <circle
+                      cx={ball.x + keeperOffset}
+                      cy={toSvgY(ball.y)}
+                      r="1.65"
+                      fill="#fff"
+                      stroke="#0F172A"
+                      strokeWidth="0.4"
+                      filter="url(#futsal-ball-shadow)"
+                    />
+                  );
+                })()}
               </svg>
               {(goalAnnouncement || matchNotice) && (
                 <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4" role="status" aria-live="polite">

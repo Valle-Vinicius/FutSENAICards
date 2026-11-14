@@ -67,11 +67,39 @@ describe('simulateMatch', () => {
     });
     const aiGoalkeeper = result.frames[0].players.find(player => player.id === 'away_0');
 
-    expect(result.frames).toHaveLength(2);
+    expect(result.frames).toHaveLength(3);
     expect(aiGoalkeeper).toBeDefined();
     expect(aiGoalkeeper?.x).toBeGreaterThan(90);
     expect(aiGoalkeeper?.y).toBeGreaterThan(40);
     expect(aiGoalkeeper?.y).toBeLessThan(60);
+  });
+
+  it('starts with both teams in formation and the kickoff ball at the center', () => {
+    const home = createPlayersFromCards(homeCards as any, 'home', '1-2-1', 'futsal');
+    const away = makeAwayTeam('futsal', 'normal', 21);
+    const result = simulateMatch({
+      sport: 'futsal',
+      homeName: 'H',
+      awayName: 'IA',
+      homePlayers: home,
+      awayPlayers: away,
+      homeFormation: '1-2-1',
+      awayFormation: '1-2-1',
+      homeTactic: 'balanced',
+      awayTactic: 'balanced',
+      awayDifficulty: 'normal',
+      seed: 21,
+      minutes: 1,
+    });
+    const kickoff = result.frames[0];
+    const homeGoalkeeper = kickoff.players.find(player => player.id === 'h0_home');
+    const awayGoalkeeper = kickoff.players.find(player => player.id === 'away_0');
+
+    expect(kickoff.minute).toBe(0);
+    expect(kickoff.ball).toMatchObject({ x: 50, y: 50 });
+    expect(homeGoalkeeper).toMatchObject({ x: 5, y: 50 });
+    expect(awayGoalkeeper).toMatchObject({ x: 95, y: 50 });
+    expect(kickoff.players.some(player => player.x === 0 && player.y === 0)).toBe(false);
   });
 
   it('shows a goalkeeper save with the keeper controlling the ball at the save point', () => {
@@ -105,6 +133,42 @@ describe('simulateMatch', () => {
     expect(saveFrame?.ball.holder).toBe(savedBy);
     expect(saveFrame?.ball.x).toBe(goalkeeper?.x);
     expect(saveFrame?.ball.y).toBe(goalkeeper?.y);
+  });
+
+  it('has a goalkeeper release the ball to a teammate after a save', () => {
+    const home = createPlayersFromCards(homeCards as any, 'home', '1-2-1', 'futsal');
+    const away = createPlayersFromCards(awayCards as any, 'away', '1-2-1', 'futsal');
+    let result: ReturnType<typeof simulateMatch> | undefined;
+    let saveIndex = -1;
+
+    for (let seed = 1; seed <= 32 && saveIndex < 0; seed++) {
+      const candidate = simulateMatch({
+        sport: 'futsal',
+        homeName: 'H',
+        awayName: 'A',
+        homePlayers: home,
+        awayPlayers: away,
+        homeFormation: '1-2-1',
+        awayFormation: '1-2-1',
+        homeTactic: 'balanced',
+        awayTactic: 'balanced',
+        awayDifficulty: 'normal',
+        seed,
+        minutes: 40,
+      });
+      const index = candidate.frames.findIndex(frame => frame.lastEvent?.type === 'save');
+      if (index >= 0 && index < candidate.frames.length - 1) {
+        result = candidate;
+        saveIndex = index;
+      }
+    }
+
+    const savedBy = result?.frames[saveIndex]?.lastEvent?.playerId;
+    const followingFrame = result?.frames[saveIndex + 1];
+
+    expect(savedBy).toBeDefined();
+    expect(followingFrame?.ball.holder).not.toBe(savedBy);
+    expect(['pass', 'tackle']).toContain(followingFrame?.lastEvent?.type);
   });
 
   it('resolves a tied PvP score with a deterministic penalty shootout', () => {
