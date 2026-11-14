@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import { NEWS } from '../data/news';
-import { ExternalLink, Calendar, Trophy, Users, Package, Target, Store } from 'lucide-react';
+import { ArrowRight, Calendar, Check, ExternalLink, Gift, Package, Trophy } from 'lucide-react';
 import Card from '../components/Card';
 import { supabase } from '../lib/supabase';
 import { getProfile } from '../lib/profile';
-import { getCollectorRanking, type CollectorRanking } from '../lib/services/leaderboard';
 
 export default function Home() {
   const coins = useGame(s => s.coins);
@@ -15,270 +14,245 @@ export default function Home() {
   const level = useGame(s => s.level);
   const cards = useGame(s => s.cards);
   const avatarUrl = useGame(s => s.avatarUrl);
-  const [userName, setUserName] = useState('Jogador');
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-      const uid = data.session?.user?.id;
-      if (uid) {
-        const p = await getProfile(uid);
-        if (p?.name) setUserName(p.name);
-      }
-    });
-  }, []);
+  const lastDailyClaim = useGame(s => s.lastDailyClaim);
   const missions = useGame(s => s.missions);
   const events = useGame(s => s.events);
   const claimDaily = useGame(s => s.claimDaily);
   const packConfigs = useGame(s => s.packConfigs);
+  const [userName, setUserName] = useState('Jogador');
+  const [claimingDaily, setClaimingDaily] = useState(false);
+  const [now, setNow] = useState<number | null>(null);
   const rarest = [...cards].sort((a, b) => b.overall - a.overall).slice(0, 5);
   const lvlXp = (level - 1) * 500;
   const nextXp = level * 500;
-  const pct = Math.min(100, ((xp - lvlXp) / (nextXp - lvlXp)) * 100);
-  const event = events[0];
-  const [countdown, setCountdown] = useState('');
-  const [collectorRanking, setCollectorRanking] = useState<CollectorRanking[]>([]);
-
-  useEffect(() => {
-    getCollectorRanking(5).then(setCollectorRanking);
-  }, []);
+  const currentLevelXp = xp - lvlXp;
+  const levelXpGoal = nextXp - lvlXp;
+  const pct = Math.min(100, Math.max(0, (currentLevelXp / levelXpGoal) * 100));
+  const event = now === null
+    ? undefined
+    : events.filter(item => item.endsAt > now).sort((a, b) => a.endsAt - b.endsAt)[0];
+  const today = now === null ? null : new Date(now).toDateString();
+  const dailyAvailable = today !== null
+    && (!lastDailyClaim || new Date(lastDailyClaim).toDateString() !== today);
+  const eventRemaining = event && now !== null ? event.endsAt - now : 0;
+  const countdown = event
+    ? `${Math.floor(eventRemaining / 86400000)}d ${Math.floor((eventRemaining % 86400000) / 3600000)}h ${Math.floor((eventRemaining % 3600000) / 60000)}m`
+    : '';
+  const affordablePack = packConfigs
+    .filter(pack => pack.unlocked && pack.price <= coins)
+    .sort((a, b) => a.price - b.price)[0];
+  const openPackHref = affordablePack ? `/open/${affordablePack.id}` : '/packs';
+  const openPackLabel = affordablePack ? `Abrir ${affordablePack.name}` : 'Ver pacotes';
+  const activeMissions = missions.filter(mission => !mission.claimed).slice(0, 3);
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-      const uid = data.session?.user?.id;
-      if (uid) {
-        const p = await getProfile(uid);
-        if (p?.name) setUserName(p.name);
+    let active = true;
+    supabase.auth.getSession().then(async ({ data, error }) => {
+      if (error) {
+        console.error('[Home] failed to read session:', error);
+        return;
       }
+      const uid = data.session?.user?.id;
+      if (!uid) return;
+      const profile = await getProfile(uid);
+      if (active && profile?.name) setUserName(profile.name);
     });
+    return () => { active = false; };
   }, []);
-  const packs = packConfigs.filter(p => p.unlocked).slice(0, 1);
 
   useEffect(() => {
-    if (!event) return;
     const tick = () => {
-      const diff = event.endsAt - Date.now();
-      if (diff <= 0) { setCountdown('Encerrado'); return; }
-      const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      setCountdown(`${d}d ${h}h ${m}m`);
+      setNow(Date.now());
     };
     tick();
-    const iv = setInterval(tick, 60000);
-    return () => clearInterval(iv);
-  }, [event]);
+    const interval = setInterval(tick, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const [claimingDaily, setClaimingDaily] = useState(false);
   const handleDaily = async () => {
-    if (claimingDaily) return;
+    if (claimingDaily || !dailyAvailable) return;
     setClaimingDaily(true);
-    const r = await claimDaily();
-    if (r.ok) toast.alert(`Recompensa diária: +${r.amount} moedas`);
-    else if (r.error) toast.error(r.error);
-    else toast.alert('Recompensa diária já coletada. Volte mais tarde.');
-    setClaimingDaily(false);
+    try {
+      const result = await claimDaily();
+      if (result.ok) toast.alert(`Recompensa diária: +${result.amount} moedas`);
+      else if (result.error) toast.error(result.error);
+      else toast.alert('Recompensa diária já coletada. Volte mais tarde.');
+    } finally {
+      setClaimingDaily(false);
+    }
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div className="card-surface overflow-hidden flex flex-col md:flex-row items-center gap-4 p-4 bg-gradient-to-r from-[#FFF0F2] to-white">
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-14 h-14 rounded-full bg-[#E30613] text-white flex items-center justify-center text-lg font-bold shrink-0 overflow-hidden">
-            {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : level}
+    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+      <section className="card-surface flex flex-col gap-5 overflow-hidden bg-gradient-to-r from-[#FFF0F2] to-white p-4 md:flex-row md:items-center md:justify-between md:p-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E30613] text-lg font-bold text-white">
+            {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" /> : level}
           </div>
-          <div className="min-w-0">
-            <div className="text-base font-bold text-[#252733] truncate">{userName}</div>
-            <div className="text-[10px] text-[#858A98]">Nível {level}</div>
-            <div className="mt-1 w-36">
-              <div className="flex justify-between text-[9px] text-[#858A98] mb-0.5"><span>{xp} XP</span><span>{nextXp} XP</span></div>
-              <div className="h-1.5 bg-[#E9EAF0] rounded-full overflow-hidden">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-base font-bold text-[#252733]">{userName}</div>
+            <div className="text-xs text-[#858A98]">Nível {level}</div>
+            <div className="mt-2 max-w-xs">
+              <div className="mb-1 flex justify-between text-xs text-[#858A98]">
+                <span>{currentLevelXp} XP</span><span>{levelXpGoal} XP</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#E9EAF0]">
                 <div className="h-full bg-[#E30613] transition-all" style={{ width: `${pct}%` }} />
               </div>
             </div>
           </div>
         </div>
-        <div className="w-full md:w-auto flex justify-around md:justify-end md:gap-6 pt-3 md:pt-0 border-t border-[#E9EAF0] md:border-0">
-          <div className="text-center">
-            <div className="text-[10px] text-[#858A98]">Moedas</div>
-            <div className="font-bold text-[#252733] text-sm">{coins.toLocaleString('pt-BR')}</div>
+
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#E9EAF0] pt-4 md:justify-end md:border-0 md:pt-0">
+          <div className="flex gap-6">
+            <div>
+              <div className="text-xs text-[#858A98]">Moedas</div>
+              <div className="font-bold text-[#252733]">{coins.toLocaleString('pt-BR')}</div>
+            </div>
+            <div>
+              <div className="text-xs text-[#858A98]">Cartas</div>
+              <div className="font-bold text-[#252733]">{cards.length}</div>
+            </div>
           </div>
-          <div className="text-center">
-            <div className="text-[10px] text-[#858A98]">XP</div>
-            <div className="font-bold text-[#252733] text-sm">{xp}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[10px] text-[#858A98]">Cartas</div>
-            <div className="font-bold text-[#252733] text-sm">{cards.length}</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={handleDaily} disabled={claimingDaily} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-bold disabled:opacity-60">{claimingDaily ? 'Resgatando...' : 'Recompensa diária'}</button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Coluna central */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Últimas notícias */}
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h2 className="text-lg font-semibold text-[#252733]">Radar do SENAI</h2>
-                <p className="text-xs text-[#858A98]">As últimas notícias, polêmicas e acontecimentos do universo FutSenai.</p>
-              </div>
-              <a href="https://pietro-guedes.github.io/FutSenai-Jornal/" target="_blank" rel="noopener noreferrer" className="text-sm text-[#E30613] font-medium hover:underline flex items-center gap-1">
-                Ver todas <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-3">
-              {/* Notícia principal (55%) */}
-              <div className="card-surface p-3 space-y-2 h-full flex flex-col">
-                <div className="relative shrink-0">
-                  {NEWS[0].image && <img src={NEWS[0].image} alt={NEWS[0].title} className="w-full h-32 object-cover rounded-xl" />}
-                  <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E30613] text-white">DESTAQUE</span>
-                </div>
-                <div className="text-sm font-semibold text-[#252733] line-clamp-2">{NEWS[0].title}</div>
-                <div className="text-xs text-[#858A98] line-clamp-2 flex-1">{NEWS[0].summary}</div>
-                <div className="text-[10px] text-[#858A98]">Turma: {NEWS[0].turma} · {NEWS[0].date}</div>
-                <a href={NEWS[0].url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#E30613] font-medium hover:underline shrink-0">
-                  Ler matéria completa <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-              {/* Notícias secundárias (45%) */}
-              <div className="grid grid-rows-2 gap-3 h-full">
-                {NEWS.slice(1).map(n => (
-                  <div key={n.id} className="card-surface p-3 flex gap-2 min-w-0">
-                    {n.image && <img src={n.image} alt={n.title} className="w-16 h-full object-cover rounded-lg shrink-0" />}
-                    <div className="min-w-0 flex flex-col justify-between">
-                      <div className="text-xs font-semibold text-[#252733] line-clamp-2">{n.title}</div>
-                      <div className="text-[10px] text-[#858A98] mt-1">{n.date} · {n.turma}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Cartas em destaque */}
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold text-[#252733]">Seus cards em destaque</h2>
-              <Link to="/collection" className="text-sm text-[#E30613] font-medium hover:underline">Ver coleção</Link>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {rarest.map(c => (
-                <Link key={c.uid} to={`/card/${c.uid}`} className="shrink-0">
-                  <Card card={c} size="sm" />
-                </Link>
-              ))}
-              {rarest.length === 0 && <div className="text-[#858A98] text-sm">Nenhuma carta ainda.</div>}
-            </div>
-          </section>
-
-          {/* Acesso rápido */}
-          <section>
-            <h2 className="text-lg font-semibold mb-2 text-[#252733]">Acesso rápido</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <Link to="/market" className="card-surface p-3 text-center hover:border-[#E30613]/40 transition">
-                <Store className="w-6 h-6 mx-auto text-[#E30613] mb-1" />
-                <div className="text-xs font-semibold text-[#252733]">Mercado</div>
-                <div className="text-[10px] text-[#858A98]">Compre e venda</div>
-              </Link>
-              <Link to="/sbc" className="card-surface p-3 text-center hover:border-[#E30613]/40 transition">
-                <Target className="w-6 h-6 mx-auto text-[#E30613] mb-1" />
-                <div className="text-xs font-semibold text-[#252733]">SBC</div>
-                <div className="text-[10px] text-[#858A98]">Desafios</div>
-              </Link>
-              <Link to="/squad" className="card-surface p-3 text-center hover:border-[#E30613]/40 transition">
-                <Users className="w-6 h-6 mx-auto text-[#E30613] mb-1" />
-                <div className="text-xs font-semibold text-[#252733]">Elenco</div>
-                <div className="text-[10px] text-[#858A98]">Monte seu time</div>
-              </Link>
-              <Link to="/packs" className="card-surface p-3 text-center hover:border-[#E30613]/40 transition">
-                <Package className="w-6 h-6 mx-auto text-[#E30613] mb-1" />
-                <div className="text-xs font-semibold text-[#252733]">Packs</div>
-                <div className="text-[10px] text-[#858A98]">Abra pacotes</div>
-              </Link>
-            </div>
-          </section>
-        </div>
-
-        {/* Coluna direita */}
-        <div className="space-y-4">
-          {/* Próximo evento */}
-          {event && (
-            <div className="card-surface p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#E30613]" />
-                <h3 className="font-semibold text-[#252733]">Próximo Evento</h3>
-              </div>
-              <div className="flex items-center gap-3">
-                <Trophy className="w-10 h-10 text-[#f5c542] shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-[#252733] truncate">{event.name}</div>
-                  <div className="text-xs text-[#858A98]">{event.reward}</div>
-                  <div className="text-xs text-[#E30613] font-bold">{countdown}</div>
-                </div>
-              </div>
-              <button className="w-full py-2 rounded-xl bg-[#E30613] text-white text-sm font-bold">Ver detalhes</button>
+          {now === null ? (
+            <button disabled className="btn btn-primary btn-sm">Verificando recompensa...</button>
+          ) : dailyAvailable ? (
+            <button onClick={handleDaily} disabled={claimingDaily} className="btn btn-primary btn-sm">
+              <Gift className="h-4 w-4" />
+              {claimingDaily ? 'Resgatando...' : 'Resgatar recompensa'}
+            </button>
+          ) : (
+            <div className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-[#858A98]">
+              <Check className="h-4 w-4 text-emerald-600" /> Recompensa resgatada hoje
             </div>
           )}
+        </div>
+      </section>
 
-          {/* Missões em andamento */}
-          <div className="card-surface p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-[#252733]">Missões em andamento</h3>
-              <Link to="/missions" className="text-xs text-[#E30613] font-medium hover:underline">Ver todas</Link>
-            </div>
-            <div className="space-y-2">
-              {missions.filter(m => !m.claimed).slice(0, 5).map(m => (
-                <div key={m.id} className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#FFF0F2] flex items-center justify-center text-[#E30613] text-[10px] font-bold shrink-0">
-                    {m.completed ? '✓' : Math.round((m.progress / m.target) * 100) + '%'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-[#252733] truncate">{m.title}</div>
-                    <div className="h-1 bg-[#E9EAF0] rounded-full overflow-hidden mt-0.5">
-                      <div className="h-full bg-[#E30613]" style={{ width: `${Math.min(100, (m.progress / m.target) * 100)}%` }} />
-                    </div>
-                    <div className="text-[9px] text-[#858A98] mt-0.5">{m.progress}/{m.target}</div>
-                  </div>
-                </div>
-              ))}
-              {missions.filter(m => !m.claimed).length === 0 && <div className="text-xs text-[#858A98]">Todas as missões concluídas!</div>}
-            </div>
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="card-surface flex flex-col justify-between gap-5 bg-gradient-to-br from-[#FFF0F2] to-white p-5 md:p-6">
+          <div>
+            <Trophy className="mb-3 h-7 w-7 text-[#E30613]" />
+            <h2 className="text-xl font-bold text-[#252733]">Jogar agora</h2>
+            <p className="mt-1 text-sm text-[#858A98]">Entre em campo ou desafie um amigo para uma partida.</p>
           </div>
-
-          {/* Loja */}
-          <div className="card-surface p-4 space-y-2">
-            <h3 className="font-semibold text-[#252733]">Loja</h3>
-            {packs.map(p => (
-              <div key={p.id} className="space-y-1">
-                <div className="text-sm font-semibold text-[#252733]">{p.name}</div>
-                <div className="text-xs text-[#858A98]">{p.description}</div>
-                <div className="text-xs text-[#858A98]">{p.cards} cartas · {p.price.toLocaleString('pt-BR')} moedas</div>
-                <Link to="/packs" className="block w-full py-2 rounded-xl bg-[#E30613] text-white text-sm font-bold text-center">Comprar</Link>
-              </div>
-            ))}
-          </div>
-          {/* Ranking de colecionadores */}
-          <div className="card-surface p-4 space-y-2">
-            <h3 className="font-semibold text-[#252733]">Ranking de colecionadores</h3>
-            <div className="space-y-1">
-              {collectorRanking.map((r, i) => (
-                <div key={r.userId} className="flex items-center gap-2 text-xs">
-                  <span className="w-5 text-center font-bold text-[#858A98]">{i + 1}</span>
-                  <span className="flex-1 truncate text-[#252733]">{r.name}</span>
-                  <span className="text-[#858A98]">{r.cardsCount} cartas</span>
-                </div>
-              ))}
-              {collectorRanking.length === 0 && <div className="text-xs text-[#858A98]">Sem dados ainda.</div>}
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/match" className="btn btn-primary btn-lg">
+              Partida <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link to="/friends" className="btn btn-secondary btn-lg">
+              Desafiar amigo
+            </Link>
           </div>
         </div>
-      </div>
+        <div className="card-surface flex flex-col justify-between gap-5 p-5 md:p-6">
+          <div>
+            <Package className="mb-3 h-7 w-7 text-[#E30613]" />
+            <h2 className="text-xl font-bold text-[#252733]">Novas cartas esperam por você</h2>
+            <p className="mt-1 text-sm text-[#858A98]">
+              {affordablePack ? `${affordablePack.name} · ${affordablePack.price.toLocaleString('pt-BR')} moedas` : 'Confira os pacotes disponíveis na loja.'}
+            </p>
+          </div>
+          <div>
+            <Link to={openPackHref} className="btn btn-secondary btn-lg">
+              {openPackLabel} <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
 
+      <section>
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-[#252733]">Radar do SENAI</h2>
+            <p className="text-sm text-[#858A98]">Notícias e acontecimentos do universo FutSenai.</p>
+          </div>
+          <a href={NEWS[0]?.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[#E30613] hover:underline">
+            Ver todas <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {NEWS.slice(0, 3).map((news, index) => (
+            <a key={news.id} href={news.url} target="_blank" rel="noopener noreferrer" className="card-surface flex min-w-0 flex-col overflow-hidden transition hover:-translate-y-0.5">
+              {news.image
+                ? <img src={news.image} alt="" className="h-36 w-full object-cover" loading="lazy" />
+                : <div className="flex h-36 items-center justify-center bg-[#FFF0F2]"><Calendar className="h-8 w-8 text-[#E30613]" /></div>}
+              <div className="flex flex-1 flex-col p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${index === 0 ? 'bg-[#FFF0F2] text-[#E30613]' : 'bg-[#F7F7F9] text-[#858A98]'}`}>
+                    {news.category}
+                  </span>
+                  <span className="text-xs text-[#858A98]">{news.date}</span>
+                </div>
+                <h3 className="line-clamp-2 text-sm font-semibold text-[#252733]">{news.title}</h3>
+                <p className="mt-2 line-clamp-2 flex-1 text-xs text-[#858A98]">{news.summary}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[#E30613]">
+                  Ler notícia <ExternalLink className="h-3 w-3" />
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-[#252733]">Suas cartas em destaque</h2>
+          <Link to="/collection" className="text-sm font-medium text-[#E30613] hover:underline">Ver coleção</Link>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {rarest.map(card => (
+            <Link key={card.uid} to={`/card/${card.uid}`} className="shrink-0">
+              <Card card={card} size="sm" />
+            </Link>
+          ))}
+          {rarest.length === 0 && <div className="text-sm text-[#858A98]">Nenhuma carta ainda.</div>}
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        {event && (
+          <div className="card-surface flex flex-col gap-4 p-4 md:p-5">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-[#FFF0F2] p-3"><Calendar className="h-5 w-5 text-[#E30613]" /></div>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-semibold text-[#252733]">Próximo evento</h2>
+                <div className="mt-2 text-base font-bold text-[#252733]">{event.name}</div>
+                <div className="text-sm text-[#858A98]">Recompensa: {event.reward}</div>
+                <div className="mt-1 text-sm font-semibold text-[#E30613]">{countdown}</div>
+              </div>
+            </div>
+            <Link to="/shop" className="btn btn-secondary btn-sm self-start">
+              Ver eventos <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+
+        <div className="card-surface p-4 md:p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-[#252733]">Missões em andamento</h2>
+            <Link to="/missions" className="text-sm font-medium text-[#E30613] hover:underline">Ver todas</Link>
+          </div>
+          <div className="space-y-3">
+            {activeMissions.map(mission => (
+              <div key={mission.id} className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#FFF0F2] text-xs font-bold text-[#E30613]">
+                  {mission.completed ? <Check className="h-4 w-4" /> : `${Math.round((mission.progress / mission.target) * 100)}%`}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-[#252733]">{mission.title}</div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#E9EAF0]">
+                    <div className="h-full bg-[#E30613]" style={{ width: `${Math.min(100, (mission.progress / mission.target) * 100)}%` }} />
+                  </div>
+                  <div className="mt-1 text-xs text-[#858A98]">{mission.progress}/{mission.target}</div>
+                </div>
+              </div>
+            ))}
+            {activeMissions.length === 0 && <div className="text-sm text-[#858A98]">Todas as missões foram resgatadas.</div>}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

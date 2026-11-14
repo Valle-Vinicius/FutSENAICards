@@ -47,7 +47,6 @@ export default function Marketplace() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
     getListings().then(listings => {
       if (listings !== null) applyRemoteListings(listings);
       setLoading(false);
@@ -156,7 +155,7 @@ export default function Marketplace() {
       <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Transferências</h1>
       <div className="flex gap-2 flex-wrap">
         {(['market', 'mine', 'targets', 'history'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${tab === t ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
+          <button key={t} onClick={() => setTab(t)} className={`btn btn-sm ${tab === t ? 'btn-primary' : 'btn-secondary'}`}>
             {t === 'market' ? 'Mercado' : t === 'mine' ? 'Minhas vendas' : t === 'targets' ? 'Alvos' : 'Histórico'}
           </button>
         ))}
@@ -182,7 +181,7 @@ export default function Marketplace() {
               <option value="overall">Overall</option>
               <option value="name">Nome</option>
             </select>
-            <button onClick={clearFilters} className="px-3 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Limpar</button>
+            <button onClick={clearFilters} className="btn btn-secondary btn-sm">Limpar</button>
           </div>
 
           <div className="card-surface p-3 flex flex-wrap gap-4 text-sm text-[#252733]">
@@ -229,9 +228,9 @@ export default function Marketplace() {
                   <Card card={c} size="sm" />
                   <div className="text-xs text-[#858A98]">Vendedor: {l.sellerName}</div>
                   <div className="text-sm text-[#252733]">Preço: <span className="font-bold text-[#E30613]">{l.price.toLocaleString('pt-BR')}</span> · Compra imediata: <span className="font-bold">{l.buyNow.toLocaleString('pt-BR')}</span></div>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleBuy(l.id)} className="flex-1 px-2 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Comprar</button>
-                    <button onClick={() => handleBid(l.id)} className="flex-1 px-2 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Lance</button>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => handleBuy(l.id)} className="btn btn-primary btn-sm">Comprar</button>
+                    <button onClick={() => handleBid(l.id)} className="btn btn-secondary btn-sm">Lance</button>
                   </div>
                 </div>
               );
@@ -271,7 +270,7 @@ export default function Marketplace() {
               <input value={listPrice} onChange={e => setListPrice(e.target.value)} placeholder="Preço inicial" className={`flex-1 ${sel}`} />
               <input value={listBuyNow} onChange={e => setListBuyNow(e.target.value)} placeholder="Compra imediata" className={`flex-1 ${sel}`} />
             </div>
-            <button onClick={handleList} disabled={creatingListing} className="w-full px-3 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium disabled:opacity-60">{creatingListing ? 'Publicando...' : 'Publicar'}</button>
+            <button onClick={handleList} disabled={creatingListing} className="btn btn-primary btn-full">{creatingListing ? 'Publicando...' : 'Publicar'}</button>
           </div>
           <div className="space-y-2">
             {listings.filter(l => l.sellerId === userId).map(l => {
@@ -287,7 +286,7 @@ export default function Marketplace() {
                     if (cancelled) toast.success('Anúncio cancelado.');
                     else toast.error('O anúncio não está mais ativo ou não foi possível cancelá-lo.');
                     setCancellingListingId(null);
-                  }} className="px-2 py-1 text-xs rounded-lg text-red-600 border border-red-200 disabled:opacity-60">{cancellingListingId === l.id ? 'Cancelando...' : 'Cancelar'}</button>}
+                  }} className="btn btn-danger btn-sm">{cancellingListingId === l.id ? 'Cancelando...' : 'Cancelar'}</button>}
                 </div>
               );
             })}
