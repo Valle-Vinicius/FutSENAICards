@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { Squad, SavedSquad } from '../../types';
 
-import { FORMATIONS_FUTSAL as FS } from '../game';
+import { FORMATIONS_FUTSAL as FS, normalizeFutsalFormation } from '../game';
 
 function normalizeCardUid(value: unknown): string | null {
   if (typeof value === 'string') return value || null;
@@ -16,16 +16,18 @@ export async function getSquad(userId: string): Promise<Squad | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
   if (error || !data) return null;
-  const positions = (FS as any)[data.formation] || (FS as any)['1-2-1'];
-  const starters = (Array.isArray(data.starters) ? data.starters : []).map((value: unknown, i: number) => ({
-    position: positions[i] || 'Ala',
-    uid: normalizeCardUid(value),
+  const formation = normalizeFutsalFormation(data.formation);
+  const positions = FS[formation];
+  const savedStarters: unknown[] = Array.isArray(data.starters) ? data.starters : [];
+  const starters = positions.map((position, index) => ({
+    position,
+    uid: normalizeCardUid(savedStarters[index]),
   }));
   return {
     sport: 'futsal',
-    formation: data.formation,
+    formation,
     starters,
-    bench: Array.isArray(data.bench) ? data.bench : [],
+    bench: Array.isArray(data.bench) ? data.bench.map(normalizeCardUid) : [],
   } as Squad;
 }
 
@@ -73,9 +75,9 @@ export async function getSavedSquads(userId: string): Promise<SavedSquad[]> {
       id: s.id,
       name: s.name,
       sport: 'futsal',
-      formation: s.formation,
+      formation: normalizeFutsalFormation(s.formation),
       starters,
-      bench: Array.isArray(s.bench) ? s.bench : [],
+      bench: Array.isArray(s.bench) ? s.bench.map(normalizeCardUid) : [],
       createdAt: new Date(s.created_at).getTime(),
       isPrimary: s.is_primary,
     };

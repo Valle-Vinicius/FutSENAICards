@@ -32,7 +32,7 @@ describe('squad service', () => {
 
     await expect(saveSquad('user-1', {
       sport: 'futsal',
-      formation: '1-2-1',
+      formation: '3-1',
       starters: [
         { position: 'GK', uid: 'card-1' },
         { position: 'Fixo', uid: null },
@@ -74,6 +74,7 @@ describe('squad service', () => {
 
     await expect(getSavedSquads('user-1')).resolves.toEqual([
       expect.objectContaining({
+        formation: '1-2-1',
         starters: ['card-1', 'card-2', null],
         bench: [],
         isPrimary: true,

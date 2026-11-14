@@ -6,7 +6,7 @@ import * as challengesService from '../lib/services/challenges';
 import * as poolService from '../lib/services/pool';
 import Card from '../components/Card';
 import type { PlayerCard } from '../types';
-import { FORMATIONS_FUTSAL as FS } from '../lib/game';
+import { FORMATIONS_FUTSAL as FS, normalizeFutsalFormation } from '../lib/game';
 import { useGame } from '../store/useGame';
 
 export default function FriendProfile() {
@@ -59,10 +59,14 @@ export default function FriendProfile() {
         const { data: sq, error: sqErr } = await supabase.from('squads').select('*').eq('user_id', userId).eq('is_primary', true).maybeSingle();
         if (sqErr) console.error('[FriendProfile] squad error:', sqErr);
         if (sq) {
-          const positions = (FS as any)[sq.formation] || (FS as any)['1-2-1'];
-          const normalized = (sq.starters || []).map((uid: string | null, i: number) => ({
-            position: positions[i] || 'Ala',
-            uid: uid || null,
+          const formation = normalizeFutsalFormation(sq.formation);
+          const positions = FS[formation];
+          const starters = Array.isArray(sq.starters) ? sq.starters : [];
+          const normalized = positions.map((position, index) => ({
+            position,
+            uid: typeof starters[index] === 'string'
+              ? starters[index]
+              : typeof starters[index]?.uid === 'string' ? starters[index].uid : null,
           }));
           console.log('[FriendProfile] starters raw:', sq.starters);
           console.log('[FriendProfile] starters normalizados:', normalized);
@@ -73,7 +77,7 @@ export default function FriendProfile() {
             (cs2 || []).forEach((c: any) => cardMap.set(c.id, c));
           }
           console.log('[FriendProfile] cartas encontradas:', cardMap.size, 'de', uids.length);
-          setSquad({ ...sq, starters: normalized, cardMap });
+          setSquad({ ...sq, formation, starters: normalized, cardMap });
         }
         if (me && me !== userId) {
           const { data: f } = await supabase.from('friendships').select('*')

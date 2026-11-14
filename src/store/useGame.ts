@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
-import type { GameState, PlayerCard, Squad, SavedSquad, Listing } from '../types';
+import type { GameState, PlayerCard, Position, Squad, SavedSquad, Listing } from '../types';
 import { RARITY_META, SPECIAL_META } from '../types';
 import type { UpgradeAttr } from '../types';
 import { toast } from './toast';
-import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, levelFromXp, FORMATIONS_FUTSAL, mergeCardProgress, totalUpgrades, UUID_RE } from '../lib/game';
+import { DEFAULT_PACKS, DEFAULT_MISSIONS, DEFAULT_ACHIEVEMENTS, levelFromXp, FORMATIONS_FUTSAL, normalizeFutsalFormation, mergeCardProgress, totalUpgrades, UUID_RE } from '../lib/game';
 import { supabase } from '../lib/supabase';
 import { getCards, addCard, updateCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
@@ -190,6 +190,7 @@ interface Actions {
   unlockLegendary: () => void;
   addEvent: () => void;
   saveSquad: (name: string, sport: 'futsal') => string;
+  duplicateSavedSquad: (id: string) => Promise<string | null>;
   deleteSquad: (id: string) => void;
   setPrimarySquad: (id: string) => void;
   loadSquad: (id: string) => void;
@@ -727,7 +728,12 @@ export const useGame = create<GameState & Actions>()(
       setSquadSport: () => {},
       flushSquadSave: sport => flushSquadSave(() => get().squads[sport]),
       assignSlot: (sport, index, cardUid, bench, benchIndex) => {
+        let isListed = false;
         set(st => {
+          if (cardUid && st.listings.some(listing => listing.cardUid === cardUid && listing.status === 'active')) {
+            isListed = true;
+            return st;
+          }
           const squad = { ...st.squads[sport] };
           // remove uid from any existing slot
           if (cardUid) {
@@ -745,6 +751,7 @@ export const useGame = create<GameState & Actions>()(
           }
           return { squads: { ...st.squads, [sport]: squad } };
         });
+        if (isListed) return;
         scheduleSquadSave(() => get().squads[sport]);
         get().updateMissionProgress();
       },
@@ -766,7 +773,8 @@ export const useGame = create<GameState & Actions>()(
         get().updateMissionProgress();
       },
       setFormation: (sport, formation) => {
-        const positions = (FORMATIONS_FUTSAL[formation] ?? FORMATIONS_FUTSAL['1-2-1']);
+        const normalizedFormation = normalizeFutsalFormation(formation);
+        const positions = FORMATIONS_FUTSAL[normalizedFormation];
         set(st => {
           const squad = st.squads[sport];
           const oldStarters = squad.starters.map(s => ({ pos: s.position, uid: s.uid }));
@@ -786,7 +794,7 @@ export const useGame = create<GameState & Actions>()(
           return {
             squads: {
               ...st.squads,
-              [sport]: { ...squad, formation, starters: newStarters, bench: newBench },
+              [sport]: { ...squad, formation: normalizedFormation, starters: newStarters, bench: newBench },
             },
           };
         });
@@ -819,6 +827,52 @@ export const useGame = create<GameState & Actions>()(
         }
         return id;
       },
+      duplicateSavedSquad: async (id) => {
+        const source = get().savedSquads.find(squad => squad.id === id);
+        if (!source) return null;
+        const formation = normalizeFutsalFormation(source.formation);
+        const positions = FORMATIONS_FUTSAL[formation];
+        const squad: Squad = {
+          sport: source.sport,
+          formation,
+          starters: positions.map((position, index) => ({
+            position: position as Position,
+            uid: source.starters[index] ?? null,
+          })),
+          bench: [...source.bench],
+        };
+        const name = `${source.name} (cópia)`;
+
+        if (supabase) {
+          try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error) throw error;
+            const userId = data.session?.user?.id;
+            if (!userId) throw new Error('Entre na sua conta para duplicar a escalação.');
+            const duplicate = await saveSquadService(userId, squad, name, false);
+            if (!duplicate) throw new Error('Não foi possível salvar a cópia da escalação.');
+            set(st => ({ savedSquads: [duplicate, ...st.savedSquads] }));
+            return duplicate.id;
+          } catch (error) {
+            console.error('[squads] duplicate saved squad failed:', error);
+            toast.error(error instanceof Error ? error.message : 'Não foi possível duplicar a escalação.');
+            return null;
+          }
+        }
+
+        const duplicate: SavedSquad = {
+          id: nanoid(8),
+          name,
+          sport: source.sport,
+          formation,
+          starters: squad.starters.map(slot => slot.uid),
+          bench: [...squad.bench],
+          createdAt: Date.now(),
+          isPrimary: false,
+        };
+        set(st => ({ savedSquads: [duplicate, ...st.savedSquads] }));
+        return duplicate.id;
+      },
       deleteSquad: (id) => {
         set(st => ({ savedSquads: st.savedSquads.filter(s => s.id !== id) }));
         if (supabase) {
@@ -846,14 +900,20 @@ export const useGame = create<GameState & Actions>()(
         const saved = s.savedSquads.find(x => x.id === id);
         if (!saved) return;
         const sport = saved.sport;
-        // rebuild squad starters positions based on current formation? Use saved formation
-        const positions = (FORMATIONS_FUTSAL[saved.formation] ?? FORMATIONS_FUTSAL['1-2-1']);
-        // if saved formation different, keep positions from a map? We'll use saved starters length
-        const starters = saved.starters.map((uid, i) => ({ position: (positions[i] ?? 'GK') as any, uid }));
+        const formation = normalizeFutsalFormation(saved.formation);
+        const positions = FORMATIONS_FUTSAL[formation];
+        const listedUids = new Set(s.listings.filter(listing => listing.status === 'active').map(listing => listing.cardUid));
+        const removedListedCard = [...saved.starters, ...saved.bench].some(uid => uid && listedUids.has(uid));
+        const starters = positions.map((position, index) => ({
+          position: position as Position,
+          uid: saved.starters[index] && !listedUids.has(saved.starters[index]) ? saved.starters[index] : null,
+        }));
+        const bench = saved.bench.map(uid => uid && listedUids.has(uid) ? null : uid);
+        if (removedListedCard) toast.error('Cartas anunciadas no mercado não podem ser escaladas e foram removidas da escalação carregada.');
         set(st => ({
           squads: {
             ...st.squads,
-            [sport]: { sport, formation: saved.formation, starters, bench: [...saved.bench] },
+            [sport]: { sport, formation, starters, bench },
           },
         }));
         scheduleSquadSave(() => get().squads[sport]);
@@ -1085,7 +1145,10 @@ export const useGame = create<GameState & Actions>()(
           if (get().listings.some(item => item.status === 'active' && item.cardUid === cardUid)) return null;
           const current = get();
           const inSquad = Object.values(current.squads).some((squad: any) => squad && ([...(squad.starters ?? []).map((slot: any) => slot.uid), ...(squad.bench ?? [])]).includes(cardUid));
-          if (inSquad) return null;
+          const inSavedSquad = current.savedSquads.some(squad =>
+            [...squad.starters, ...squad.bench].includes(cardUid),
+          );
+          if (inSquad || inSavedSquad) return null;
           const id = nanoid(8);
           const listing: Listing = {
             id, cardUid, seller: 'user', sellerName: 'Você',

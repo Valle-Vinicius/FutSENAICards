@@ -169,9 +169,11 @@ export const XP_PER_LEVEL = 500;
 export function levelFromXp(xp: number) { return Math.floor(xp / XP_PER_LEVEL) + 1; }
 export const FORMATIONS_FUTSAL: Record<string, string[]> = {
   '1-2-1': ['GK','Fixo','Ala','Ala','Pivo'],
-  '2-2': ['GK','Fixo','Fixo','Ala','Pivo'],
-  '3-1': ['GK','Fixo','Ala','Ala','Pivo'],
-  '4-0': ['GK','Fixo','Ala','Ala','Pivo'],
+  '2-2': ['GK','Fixo','Fixo','Pivo','Pivo'],
 };
+export const DEFAULT_FUTSAL_FORMATION = '1-2-1';
+export function normalizeFutsalFormation(formation: string): string {
+  return Object.prototype.hasOwnProperty.call(FORMATIONS_FUTSAL, formation) ? formation : DEFAULT_FUTSAL_FORMATION;
+}
 
 export function uid() { return Math.random().toString(36).slice(2, 10); }

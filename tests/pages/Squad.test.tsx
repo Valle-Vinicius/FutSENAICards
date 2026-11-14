@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Squad from '../../src/pages/Squad';
 import { useGame } from '../../src/store/useGame';
+import { toast } from '../../src/store/toast';
 import type { PlayerCard } from '../../src/types';
 
 const mockFlushSquadSave = jest.fn();
@@ -17,6 +18,8 @@ describe('squad builder inventory', () => {
   beforeEach(() => {
     mockFlushSquadSave.mockReset();
     mockFlushSquadSave.mockResolvedValue(true);
+    jest.spyOn(toast, 'success').mockImplementation(() => {});
+    jest.spyOn(toast, 'error').mockImplementation(() => {});
     const cards = Array.from({ length: 100 }, (_, index) => ({
       uid: `card-${index}`,
       playerId: `player-${index}`,
@@ -48,15 +51,20 @@ describe('squad builder inventory', () => {
         },
       },
       savedSquads: [],
+      listings: [],
       flushSquadSave: mockFlushSquadSave,
     });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('renders only the first batch and lets the user find cards by club', async () => {
     render(<Squad />);
 
     expect(screen.getAllByTestId('inventory-card')).toHaveLength(36);
-    expect(screen.getByText('100 resultados. Selecione uma carta e clique em um slot.')).toBeTruthy();
+    expect(screen.getByText('100 resultados')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Carregar mais cartas/ }));
     expect(screen.getAllByTestId('inventory-card')).toHaveLength(72);
 
@@ -81,11 +89,101 @@ describe('squad builder inventory', () => {
       expect(mockFlushSquadSave).toHaveBeenCalledWith('futsal');
     });
     expect((screen.getByRole('button', { name: 'Salvando elenco...' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByText('Time montado e salvo.')).toBeNull();
+    expect(toast.success).not.toHaveBeenCalledWith('Time montado e salvo.');
 
     finishSave(true);
     await waitFor(() => {
-      expect(screen.getByText('Time montado e salvo.')).toBeTruthy();
+      expect(toast.success).toHaveBeenCalledWith('Time montado e salvo.');
     });
+  });
+
+  it('uses the store formation value and only offers distinct formations', () => {
+    render(<Squad />);
+    const formation = screen.getByLabelText('Formação:') as HTMLSelectElement;
+
+    expect(Array.from(formation.options).map(option => option.value)).toEqual(['1-2-1', '2-2']);
+    act(() => useGame.getState().setFormation('futsal', '2-2'));
+    expect(formation.value).toBe('2-2');
+  });
+
+  it('selects a player on tap and assigns it to a reserve slot', () => {
+    const squad = useGame.getState().squads.futsal;
+    useGame.setState({ squads: { futsal: { ...squad, bench: [null, null] } } });
+    render(<Squad />);
+    fireEvent.click(screen.getByRole('button', { name: 'Jogador 0, Ala, OVR 99' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reserva 1 vazia' }));
+
+    expect(useGame.getState().squads.futsal.bench[0]).toBe('card-0');
+  });
+
+  it('swaps selected starters instead of removing one immediately', () => {
+    const squad = useGame.getState().squads.futsal;
+    const starters = squad.starters.map(slot => ({ ...slot }));
+    starters[2] = { position: 'Ala', uid: 'card-50' };
+    starters[3] = { position: 'Ala', uid: 'card-51' };
+    useGame.setState({ squads: { futsal: { ...squad, starters } } });
+    render(<Squad />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Busca exata, Ala, OVR 98.5' }));
+    expect(useGame.getState().squads.futsal.starters[2].uid).toBe('card-50');
+    fireEvent.click(screen.getByRole('button', { name: 'Jogador 51, Ala, OVR 98.49' }));
+
+    expect(useGame.getState().squads.futsal.starters[2].uid).toBe('card-51');
+    expect(useGame.getState().squads.futsal.starters[3].uid).toBe('card-50');
+  });
+
+  it('does not show or assign cards with active marketplace listings', async () => {
+    useGame.setState({
+      listings: [{
+        id: 'listing-1',
+        cardUid: 'card-50',
+        seller: 'user',
+        sellerName: 'Jogador',
+        price: 100,
+        buyNow: 200,
+        bids: [],
+        createdAt: 0,
+        expiresAt: Date.now() + 60_000,
+        status: 'active',
+      }],
+    });
+
+    render(<Squad />);
+
+    expect(screen.getAllByTestId('inventory-card')).toHaveLength(36);
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar cartas do elenco' }), { target: { value: 'Clube exclusivo' } });
+    await waitFor(() => {
+      expect(screen.queryAllByTestId('inventory-card')).toHaveLength(0);
+      expect(screen.queryByText('Nenhuma carta disponível com esses filtros.')).not.toBeNull();
+    });
+    useGame.getState().assignSlot('futsal', 0, 'card-50');
+    expect(useGame.getState().squads.futsal.starters[0].uid).toBeNull();
+  });
+
+  it('duplicates a saved lineup from its saved players without changing the active lineup', async () => {
+    const active = useGame.getState().squads.futsal;
+    const saved = {
+      id: 'saved-1',
+      name: 'Meu time salvo',
+      sport: 'futsal' as const,
+      formation: '1-2-1',
+      starters: ['saved-gk', 'saved-fixo', 'saved-ala-1', 'saved-ala-2', 'saved-pivo'],
+      bench: ['saved-bench', null],
+      createdAt: 1,
+      isPrimary: false,
+    };
+    useGame.setState({ savedSquads: [saved] });
+
+    const duplicateId = await useGame.getState().duplicateSavedSquad(saved.id);
+    const duplicate = useGame.getState().savedSquads.find(item => item.id === duplicateId);
+
+    expect(duplicate).toMatchObject({
+      name: 'Meu time salvo (cópia)',
+      formation: saved.formation,
+      starters: saved.starters,
+      bench: saved.bench,
+      isPrimary: false,
+    });
+    expect(useGame.getState().squads.futsal).toEqual(active);
   });
 });
