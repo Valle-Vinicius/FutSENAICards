@@ -97,6 +97,27 @@ describe('match playback', () => {
     } as MatchResult));
   });
 
+  it('shows an AI tactic preview that updates with the selected tactic', () => {
+    render(
+      <MemoryRouter initialEntries={['/match']}>
+        <Routes>
+          <Route path="/match" element={<Match />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const preview = screen.getByRole('img', { name: /Prévia equilibrada/ });
+    expect(preview.getAttribute('viewBox')).toBe('0 0 100 50');
+    expect(preview.querySelectorAll('[data-team="home"]')).toHaveLength(5);
+    expect(preview.querySelectorAll('[data-team="away"]')).toHaveLength(5);
+    expect(screen.getByText('Pressão e linha defensiva não mudam no motor atual.')).toBeTruthy();
+
+    fireEvent.change(screen.getAllByRole('combobox')[2], { target: { value: 'counter' } });
+
+    expect(screen.getByRole('img', { name: /Prévia de contra-ataque/ })).toBeTruthy();
+    expect(screen.getByText('Tenta o chute com mais frequência.')).toBeTruthy();
+  });
+
   it('shows only events up to the current frame and records solo rewards when playback starts', () => {
     render(
       <MemoryRouter initialEntries={['/match']}>

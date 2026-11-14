@@ -134,10 +134,11 @@ const TACTIC_MOD: Record<Tactic, { shoot: number; passRisk: number; press: numbe
   compact: { shoot: 0.9, passRisk: 0.85, press: 0.6, defendLine: 0.25 },
 };
 
+// TODO: apply press and defendLine in updateTargets before previewing their defensive effects.
 function clamp(v: number, a: number, b: number) { return Math.max(a, Math.min(b, v)); }
 function dist(x1: number, y1: number, x2: number, y2: number) { return Math.hypot(x1 - x2, y1 - y2); }
 
-function basePositions(formation: string, side: 'home' | 'away'): { x: number; y: number }[] {
+export function basePositions(formation: string, side: 'home' | 'away'): { x: number; y: number }[] {
   // returns array aligned with players order (GK first then outfield)
   const mirror = side === 'away';
   const m = (p: { x: number; y: number }) => mirror ? { x: 100 - p.x, y: 100 - p.y } : p;

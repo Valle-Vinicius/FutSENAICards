@@ -6,6 +6,7 @@ import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam, MATCH_DURATION_MINUTES } from '../engine/match';
 import type { MatchEvent, MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import PvpResultScreen, { type SnapshotCardDetails } from '../components/PvpResultScreen';
+import TacticPreview from '../components/TacticPreview';
 import * as challengesService from '../lib/services/challenges';
 import type { MatchPlaybackState } from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
@@ -974,40 +975,69 @@ function MatchInner() {
 
   if (step === 'setup') {
     const activeOpponentPlayers = opponentPlayersOwner === opponentId ? opponentPlayers : null;
+    const showTacticPreview = !opponentId && !challengeId;
+    const setupControls = (
+      <>
+        <div>
+          <label className="text-sm text-[#858A98]">Escalação</label>
+          <select value={selectedSquadId ?? ''} onChange={e => setSelectedSquadId(e.target.value || null)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+            <option value="">Escalação atual</option>
+            {mySaved.map(s => <option key={s.id} value={s.id}>{s.name} ({s.formation})</option>)}
+          </select>
+          {!homeInfo && !challengeSquads && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
+          {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {Math.round(homeInfo.cards.reduce((a: number, c: any) => a + (c.overall ?? 0), 0) / homeInfo.cards.length)}</div>}
+          {opponentError && <div className="text-xs text-red-600 mt-2">{opponentError}</div>}
+        </div>
+        {!opponentId && !challengeId && (
+          <div>
+            <label className="text-sm text-[#858A98]">Dificuldade</label>
+            <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+              <option value="easy">Fácil</option>
+              <option value="normal">Normal</option>
+              <option value="hard">Difícil</option>
+            </select>
+          </div>
+        )}
+        <div>
+          <label className="text-sm text-[#858A98]">Tática</label>
+          <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+            {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
+          </select>
+        </div>
+      </>
+    );
+    const startButton = (
+      <button
+        onClick={startMatch}
+        disabled={!homeInfo || (!!opponentId && !activeOpponentPlayers)}
+        className={`w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40 ${showTacticPreview ? 'order-3 md:col-start-1 md:row-start-2' : ''}`}
+      >
+        Iniciar partida
+      </button>
+    );
     return (
       <div className="p-4 md:p-8 space-y-6">
         <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada{opponentId ? ` vs ${opponentName}` : challengeId ? ' (PvP)' : ''}</h1>
-        <div className="card-surface p-4 space-y-4 max-w-2xl">
-          <div>
-            <label className="text-sm text-[#858A98]">Escalação</label>
-            <select value={selectedSquadId ?? ''} onChange={e => setSelectedSquadId(e.target.value || null)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-              <option value="">Escalação atual</option>
-              {mySaved.map(s => <option key={s.id} value={s.id}>{s.name} ({s.formation})</option>)}
-            </select>
-            {!homeInfo && !challengeSquads && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
-            {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {Math.round(homeInfo.cards.reduce((a: number, c: any) => a + (c.overall ?? 0), 0) / homeInfo.cards.length)}</div>}
-            {opponentError && <div className="text-xs text-red-600 mt-2">{opponentError}</div>}
-          </div>
-          {!opponentId && !challengeId && (
-            <div>
-              <label className="text-sm text-[#858A98]">Dificuldade</label>
-              <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-                <option value="easy">Fácil</option>
-                <option value="normal">Normal</option>
-                <option value="hard">Difícil</option>
-              </select>
+        {showTacticPreview ? (
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+            <div className="card-surface order-1 min-w-0 p-4 space-y-4 md:col-start-1 md:row-start-1">
+              {setupControls}
             </div>
-          )}
-          <div>
-            <label className="text-sm text-[#858A98]">Tática</label>
-            <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
-              {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
-            </select>
+            <div className="order-2 min-w-0 md:col-start-2 md:row-start-1">
+              <TacticPreview
+                tactic={homeTactic}
+                formation={homeInfo?.formation ?? squad.formation}
+                reduceMotion={reduceMotion}
+              />
+            </div>
+            {startButton}
           </div>
-          <button onClick={startMatch} disabled={!homeInfo || (!!opponentId && !activeOpponentPlayers)} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
-            Iniciar partida
-          </button>
-        </div>
+        ) : (
+          <div className="card-surface max-w-2xl p-4 space-y-4">
+            {setupControls}
+            {startButton}
+          </div>
+        )}
       </div>
     );
   }
