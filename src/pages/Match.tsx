@@ -25,7 +25,7 @@ const MIN_STARTERS = 5;
 const OFF_SALE_PVP_MESSAGE = 'Cartas Off-Sale não podem ser usadas no X1. Troque-as no seu elenco e tente novamente.';
 
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
-const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressao alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
+const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressão alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
 
 function MatchInner() {
   const cards = useGame(s => s.cards);
@@ -353,6 +353,28 @@ function MatchInner() {
   };
   startMatchRef.current = startMatch;
 
+  const recordMatchResult = (matchResult: MatchResult) => {
+    if (recordedRef.current) return;
+    recordedRef.current = true;
+    // challenge already recorded (page revisited / other tab): do not duplicate history or XP
+    if (challengeId && matchHistory.some(m => m.challengeId === challengeId)) return;
+    // in PvP the challenged user plays as AWAY: credit their own cards and see the score from their side
+    const mySide: 'home' | 'away' = challengeId && challenge && currentUserId === challenge.challenged_id ? 'away' : 'home';
+    const myScore = mySide === 'home' ? matchResult.homeScore : matchResult.awayScore;
+    const oppScore = mySide === 'home' ? matchResult.awayScore : matchResult.homeScore;
+    const oppName = mySide === 'home' ? matchResult.config.awayName : matchResult.config.homeName;
+    const historyEntry = { id: nanoid(), date: Date.now(), sport, homeScore: myScore, awayScore: oppScore, opponent: oppName, challengeId: challengeId ?? undefined };
+    if (challengeId) addLocalMatchHistory(historyEntry);
+    else addMatchHistory(historyEntry);
+    if (!challengeId) {
+      matchResult.config.homePlayers.forEach(p => {
+        const ps = matchResult.playerStats[p.id];
+        addPlayerXp(p.id.replace(/_home$/, ''), 50 + (matchResult.homeScore > matchResult.awayScore ? 30 : 0));
+        recordMatchStats(p.id.replace(/_home$/, ''), ps?.goals ?? 0, ps?.assists ?? 0);
+      });
+    }
+  };
+
   const startPlay = () => {
     if (challengeId && resultConfirmed) {
       void challengesService.updateChallengePlayback(challengeId, 'play')
@@ -368,6 +390,7 @@ function MatchInner() {
         });
       return;
     }
+    if (!challengeId && result) recordMatchResult(result);
     setStep('play');
     setPlaying(true);
   };
@@ -644,24 +667,7 @@ function MatchInner() {
 
   useEffect(() => {
     if (step !== 'result' || !result || recordedRef.current) return;
-    recordedRef.current = true;
-    // challenge already recorded (page revisited / other tab): do not duplicate history or XP
-    if (challengeId && matchHistory.some(m => m.challengeId === challengeId)) return;
-    // in PvP the challenged user plays as AWAY: credit their own cards and see the score from their side
-    const mySide: 'home' | 'away' = challengeId && challenge && currentUserId === challenge.challenged_id ? 'away' : 'home';
-    const myScore = mySide === 'home' ? result.homeScore : result.awayScore;
-    const oppScore = mySide === 'home' ? result.awayScore : result.homeScore;
-    const oppName = mySide === 'home' ? result.config.awayName : result.config.homeName;
-    const historyEntry = { id: nanoid(), date: Date.now(), sport, homeScore: myScore, awayScore: oppScore, opponent: oppName, challengeId: challengeId ?? undefined };
-    if (challengeId) addLocalMatchHistory(historyEntry);
-    else addMatchHistory(historyEntry);
-    if (!challengeId) {
-      result.config.homePlayers.forEach(p => {
-        const ps = result.playerStats[p.id];
-        addPlayerXp(p.id.replace(/_home$/, ''), 50 + (result.homeScore > result.awayScore ? 30 : 0));
-        recordMatchStats(p.id.replace(/_home$/, ''), ps?.goals ?? 0, ps?.assists ?? 0);
-      });
-    }
+    recordMatchResult(result);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, result]);
 
@@ -929,14 +935,21 @@ function MatchInner() {
     const homePlayers = result.config.homePlayers;
     const awayPlayers = result.config.awayPlayers;
     const playerById = (id: string) => [...homePlayers, ...awayPlayers].find(p => p.id === id);
-    const shownHomeScore = challengeId && myMatchSide === 'away' ? currentFrame.awayScore : currentFrame.homeScore;
-    const shownAwayScore = challengeId && myMatchSide === 'away' ? currentFrame.homeScore : currentFrame.awayScore;
+    const reverseDisplayedSides = challengeId && myMatchSide === 'away';
+    const shownHomeScore = reverseDisplayedSides ? currentFrame.awayScore : currentFrame.homeScore;
+    const shownAwayScore = reverseDisplayedSides ? currentFrame.homeScore : currentFrame.awayScore;
+    const shownHomeName = reverseDisplayedSides ? result.config.awayName : result.config.homeName;
+    const shownAwayName = reverseDisplayedSides ? result.config.homeName : result.config.awayName;
     const activeSpeed = challengeId ? playbackState?.speed ?? 1 : speed;
     const isPlaying = challengeId ? playbackState?.status === 'playing' : playing;
     return (
       <div className="p-4 md:p-8 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="text-2xl font-bold text-[#252733]">{shownHomeScore} - {shownAwayScore}</div>
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-[#252733] md:gap-4">
+            <span className="max-w-[30vw] truncate text-sm font-semibold md:text-base">{shownHomeName}</span>
+            <div className="shrink-0 text-2xl font-bold">{shownHomeScore} - {shownAwayScore}</div>
+            <span className="max-w-[30vw] truncate text-sm font-semibold md:text-base">{shownAwayName}</span>
+          </div>
           <div className="text-sm text-[#858A98]">{Math.floor(currentFrame.minute)}' · {currentFrame.half === 1 ? '1º tempo' : '2º tempo'}</div>
           <div className="flex gap-2">
             <button onClick={() => controlPlayback(isPlaying ? 'pause' : 'play')} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">{isPlaying ? 'Pausar' : 'Retomar'}</button>
@@ -947,8 +960,8 @@ function MatchInner() {
         </div>
         {challengeId && <div className="text-xs text-[#858A98]">Relógio compartilhado · Velocidade atual: {activeSpeed}x</div>}
 
-        <div className="card-surface p-2">
-          <svg viewBox="0 0 100 64" className="w-full h-auto">
+        <div className="card-surface mx-auto w-full max-w-4xl p-2">
+          <svg viewBox="0 0 100 64" className="mx-auto block max-h-[55vh] w-full h-auto">
             <rect x="0" y="0" width="100" height="64" fill="#4ade80" />
             <rect x="2" y="2" width="96" height="60" fill="none" stroke="#fff" strokeWidth="0.5" />
             <line x1="50" y1="2" x2="50" y2="62" stroke="#fff" strokeWidth="0.5" />
@@ -975,7 +988,7 @@ function MatchInner() {
 
         <div className="card-surface p-3 max-h-40 overflow-auto">
           <div className="text-xs font-semibold text-[#858A98] mb-2">Lances recentes</div>
-          {result.events.slice(-8).reverse().map((e, i) => (
+          {result.events.filter(e => e.minute <= currentFrame.minute).slice(-8).reverse().map((e, i) => (
             <div key={i} className="text-xs text-[#252733] py-0.5">{e.minute}' - {e.description}</div>
           ))}
         </div>
