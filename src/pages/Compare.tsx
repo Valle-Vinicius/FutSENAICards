@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ArrowLeftRight, X } from 'lucide-react';
+import type { ReactNode } from 'react';
 import Card from '../components/Card';
 import { RARITY_META, RARITY_ORDER, type PlayerCard } from '../types';
 import { normalizeSearch } from '../lib/text';
@@ -32,6 +33,19 @@ type AttributeKey = typeof LINE_ATTRIBUTES[number]['key']
   | typeof GOALKEEPER_ATTRIBUTES[number]['key'];
 type ComparisonAttribute = { key: AttributeKey; label: string; a: number; b: number };
 type CompareSide = 'a' | 'b';
+
+function CardName({ card, showRarity }: { card: PlayerCard; showRarity: boolean }) {
+  const rarity = RARITY_META[card.rarity];
+  const hasColor = showRarity && card.rarity !== 'icon';
+  return (
+    <span
+      className={`${showRarity ? 'font-semibold' : ''} ${showRarity && card.rarity === 'icon' ? 'rgb-text' : ''}`}
+      style={hasColor ? { color: rarity.color } : undefined}
+    >
+      {card.name}{showRarity ? ` (${rarity.label})` : ''}
+    </span>
+  );
+}
 
 function isGoalkeeper(card: PlayerCard) {
   return card.position === 'GK';
@@ -132,6 +146,8 @@ export default function Compare() {
 
   const a = cards.find(card => card.uid === aUid) || null;
   const b = cards.find(card => card.uid === bUid) || null;
+  const showRarity = Boolean(a && b && a.rarity !== b.rarity
+    && (a.playerId === b.playerId || normalizeSearch(a.name) === normalizeSearch(b.name)));
   const differentPositions = Boolean(a && b && a.position !== b.position);
   const mixedGoalkeeperMatch = Boolean(a && b && isGoalkeeper(a) !== isGoalkeeper(b));
   const attributes = a && b ? compareAttributes(a, b) : [];
@@ -191,32 +207,54 @@ export default function Compare() {
     setBUid(rightUid);
   };
 
-  const analysis: string[] = [];
+  const analysis: ReactNode[] = [];
   if (a && b && attributes.length > 0) {
     if (higherOverall) {
       const lower = higherOverall.uid === a.uid ? b : a;
       const difference = Math.abs(a.overall - b.overall);
-      analysis.push(`${higherOverall.name} tem overall ${difference} ${difference === 1 ? 'ponto' : 'pontos'} maior (${higherOverall.overall} contra ${lower.overall}).`);
+      analysis.push(
+        <>
+          <CardName card={higherOverall} showRarity={showRarity} /> tem overall {difference} {difference === 1 ? 'ponto' : 'pontos'} maior que <CardName card={lower} showRarity={showRarity} /> ({higherOverall.overall} contra {lower.overall}).
+        </>,
+      );
     } else {
-      analysis.push(`Os dois têm o mesmo overall: ${a.overall}.`);
+      analysis.push(<>As duas cartas têm o mesmo overall: {a.overall}.</>);
     }
 
     const bestA = attributes.filter(attribute => attribute.a > attribute.b)
       .sort((left, right) => (right.a - right.b) - (left.a - left.b))[0];
     const bestB = attributes.filter(attribute => attribute.b > attribute.a)
       .sort((left, right) => (right.b - right.a) - (left.b - left.a))[0];
-    const advantages = [
-      bestA && `${a.name} tem sua maior vantagem em ${bestA.label} (+${bestA.a - bestA.b})`,
-      bestB && `${b.name} tem sua maior vantagem em ${bestB.label} (+${bestB.b - bestB.a})`,
-    ].filter(Boolean);
-    analysis.push(advantages.length ? `${advantages.join('; ')}.` : 'Os atributos comparados estão empatados.');
+    if (bestA && bestB) {
+      analysis.push(
+        <>
+          <CardName card={a} showRarity={showRarity} /> tem sua maior vantagem em {bestA.label} (+{bestA.a - bestA.b}); <CardName card={b} showRarity={showRarity} /> em {bestB.label} (+{bestB.b - bestB.a}).
+        </>,
+      );
+    } else if (bestA) {
+      analysis.push(<>A maior vantagem é de <CardName card={a} showRarity={showRarity} /> em {bestA.label} (+{bestA.a - bestA.b}).</>);
+    } else if (bestB) {
+      analysis.push(<>A maior vantagem é de <CardName card={b} showRarity={showRarity} /> em {bestB.label} (+{bestB.b - bestB.a}).</>);
+    } else {
+      analysis.push(<>Os atributos comparados estão empatados.</>);
+    }
 
     if (mixedGoalkeeperMatch) {
-      analysis.push(`Como ${a.position === 'GK' ? a.name : b.name} é goleiro e o outro é jogador de linha, só foram comparados VEL, DEF e FIS.`);
+      const goalkeeper = a.position === 'GK' ? a : b;
+      const fieldPlayer = a.position === 'GK' ? b : a;
+      analysis.push(
+        <>
+          <CardName card={goalkeeper} showRarity={showRarity} /> é goleiro e <CardName card={fieldPlayer} showRarity={showRarity} /> joga na linha; só são comparados VEL, DEF e FIS.
+        </>,
+      );
     } else if (differentPositions) {
-      analysis.push(`${a.name} atua como ${a.position} e ${b.name} como ${b.position}; a escolha também depende da posição necessária.`);
+      analysis.push(
+        <>
+          <CardName card={a} showRarity={showRarity} /> atua como {a.position} e <CardName card={b} showRarity={showRarity} /> como {b.position}; a escolha também depende da posição necessária.
+        </>,
+      );
     } else {
-      analysis.push(`Os dois atuam como ${a.position}, então a comparação usa os seis atributos da posição.`);
+      analysis.push(<>As duas cartas atuam como {a.position}; a comparação usa os seis atributos da posição.</>);
     }
   }
 
@@ -293,12 +331,12 @@ export default function Compare() {
               {aWins === bWins
                 ? aWins === 0
                   ? `Empate: os ${attributes.length} atributos estão iguais.`
-                  : `Empate em atributos: ${a.name} e ${b.name} vencem em ${aWins} de ${attributes.length} cada.`
-                : `${aWins > bWins ? a.name : b.name} vence em ${Math.max(aWins, bWins)} de ${attributes.length} atributos.`}
+                  : <>Empate em atributos: <CardName card={a} showRarity={showRarity} /> e <CardName card={b} showRarity={showRarity} /> vencem em {aWins} de {attributes.length} cada.</>
+                : <><CardName card={aWins > bWins ? a : b} showRarity={showRarity} /> vence em {Math.max(aWins, bWins)} de {attributes.length} atributos.</>}
             </p>
             <p className="mt-1 text-sm text-[#858A98]">
               {higherOverall
-                ? `${higherOverall.name} tem o maior overall (${higherOverall.overall}).`
+                ? <><CardName card={higherOverall} showRarity={showRarity} /> tem o maior overall ({higherOverall.overall}).</>
                 : `Os dois têm o mesmo overall (${a.overall}).`}
             </p>
           </section>

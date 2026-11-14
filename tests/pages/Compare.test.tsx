@@ -59,9 +59,13 @@ const cards = [
   }),
 ];
 
-function renderCompare(entry = '/compare', history: { aUid: string; bUid: string; at: number }[] = []) {
+function renderCompare(
+  entry = '/compare',
+  history: { aUid: string; bUid: string; at: number }[] = [],
+  compareCards = cards,
+) {
   const state = {
-    cards,
+    cards: compareCards,
     compareHistory: history,
     addCompareHistory: jest.fn(),
   };
@@ -88,7 +92,7 @@ describe('Compare page', () => {
     expect(content.queryByText('Reflexos')).not.toBeInTheDocument();
     expect(content.queryByText('Chute')).not.toBeInTheDocument();
     expect(screen.getByText('Goleiros e jogadores de linha só têm 3 atributos em comum.')).toBeInTheDocument();
-    expect(screen.getByText('Goleiro vence em 2 de 3 atributos.')).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === 'Goleiro vence em 2 de 3 atributos.')).toBeInTheDocument();
   });
 
   it('compares all six goalkeeper attributes when both players are goalkeepers', async () => {
@@ -100,7 +104,45 @@ describe('Compare page', () => {
     expect(content.getByText('Posicionamento')).toBeInTheDocument();
     expect(content.getByText('Manuseio')).toBeInTheDocument();
     expect(content.queryByText('Goleiros e jogadores de linha só têm 3 atributos em comum.')).not.toBeInTheDocument();
-    expect(screen.getByText('Goleiro vence em 4 de 6 atributos.')).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === 'Goleiro vence em 4 de 6 atributos.')).toBeInTheDocument();
+  });
+
+  it('distinguishes copies of the same player by rarity in results and analysis', () => {
+    const differentRarities = [
+      makeCard('icon', 'Thiago Tavares', 'Ala', {
+        playerId: 'thiago',
+        rarity: 'icon',
+        overall: 95,
+        pace: 95,
+        shooting: 90,
+        passing: 90,
+        dribbling: 90,
+        defending: 90,
+        physical: 75,
+      }),
+      makeCard('legendary', 'Thiago Tavares', 'Ala', {
+        playerId: 'thiago',
+        rarity: 'legendary',
+        overall: 92,
+        pace: 80,
+        shooting: 80,
+        passing: 80,
+        dribbling: 80,
+        defending: 80,
+        physical: 75,
+      }),
+    ];
+    renderCompare('/compare?a=icon&b=legendary', [], differentRarities);
+
+    const summary = screen.getByRole('status');
+    expect(summary).toHaveTextContent('Thiago Tavares (Ícone) vence em 5 de 6 atributos.');
+    expect(summary).toHaveTextContent('Thiago Tavares (Ícone) tem o maior overall (95).');
+
+    const analysis = screen.getByRole('heading', { name: 'Análise' }).parentElement as HTMLElement;
+    expect(analysis).toHaveTextContent('Thiago Tavares (Ícone)');
+    expect(analysis).toHaveTextContent('Thiago Tavares (Lendária)');
+    expect(within(analysis).getAllByText('Thiago Tavares (Ícone)')[0]).toHaveClass('rgb-text');
+    expect(within(analysis).getAllByText('Thiago Tavares (Lendária)')[0]).toHaveStyle({ color: 'rgb(245, 197, 66)' });
   });
 
   it('disables selecting the other side, searches without accents and restores focus on Escape', async () => {
