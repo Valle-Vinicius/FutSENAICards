@@ -11,7 +11,11 @@ jest.mock('../../src/lib/supabase', () => ({ supabase: null }));
 
 jest.mock('../../src/components/Card', () => ({
   __esModule: true,
-  default: ({ card }: { card: PlayerCard }) => <span data-testid="inventory-card">{card.name}</span>,
+  default: ({ card, onClick }: { card: PlayerCard; onClick?: () => void }) => (
+    <button type="button" aria-label={`${card.name}, overall ${card.overall}, ${card.position}`} onClick={onClick}>
+      {card.name}
+    </button>
+  ),
 }));
 
 describe('squad builder inventory', () => {
@@ -110,7 +114,7 @@ describe('squad builder inventory', () => {
     const squad = useGame.getState().squads.futsal;
     useGame.setState({ squads: { futsal: { ...squad, bench: [null, null] } } });
     render(<Squad />);
-    fireEvent.click(screen.getByRole('button', { name: 'Jogador 0, Ala, OVR 99' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Jogador 0, overall 99, Ala' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reserva 1 vazia' }));
 
     expect(useGame.getState().squads.futsal.bench[0]).toBe('card-0');
@@ -124,9 +128,9 @@ describe('squad builder inventory', () => {
     useGame.setState({ squads: { futsal: { ...squad, starters } } });
     render(<Squad />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Busca exata, Ala, OVR 98.5' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Busca exata, overall 98.5, Ala' }));
     expect(useGame.getState().squads.futsal.starters[2].uid).toBe('card-50');
-    fireEvent.click(screen.getByRole('button', { name: 'Jogador 51, Ala, OVR 98.49' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Jogador 51, overall 98.49, Ala' }));
 
     expect(useGame.getState().squads.futsal.starters[2].uid).toBe('card-51');
     expect(useGame.getState().squads.futsal.starters[3].uid).toBe('card-50');

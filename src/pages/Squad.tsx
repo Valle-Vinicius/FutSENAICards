@@ -1,11 +1,11 @@
 import { useDeferredValue, useMemo, useState, type DragEvent as ReactDragEvent } from 'react';
 import { AlertTriangle, Plus, Search, Star, X } from 'lucide-react';
+import Card from '../components/Card';
 import { useGame, squadOverall } from '../store/useGame';
 import { toast } from '../store/toast';
 import { DEFAULT_FUTSAL_FORMATION, FORMATIONS_FUTSAL, normalizeFutsalFormation } from '../lib/game';
 import { RARITY_META } from '../types';
-import type { PlayerCard, Position, SavedSquad } from '../types';
-import { getPlayerImage } from '../data/players';
+import type { Position, SavedSquad } from '../types';
 
 const POSITION_LABELS: Record<Position, string> = { GK: 'GOL', Fixo: 'FIXO', Ala: 'ALA', Pivo: 'PIVÔ' };
 const COURT_COORDINATES: Record<string, { x: number; y: number }[]> = {
@@ -32,50 +32,6 @@ type SelectedSource =
 
 function normalizeSearch(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
-}
-
-function MiniCard({
-  card,
-  selected = false,
-  onClick,
-  onDragStart,
-  draggable = false,
-  testId,
-}: {
-  card: PlayerCard;
-  selected?: boolean;
-  onClick?: () => void;
-  onDragStart?: (event: ReactDragEvent<HTMLButtonElement>) => void;
-  draggable?: boolean;
-  testId?: string;
-}) {
-  const image = card.image || getPlayerImage(card.name);
-  return (
-    <button
-      type="button"
-      data-testid={testId}
-      aria-label={`${card.name}, ${card.position}, OVR ${card.overall}`}
-      aria-pressed={selected}
-      onClick={onClick}
-      onDragStart={onDragStart}
-      draggable={draggable}
-      className={`flex aspect-[1.65/1] w-full min-w-0 overflow-hidden rounded-xl border-2 bg-white text-left shadow-sm transition ${selected ? 'border-[#E30613] ring-2 ring-[#E30613]/30' : 'border-[#E9EAF0] hover:border-[#858A98]'}`}
-    >
-      <div className="relative h-full w-[36%] shrink-0 overflow-hidden bg-[#E9EAF0]">
-        {image
-          ? <img src={image} alt="" className="h-full w-full object-cover object-top" loading="lazy" />
-          : <div className="flex h-full items-center justify-center text-lg font-bold text-[#858A98]">{card.name.slice(0, 1)}</div>}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-between p-1.5">
-        <div className="flex items-center justify-between gap-1">
-          <span className="truncate text-[10px] font-semibold text-[#858A98]">{card.position}</span>
-          <span className="shrink-0 text-sm font-bold text-[#252733]">{card.overall}</span>
-        </div>
-        <span className="line-clamp-2 text-left text-xs font-semibold leading-tight text-[#252733]">{card.name}</span>
-        <span className="truncate text-[10px] text-[#858A98]">{RARITY_META[card.rarity]?.label ?? card.rarity}</span>
-      </div>
-    </button>
-  );
 }
 
 export default function Squad() {
@@ -205,7 +161,7 @@ export default function Squad() {
     clear(sport, 0, true, index);
     if (selectedSource?.type === 'bench' && selectedSource.index === index) setSelectedSource(null);
   };
-  const handleDragStart = (source: SelectedSource, event: ReactDragEvent<HTMLButtonElement>) => {
+  const handleDragStart = (source: SelectedSource, event: ReactDragEvent<HTMLElement>) => {
     setSelectedSource(source);
     const uid = getSourceUid(source);
     if (uid) {
@@ -391,28 +347,28 @@ export default function Squad() {
               return (
                 <div
                   key={`${slot.position}-${index}`}
-                  className="absolute z-10 w-[36%] sm:w-[31%]"
+                  className="absolute z-10 w-[19%] sm:w-[17%]"
                   style={{ left: `${point.x}%`, top: `${point.y}%`, transform: 'translate(-50%, -50%)' }}
                   onDragOver={event => event.preventDefault()}
                   onDrop={event => handleDrop(event, index, false)}
                 >
                   {card ? (
                     <>
-                      <MiniCard
-                        card={card}
-                        selected={selected}
-                        onClick={() => handleSlotClick(index, false)}
+                      <div
                         draggable
                         onDragStart={event => handleDragStart({ type: 'starter', index }, event)}
-                      />
-                      <button
-                        type="button"
-                        aria-label={`Remover ${card.name} da escalação titular`}
-                        onClick={event => { event.stopPropagation(); removeStarter(index); }}
-                        className="absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow"
+                        className={`relative rounded-2xl ${selected ? 'ring-2 ring-[#E30613] ring-offset-2' : ''}`}
                       >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                        <Card card={card} size="fluid" onClick={() => handleSlotClick(index, false)} />
+                        <button
+                          type="button"
+                          aria-label={`Remover ${card.name} da escalação titular`}
+                          onClick={event => { event.stopPropagation(); removeStarter(index); }}
+                          className="absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <button
@@ -447,21 +403,21 @@ export default function Squad() {
                   >
                     {card ? (
                       <>
-                        <MiniCard
-                          card={card}
-                          selected={selected}
-                          onClick={() => handleSlotClick(0, true, index)}
+                        <div
                           draggable
                           onDragStart={event => handleDragStart({ type: 'bench', index }, event)}
-                        />
-                        <button
-                          type="button"
-                          aria-label={`Remover ${card.name} das reservas`}
-                          onClick={event => { event.stopPropagation(); removeBench(index); }}
-                          className="absolute -right-1.5 -top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow"
+                          className={`relative rounded-2xl ${selected ? 'ring-2 ring-[#E30613] ring-offset-2' : ''}`}
                         >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                          <Card card={card} size="fluid" onClick={() => handleSlotClick(0, true, index)} />
+                          <button
+                            type="button"
+                            aria-label={`Remover ${card.name} das reservas`}
+                            onClick={event => { event.stopPropagation(); removeBench(index); }}
+                            className="absolute -right-1.5 -top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </>
                     ) : (
                       <button
@@ -520,17 +476,21 @@ export default function Squad() {
           )}
           <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-auto sm:grid-cols-3">
             {visibleCards.map(card => (
-              <MiniCard
+              <div
                 key={card.uid}
-                card={card}
-                selected={selectedSource?.type === 'inventory' && selectedSource.uid === card.uid}
-                onClick={() => setSelectedSource(current =>
-                  current?.type === 'inventory' && current.uid === card.uid ? null : { type: 'inventory', uid: card.uid },
-                )}
+                data-testid="inventory-card"
                 draggable
                 onDragStart={event => handleDragStart({ type: 'inventory', uid: card.uid }, event)}
-                testId="inventory-card"
-              />
+                className={`min-w-0 rounded-2xl ${selectedSource?.type === 'inventory' && selectedSource.uid === card.uid ? 'ring-2 ring-[#E30613] ring-offset-2' : ''}`}
+              >
+                <Card
+                  card={card}
+                  size="fluid"
+                  onClick={() => setSelectedSource(current =>
+                    current?.type === 'inventory' && current.uid === card.uid ? null : { type: 'inventory', uid: card.uid },
+                  )}
+                />
+              </div>
             ))}
           </div>
           {filteredAvailable.length === 0 && <div className="pt-3 text-sm text-[#858A98]">Nenhuma carta disponível com esses filtros.</div>}
