@@ -82,6 +82,18 @@ describe('squad builder inventory', () => {
     });
   });
 
+  it('orders the inventory by highest overall first', () => {
+    const cards = useGame.getState().cards;
+    useGame.setState({ cards: [cards[20], cards[0], cards[50]] });
+    render(<Squad />);
+
+    expect(screen.getAllByTestId('inventory-card').map(card => card.textContent)).toEqual([
+      'Jogador 0',
+      'Jogador 20',
+      'Busca exata',
+    ]);
+  });
+
   it('waits for the generated squad to be saved before showing success', async () => {
     let finishSave!: (saved: boolean) => void;
     mockFlushSquadSave.mockImplementation(() => new Promise(resolve => { finishSave = resolve; }));

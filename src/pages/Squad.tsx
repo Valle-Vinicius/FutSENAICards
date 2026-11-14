@@ -92,7 +92,7 @@ export default function Squad() {
         card.rarity,
         RARITY_META[card.rarity]?.label,
       ].some(value => normalizeSearch(String(value ?? '')).includes(query));
-    });
+    }).sort((left, right) => right.overall - left.overall);
   }, [available, deferredSearch, positionFilter]);
   const visibleCards = filteredAvailable.slice(0, visibleCardCount);
   const mySaved = savedSquads.filter(saved => saved.sport === sport);
