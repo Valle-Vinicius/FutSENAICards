@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "balance": "node --experimental-strip-types scripts/balance.ts",
     "test": "jest",
     "test:postgres": "node tests/postgres/competitive-concurrency.mjs",
     "test:watch": "jest --watch",

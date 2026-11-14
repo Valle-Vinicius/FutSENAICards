@@ -204,10 +204,10 @@ describe('simulateMatch', () => {
     expect(first.events.filter(event => event.type === 'penalty').length).toBeGreaterThan(0);
   });
 
-  it('keeps friendly draws without running a penalty shootout', () => {
+  it('resolves friendly draws with a deterministic penalty shootout', () => {
     const home = createPlayersFromCards(homeCards as any, 'home', '1-2-1', 'futsal');
     const away = createPlayersFromCards(awayCards as any, 'away', '1-2-1', 'futsal');
-    const result = simulateMatch({
+    const config = {
       sport: 'futsal',
       homeName: 'H',
       awayName: 'A',
@@ -220,11 +220,18 @@ describe('simulateMatch', () => {
       awayDifficulty: 'normal',
       seed: 42,
       minutes: 0.5,
+    } as const;
+    const result = simulateMatch(config);
+    const repeatedResult = simulateMatch({
+      ...config,
+      homePlayers: home.map(player => ({ ...player })),
+      awayPlayers: away.map(player => ({ ...player })),
     });
 
     expect(result.homeScore).toBe(result.awayScore);
-    expect(result.penalties).toBeNull();
-    expect(result.winnerSide).toBeNull();
+    expect(result.penalties).not.toBeNull();
+    expect(result.winnerSide).toBe(result.penalties?.winnerSide);
+    expect(result.penalties).toEqual(repeatedResult.penalties);
   });
 
   it('different seeds can produce different results', () => {

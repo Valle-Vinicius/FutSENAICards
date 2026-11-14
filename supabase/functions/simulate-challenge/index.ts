@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createPlayersFromCards, MATCH_DURATION_MINUTES, simulateMatch } from '../../../src/engine/match.ts';
+import { createPlayersFromCards, MATCH_DURATION_MINUTES, MATCH_ENGINE_VERSION, simulateMatch } from '../../../src/engine/match.ts';
 import type { Tactic } from '../../../src/engine/match.ts';
 
 const corsHeaders = {
@@ -46,7 +46,7 @@ Deno.serve(async req => {
 
     const { data: challenge, error: challengeError } = await supabase
       .from('challenges')
-      .select('id,challenger_id,challenged_id,status,seed,result')
+      .select('id,challenger_id,challenged_id,status,seed,result,engine_version')
       .eq('id', challengeId)
       .single();
     if (challengeError) {
@@ -60,19 +60,25 @@ Deno.serve(async req => {
     if (challenge.status === 'completed' && challenge.result) {
       return json({ result: challenge.result });
     }
+    if (challenge.engine_version !== MATCH_ENGINE_VERSION) {
+      return json({ error: 'Este desafio usa uma versão antiga do motor. Crie um novo desafio para continuar.' }, 409);
+    }
 
-    const { data: claimed, error: claimError } = await supabase.rpc('claim_challenge_simulation', {
+    const { data: claimed, error: claimError } = await supabase.rpc('claim_challenge_simulation_v2', {
       p_challenge_id: challengeId,
     });
     if (claimError) throw claimError;
     if (typeof claimed !== 'string') {
       const { data: latest, error: latestError } = await supabase
         .from('challenges')
-        .select('status,result,challenger_ready,challenged_ready')
+        .select('status,result,challenger_ready,challenged_ready,engine_version')
         .eq('id', challengeId)
         .single();
       if (latestError) throw latestError;
       if (latest?.status === 'completed' && latest.result) return json({ result: latest.result });
+      if (latest?.engine_version !== MATCH_ENGINE_VERSION) {
+        return json({ error: 'Este desafio usa uma versão antiga do motor. Crie um novo desafio para continuar.' }, 409);
+      }
       if (!latest?.challenger_ready || !latest?.challenged_ready) {
         return json({ error: 'Os dois jogadores precisam estar prontos.' }, 409);
       }

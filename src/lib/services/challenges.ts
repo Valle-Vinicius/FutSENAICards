@@ -13,6 +13,7 @@ export interface Challenge {
   home_score?: number;
   away_score?: number;
   result?: any;
+  engine_version?: number;
   playback_state?: MatchPlaybackState;
   challenger_tactic?: Tactic;
   challenged_tactic?: Tactic;
@@ -89,7 +90,13 @@ export async function rejectChallenge(id: string): Promise<boolean> {
 export async function simulateChallenge(id: string): Promise<{ result: any | null; pending: boolean }> {
   if (!supabase) throw new Error('Serviço de partidas indisponível.');
   const { data, error } = await supabase.functions.invoke('simulate-challenge', { body: { challengeId: id } });
-  if (error) throw error;
+  if (error) {
+    if (error.context instanceof Response) {
+      const body = await error.context.clone().json().catch(() => null) as { error?: unknown } | null;
+      if (typeof body?.error === 'string') throw new Error(body.error);
+    }
+    throw error;
+  }
   if (!data || (!data.pending && !data.result)) {
     throw new Error(data?.error || 'O servidor não retornou o resultado oficial.');
   }

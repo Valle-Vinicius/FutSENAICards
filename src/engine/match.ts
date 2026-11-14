@@ -4,7 +4,13 @@
 export type Sport = 'futsal';
 export type Tactic = 'balanced' | 'possession' | 'highpress' | 'counter' | 'compact';
 export type MatchMode = 'friendly' | 'pvp';
+export const MATCH_ENGINE_VERSION = 2;
 export const MATCH_DURATION_MINUTES = 90;
+
+const GOAL_PROBABILITY_DIVISOR = 50;
+const SHOT_FREQUENCY = 0.445;
+const GOAL_DUEL_OFFSET = -4;
+export const AI_BASE_OVR = { easy: 68, normal: 75, hard: 82 } as const;
 
 export interface MatchPlayer {
   id: string;
@@ -128,8 +134,6 @@ const TACTIC_MOD: Record<Tactic, { shoot: number; passRisk: number; press: numbe
   compact: { shoot: 0.9, passRisk: 0.85, press: 0.6, defendLine: 0.25 },
 };
 
-const DIFF_MOD = { easy: 0.85, normal: 1.0, hard: 1.15 };
-
 function clamp(v: number, a: number, b: number) { return Math.max(a, Math.min(b, v)); }
 function dist(x1: number, y1: number, x2: number, y2: number) { return Math.hypot(x1 - x2, y1 - y2); }
 
@@ -216,7 +220,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   if (
     !Object.prototype.hasOwnProperty.call(TACTIC_MOD, config.homeTactic)
     || !Object.prototype.hasOwnProperty.call(TACTIC_MOD, config.awayTactic)
-    || !Object.prototype.hasOwnProperty.call(DIFF_MOD, config.awayDifficulty)
+    || !Object.prototype.hasOwnProperty.call(AI_BASE_OVR, config.awayDifficulty)
   ) {
     throw new Error('A partida contém uma tática inválida.');
   }
@@ -225,7 +229,6 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   const foulRng = mulberry32((config.seed ^ 0x9e3779b9) >>> 0);
   const homeTactic = TACTIC_MOD[config.homeTactic];
   const awayTactic = TACTIC_MOD[config.awayTactic];
-  const awayDiff = DIFF_MOD[config.awayDifficulty];
 
   // clone players
   const homePlayers = config.homePlayers.map(p => ({ ...p, attrs: { ...p.attrs } }));
@@ -247,16 +250,6 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   };
   setFormationPositions(homePlayers, homeBasePositions);
   setFormationPositions(awayPlayers, awayBasePositions);
-  // boost away by difficulty
-  if (config.mode !== 'pvp') {
-    awayPlayers.forEach(p => {
-      Object.keys(p.attrs).forEach(k => {
-        const key = k as keyof MatchPlayer['attrs'];
-        const v = p.attrs[key];
-        if (typeof v === 'number') (p.attrs as any)[key] = Math.round(v * awayDiff);
-      });
-    });
-  }
 
   const kickoffPlayer = (players: MatchPlayer[]) =>
     players.filter(player => !player.isGK).reduce((nearest, player) =>
@@ -424,14 +417,14 @@ export function simulateMatch(config: MatchConfig): MatchResult {
       let actionResolved = false;
 
       // shot chance if in final third
-      const inShootRange = isHome ? holder.x > 72 : holder.x < 28;
-      const shootProb = (holder.attrs.shooting / 100) * tactic.shoot * (1 / pressure) * 0.18;
+      const inShootRange = isHome ? holder.x > 62 : holder.x < 38;
+      const shootProb = (0.6 + holder.attrs.shooting / 250) * tactic.shoot * (1 / pressure) * SHOT_FREQUENCY;
       if (inShootRange && rng() < shootProb) {
         // resolve shot
         stats[holder.id].shots++;
         if (isHome) teamStats.home.shots++; else teamStats.away.shots++;
         const gk = isHome ? awayGK : homeGK;
-        const shotOnTarget = rng() < (holder.attrs.shooting / 100) * 0.7 + 0.2;
+        const shotOnTarget = rng() < (holder.attrs.shooting / 100) * 0.35 + 0.45;
         const goalX = isHome ? 99 : 1;
         const shotY = shotOnTarget
           ? clamp(50 + (rng() - 0.5) * 12, 44, 56)
@@ -446,9 +439,19 @@ export function simulateMatch(config: MatchConfig): MatchResult {
         if (shotOnTarget) {
           stats[holder.id].shotsOnTarget++;
           if (isHome) teamStats.home.shotsOnTarget++; else teamStats.away.shotsOnTarget++;
-          // save?
-          const saveProb = (gk.attrs.reflexes || gk.attrs.defending) / 100 * 0.85 + 0.1;
-          if (rng() < saveProb) {
+          const reflexes = gk.attrs.reflexes ?? gk.attrs.defending;
+          const gkSkill = reflexes * 0.5
+            + (gk.attrs.positioning ?? reflexes) * 0.3
+            + (gk.attrs.handling ?? reflexes) * 0.2;
+          const distGoal = isHome ? 100 - holder.x : holder.x;
+          const bonus = (28 - distGoal) / 28 * 10 - (minOpp < 8 ? 6 : 0);
+          const pGoal = 1 / (
+            1 + Math.exp(-(
+              (holder.attrs.shooting - gkSkill + GOAL_DUEL_OFFSET + bonus)
+              / GOAL_PROBABILITY_DIVISOR
+            ))
+          );
+          if (rng() >= pGoal) {
             stats[gk.id].saves++;
             if (isHome) teamStats.away.saves++; else teamStats.home.saves++;
             gk.x = gk.team === 'home' ? 5 : 95;
@@ -597,7 +600,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
 
   let penalties: PenaltyShootout | null = null;
   let winnerSide: 'home' | 'away' | null = homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : null;
-  if (config.mode === 'pvp' && winnerSide === null) {
+  if (winnerSide === null) {
     let penaltyHome = 0;
     let penaltyAway = 0;
     const kicks: PenaltyShootout['kicks'] = [];
@@ -706,7 +709,7 @@ export function makeAwayTeam(_sport: Sport, difficulty: 'easy'|'normal'|'hard', 
   const rng = mulberry32(seed);
   const names = ['Silva','Santos','Oliveira','Souza','Lima','Costa','Rocha','Alves','Ferreira','Gomes','Ribeiro','Martins','Carvalho','Araújo','Melo'];
   const positions = ['GK','Fixo','Ala','Ala','Pivo'];
-  const baseOvr = difficulty === 'easy' ? 68 : difficulty === 'hard' ? 82 : 75;
+  const baseOvr = AI_BASE_OVR[difficulty];
   return positions.map((pos, i) => {
     const isGK = pos === 'GK';
     const ovr = Math.round(baseOvr + (rng() * 8 - 4));

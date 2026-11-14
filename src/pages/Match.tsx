@@ -1320,6 +1320,17 @@ function MatchInner() {
           {challengeId && <div className="text-xs font-semibold text-green-700 mb-2">Resultado oficial confirmado pelo servidor</div>}
           <div className="text-4xl font-bold text-[#252733]">{finalHomeScore} - {finalAwayScore}</div>
           <div className="text-sm text-[#858A98] mt-1">{finalHomeName} vs {finalAwayName}</div>
+          {result.penalties && (
+            <div className="mt-3 rounded-xl border border-[#E9EAF0] bg-white/80 px-3 py-2">
+              <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#858A98]">Decisão por pênaltis</div>
+              <div className="mt-1 text-xl font-black tabular-nums text-[#252733]">
+                {result.penalties.homeScore} <span className="text-[#858A98]">–</span> {result.penalties.awayScore}
+              </div>
+              <div className="mt-1 text-sm font-semibold text-[#252733]">
+                {result.penalties.winnerSide === myMatchSide ? finalHomeName : finalAwayName} venceu nos pênaltis
+              </div>
+            </div>
+          )}
         </div>
         <div className="card-surface p-4">
           <h3 className="font-semibold text-[#252733] mb-3">Estatísticas</h3>

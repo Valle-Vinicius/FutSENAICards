@@ -391,6 +391,9 @@ export default function PvpResultScreen({
                   <div className="mt-1 text-xl font-black tabular-nums text-[#252733]">
                     {result.penalties.homeScore} <span className="text-[#858A98]">–</span> {result.penalties.awayScore}
                   </div>
+                  <div className="mt-1 text-sm font-semibold text-[#252733]">
+                    {result.penalties.winnerSide === 'home' ? homeName : awayName} venceu nos pênaltis
+                  </div>
                 </div>
               )}
             </div>
