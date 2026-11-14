@@ -10,6 +10,10 @@ function getCtx(): AudioContext | null {
   }
 }
 
+export function unlockSound() {
+  getCtx();
+}
+
 export function playTone(freq = 440, duration = 0.15, type: OscillatorType = 'sine', volume = 0.1) {
   const c = getCtx();
   if (!c) return;

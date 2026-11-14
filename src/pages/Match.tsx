@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useGame } from '../store/useGame';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam, MATCH_DURATION_MINUTES } from '../engine/match';
-import type { MatchResult, MatchPlayer, Tactic } from '../engine/match';
+import type { MatchEvent, MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import PvpResultScreen, { type SnapshotCardDetails } from '../components/PvpResultScreen';
 import * as challengesService from '../lib/services/challenges';
 import type { MatchPlaybackState } from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
+import { playTone, unlockSound } from '../lib/sound';
 
 type ChallengeSquads = {
   home: MatchPlayer[];
@@ -26,9 +27,11 @@ const OFF_SALE_PVP_MESSAGE = 'Cartas Off-Sale não podem ser usadas no X1. Troqu
 
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
 const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressão alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
+const TEAM_COLORS = { home: '#E30613', away: '#173B6B' } as const;
 
 function MatchInner() {
   const cards = useGame(s => s.cards);
+  const audioEnabled = useGame(s => s.settings.audio);
   const squads = useGame(s => s.squads);
   const savedSquads = useGame(s => s.savedSquads);
   const sport = 'futsal' as const;
@@ -48,8 +51,20 @@ function MatchInner() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [playbackState, setPlaybackState] = useState<MatchPlaybackState | null>(null);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [hoveredPlayerId, setHoveredPlayerId] = useState<string | null>(null);
+  const [goalAnnouncement, setGoalAnnouncement] = useState<MatchEvent | null>(null);
+  const [matchNotice, setMatchNotice] = useState<'Intervalo' | 'Fim de jogo' | null>(null);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
+  const frameIndexRef = useRef(0);
+  const goalTimeoutRef = useRef<number | null>(null);
+  const noticeTimeoutRef = useRef<number | null>(null);
+  const finishTimeoutRef = useRef<number | null>(null);
+  const lastGoalKeyRef = useRef<string | null>(null);
+  const lastNoticeKeyRef = useRef<string | null>(null);
+  const finishedPlaybackHandledRef = useRef(false);
 
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -92,6 +107,43 @@ function MatchInner() {
   const startMatchRef = useRef<() => void>(() => {});
   const squad = squads[sport];
   const mySaved = savedSquads.filter(s => s.sport === sport);
+
+  const showMatchNotice = useCallback((notice: 'Intervalo' | 'Fim de jogo', key: string, duration: number) => {
+    if (lastNoticeKeyRef.current === key) return;
+    lastNoticeKeyRef.current = key;
+    setMatchNotice(notice);
+    if (noticeTimeoutRef.current !== null) window.clearTimeout(noticeTimeoutRef.current);
+    noticeTimeoutRef.current = window.setTimeout(() => {
+      setMatchNotice(null);
+      noticeTimeoutRef.current = null;
+    }, duration);
+  }, []);
+
+  const finishMatchPlayback = useCallback(() => {
+    if (finishedPlaybackHandledRef.current) return;
+    finishedPlaybackHandledRef.current = true;
+    showMatchNotice('Fim de jogo', `${challengeId ?? 'solo'}:fulltime`, 1800);
+    if (finishTimeoutRef.current !== null) window.clearTimeout(finishTimeoutRef.current);
+    finishTimeoutRef.current = window.setTimeout(() => {
+      setStep('result');
+      finishTimeoutRef.current = null;
+    }, 1800);
+  }, [challengeId, showMatchNotice]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updateMotionPreference = (event: MediaQueryListEvent | MediaQueryList) => setReduceMotion(event.matches);
+    setReduceMotion(mediaQuery.matches);
+    mediaQuery.addEventListener('change', updateMotionPreference);
+    return () => mediaQuery.removeEventListener('change', updateMotionPreference);
+  }, []);
+
+  useEffect(() => () => {
+    if (goalTimeoutRef.current !== null) window.clearTimeout(goalTimeoutRef.current);
+    if (noticeTimeoutRef.current !== null) window.clearTimeout(noticeTimeoutRef.current);
+    if (finishTimeoutRef.current !== null) window.clearTimeout(finishTimeoutRef.current);
+  }, []);
 
   const buildHomePlayers = (): { players: MatchPlayer[]; formation: string; cards: any[] } | null => {
     let formation = squad.formation;
@@ -253,6 +305,12 @@ function MatchInner() {
       if (!challengeSquads) { toast.error('Os elencos do desafio ainda não foram carregados.'); return; }
       if (challenge?.seed == null) { toast.error('Desafio sem seed definida. Recarregue a página.'); return; }
       startedRef.current = true;
+      finishedPlaybackHandledRef.current = false;
+      frameIndexRef.current = 0;
+      lastGoalKeyRef.current = null;
+      lastNoticeKeyRef.current = null;
+      setGoalAnnouncement(null);
+      setMatchNotice(null);
       setStartError(null);
       try {
         let official: MatchResult | null = null;
@@ -347,6 +405,13 @@ function MatchInner() {
       seed,
       minutes: MATCH_DURATION_MINUTES,
     });
+    recordedRef.current = false;
+    finishedPlaybackHandledRef.current = false;
+    frameIndexRef.current = 0;
+    lastGoalKeyRef.current = null;
+    lastNoticeKeyRef.current = null;
+    setGoalAnnouncement(null);
+    setMatchNotice(null);
     setResult(res);
     setFrameIndex(0);
     setStep('prematch');
@@ -376,6 +441,7 @@ function MatchInner() {
   };
 
   const startPlay = () => {
+    if (audioEnabled) unlockSound();
     if (challengeId && resultConfirmed) {
       void challengesService.updateChallengePlayback(challengeId, 'play')
         .then(state => {
@@ -591,27 +657,30 @@ function MatchInner() {
     const tick = (now: number) => {
       const dt = (now - lastTimeRef.current) / 1000;
       lastTimeRef.current = now;
-      const framesPerSec = speed * 2;
-      setFrameIndex(prev => {
-        const next = prev + dt * framesPerSec;
-        if (next >= result.frames.length) {
-          setPlaying(false);
-          setStep('result');
-          return result.frames.length - 1;
-        }
-        return next;
-      });
+      const framesPerSec = speed * 2 * (goalAnnouncement ? 0.65 : 1);
+      const next = frameIndexRef.current + dt * framesPerSec;
+      if (next >= result.frames.length) {
+        frameIndexRef.current = result.frames.length - 1;
+        setFrameIndex(result.frames.length - 1);
+        setPlaying(false);
+        finishMatchPlayback();
+        return;
+      }
+      frameIndexRef.current = next;
+      setFrameIndex(next);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [challengeId, step, playing, speed, result]);
+  }, [challengeId, step, playing, speed, result, goalAnnouncement, finishMatchPlayback]);
 
   useEffect(() => {
     if (!challengeId || !resultConfirmed || !result || !playbackState) return;
     if (playbackState.status === 'finished') {
+      if (finishedPlaybackHandledRef.current) return;
       setFrameIndex(result.frames.length - 1);
-      setStep('result');
+      frameIndexRef.current = result.frames.length - 1;
+      finishMatchPlayback();
       return;
     }
     if (playbackState.status !== 'playing' || !playbackState.startedAt) return;
@@ -650,7 +719,7 @@ function MatchInner() {
       cancelAnimationFrame(rafRef.current);
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
-  }, [challengeId, resultConfirmed, result, playbackState]);
+  }, [challengeId, resultConfirmed, result, playbackState, finishMatchPlayback]);
 
   useEffect(() => {
     if (!challengeId || step !== 'result' || !resultConfirmed || !currentUserId || rewardSyncStartedRef.current) return;
@@ -683,9 +752,37 @@ function MatchInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId]);
 
-  const toSvgY = (v: number) => (v / 100) * 64;
-
+  const toSvgY = (v: number) => (v / 100) * 50;
   const currentFrame = result ? result.frames[Math.min(Math.floor(frameIndex), result.frames.length - 1)] : null;
+
+  useEffect(() => {
+    frameIndexRef.current = frameIndex;
+  }, [frameIndex]);
+
+  useEffect(() => {
+    if (step !== 'play' || currentFrame?.lastEvent?.type !== 'halftime') return;
+    showMatchNotice('Intervalo', `${challengeId ?? 'solo'}:${currentFrame.lastEvent.minute}:halftime`, 2200);
+  }, [step, challengeId, currentFrame?.lastEvent, showMatchNotice]);
+
+  useEffect(() => {
+    const event = currentFrame?.lastEvent;
+    if (step !== 'play' || event?.type !== 'goal') return;
+    const key = `${event.minute}:${event.team}:${event.playerId ?? ''}`;
+    if (lastGoalKeyRef.current === key) return;
+    lastGoalKeyRef.current = key;
+    setGoalAnnouncement(event);
+    if (goalTimeoutRef.current !== null) window.clearTimeout(goalTimeoutRef.current);
+    goalTimeoutRef.current = window.setTimeout(() => {
+      setGoalAnnouncement(null);
+      goalTimeoutRef.current = null;
+    }, 2000);
+    if (audioEnabled) {
+      playTone(720, 0.14, 'triangle', 0.09);
+      window.setTimeout(() => playTone(980, 0.2, 'sine', 0.08), 110);
+    }
+    if (!reduceMotion && typeof navigator.vibrate === 'function') navigator.vibrate([65, 35, 65]);
+  }, [step, currentFrame?.lastEvent, audioEnabled, reduceMotion]);
+
   if (challengeLoading || loadingOpp) return <div className="p-8 text-[#858A98]">Carregando...</div>;
 
   if (challengeId && challenge && challenge.status === 'pending') {
@@ -934,63 +1031,202 @@ function MatchInner() {
   if (step === 'play' && result && currentFrame) {
     const homePlayers = result.config.homePlayers;
     const awayPlayers = result.config.awayPlayers;
-    const playerById = (id: string) => [...homePlayers, ...awayPlayers].find(p => p.id === id);
+    const playersById = new Map([...homePlayers, ...awayPlayers].map(player => [player.id, player]));
     const reverseDisplayedSides = challengeId && myMatchSide === 'away';
     const shownHomeScore = reverseDisplayedSides ? currentFrame.awayScore : currentFrame.homeScore;
     const shownAwayScore = reverseDisplayedSides ? currentFrame.homeScore : currentFrame.awayScore;
     const shownHomeName = reverseDisplayedSides ? result.config.awayName : result.config.homeName;
     const shownAwayName = reverseDisplayedSides ? result.config.homeName : result.config.awayName;
+    const shownHomeSide = reverseDisplayedSides ? 'away' : 'home';
+    const shownAwaySide = reverseDisplayedSides ? 'home' : 'away';
+    const eventsAtCurrentMinute = result.events.filter(event => event.minute <= currentFrame.minute);
+    const liveStat = (side: 'home' | 'away', types: MatchEvent['type'][]) =>
+      eventsAtCurrentMinute.filter(event => event.team === side && types.includes(event.type)).length;
+    const displayedStat = (types: MatchEvent['type'][]) => reverseDisplayedSides
+      ? `${liveStat('away', types)} - ${liveStat('home', types)}`
+      : `${liveStat('home', types)} - ${liveStat('away', types)}`;
     const activeSpeed = challengeId ? playbackState?.speed ?? 1 : speed;
     const isPlaying = challengeId ? playbackState?.status === 'playing' : playing;
+    const matchEnding = currentFrame.minute >= result.durationMinutes;
+    const transitionSeconds = reduceMotion ? 0 : (1 / (activeSpeed * 2)) * (goalAnnouncement ? 1.6 : 1);
+    const frameBeforeCurrent = Math.floor(frameIndex);
+    const ballTrail = reduceMotion
+      ? []
+      : result.frames.slice(Math.max(0, frameBeforeCurrent - 3), frameBeforeCurrent);
+    const goalScorer = goalAnnouncement?.playerId ? playersById.get(goalAnnouncement.playerId)?.name : null;
+    const scoreProgress = Math.min(100, Math.max(0, currentFrame.minute / MATCH_DURATION_MINUTES * 100));
     return (
       <div className="p-4 md:p-8 space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-[#252733] md:gap-4">
-            <span className="max-w-[30vw] truncate text-sm font-semibold md:text-base">{shownHomeName}</span>
-            <div className="shrink-0 text-2xl font-bold">{shownHomeScore} - {shownAwayScore}</div>
-            <span className="max-w-[30vw] truncate text-sm font-semibold md:text-base">{shownAwayName}</span>
+        <div className="sticky top-0 z-30 card-surface space-y-3 p-3 shadow-md md:p-4">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: TEAM_COLORS[shownHomeSide] }} />
+              <span className="truncate text-sm font-bold text-[#252733] md:text-base">{shownHomeName}</span>
+            </div>
+            <div className="rounded-lg bg-slate-950 px-3 py-1 text-xl font-black tracking-wider text-white md:px-5 md:text-2xl" aria-label={`Placar: ${shownHomeScore} a ${shownAwayScore}`}>
+              {shownHomeScore} – {shownAwayScore}
+            </div>
+            <div className="flex min-w-0 items-center justify-end gap-2">
+              <span className="truncate text-right text-sm font-bold text-[#252733] md:text-base">{shownAwayName}</span>
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: TEAM_COLORS[shownAwaySide] }} />
+            </div>
           </div>
-          <div className="text-sm text-[#858A98]">{Math.floor(currentFrame.minute)}' · {currentFrame.half === 1 ? '1º tempo' : '2º tempo'}</div>
-          <div className="flex gap-2">
-            <button onClick={() => controlPlayback(isPlaying ? 'pause' : 'play')} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">{isPlaying ? 'Pausar' : 'Retomar'}</button>
-            {[1, 2, 4].map(s => (
-              <button key={s} onClick={() => controlPlayback('speed', s as 1 | 2 | 4)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${activeSpeed === s ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>{s}x</button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex min-w-[120px] items-center gap-2 text-xs font-semibold text-[#858A98]">
+              <span>{Math.floor(currentFrame.minute)}′ / {MATCH_DURATION_MINUTES}′</span>
+              <span>{currentFrame.half === 1 ? '1º tempo' : '2º tempo'}</span>
+            </div>
+            <div className="h-2 min-w-[100px] flex-1 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Progresso da partida" aria-valuemin={0} aria-valuemax={MATCH_DURATION_MINUTES} aria-valuenow={Math.floor(currentFrame.minute)}>
+              <div className="h-full rounded-full bg-[#E30613] transition-[width] duration-300" style={{ width: `${scoreProgress}%` }} />
+            </div>
+            {challengeId && <span className="text-xs text-[#858A98]">Relógio compartilhado · {activeSpeed}x</span>}
+            <div className="ml-auto flex gap-2">
+              <button onClick={() => controlPlayback(isPlaying ? 'pause' : 'play')} disabled={matchEnding} className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-1.5 text-sm font-medium disabled:opacity-40">{isPlaying ? 'Pausar' : 'Retomar'}</button>
+              {[1, 2, 4].map(s => (
+                <button key={s} onClick={() => controlPlayback('speed', s as 1 | 2 | 4)} disabled={matchEnding} className={`rounded-xl px-3 py-1.5 text-sm font-medium disabled:opacity-40 ${activeSpeed === s ? 'bg-[#E30613] text-white' : 'border border-[#E9EAF0] bg-white text-[#858A98]'}`}>{s}x</button>
+              ))}
+            </div>
           </div>
         </div>
-        {challengeId && <div className="text-xs text-[#858A98]">Relógio compartilhado · Velocidade atual: {activeSpeed}x</div>}
 
-        <div className="card-surface mx-auto w-full max-w-4xl p-2">
-          <svg viewBox="0 0 100 64" className="mx-auto block max-h-[55vh] w-full h-auto">
-            <rect x="0" y="0" width="100" height="64" fill="#4ade80" />
-            <rect x="2" y="2" width="96" height="60" fill="none" stroke="#fff" strokeWidth="0.5" />
-            <line x1="50" y1="2" x2="50" y2="62" stroke="#fff" strokeWidth="0.5" />
-            <circle cx="50" cy="32" r="6" fill="none" stroke="#fff" strokeWidth="0.5" />
-            <rect x="0" y="26" width="2" height="12" fill="#fff" />
-            <rect x="98" y="26" width="2" height="12" fill="#fff" />
-            {currentFrame.players.map(p => (
-              <g key={p.id}>
-                <circle cx={p.x} cy={toSvgY(p.y)} r="2.2" fill={p.team === 'home' ? '#E30613' : '#1f2937'} stroke="#fff" strokeWidth="0.4" />
-                <text x={p.x} y={toSvgY(p.y) + 0.8} textAnchor="middle" fontSize="1.6" fill="#fff" fontWeight="bold">
-                  {playerById(p.id)?.number}
-                </text>
-              </g>
-            ))}
-            <circle cx={currentFrame.ball.x} cy={toSvgY(currentFrame.ball.y)} r="1.2" fill="#fff" stroke="#000" strokeWidth="0.3" />
-          </svg>
-        </div>
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="space-y-4">
+            <div className="relative mx-auto w-full max-w-5xl overflow-hidden rounded-2xl bg-slate-950 p-2 shadow-lg shadow-slate-950/20 md:p-3">
+              <svg viewBox="0 0 100 50" className="mx-auto block max-h-[50vh] w-full h-auto" role="group" aria-label="Quadra de futsal com a posição dos jogadores">
+                <defs>
+                  <clipPath id="futsal-court-clip">
+                    <rect x="1" y="1" width="98" height="48" rx="1.5" />
+                  </clipPath>
+                  <filter id="futsal-ball-shadow" x="-100%" y="-100%" width="300%" height="300%">
+                    <feDropShadow dx="0" dy="0.5" stdDeviation="0.55" floodColor="#000" floodOpacity="0.8" />
+                  </filter>
+                </defs>
+                <rect x="0" y="0" width="100" height="50" rx="2" fill="#9A6845" />
+                <g clipPath="url(#futsal-court-clip)">
+                  {Array.from({ length: 10 }, (_, index) => (
+                    <rect key={index} x={index * 10} y="0" width="10" height="50" fill={index % 2 === 0 ? '#B9845B' : '#A8734F'} opacity="0.75" />
+                  ))}
+                </g>
+                <rect x="1.5" y="1.5" width="97" height="47" rx="1.5" fill="none" stroke="#fff" strokeWidth="0.45" />
+                <line x1="50" y1="1.5" x2="50" y2="48.5" stroke="#fff" strokeWidth="0.4" />
+                <circle cx="50" cy="25" r="7.5" fill="none" stroke="#fff" strokeWidth="0.4" />
+                <circle cx="50" cy="25" r="0.6" fill="#fff" />
+                <path d="M 1.5 10 A 15 15 0 0 1 16.5 25 A 15 15 0 0 1 1.5 40" fill="none" stroke="#fff" strokeWidth="0.4" />
+                <path d="M 98.5 10 A 15 15 0 0 0 83.5 25 A 15 15 0 0 0 98.5 40" fill="none" stroke="#fff" strokeWidth="0.4" />
+                <circle cx="16.5" cy="25" r="0.55" fill="#fff" />
+                <circle cx="25" cy="25" r="0.55" fill="#fff" />
+                <circle cx="83.5" cy="25" r="0.55" fill="#fff" />
+                <circle cx="75" cy="25" r="0.55" fill="#fff" />
+                <path d="M 1.5 3.5 A 2.5 2.5 0 0 1 4 1.5 M 96 1.5 A 2.5 2.5 0 0 1 98.5 3.5 M 1.5 46.5 A 2.5 2.5 0 0 0 4 48.5 M 96 48.5 A 2.5 2.5 0 0 0 98.5 46.5" fill="none" stroke="#fff" strokeWidth="0.4" />
+                <rect x="0.5" y="21.25" width="1.7" height="7.5" fill="none" stroke="#fff" strokeWidth="0.4" />
+                <rect x="97.8" y="21.25" width="1.7" height="7.5" fill="none" stroke="#fff" strokeWidth="0.4" />
+                {ballTrail.map((frame, index) => (
+                  <circle
+                    key={`trail-${Math.floor(frameIndex) - ballTrail.length + index}`}
+                    cx={frame.ball.x}
+                    cy={toSvgY(frame.ball.y)}
+                    r={1.6 + index * 0.15}
+                    fill="#fff"
+                    opacity={0.1 + (index + 1) * 0.1}
+                  />
+                ))}
+                {currentFrame.players.map(player => {
+                  const details = playersById.get(player.id);
+                  if (!details) return null;
+                  const isKeeper = details.isGK;
+                  const isBallCarrier = currentFrame.ball.holder === player.id;
+                  const labelVisible = isBallCarrier || selectedPlayerId === player.id || hoveredPlayerId === player.id;
+                  const y = toSvgY(player.y);
+                  const labelY = y < 42 ? 6.3 : -4.2;
+                  const displayedSide = reverseDisplayedSides
+                    ? (player.team === 'home' ? 'away' : 'home')
+                    : player.team;
+                  const color = isKeeper ? '#FDE047' : TEAM_COLORS[displayedSide];
+                  const playerDescription = `${details.name}, ${details.position}, ${player.team === shownHomeSide ? shownHomeName : shownAwayName}`;
+                  return (
+                    <g
+                      key={player.id}
+                      transform={`translate(${player.x} ${y})`}
+                      style={{ transition: reduceMotion ? 'none' : `transform ${transitionSeconds}s linear` }}
+                      className="cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={playerDescription}
+                      aria-pressed={selectedPlayerId === player.id}
+                      onMouseEnter={() => setHoveredPlayerId(player.id)}
+                      onMouseLeave={() => setHoveredPlayerId(current => current === player.id ? null : current)}
+                      onFocus={() => setHoveredPlayerId(player.id)}
+                      onBlur={() => setHoveredPlayerId(current => current === player.id ? null : current)}
+                      onClick={() => setSelectedPlayerId(current => current === player.id ? null : player.id)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedPlayerId(current => current === player.id ? null : player.id);
+                        }
+                      }}
+                    >
+                      {isBallCarrier && <circle r="4.3" fill="none" stroke="#FDE047" strokeWidth="0.8" />}
+                      <circle r="3" fill={color} stroke={isKeeper ? '#0F172A' : '#fff'} strokeWidth="0.5" />
+                      <text x="0" y="0.85" textAnchor="middle" fontSize="1.8" fill={isKeeper ? '#0F172A' : '#fff'} fontWeight="900">
+                        {details.number}
+                      </text>
+                      {labelVisible && (
+                        <text x="0" y={labelY} textAnchor="middle" fontSize="2.35" fill="#fff" stroke="#0F172A" strokeWidth="0.75" strokeLinejoin="round" paintOrder="stroke" fontWeight="700">
+                          {details.name.trim().split(/\s+/).pop()}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+                <circle cx={currentFrame.ball.x} cy={toSvgY(currentFrame.ball.y)} r="1.65" fill="#fff" stroke="#0F172A" strokeWidth="0.4" filter="url(#futsal-ball-shadow)" />
+              </svg>
+              {(goalAnnouncement || matchNotice) && (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4" role="status" aria-live="polite">
+                  {goalAnnouncement && matchNotice !== 'Fim de jogo' ? (
+                    <div className="rounded-xl px-6 py-3 text-center text-white shadow-2xl" style={{ backgroundColor: TEAM_COLORS[goalAnnouncement.team === 'away' ? 'away' : 'home'] }}>
+                      <div className="text-3xl font-black tracking-widest">GOL!</div>
+                      <div className="font-semibold">{goalScorer || 'Gol'} · {goalAnnouncement.minute}′</div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-slate-950/90 px-8 py-4 text-2xl font-black tracking-widest text-white shadow-2xl">
+                      {matchNotice}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-        {currentFrame.lastEvent && (
-          <div className="card-surface p-3 text-sm text-[#252733]">
-            <span className="font-bold text-[#E30613]">{currentFrame.lastEvent.minute}'</span> {currentFrame.lastEvent.description}
+            {currentFrame.lastEvent && (
+              <div className="card-surface p-3 text-sm text-[#252733]">
+                <span className="font-bold text-[#E30613]">{currentFrame.lastEvent.minute}′</span> {currentFrame.lastEvent.description}
+              </div>
+            )}
+
+            <div className="card-surface max-h-40 overflow-auto p-3">
+              <div className="mb-2 text-xs font-semibold text-[#858A98]">Lances recentes</div>
+              {eventsAtCurrentMinute.slice(-8).reverse().map((event, index) => (
+                <div key={`${event.minute}-${event.type}-${index}`} className="py-0.5 text-xs text-[#252733]">{event.minute}′ - {event.description}</div>
+              ))}
+            </div>
           </div>
-        )}
 
-        <div className="card-surface p-3 max-h-40 overflow-auto">
-          <div className="text-xs font-semibold text-[#858A98] mb-2">Lances recentes</div>
-          {result.events.filter(e => e.minute <= currentFrame.minute).slice(-8).reverse().map((e, i) => (
-            <div key={i} className="text-xs text-[#252733] py-0.5">{e.minute}' - {e.description}</div>
-          ))}
+          <aside className="card-surface space-y-3 p-4" aria-label="Estatísticas ao vivo">
+            <h2 className="text-sm font-bold text-[#252733]">Estatísticas ao vivo</h2>
+            {[
+              { label: 'Finalizações', types: ['goal', 'save', 'miss'] as MatchEvent['type'][] },
+              { label: 'No alvo', types: ['goal', 'save'] as MatchEvent['type'][] },
+              { label: 'Faltas', types: ['foul'] as MatchEvent['type'][] },
+            ].map(stat => (
+              <div key={stat.label} className="flex items-center justify-between border-t border-[#E9EAF0] pt-2 text-sm">
+                <span className="text-[#858A98]">{stat.label}</span>
+                <span className="font-bold text-[#252733]">{displayedStat(stat.types)}</span>
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[10px] text-[#858A98]">
+              <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#E30613]" />{shownHomeName}</span>
+              <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#173B6B]" />{shownAwayName}</span>
+            </div>
+          </aside>
         </div>
       </div>
     );

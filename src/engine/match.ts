@@ -222,6 +222,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   }
 
   const rng = mulberry32(config.seed);
+  const foulRng = mulberry32((config.seed ^ 0x9e3779b9) >>> 0);
   const homeTactic = TACTIC_MOD[config.homeTactic];
   const awayTactic = TACTIC_MOD[config.awayTactic];
   const awayDiff = DIFF_MOD[config.awayDifficulty];
@@ -444,10 +445,19 @@ export function simulateMatch(config: MatchConfig): MatchResult {
         // lose ball
         const tackler = nearestPlayer(isHome ? 'away' : 'home');
         if (dist(tackler.x, tackler.y, holder.x, holder.y) < 12) {
-          events.push({ minute, type: 'tackle', team: isHome ? 'away' : 'home', playerId: tackler.id, description: `${tackler.name} desarma ${holder.name}.` });
-          stats[tackler.id].tackles++;
-          if (isHome) teamStats.away.tackles++; else teamStats.home.tackles++;
-          ball.holder = tackler.id;
+          if (foulRng() < 0.08) {
+            stats[tackler.id].fouls++;
+            teamStats[tackler.team].fouls++;
+            events.push({ minute, type: 'foul', team: tackler.team, playerId: tackler.id, description: `${tackler.name} comete falta em ${holder.name}.` });
+            ball.holder = holder.id;
+            ball.x = holder.x;
+            ball.y = holder.y;
+          } else {
+            events.push({ minute, type: 'tackle', team: tackler.team, playerId: tackler.id, description: `${tackler.name} desarma ${holder.name}.` });
+            stats[tackler.id].tackles++;
+            teamStats[tackler.team].tackles++;
+            ball.holder = tackler.id;
+          }
         } else {
           ball.holder = null;
           ball.x = holder.x; ball.y = holder.y;

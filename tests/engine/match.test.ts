@@ -113,6 +113,33 @@ describe('simulateMatch', () => {
     expect(r1.frames.length).toBeGreaterThan(0);
     expect(r2.frames.length).toBeGreaterThan(0);
   });
+
+  it('records committed fouls as events and live team statistics', () => {
+    const home = createPlayersFromCards(homeCards as any, 'home', '1-2-1', 'futsal');
+    const away = createPlayersFromCards(awayCards as any, 'away', '1-2-1', 'futsal');
+    let result: ReturnType<typeof simulateMatch> | undefined;
+    for (let seed = 1; seed <= 32; seed++) {
+      result = simulateMatch({
+        sport: 'futsal',
+        homeName: 'H',
+        awayName: 'A',
+        homePlayers: home,
+        awayPlayers: away,
+        homeFormation: '1-2-1',
+        awayFormation: '1-2-1',
+        homeTactic: 'balanced',
+        awayTactic: 'balanced',
+        awayDifficulty: 'normal',
+        seed,
+        minutes: 90,
+      });
+      if (result.events.some(event => event.type === 'foul')) break;
+    }
+
+    const foulEvents = result?.events.filter(event => event.type === 'foul') ?? [];
+    expect(foulEvents.length).toBeGreaterThan(0);
+    expect((result?.teamStats.home.fouls ?? 0) + (result?.teamStats.away.fouls ?? 0)).toBe(foulEvents.length);
+  });
 });
 
 describe('makeAwayTeam', () => {
