@@ -86,7 +86,7 @@ export default function Collection() {
           <button onClick={() => setAlbum(a => !a)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${album ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
             {album ? 'Ver coleção' : 'Ver álbum'}
           </button>
-          <button onClick={async () => { const n = await convertDuplicates(); if (n > 0) toast.success(`${n} duplicatas convertidas em moedas.`); else toast.info('Nenhuma duplicata para converter (cartas favoritas, no elenco ou à venda são mantidas).'); }} className="px-3 py-1.5 rounded-xl text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98]">
+          <button onClick={async () => { const n = await convertDuplicates(); if (n > 0) toast.success(`${n} duplicatas convertidas em moedas. Cartas usadas em apostas ou partidas foram preservadas.`); else toast.info('Nenhuma duplicata elegível. Favoritas, cartas em elencos, anúncios, apostas e histórico de partidas são preservados.'); }} className="px-3 py-1.5 rounded-xl text-sm font-medium bg-white border border-[#E9EAF0] text-[#858A98]">
             Converter duplicatas
           </button>
           <div className="text-sm text-[#858A98] self-center">{cards.length} cartas · {unique} únicas · {cards.length - unique} duplicadas</div>
