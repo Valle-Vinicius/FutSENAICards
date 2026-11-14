@@ -754,6 +754,35 @@ function MatchInner() {
 
   const toSvgY = (v: number) => (v / 100) * 50;
   const currentFrame = result ? result.frames[Math.min(Math.floor(frameIndex), result.frames.length - 1)] : null;
+  const displayFrame = (() => {
+    if (!result || !currentFrame || reduceMotion) return currentFrame;
+    const fromIndex = Math.max(0, Math.min(Math.floor(frameIndex), result.frames.length - 1));
+    const toFrame = result.frames[Math.min(fromIndex + 1, result.frames.length - 1)];
+    const goalAtCurrentFrame = currentFrame.lastEvent?.type === 'goal'
+      && currentFrame.lastEvent.minute === currentFrame.minute;
+    const progress = goalAtCurrentFrame
+      ? 0
+      : Math.max(0, Math.min(1, frameIndex - fromIndex));
+    const interpolate = (from: number, to: number) => from + (to - from) * progress;
+    return {
+      ...currentFrame,
+      ball: {
+        ...currentFrame.ball,
+        x: interpolate(currentFrame.ball.x, toFrame.ball.x),
+        y: interpolate(currentFrame.ball.y, toFrame.ball.y),
+      },
+      players: currentFrame.players.map(player => {
+        const nextPlayer = toFrame.players.find(candidate => candidate.id === player.id);
+        return nextPlayer
+          ? {
+            ...player,
+            x: interpolate(player.x, nextPlayer.x),
+            y: interpolate(player.y, nextPlayer.y),
+          }
+          : player;
+      }),
+    };
+  })();
 
   useEffect(() => {
     frameIndexRef.current = frameIndex;
@@ -1048,7 +1077,6 @@ function MatchInner() {
     const activeSpeed = challengeId ? playbackState?.speed ?? 1 : speed;
     const isPlaying = challengeId ? playbackState?.status === 'playing' : playing;
     const matchEnding = currentFrame.minute >= result.durationMinutes;
-    const transitionSeconds = reduceMotion ? 0 : (1 / (activeSpeed * 2)) * (goalAnnouncement ? 1.6 : 1);
     const frameBeforeCurrent = Math.floor(frameIndex);
     const ballTrail = reduceMotion
       ? []
@@ -1130,11 +1158,15 @@ function MatchInner() {
                     opacity={0.1 + (index + 1) * 0.1}
                   />
                 ))}
-                {currentFrame.players.map(player => {
+                {displayFrame?.players.map(player => {
                   const details = playersById.get(player.id);
                   if (!details) return null;
                   const isKeeper = details.isGK;
                   const isBallCarrier = currentFrame.ball.holder === player.id;
+                  const justSaved = isKeeper
+                    && currentFrame.lastEvent?.type === 'save'
+                    && currentFrame.lastEvent.minute === currentFrame.minute
+                    && currentFrame.lastEvent.playerId === player.id;
                   const labelVisible = isBallCarrier || selectedPlayerId === player.id || hoveredPlayerId === player.id;
                   const y = toSvgY(player.y);
                   const labelY = y < 42 ? 6.3 : -4.2;
@@ -1147,7 +1179,6 @@ function MatchInner() {
                     <g
                       key={player.id}
                       transform={`translate(${player.x} ${y})`}
-                      style={{ transition: reduceMotion ? 'none' : `transform ${transitionSeconds}s linear` }}
                       className="cursor-pointer"
                       role="button"
                       tabIndex={0}
@@ -1165,6 +1196,7 @@ function MatchInner() {
                         }
                       }}
                     >
+                      {justSaved && <circle r="4.8" fill="none" stroke="#22C55E" strokeWidth="1.1" />}
                       {isBallCarrier && <circle r="4.3" fill="none" stroke="#FDE047" strokeWidth="0.8" />}
                       <circle r="3" fill={color} stroke={isKeeper ? '#0F172A' : '#fff'} strokeWidth="0.5" />
                       <text x="0" y="0.85" textAnchor="middle" fontSize="1.8" fill={isKeeper ? '#0F172A' : '#fff'} fontWeight="900">
@@ -1178,7 +1210,7 @@ function MatchInner() {
                     </g>
                   );
                 })}
-                <circle cx={currentFrame.ball.x} cy={toSvgY(currentFrame.ball.y)} r="1.65" fill="#fff" stroke="#0F172A" strokeWidth="0.4" filter="url(#futsal-ball-shadow)" />
+                <circle cx={displayFrame?.ball.x ?? currentFrame.ball.x} cy={toSvgY(displayFrame?.ball.y ?? currentFrame.ball.y)} r="1.65" fill="#fff" stroke="#0F172A" strokeWidth="0.4" filter="url(#futsal-ball-shadow)" />
               </svg>
               {(goalAnnouncement || matchNotice) && (
                 <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4" role="status" aria-live="polite">

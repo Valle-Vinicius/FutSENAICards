@@ -230,6 +230,23 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   // clone players
   const homePlayers = config.homePlayers.map(p => ({ ...p, attrs: { ...p.attrs } }));
   const awayPlayers = config.awayPlayers.map(p => ({ ...p, attrs: { ...p.attrs } }));
+  const homeBasePositions = basePositions(config.homeFormation, 'home');
+  const awayBasePositions = basePositions(config.awayFormation, 'away');
+  const setFormationPositions = (
+    players: MatchPlayer[],
+    positions: { x: number; y: number }[],
+  ) => {
+    players.forEach((player, index) => {
+      const position = positions[index];
+      if (!position) return;
+      player.x = position.x;
+      player.y = position.y;
+      player.targetX = position.x;
+      player.targetY = position.y;
+    });
+  };
+  setFormationPositions(homePlayers, homeBasePositions);
+  setFormationPositions(awayPlayers, awayBasePositions);
   // boost away by difficulty
   if (config.mode !== 'pvp') {
     awayPlayers.forEach(p => {
@@ -291,32 +308,55 @@ export function simulateMatch(config: MatchConfig): MatchResult {
   function updateTargets() {
     const homeHas = ball.holder ? byId(ball.holder).team === 'home' : false;
     const awayHas = ball.holder ? byId(ball.holder).team === 'away' : false;
-    homePlayers.forEach(() => {
-      // placeholder
-    });
-    // simpler: use stored initial base by recompute from config home formation? We don't store formation here.
-    // We'll just nudge players toward ball if possession, else toward own half.
     const possTeam = homeHas ? 'home' : (awayHas ? 'away' : 'neutral');
-    allPlayers.forEach(p => {
-      const towardBall = possTeam === p.team ? 0.15 : -0.05;
-      // move slightly toward ball x
-      p.targetX = clamp(p.x + (ball.x - p.x) * towardBall * (p.energy / 100), 2, 98);
-      p.targetY = clamp(p.y + (ball.y - p.y) * towardBall * (p.energy / 100), 2, 98);
+    allPlayers.forEach(player => {
+      const teamPlayers = player.team === 'home' ? homePlayers : awayPlayers;
+      const formationPositions = player.team === 'home' ? homeBasePositions : awayBasePositions;
+      const formationPosition = formationPositions[teamPlayers.indexOf(player)];
+      if (!formationPosition) return;
+
+      const attackDirection = player.team === 'home' ? 1 : -1;
+      if (player.isGK) {
+        player.targetX = formationPosition.x;
+        player.targetY = clamp(50 + (ball.y - 50) * 0.35, 42, 58);
+        return;
+      }
+
+      if (ball.holder === player.id) {
+        player.targetX = player.x;
+        player.targetY = player.y;
+        return;
+      }
+
+      const attackProgress = clamp((ball.x - 50) * attackDirection, -40, 40);
+      const attacking = possTeam === player.team;
+      const forwardShift = attackProgress * (attacking ? 0.24 : 0.1);
+      const teamShift = clamp((ball.x - 50) * 0.12, -6, 6);
+      const laneShift = (ball.y - formationPosition.y) * (attacking ? 0.12 : 0.2);
+      player.targetX = clamp(
+        formationPosition.x + attackDirection * forwardShift + teamShift,
+        5,
+        95,
+      );
+      player.targetY = clamp(formationPosition.y + laneShift, 5, 95);
     });
   }
+
+  updateTargets();
 
   // main loop
   while (minute < totalMinutes) {
     minute = Math.min(totalMinutes, minute + tickMinutes);
+    let goalScoredBy: 'home' | 'away' | null = null;
     if (minute === halfTime && half === 1) {
       half = 2;
       // reset positions
       homePlayers.forEach((p, i) => {
-        const bp = basePositions(config.homeFormation, 'home')[i];
+        const bp = homeBasePositions[i];
         if (bp) { p.x = bp.x; p.y = bp.y; p.targetX = bp.x; p.targetY = bp.y; }
       });
       awayPlayers.forEach((p, i) => {
-        const bp = basePositions(config.awayFormation, 'away')[i];
+        const bp = awayBasePositions[i];
         if (bp) { p.x = bp.x; p.y = bp.y; p.targetX = bp.x; p.targetY = bp.y; }
       });
       ball = { x: 50, y: 50, holder: homeMid.id };
@@ -332,6 +372,11 @@ export function simulateMatch(config: MatchConfig): MatchResult {
       p.y += (p.targetY - p.y) * 0.12;
       stats[p.id].distance += Math.hypot(p.targetX - p.x, p.targetY - p.y) * 0.01;
     });
+    if (ball.holder) {
+      const holder = byId(ball.holder);
+      ball.x = holder.x;
+      ball.y = holder.y;
+    }
 
     updateTargets();
 
@@ -355,6 +400,7 @@ export function simulateMatch(config: MatchConfig): MatchResult {
         if (d < minOpp) minOpp = d;
       }
       const pressure = minOpp < 8 ? 1.3 : 1.0;
+      let actionResolved = false;
 
       // shot chance if in final third
       const inShootRange = isHome ? holder.x > 72 : holder.x < 28;
@@ -365,6 +411,17 @@ export function simulateMatch(config: MatchConfig): MatchResult {
         if (isHome) teamStats.home.shots++; else teamStats.away.shots++;
         const gk = isHome ? awayGK : homeGK;
         const shotOnTarget = rng() < (holder.attrs.shooting / 100) * 0.7 + 0.2;
+        const goalX = isHome ? 99 : 1;
+        const shotY = shotOnTarget
+          ? clamp(50 + (rng() - 0.5) * 12, 44, 56)
+          : rng() < 0.5 ? 41 : 59;
+        events.push({
+          minute,
+          type: 'shot',
+          team,
+          playerId: holder.id,
+          description: `Chute de ${holder.name}.`,
+        });
         if (shotOnTarget) {
           stats[holder.id].shotsOnTarget++;
           if (isHome) teamStats.home.shotsOnTarget++; else teamStats.away.shotsOnTarget++;
@@ -373,32 +430,38 @@ export function simulateMatch(config: MatchConfig): MatchResult {
           if (rng() < saveProb) {
             stats[gk.id].saves++;
             if (isHome) teamStats.away.saves++; else teamStats.home.saves++;
+            gk.x = gk.team === 'home' ? 5 : 95;
+            gk.y = shotY;
+            gk.targetX = gk.x;
+            gk.targetY = gk.y;
             events.push({ minute, type: 'save', team: isHome ? 'away' : 'home', playerId: gk.id, description: `Defesa de ${gk.name}!` });
-            ball.holder = null;
-            ball.x = clamp(gk.x + (isHome ? -5 : 5), 2, 98);
+            ball.holder = gk.id;
+            ball.x = gk.x;
             ball.y = gk.y;
           } else {
             // goal
             if (isHome) homeScore++; else awayScore++;
             stats[holder.id].goals++;
             if (isHome) teamStats.home.goals++; else teamStats.away.goals++;
+            goalScoredBy = team;
             // assist: last passer? skip tracking
             events.push({ minute, type: 'goal', team, playerId: holder.id, description: `GOL de ${holder.name}!` });
+            ball = { x: goalX, y: shotY, holder: null };
             // reset ball to center, away/home kickoff
-            ball = { x: 50, y: 50, holder: isHome ? awayMid.id : homeMid.id };
+            // The restart happens on the next simulation tick so the shot can be seen.
           }
         } else {
           events.push({ minute, type: 'miss', team, playerId: holder.id, description: `Chute de ${holder.name} para fora.` });
           ball.holder = null;
-          ball.x = isHome ? 95 : 5;
-          ball.y = holder.y;
+          ball.x = isHome ? 100 : 0;
+          ball.y = shotY;
         }
-        continue;
+        actionResolved = true;
       }
 
       // pass decision
       const passProb = 0.7 * tactic.passRisk;
-      if (rng() < passProb) {
+      if (!actionResolved && rng() < passProb) {
         // choose teammate
         const mates = isHome ? homePlayers : awayPlayers;
         const candidates = mates.filter(m => m.id !== holder.id);
@@ -430,37 +493,39 @@ export function simulateMatch(config: MatchConfig): MatchResult {
           // move ball holder target forward
           best.targetX = clamp(best.x + (isHome ? 8 : -8), 5, 95);
         }
-        continue;
+        actionResolved = true;
       }
 
       // dribble
-      const dribbleProb = (holder.attrs.dribbling / 100) * 0.4 * (1 / pressure);
-      if (rng() < dribbleProb) {
-        const advance = isHome ? 6 : -6;
-        holder.x = clamp(holder.x + advance, 5, 95);
-        holder.y = clamp(holder.y + (rng() - 0.5) * 4, 5, 95);
-        ball.x = holder.x; ball.y = holder.y;
-        events.push({ minute, type: 'dribble', team, playerId: holder.id, description: `${holder.name} conduz a bola.` });
-      } else {
-        // lose ball
-        const tackler = nearestPlayer(isHome ? 'away' : 'home');
-        if (dist(tackler.x, tackler.y, holder.x, holder.y) < 12) {
-          if (foulRng() < 0.08) {
-            stats[tackler.id].fouls++;
-            teamStats[tackler.team].fouls++;
-            events.push({ minute, type: 'foul', team: tackler.team, playerId: tackler.id, description: `${tackler.name} comete falta em ${holder.name}.` });
-            ball.holder = holder.id;
-            ball.x = holder.x;
-            ball.y = holder.y;
-          } else {
-            events.push({ minute, type: 'tackle', team: tackler.team, playerId: tackler.id, description: `${tackler.name} desarma ${holder.name}.` });
-            stats[tackler.id].tackles++;
-            teamStats[tackler.team].tackles++;
-            ball.holder = tackler.id;
-          }
-        } else {
-          ball.holder = null;
+      if (!actionResolved) {
+        const dribbleProb = (holder.attrs.dribbling / 100) * 0.4 * (1 / pressure);
+        if (rng() < dribbleProb) {
+          const advance = isHome ? 6 : -6;
+          holder.x = clamp(holder.x + advance, 5, 95);
+          holder.y = clamp(holder.y + (rng() - 0.5) * 4, 5, 95);
           ball.x = holder.x; ball.y = holder.y;
+          events.push({ minute, type: 'dribble', team, playerId: holder.id, description: `${holder.name} conduz a bola.` });
+        } else {
+          // lose ball
+          const tackler = nearestPlayer(isHome ? 'away' : 'home');
+          if (dist(tackler.x, tackler.y, holder.x, holder.y) < 12) {
+            if (foulRng() < 0.08) {
+              stats[tackler.id].fouls++;
+              teamStats[tackler.team].fouls++;
+              events.push({ minute, type: 'foul', team: tackler.team, playerId: tackler.id, description: `${tackler.name} comete falta em ${holder.name}.` });
+              ball.holder = holder.id;
+              ball.x = holder.x;
+              ball.y = holder.y;
+            } else {
+              events.push({ minute, type: 'tackle', team: tackler.team, playerId: tackler.id, description: `${tackler.name} desarma ${holder.name}.` });
+              stats[tackler.id].tackles++;
+              teamStats[tackler.team].tackles++;
+              ball.holder = tackler.id;
+            }
+          } else {
+            ball.holder = null;
+            ball.x = holder.x; ball.y = holder.y;
+          }
         }
       }
     } else {
@@ -486,6 +551,10 @@ export function simulateMatch(config: MatchConfig): MatchResult {
       players: allPlayers.map(p => ({ id: p.id, x: p.x, y: p.y, team: p.team })),
       lastEvent: events[events.length - 1],
     });
+
+    if (goalScoredBy) {
+      ball = { x: 50, y: 50, holder: goalScoredBy === 'home' ? awayMid.id : homeMid.id };
+    }
   }
 
   events.push({ minute: totalMinutes, type: 'fulltime', team: 'neutral', description: `Fim de jogo. ${config.homeName} ${homeScore} x ${awayScore} ${config.awayName}.` });
