@@ -278,4 +278,13 @@ describe('makeAwayTeam', () => {
     expect(team.length).toBe(5);
     expect(team[0].isGK).toBe(true);
   });
+
+  it('gives hard difficulty stronger generated attributes than normal', () => {
+    const averagePassing = (difficulty: 'easy' | 'normal' | 'hard') =>
+      makeAwayTeam('futsal', difficulty, 1)
+        .reduce((total, player) => total + player.attrs.passing, 0) / 5;
+
+    expect(averagePassing('normal')).toBeGreaterThan(averagePassing('easy'));
+    expect(averagePassing('hard')).toBeGreaterThan(averagePassing('normal'));
+  });
 });

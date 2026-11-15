@@ -99,8 +99,8 @@ if (!Number.isSafeInteger(requestedGameCount) || requestedGameCount < GAMES_PER_
 
 const scenarios = [
   ...[55, 65, 75, 85, 95].map(userOverall => ({ userOverall, aiDifficulty: 'normal' as const })),
-  ...AI_DIFFICULTIES.filter(difficulty => difficulty !== 'normal')
-    .map(aiDifficulty => ({ userOverall: 75, aiDifficulty })),
+  { userOverall: 75, aiDifficulty: 'easy' as const },
+  ...[75, 85, 95].map(userOverall => ({ userOverall, aiDifficulty: 'hard' as const })),
 ];
 
 console.table(scenarios.map(({ userOverall, aiDifficulty }) =>

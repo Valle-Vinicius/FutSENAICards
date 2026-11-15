@@ -114,7 +114,7 @@ describe('match playback', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Difícil' }));
     expect(screen.getByLabelText('Confronto').textContent).toContain('IA Difícil');
-    expect(screen.getByLabelText('Confronto').textContent).toContain('OVR 82');
+    expect(screen.getByLabelText('Confronto').textContent).toContain('OVR 99');
 
     fireEvent.click(screen.getByRole('radio', { name: 'Contra-ataque' }));
 

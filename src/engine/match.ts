@@ -10,7 +10,7 @@ export const MATCH_DURATION_MINUTES = 90;
 const GOAL_PROBABILITY_DIVISOR = 50;
 const SHOT_FREQUENCY = 0.445;
 const GOAL_DUEL_OFFSET = -4;
-export const AI_BASE_OVR = { easy: 68, normal: 75, hard: 82 } as const;
+export const AI_BASE_OVR = { easy: 68, normal: 75, hard: 99 } as const;
 
 export interface MatchPlayer {
   id: string;
