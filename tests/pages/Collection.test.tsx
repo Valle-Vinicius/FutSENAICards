@@ -16,7 +16,6 @@ jest.mock('../../src/lib/supabase', () => ({ supabase: null }));
 jest.mock('../../src/data/players', () => ({ allTemplates: () => [] }));
 jest.mock('../../src/store/useGame', () => ({
   useGame: jest.fn(),
-  DUPLICATE_CONVERSION_REWARD: 200,
 }));
 jest.mock('../../src/store/toast', () => ({
   toast: { success: jest.fn(), info: jest.fn(), error: jest.fn() },
@@ -57,7 +56,7 @@ function renderCollection(cards: PlayerCard[]) {
     savedSquads: [],
     listings: [],
     markSeen: jest.fn(),
-    convertDuplicates: jest.fn().mockResolvedValue(1),
+    convertDuplicates: jest.fn().mockResolvedValue({ count: 1, coins: 250 }),
   };
   mockedUseGame.mockImplementation(selector => selector(state as unknown as ReturnType<typeof useGame.getState>));
   return {
@@ -117,10 +116,10 @@ describe('Collection page', () => {
     const { state } = renderCollection([makeCard('rare-1'), makeCard('rare-2')]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Converter duplicatas' }));
-    expect(screen.getByText(/Prévia: até 1 carta elegível.*200 moedas/)).toBeInTheDocument();
+    expect(screen.getByText(/Prévia: até 1 carta elegível.*250 moedas/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^Converter$/ }));
 
     await waitFor(() => expect(state.convertDuplicates).toHaveBeenCalledTimes(1));
-    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('200 moedas'));
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('250 moedas'));
   });
 });

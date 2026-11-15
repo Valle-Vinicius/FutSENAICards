@@ -312,7 +312,7 @@ O usuário pode visualizar todas as suas cartas, filtrar por nome, posição, ra
 O usuário pode converter cartas duplicadas (mesmo nome) em moedas:
 - Apenas uma cópia por nome é mantida (a melhor por raridade/overall/upgrades)
 - Cartas favoritas, no elenco ou no mercado são preservadas
-- Cada carta convertida rende 200 coins
+- A conversão paga por raridade via configuração server-side (`economy_config`)
 - Cartas ícone (icon) não são convertidas
 
 ### Marketplace

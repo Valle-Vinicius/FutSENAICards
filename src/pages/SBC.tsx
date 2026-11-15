@@ -20,8 +20,9 @@ export default function SBC() {
   const chosen = activeSbc ? selected[activeSbc.id] || [] : [];
   const filteredCards = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    if (!query) return cards;
-    return cards.filter(card =>
+    const eligibleCards = cards.filter(card => card.rarity !== 'icon' && !card.favorite);
+    if (!query) return eligibleCards;
+    return eligibleCards.filter(card =>
       card.name.toLocaleLowerCase().includes(query)
       || card.club.toLocaleLowerCase().includes(query)
       || card.position.toLocaleLowerCase().includes(query),
@@ -49,7 +50,6 @@ export default function SBC() {
     try {
       const ok = await completeSBC(sbcId, uids);
       if (ok) { toast.alert('Desafio concluído! Recompensa concedida.'); setSelected(prev => ({ ...prev, [sbcId]: [] })); }
-      else toast.alert('Requisitos não atendidos ou as cartas já foram usadas.');
       setPage(0);
     } finally {
       setCompletingSbcId(null);
@@ -100,6 +100,7 @@ export default function SBC() {
                   Recompensa: {activeSbc.reward.type} {String(activeSbc.reward.value)} · Requisitos: {activeSbc.requirements.count} cartas
                   {activeSbc.requirements.minOverall ? ` (min OVR ${activeSbc.requirements.minOverall})` : ''}
                   {activeSbc.requirements.sameClub ? ' (mesmo clube)' : ''}
+                  {activeSbc.id === 'sbc2' || activeSbc.id === 'sbc3' ? ' · Limite: 3 conclusões por dia' : ''}
                 </p>
               </div>
 
@@ -116,7 +117,7 @@ export default function SBC() {
                   aria-label="Buscar cartas"
                   className="min-w-0 flex-1 bg-transparent text-sm text-[#252733] outline-none placeholder:text-[#858A98]"
                 />
-                <span className="shrink-0 text-xs">{filteredCards.length} cartas</span>
+                <span className="shrink-0 text-xs">{filteredCards.length} cartas · ícones e favoritas não podem ser entregues</span>
               </label>
 
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
@@ -174,7 +175,7 @@ export default function SBC() {
                   <button
                     type="button"
                     onClick={() => handleComplete(activeSbc.id)}
-                    disabled={completingSbcId !== null || chosen.length < activeSbc.requirements.count}
+                    disabled={completingSbcId !== null || chosen.length !== activeSbc.requirements.count}
                     className="rounded-xl bg-[#E30613] px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
                   >
                     {completingSbcId === activeSbc.id ? 'Concluindo...' : 'Confirmar entrega'}

@@ -50,40 +50,35 @@ O botão "Álbum" alterna para uma visualização que mostra todos os templates 
 
 ### Funcionamento
 
-O usuário pode converter cartas duplicadas (mesmo nome) em moedas (coins). A cada carta convertida, rende 200 coins.
+O usuário pode converter cartas duplicadas (mesmo nome) em moedas (coins), com valor configurado no servidor por raridade.
 
 ### Regras
 
 1. **Agrupamento:** Cartas são agrupadas por nome (ex: todas as cartas "Pietro Guedes" ficam no mesmo grupo)
 2. **Exclusão de Ícones:** Cartas com raridade 'icon' nunca são convertidas
 3. **Mínimo:** Só há conversão se houver 2+ cartas do mesmo jogador (não-ícone)
-4. **Carta Mantida:** A melhor cópia é mantida com base em:
-   - Raridade (maior prioridade)
-   - Overall
-   - Upgrades + XP
+4. **Carta Mantida:** O servidor mantém a melhor cópia por raridade e overall.
 5. **Cartas Protegidas:** Não são removidas se:
    - Estão marcadas como favorita
    - Estão no elenco ativo (squad)
    - Estão no elenco salvo (savedSquads)
    - Estão no marketplace com status 'active'
+   - Estão ligadas a desafios, apostas ou partidas de sinuca
+   - Ícones nunca são convertidos
 
 ### Fluxo de Conversão
 
 1. Usuário clica em "Converter duplicatas"
 2. Sistema identifica cartas duplicadas não-locked e não-favoritas
-3. Chama RPC `delete_owned_cards` para remover do servidor
-4. Se o RPC falhar, a conversão é cancelada (sem moedas de graça)
-5. Se o RPC tiver sucesso:
-   - Adiciona coins: `quantidade × 200`
-   - Remove cartas do estado local
-   - Atualiza ranking do colecionador
-6. Retorna o número de cartas convertidas
+3. Chama o RPC `convert_duplicates`, que revalida proteções e valores no servidor
+4. O servidor paga por raridade: comum 50, incomum 100, rara 250, épica 600 e lendária 1500 moedas; ícones não são convertidos
+5. O RPC retorna `{ count, coins }`; o cliente atualiza o inventário e saldo a partir do servidor
 
 ### Problemas Conhecidos
 
 | Problema | Causa | Solução |
 |----------|-------|---------|
-| Conversão não funciona | `delete_owned_cards` falhava por `uuid = text` | Corrigido para `id::text = any(p_card_ids)` |
+| Conversão não funciona | RPC server-side falha | A operação não concede moedas nem remove cartas quando há erro |
 | Conversão retorna 0 | Todas as duplicatas estão lockadas ou favoritas | Remover do elenco/mercado ou desfavoritar |
 | Cartas duplicadas não aparecem | Cartas têm nomes diferentes (ex: com/sem sobrenome) | Verificar se os nomes são exatamente iguais |
 
@@ -130,8 +125,10 @@ SBCs são desafios que exigem entregar cartas específicas em troca de recompens
 | SBC | Descrição | Requisitos | Recompensa | Repetível |
 |-----|-----------|------------|------------|-----------|
 | Desafio Ouro | 5 cartas com overall mínimo 75 | minOverall: 75, count: 5 | Pacote Ouro | Não |
-| Desafio Futsal | 1 GK, 1 Fixo, 2 Alas, 1 Pivo | position: any, count: 5 | 2000 coins | Sim |
-| Desafio de Clube | 3 cartas do mesmo clube | count: 3, sameClub: true | Pacote Prata | Sim |
+| Desafio Futsal | 1 GK, 1 Fixo, 2 Alas, 1 Pivo | position: any, count: 5 | 800 coins | Sim, até 3/dia |
+| Desafio de Clube | 3 cartas do mesmo clube | count: 3, sameClub: true | 600 coins | Sim, até 3/dia |
+
+Cartas ícone, favoritas, em elencos ativos/salvos, listagens, desafios, escrow de apostas ou partidas de sinuca são protegidas pelo servidor e não podem ser entregues.
 
 ### Fluxo de Conclusão
 
@@ -155,6 +152,7 @@ SBCs são desafios que exigem entregar cartas específicas em troca de recompens
 - `src/lib/services/marketplace.ts` - getListings, createListing, cancelListing
 - `src/lib/services/sbc.ts` - recordSBCCompletion
 - `supabase/migrations/20261106010000_secure_rpcs.sql` - delete_owned_cards RPC
+- `supabase/migrations/20261115000000_authoritative_card_economy.sql` - valores e proteções server-side de conversão/SBC
 
 ---
 

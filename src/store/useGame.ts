@@ -17,6 +17,7 @@ import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, toGameListing, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { persistComparePair } from '../lib/services/compare';
 import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, overallFromAttributes } from '../data/players';
+import { DUPLICATE_CONVERSION_REWARD } from '../data/economy';
 
 // --- Elenco ativo: autosave + serialização do sync ---
 let squadSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -26,7 +27,6 @@ let squadSaveChain: Promise<void> = Promise.resolve();
 let syncChain: Promise<void> = Promise.resolve();
 let dailyClaimPending = false;
 let duplicateConversionPending = false;
-export const DUPLICATE_CONVERSION_REWARD = 200;
 const sbcCompletionsPending = new Set<string>();
 const listingsPending = new Set<string>();
 let demoCoinClaimPending = false;
@@ -203,7 +203,7 @@ interface Actions {
   addPlayerXp: (uid: string, amount: number) => void;
   upgradePlayer: (uid: string, attr: UpgradeAttr) => boolean;
   recordMatchStats: (uid: string, goals: number, assists: number) => void;
-  convertDuplicates: () => Promise<number | null>;
+  convertDuplicates: () => Promise<{ count: number; coins: number } | null>;
   recordEvolution: (uid: string, attr: string) => void;
   listCard: (cardUid: string, price: number, hours: number) => Promise<string | null>;
   cancelListing: (id: string) => Promise<boolean>;
@@ -256,8 +256,8 @@ const initialState: GameState = {
   listings: [],
   sbcs: [
     { id: 'sbc1', title: 'Desafio Ouro', description: 'Entregue 5 cartas com overall mínimo 75.', requirements: { minOverall: 75, count: 5 }, reward: { type: 'pack', value: 'gold' }, repeatable: false },
-    { id: 'sbc2', title: 'Desafio Futsal', description: 'Entregue 1 goleiro, 1 fixo, 2 alas e 1 pivô.', requirements: { position: 'any', count: 5 }, reward: { type: 'coins', value: 2000 }, repeatable: true },
-    { id: 'sbc3', title: 'Desafio de Clube', description: 'Entregue 3 cartas do mesmo clube.', requirements: { count: 3, sameClub: true }, reward: { type: 'pack', value: 'silver' }, repeatable: true },
+    { id: 'sbc2', title: 'Desafio Futsal', description: 'Entregue 1 goleiro, 1 fixo, 2 alas e 1 pivô.', requirements: { position: 'any', count: 5 }, reward: { type: 'coins', value: 800 }, repeatable: true },
+    { id: 'sbc3', title: 'Desafio de Clube', description: 'Entregue 3 cartas do mesmo clube.', requirements: { count: 3, sameClub: true }, reward: { type: 'coins', value: 600 }, repeatable: true },
   ],
   priceHistory: [],
   recentTransfers: [],
@@ -1021,9 +1021,22 @@ export const useGame = create<GameState & Actions>()(
             if (sessionError) throw sessionError;
             const uid = sessionData.session?.user?.id;
             if (!uid) throw new Error('Entre na sua conta para converter duplicatas.');
-            const { data: count, error } = await supabase.rpc('convert_duplicates');
+            const { data, error } = await supabase.rpc('convert_duplicates');
             if (error) throw error;
-            const converted = Number(count) || 0;
+            if (
+              typeof data !== 'object'
+              || data === null
+              || !('count' in data)
+              || !('coins' in data)
+              || !Number.isInteger(data.count)
+              || data.count < 0
+              || !Number.isInteger(data.coins)
+              || data.coins < 0
+            ) {
+              throw new Error('O servidor retornou um resultado inválido para a conversão de duplicatas.');
+            }
+            const converted = data.count;
+            const coins = data.coins;
             if (converted > 0) {
               const [remoteCards, profileResult] = await Promise.all([
                 getCards(uid),
@@ -1039,7 +1052,7 @@ export const useGame = create<GameState & Actions>()(
                 await updateCollectorRanking(uid, profileResult.data.name || 'Jogador', allCards.length, squadOverall, rareCount);
               }
             }
-            return converted;
+            return { count: converted, coins };
           }
 
           const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
@@ -1058,7 +1071,9 @@ export const useGame = create<GameState & Actions>()(
           cards.forEach(card => { (byName[card.name] = byName[card.name] || []).push(card); });
           const toRemove: string[] = [];
           Object.values(byName).forEach(group => {
-            const nonIcon = group.filter(card => card.rarity !== 'icon');
+            const nonIcon = group.filter(card =>
+              card.rarity !== 'icon' && DUPLICATE_CONVERSION_REWARD[card.rarity] !== undefined,
+            );
             if (nonIcon.length <= 1) return;
             const score = (card: typeof cards[number]) => [rarityRank[card.rarity] ?? 0, card.overall, totalUpgrades(card as any) + (card.xp ?? 0) / 1000];
             const sorted = [...nonIcon].sort((a, b) => {
@@ -1068,13 +1083,15 @@ export const useGame = create<GameState & Actions>()(
             });
             sorted.slice(1).forEach(card => { if (!card.favorite && !locked.has(card.uid)) toRemove.push(card.uid); });
           });
-          if (toRemove.length === 0) return 0;
+          if (toRemove.length === 0) return { count: 0, coins: 0 };
+          const removedCards = cards.filter(card => toRemove.includes(card.uid));
+          const coins = removedCards.reduce((sum, card) => sum + (DUPLICATE_CONVERSION_REWARD[card.rarity] ?? 0), 0);
           set(st => ({
             cards: st.cards.filter(card => !toRemove.includes(card.uid)),
-            coins: st.coins + toRemove.length * DUPLICATE_CONVERSION_REWARD,
-            transactions: [{ id: nanoid(8), type: 'earn' as const, amount: toRemove.length * DUPLICATE_CONVERSION_REWARD, reason: `Conversão de ${toRemove.length} duplicatas`, at: Date.now() }, ...st.transactions].slice(0, 50),
+            coins: st.coins + coins,
+            transactions: [{ id: nanoid(8), type: 'earn' as const, amount: coins, reason: `Conversão de ${toRemove.length} duplicatas`, at: Date.now() }, ...st.transactions].slice(0, 50),
           }));
-          return toRemove.length;
+          return { count: toRemove.length, coins };
         } catch (error) {
           console.error('[duplicates] conversion failed:', error);
           toast.error(error instanceof Error ? error.message : 'Não foi possível converter as duplicatas.');
@@ -1291,15 +1308,54 @@ export const useGame = create<GameState & Actions>()(
       completeSBC: async (sbcId, cardUids) => {
         if (sbcCompletionsPending.has(sbcId)) return false;
         const sbc = get().sbcs.find(s => s.id === sbcId);
-        if (!sbc || new Set(cardUids).size !== cardUids.length) return false;
+        if (!sbc) {
+          toast.error('SBC não encontrado.');
+          return false;
+        }
+        if (new Set(cardUids).size !== cardUids.length) {
+          toast.error('Selecione cartas diferentes para concluir o SBC.');
+          return false;
+        }
         const cards = get().cards.filter(c => cardUids.includes(c.uid));
-        if (cards.length !== cardUids.length) return false;
+        if (cards.length !== cardUids.length) {
+          toast.error('Uma ou mais cartas selecionadas não estão mais no inventário.');
+          return false;
+        }
+        if (cards.some(card => card.rarity === 'icon' || card.favorite)) {
+          toast.error('Cartas ícone e favoritas não podem ser usadas em SBC.');
+          return false;
+        }
         const stSbc = get();
-        if (cardUids.some(u => stSbc.listings.some(l => l.status === 'active' && l.cardUid === u))) return false;
-        if (Object.values(stSbc.squads).some((sq: any) => sq && ([...(sq.starters ?? []).map((s: any) => s.uid), ...(sq.bench ?? [])]).some((u: string | null) => u && cardUids.includes(u)))) return false;
-        if (cards.length < sbc.requirements.count) return false;
-        if (sbc.requirements.minOverall && cards.some(c => c.overall < sbc.requirements.minOverall!)) return false;
-        if (sbc.requirements.sameClub && new Set(cards.map(c => c.club)).size !== 1) return false;
+        if (cardUids.some(u => stSbc.listings.some(l => l.status === 'active' && l.cardUid === u))) {
+          toast.error('Cancele o anúncio ativo antes de usar a carta no SBC.');
+          return false;
+        }
+        if (Object.values(stSbc.squads).some((sq: any) => sq && ([...(sq.starters ?? []).map((s: any) => s.uid), ...(sq.bench ?? [])]).some((u: string | null) => u && cardUids.includes(u)))
+          || stSbc.savedSquads.some(squad => [...squad.starters, ...squad.bench].some(uid => uid && cardUids.includes(uid)))) {
+          toast.error('Remova as cartas dos elencos ativos e salvos antes de entregá-las.');
+          return false;
+        }
+        if (cards.length !== sbc.requirements.count) {
+          toast.error(`Selecione exatamente ${sbc.requirements.count} cartas para este SBC.`);
+          return false;
+        }
+        if (sbc.requirements.minOverall && cards.some(c => c.overall < sbc.requirements.minOverall!)) {
+          toast.error(`Este SBC exige cartas com overall ${sbc.requirements.minOverall} ou superior.`);
+          return false;
+        }
+        if (sbc.requirements.sameClub && new Set(cards.map(c => c.club)).size !== 1) {
+          toast.error('Todas as cartas deste SBC precisam ser do mesmo clube.');
+          return false;
+        }
+        if (sbcId === 'sbc2' && (
+          cards.filter(card => card.position === 'GK').length !== 1
+          || cards.filter(card => card.position === 'Fixo').length !== 1
+          || cards.filter(card => card.position === 'Ala').length !== 2
+          || cards.filter(card => card.position === 'Pivo').length !== 1
+        )) {
+          toast.error('O SBC Futsal exige 1 goleiro, 1 fixo, 2 alas e 1 pivô.');
+          return false;
+        }
 
         sbcCompletionsPending.add(sbcId);
         try {
@@ -1357,7 +1413,14 @@ export const useGame = create<GameState & Actions>()(
       unlockLegendary: () => set(st => ({ packConfigs: st.packConfigs.map(p => p.id === 'legendary' ? { ...p, unlocked: true } : p) })),
       addEvent: () => {},
     }),
-    { name: 'futsenai-cards-v3' }
+    {
+      name: 'futsenai-cards-v3',
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as Partial<GameState>),
+        sbcs: currentState.sbcs,
+      }),
+    }
   )
 );
 

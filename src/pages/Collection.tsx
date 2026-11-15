@@ -1,7 +1,7 @@
 import { Fragment, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowDown, ArrowLeftRight, ArrowUp, Lock } from 'lucide-react';
-import { useGame, DUPLICATE_CONVERSION_REWARD } from '../store/useGame';
+import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
 import ConfirmModal from '../components/ConfirmModal';
@@ -10,6 +10,7 @@ import { RARITY_META, RARITY_ORDER } from '../types';
 import { allTemplates } from '../data/players';
 import { totalUpgrades } from '../lib/game';
 import { supabase } from '../lib/supabase';
+import { DUPLICATE_CONVERSION_REWARD } from '../data/economy';
 
 const PAGE_SIZE = 24;
 
@@ -34,7 +35,47 @@ export default function Collection() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const [confirmConversion, setConfirmConversion] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [conversionRewards, setConversionRewards] = useState(() => supabase ? null : DUPLICATE_CONVERSION_REWARD);
+  const [conversionRewardsError, setConversionRewardsError] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    void (async () => {
+      try {
+        const { data, error } = await supabase.from('economy_config').select('rarity, duplicate_conversion_coins');
+        if (!active) return;
+        if (error) {
+          console.error('[economy] failed to load duplicate conversion values:', error);
+          setConversionRewardsError(true);
+          return;
+        }
+        const rewards: Partial<Record<Rarity, number>> = {};
+        if (data?.length !== 5) {
+          console.error('[economy] expected five duplicate conversion values from the server');
+          setConversionRewardsError(true);
+          return;
+        }
+        data.forEach(row => {
+          if (row.rarity in DUPLICATE_CONVERSION_REWARD) {
+            rewards[row.rarity as Rarity] = row.duplicate_conversion_coins;
+          }
+        });
+        if (!Object.keys(DUPLICATE_CONVERSION_REWARD).every(rarity => rewards[rarity as Rarity] !== undefined)) {
+          console.error('[economy] duplicate conversion values are incomplete');
+          setConversionRewardsError(true);
+          return;
+        }
+        setConversionRewards(rewards);
+      } catch (error) {
+        if (!active) return;
+        console.error('[economy] failed to load duplicate conversion values:', error);
+        setConversionRewardsError(true);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const deferredQ = useDeferredValue(q);
   const deferredPos = useDeferredValue(pos);
@@ -135,30 +176,23 @@ export default function Collection() {
       group.push(card);
       byName.set(card.name, group);
     }
-    let eligible = 0;
+    let count = 0;
+    let coins = 0;
     byName.forEach(group => {
-      if (supabase) {
-        const sorted = [...group].sort((a, b) =>
-          Number(b.favorite) - Number(a.favorite)
-          || rankOf(b.rarity) - rankOf(a.rarity)
-          || b.overall - a.overall,
-        );
-        eligible += sorted.slice(1).filter(card =>
-          card.rarity !== 'icon' && !card.favorite && !lockedUids.has(card.uid),
-        ).length;
-        return;
-      }
-      const nonIcon = group.filter(card => card.rarity !== 'icon');
-      if (nonIcon.length <= 1) return;
-      const sorted = [...nonIcon].sort((a, b) =>
-        rankOf(b.rarity) - rankOf(a.rarity)
+      const sorted = [...group].sort((a, b) =>
+        Number(b.favorite) - Number(a.favorite)
+        || rankOf(b.rarity) - rankOf(a.rarity)
         || b.overall - a.overall
         || totalUpgrades(b) + (b.xp ?? 0) / 1000 - totalUpgrades(a) - (a.xp ?? 0) / 1000,
       );
-      eligible += sorted.slice(1).filter(card => !card.favorite && !lockedUids.has(card.uid)).length;
+      const eligibleCards = sorted.slice(1).filter(card =>
+        card.rarity !== 'icon' && !card.favorite && !lockedUids.has(card.uid),
+      );
+      count += eligibleCards.length;
+      coins += eligibleCards.reduce((sum, card) => sum + (conversionRewards?.[card.rarity] ?? 0), 0);
     });
-    return eligible;
-  }, [cards, lockedUids]);
+    return { count, coins };
+  }, [cards, lockedUids, conversionRewards]);
 
   const openCard = (card: PlayerCard) => {
     if (card.isNew) markSeen([card.uid]);
@@ -183,12 +217,11 @@ export default function Collection() {
     if (converting) return;
     setConverting(true);
     try {
-      const count = await convertDuplicates();
-      if (count === null) return;
+      const result = await convertDuplicates();
+      if (result === null) return;
       setConfirmConversion(false);
-      if (count > 0) {
-        const coins = count * DUPLICATE_CONVERSION_REWARD;
-        toast.success(`${count} cartas convertidas por ${coins.toLocaleString('pt-BR')} moedas. Cartas usadas em apostas ou partidas foram preservadas.`);
+      if (result.count > 0) {
+        toast.success(`${result.count} cartas convertidas por ${result.coins.toLocaleString('pt-BR')} moedas. Cartas usadas em apostas ou partidas foram preservadas.`);
       } else {
         toast.info('Nenhuma duplicata elegível. Favoritas, cartas em elencos, anúncios, apostas e histórico de partidas são preservados.');
       }
@@ -198,8 +231,12 @@ export default function Collection() {
   };
 
   const selectClass = 'bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]';
-  const conversionMessage = conversionPreview > 0
-    ? `Prévia: até ${conversionPreview} ${conversionPreview === 1 ? 'carta elegível' : 'cartas elegíveis'}, com estimativa de ${(conversionPreview * DUPLICATE_CONVERSION_REWARD).toLocaleString('pt-BR')} moedas. Cartas favoritas, em elencos e anúncios ativos são excluídas. O servidor também preserva cartas ligadas a partidas e apostas; por isso, o total final pode ser menor.`
+  const conversionMessage = conversionRewardsError
+    ? 'Não foi possível carregar os valores atuais. A prévia está indisponível; o servidor continua validando o total pago.'
+    : !conversionRewards
+      ? 'Carregando os valores atuais de conversão do servidor...'
+    : conversionPreview.count > 0
+      ? `Prévia: até ${conversionPreview.count} ${conversionPreview.count === 1 ? 'carta elegível' : 'cartas elegíveis'}, com estimativa de ${conversionPreview.coins.toLocaleString('pt-BR')} moedas. Cartas favoritas, em elencos e anúncios ativos são excluídas. O servidor também preserva cartas ligadas a partidas e apostas; por isso, o total final pode ser menor.`
     : 'Nenhuma duplicata parece elegível no inventário atual. Cartas favoritas, em elencos, anúncios, partidas e apostas são preservadas. O servidor revalida tudo antes de converter.';
 
   return (
