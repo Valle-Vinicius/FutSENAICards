@@ -52,22 +52,24 @@ function renderPack(pack: PackDef, coins: number) {
   return (
     <article
       key={pack.id}
-      className="card-surface aspect-square w-full min-w-0 flex flex-col gap-2 overflow-hidden border-t-4 p-2 transition-shadow hover:shadow-[0_0_18px_var(--pack-glow)] motion-reduce:transition-none"
+      className="card-surface aspect-square w-full min-w-0 flex flex-col justify-between gap-3 overflow-hidden border-t-4 p-3 transition-shadow hover:shadow-[0_0_18px_var(--pack-glow)] motion-reduce:transition-none sm:p-4 xl:gap-2 xl:p-3 2xl:gap-4 2xl:p-5"
       style={style}
     >
-      <header className="flex min-h-0 flex-col items-center text-center">
+      <header className="flex min-h-16 items-center gap-3 xl:min-h-14 xl:gap-2 2xl:min-h-20 2xl:gap-4">
         <div
-          className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl"
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl xl:h-14 xl:w-14 2xl:h-20 2xl:w-20"
           style={{ backgroundColor: `${color}22`, color: iconColor }}
           aria-hidden="true"
         >
-          <PackageOpen className="h-5 w-5" strokeWidth={1.8} />
+          <PackageOpen className="h-8 w-8 xl:h-7 xl:w-7 2xl:h-10 2xl:w-10" strokeWidth={1.8} />
         </div>
-        <h3 className="text-sm font-bold leading-4 tracking-wide text-[#252733]">{pack.name.toLocaleUpperCase('pt-BR')}</h3>
-        <p className="mt-1 min-h-8 text-xs leading-4 text-[#626879]">{pack.description}</p>
+        <div className="min-w-0">
+          <h3 className="text-base font-bold leading-5 tracking-wide text-[#252733] xl:text-sm xl:leading-4 2xl:text-lg 2xl:leading-6">{pack.name.toLocaleUpperCase('pt-BR')}</h3>
+          <p className="mt-1 text-xs leading-4 text-[#626879] 2xl:text-sm 2xl:leading-5">{pack.description}</p>
+        </div>
       </header>
 
-      <div className="flex items-center justify-between gap-1 border-y border-[#E9EAF0] py-1 text-xs">
+      <div className="flex items-center justify-between gap-2 border-y border-[#E9EAF0] py-2 text-xs xl:py-1 2xl:py-2 2xl:text-sm">
         <div className="flex items-center gap-1">
           <span className="text-[#626879]">Cartas</span>
           <span className="font-semibold text-[#252733]">{pack.cards}</span>
@@ -83,12 +85,12 @@ function renderPack(pack: PackDef, coins: number) {
         </div>
       </div>
 
-      <div className="space-y-1">
-        <h4 className="text-xs font-semibold text-[#424858]">Probabilidades</h4>
+      <div className="space-y-2 xl:space-y-1 2xl:space-y-2">
+        <h4 className="text-sm font-semibold text-[#424858] xl:text-xs 2xl:text-base">Probabilidades</h4>
         <div
           role="img"
           aria-label={`Probabilidades: ${ariaProbabilities}`}
-          className="flex h-2 overflow-hidden rounded-full bg-[#E9EAF0]"
+          className="flex h-3 overflow-hidden rounded-full bg-[#E9EAF0] xl:h-2 2xl:h-3"
         >
           {rarityEntries.map(([rarity, chance]) => chance > 0 && (
             <span
@@ -98,7 +100,7 @@ function renderPack(pack: PackDef, coins: number) {
             />
           ))}
         </div>
-        <ul className="grid grid-cols-2 gap-x-2 text-xs leading-4 text-[#424858]">
+        <ul className="grid grid-cols-2 gap-x-3 text-xs leading-4 text-[#424858] 2xl:text-sm 2xl:leading-5">
           {rarityEntries.map(([rarity, chance]) => (
             <li key={rarity} className="flex min-w-0 items-center justify-between gap-1">
               <span className="flex min-w-0 items-center gap-1">
@@ -111,7 +113,7 @@ function renderPack(pack: PackDef, coins: number) {
         </ul>
       </div>
 
-      <div className="mt-auto">
+      <div>
         {!pack.unlocked ? (
           <div className="flex min-h-11 items-center justify-center text-center text-xs text-[#626879]">
             Bloqueado (complete missões)
@@ -121,7 +123,7 @@ function renderPack(pack: PackDef, coins: number) {
             to={`/open/${pack.id}`}
             aria-disabled={!hasBalance}
             tabIndex={hasBalance ? undefined : -1}
-            className={`flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#252733] ${
+            className={`flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#252733] 2xl:min-h-14 2xl:text-base ${
               hasBalance
                 ? 'text-white transition-[filter] hover:brightness-110 motion-reduce:transition-none'
                 : 'pointer-events-none cursor-not-allowed bg-[#D5D8E0] text-[#424858]'
