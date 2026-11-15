@@ -24,6 +24,7 @@ describe('Packs page layout', () => {
       'Eventos',
     ]);
     expect(screen.getAllByRole('article')).toHaveLength(9);
+    expect(screen.getAllByRole('article').every(card => card.classList.contains('aspect-square'))).toBe(true);
     expect(screen.getAllByRole('heading', { level: 3 }).map(heading => heading.textContent)).toEqual(
       DEFAULT_PACKS.map(pack => pack.name.toLocaleUpperCase('pt-BR')),
     );
