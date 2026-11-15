@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { PackageOpen } from 'lucide-react';
 import { useGame } from '../store/useGame';
-import { RARITY_META, RARITY_ORDER, type PackDef } from '../types';
+import { PACK_RARITY_ORDER, RARITY_META, type PackDef } from '../types';
 
 const PACK_SECTIONS = [
   { title: 'Clássicos', ids: ['bronze', 'silver', 'gold', 'premium'] },
@@ -44,7 +44,7 @@ function renderPack(pack: PackDef, coins: number) {
     borderTopColor: color,
     '--pack-glow': `${color}44`,
   } as CSSProperties;
-  const rarityEntries = RARITY_ORDER.map(rarity => [rarity, pack.probabilities[rarity]] as const);
+  const rarityEntries = PACK_RARITY_ORDER.map(rarity => [rarity, pack.probabilities[rarity]] as const);
   const ariaProbabilities = rarityEntries
     .map(([rarity, chance]) => `${RARITY_META[rarity].label} ${(chance * 100).toFixed(1)}%`)
     .join(', ');

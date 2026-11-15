@@ -91,7 +91,7 @@ export default function CardDetail() {
               <div key={label}>
                 <div className="flex justify-between text-xs mb-1 text-[#858A98]"><span>{label}</span><span className={`font-bold ${value >= 100 ? 'rgb-text' : 'text-[#252733]'}`}>{value}</span></div>
                 <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden">
-                  <div className={`h-full ${value >= 100 || card.rarity === 'icon' ? 'rgb-stat' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, value)}%` }} />
+                  <div className={`h-full ${value >= 100 || card.rarity === 'icon' ? 'rgb-stat' : card.rarity === 'secret' ? 'bg-[#222831]' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, value)}%` }} />
                 </div>
               </div>
             ))}
@@ -101,7 +101,7 @@ export default function CardDetail() {
           <div className="font-semibold mb-2 text-[#252733]">Evolução</div>
           <div className="text-xs text-[#858A98] mb-2">XP: {card.xp ?? 0} · Pontos de evolução: {card.evoPoints ?? 0}</div>
           <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden mb-3">
-            <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, ((card.xp ?? 0) % 100))}%` }} />
+            <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : card.rarity === 'secret' ? 'bg-[#222831]' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, ((card.xp ?? 0) % 100))}%` }} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             {upgradable.map(a => (

@@ -22,10 +22,11 @@ const CARD_BACKS: Record<string, string> = {
   epic: cardBackEpic,
   legendary: cardBackLegendary,
   icon: cardBackIcon,
+  secret: cardBackIcon,
 };
 
-const RARITY_RANK: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
-const RARITY_VALUE: Record<Rarity, number> = { common: 100, uncommon: 250, rare: 600, epic: 1500, legendary: 4000, icon: 10000 };
+const RARITY_RANK: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5, secret: 6 };
+const RARITY_VALUE: Record<Rarity, number> = { common: 100, uncommon: 250, rare: 600, epic: 1500, legendary: 4000, icon: 10000, secret: 20000 };
 
 function ParticleBurst({ fire, color, count }: { fire: boolean; color: string; count: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -239,7 +240,7 @@ export default function OpenPack() {
 
   const packColor = pack.color || '#E30613';
   const maxRank = cards.length ? Math.max(...cards.map(c => RARITY_RANK[c.rarity])) : 0;
-  const particleCount = [40, 55, 70, 85, 105, 130][maxRank];
+  const particleCount = [40, 55, 70, 85, 105, 130, 170][maxRank];
   const estimatedValue = cards.reduce((s, c) => s + RARITY_VALUE[c.rarity], 0);
 
   return (

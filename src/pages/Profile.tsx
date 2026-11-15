@@ -22,7 +22,7 @@ export default function Profile() {
   const nextXp = level * 500;
   const pct = Math.min(100, ((xp - lvlXp) / (nextXp - lvlXp)) * 100);
   const rarest = [...cards].sort((a, b) => b.overall - a.overall)[0];
-  const rareCount = cards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
+  const rareCount = cards.filter(c => ['rare','epic','legendary','icon','secret'].includes(c.rarity)).length;
   const wins = matchHistory.filter(m => m.homeScore > m.awayScore).length;
   const missionsDone = missions.filter(m => m.completed).length;
   const achievementsUnlocked = achievements.filter(a => a.unlocked).length;

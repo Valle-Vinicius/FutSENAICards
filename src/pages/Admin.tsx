@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
 import { ChevronDown, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import type { ExtraStat, PlayerCard, Position, Rarity } from '../types';
 import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall, isAutoCalculatedTemplate, allTemplates, loadDbTemplates } from '../data/players';
 import { validateRarityOverall } from '../lib/game';
 import { validateExtraStats } from '../lib/extraStats';
+import SecretCardOddsTable from '../components/SecretCardOddsTable';
 import { useGame } from '../store/useGame';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
@@ -25,6 +26,13 @@ const RARITY_LABELS: Record<string, string> = {
   epic: 'Épica',
   legendary: 'Lendária',
   icon: 'Ícone',
+  secret: 'Secreta',
+};
+
+type SecretCardSupply = {
+  dropChance: number;
+  maxSupply: number;
+  minted: number;
 };
 
 function calcOverallLocal(
@@ -68,6 +76,11 @@ export default function Admin() {
   const [creating, setCreating] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [templates, setTemplates] = useState(() => allTemplates());
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [secretSupply, setSecretSupply] = useState<Record<string, SecretCardSupply>>({});
+  const [secretSupplyLoaded, setSecretSupplyLoaded] = useState(false);
+  const [secretChancePercent, setSecretChancePercent] = useState(0.001);
+  const [secretMaxSupply, setSecretMaxSupply] = useState(10);
   const [extraStats, setExtraStats] = useState<ExtraStat[]>([]);
   const [form, setForm] = useState(() => {
     const initialTeams = [...new Set(allTemplates().map(template => template.club).filter(Boolean))];
@@ -92,7 +105,7 @@ export default function Admin() {
       handling: 0,
       imageUrl: '',
       calcOverall: false,
-      destination: 'inventory' as 'inventory' | 'packs' | 'off_sale',
+      destination: 'inventory' as 'inventory' | 'packs' | 'off_sale' | 'secret',
     };
   });
 
@@ -112,18 +125,50 @@ export default function Admin() {
         const loadedTeams = [...new Set(loadedTemplates.map(template => template.club).filter(Boolean))];
         setTemplates(loadedTemplates);
         setForm(prev => ({ ...prev, club: loadedTeams.includes(prev.club) ? prev.club : randomTeam(loadedTeams) }));
+        setTemplatesLoaded(true);
       }
     });
     return () => { active = false; };
   }, []);
 
+  const refreshSecretSupply = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('secret_card_supply')
+      .select('template_id, drop_chance, max_supply, minted');
+    if (error) throw error;
+    setSecretSupply(Object.fromEntries((data ?? []).map(row => [row.template_id, {
+      dropChance: Number(row.drop_chance),
+      maxSupply: row.max_supply,
+      minted: row.minted,
+    }])));
+    setSecretSupplyLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (userId !== ADMIN_USER_ID || !templatesLoaded) return;
+    let active = true;
+    void (async () => {
+      try {
+        await loadDbTemplates();
+        if (!active) return;
+        setTemplates(allTemplates(true));
+        await refreshSecretSupply();
+      } catch (error) {
+        if (active) toast.error('Erro ao carregar dados das cartas secretas: ' + (error instanceof Error ? error.message : 'desconhecido'));
+      }
+    })();
+    return () => { active = false; };
+  }, [userId, templatesLoaded, refreshSecretSupply]);
+
   const isGK = form.position === 'GK';
   const calcMode = form.calcOverall;
   const isInventory = !editingTemplate && form.destination === 'inventory';
   const isOffSale = form.destination === 'off_sale';
+  const isSecret = form.destination === 'secret';
   const teams = [...new Set(templates.map(template => template.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-  const rarityToUse = calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity;
+  const rarityToUse = isSecret ? 'secret' : calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity;
   const mod = RARITY_MODIFIER[rarityToUse as Rarity] ?? 1.0;
 
   const attrsMod = {
@@ -203,6 +248,15 @@ export default function Admin() {
   };
 
   const startEditingTemplate = (template: ReturnType<typeof allTemplates>[number]) => {
+    const supply = template.packGroup === 'secret' ? secretSupply[template.dbId ?? ''] : undefined;
+    if (template.packGroup === 'secret' && !secretSupplyLoaded) {
+      toast.error('Aguarde o carregamento da configuração secreta.');
+      return;
+    }
+    if (template.packGroup === 'secret' && !supply) {
+      toast.error('Não foi possível carregar o estoque desta carta secreta.');
+      return;
+    }
     const autoCalculateOverall = isAutoCalculatedTemplate(template);
     const calculatedBaseOverall = calcBaseOverallLocal({
       ...template.attributes,
@@ -218,10 +272,10 @@ export default function Admin() {
       club: template.club,
       nationality: template.nationality,
       position: template.position,
-      rarity: autoCalculateOverall ? 'uncommon' : template.baseRarity,
+      rarity: template.packGroup === 'secret' ? 'secret' : autoCalculateOverall ? 'uncommon' : template.baseRarity,
       overall: autoCalculateOverall ? calculatedBaseOverall : template.baseOverall ?? calculateOverall(template),
       baseOverall: autoCalculateOverall ? calculatedBaseOverall : template.baseOverall ?? calculateOverall(template),
-      baseRarity: autoCalculateOverall ? 'uncommon' : template.baseRarity,
+      baseRarity: template.packGroup === 'secret' ? 'secret' : autoCalculateOverall ? 'uncommon' : template.baseRarity,
       pace: template.attributes.pace,
       shooting: template.attributes.shooting,
       passing: template.attributes.passing,
@@ -233,8 +287,12 @@ export default function Admin() {
       handling: template.gkAttributes?.handling ?? 0,
       imageUrl: template.image || '',
       calcOverall: autoCalculateOverall,
-      destination: template.packGroup === 'off_sale' ? 'off_sale' : 'packs',
+      destination: template.packGroup === 'secret' ? 'secret' : template.packGroup === 'off_sale' ? 'off_sale' : 'packs',
     });
+    if (supply) {
+      setSecretChancePercent(supply.dropChance * 100);
+      setSecretMaxSupply(supply.maxSupply);
+    }
     document.getElementById('card-template-form')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   };
 
@@ -247,6 +305,8 @@ export default function Admin() {
       nationality: DEFAULT_NATIONALITY,
       imageUrl: '',
       club: randomTeam(teams),
+      rarity: prev.rarity === 'secret' ? 'uncommon' : prev.rarity,
+      baseRarity: prev.baseRarity === 'secret' ? 'uncommon' : prev.baseRarity,
       destination: 'inventory',
       calcOverall: false,
     }));
@@ -287,6 +347,19 @@ export default function Admin() {
         return;
       }
     }
+    if (isSecret && (
+      !Number.isFinite(secretChancePercent)
+      || secretChancePercent < 0.0001
+      || secretChancePercent > 5
+      || Number(secretChancePercent.toFixed(4)) !== secretChancePercent
+    )) {
+      toast.error('A chance deve estar entre 0,0001% e 5%, com até 4 casas decimais.');
+      return;
+    }
+    if (isSecret && (!Number.isInteger(secretMaxSupply) || secretMaxSupply < 1)) {
+      toast.error('O estoque máximo deve ser um número inteiro de pelo menos 1.');
+      return;
+    }
     setCreating(true);
     try {
       const rarityForVal = isInventory ? rarityToUse : form.baseRarity;
@@ -297,6 +370,46 @@ export default function Admin() {
       }
       if (!validateRarityOverall(rarityForVal as Rarity, ovrForVal)) {
         toast.warning(`Atenção: OVR ${ovrForVal} fora da banda típica para ${RARITY_LABELS[rarityForVal]}.`);
+      }
+
+      if (isSecret) {
+        const templateId = editingTemplate
+          ? templates.find(template => template.name === editingTemplate)?.dbId
+          : null;
+        if (editingTemplate && !templateId) {
+          toast.error('Não foi possível identificar o template secreto que será editado.');
+          return;
+        }
+        const { error } = await supabase.rpc('admin_upsert_secret_card', {
+          p_template_id: templateId,
+          p_name: form.name.trim(),
+          p_position: form.position,
+          p_nationality: form.nationality.trim(),
+          p_age: Number(form.age),
+          p_club: form.club.trim(),
+          p_pace: form.pace,
+          p_shooting: form.shooting,
+          p_passing: form.passing,
+          p_dribbling: form.dribbling,
+          p_defending: form.defending,
+          p_physical: form.physical,
+          p_reflexes: isGK ? form.reflexes : null,
+          p_positioning: isGK ? form.positioning : null,
+          p_handling: isGK ? form.handling : null,
+          p_image: imageUrl || null,
+          p_base_overall: ovrForVal,
+          p_auto_calculate_overall: calcMode,
+          p_drop_chance: secretChancePercent / 100,
+          p_max_supply: secretMaxSupply,
+        });
+        if (error) { toast.error('Erro ao salvar carta secreta: ' + error.message); return; }
+        await loadDbTemplates();
+        setTemplates(allTemplates(true));
+        await refreshSecretSupply();
+        toast.success(editingTemplate ? 'Carta secreta atualizada!' : 'Carta secreta adicionada!');
+        if (editingTemplate) cancelTemplateEdit();
+        else setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams) }));
+        return;
       }
 
       if (editingTemplate) {
@@ -324,7 +437,7 @@ export default function Admin() {
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         await loadDbTemplates();
-        setTemplates(allTemplates());
+        setTemplates(allTemplates(true));
         toast.success('Template atualizado com sucesso!');
         cancelTemplateEdit();
         return;
@@ -420,7 +533,7 @@ export default function Admin() {
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         await loadDbTemplates();
-        setTemplates(allTemplates());
+        setTemplates(allTemplates(true));
         toast.success(isOffSale ? 'Carta adicionada ao Pacote Off-Sale!' : 'Carta adicionada aos pacotes!');
       }
       if (isOffSale) setExtraStats([]);
@@ -522,17 +635,26 @@ export default function Admin() {
               </div>
               <div>
                 <label className={labelCls}>Raridade</label>
-                <div className="relative">
-                  <select value={calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity} onChange={e => {
-                    const val = e.target.value as typeof form.rarity;
-                    if (isInventory) setForm({ ...form, rarity: val });
-                    else setForm({ ...form, baseRarity: val });
-                  }} className={`${inputCls} appearance-none pr-10`} disabled={calcMode}>
-                    {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
-                </div>
-                {calcMode && <div className="text-[10px] text-[#858A98] mt-1">Cálculo automático fixa a raridade em Incomum.</div>}
+                {isSecret ? (
+                  <div className={`${inputCls} flex items-center gap-2 bg-[#111318] font-semibold text-white`}>
+                    <span className="size-3 rounded-full border border-white/60 bg-black" />
+                    Secreta
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <select value={calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity} onChange={e => {
+                        const val = e.target.value as typeof form.rarity;
+                        if (isInventory) setForm({ ...form, rarity: val });
+                        else setForm({ ...form, baseRarity: val });
+                      }} className={`${inputCls} appearance-none pr-10`} disabled={calcMode}>
+                        {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                    </div>
+                    {calcMode && <div className="text-[10px] text-[#858A98] mt-1">Cálculo automático fixa a raridade em Incomum.</div>}
+                  </>
+                )}
               </div>
             </div>
 
@@ -599,13 +721,19 @@ export default function Admin() {
                   <label className={labelCls}>Destino da carta</label>
                   <div className="relative">
                     <select value={form.destination} onChange={e => {
-                      const destination = e.target.value as 'inventory' | 'packs' | 'off_sale';
-                      setForm({ ...form, destination });
+                      const destination = e.target.value as typeof form.destination;
+                      setForm({
+                        ...form,
+                        destination,
+                        rarity: destination === 'secret' ? 'secret' : form.rarity === 'secret' ? 'uncommon' : form.rarity,
+                        baseRarity: destination === 'secret' ? 'secret' : form.baseRarity === 'secret' ? 'uncommon' : form.baseRarity,
+                      });
                       if (destination !== 'off_sale') setExtraStats([]);
-                    }} className={`${inputCls} appearance-none pr-10`}>
+                    }} className={`${inputCls} appearance-none pr-10`} disabled={!!editingTemplate && isSecret}>
                       {!editingTemplate && <option value="inventory">Inventário (admin)</option>}
                       <option value="packs">Pacotes (disponível para todos)</option>
                       <option value="off_sale">Somente Pacote Off-Sale (zoeira)</option>
+                      {(!editingTemplate || isSecret) && <option value="secret">Secreta (chance e estoque globais)</option>}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
                   </div>
@@ -629,16 +757,62 @@ export default function Admin() {
                     setForm(prev => ({
                       ...prev,
                       calcOverall,
-                      ...(calcOverall ? { rarity: 'uncommon', baseRarity: 'uncommon' } : {}),
+                      ...(calcOverall && !isSecret ? { rarity: 'uncommon', baseRarity: 'uncommon' } : {}),
                     }));
                   }}
                   className="size-4 accent-[#E30613]"
                 />
                 <span>
                   <span className="block text-sm font-medium text-[#252733]">Calcular OVR automaticamente</span>
-                  <span className="block text-xs text-[#858A98]">{isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</span>
+                  <span className="block text-xs text-[#858A98]">{isSecret ? 'A carta secreta usa multiplicador de atributos 1× e não recebe bônus de raridade.' : isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</span>
                 </span>
               </label>
+              {isSecret && (
+                <div className="space-y-4 rounded-xl border border-[#343943] bg-[#101217] p-4 text-white">
+                  <div>
+                    <div className="text-sm font-bold">Chance global e estoque máximo</div>
+                    <p className="mt-1 text-xs text-white/70">A chance é aplicada por carta aberta. O servidor controla a emissão e não ultrapassa o estoque total.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-white/80">Chance por carta (%)</label>
+                      <input
+                        type="number"
+                        min="0.0001"
+                        max="5"
+                        step="0.0001"
+                        value={secretChancePercent}
+                        onChange={e => setSecretChancePercent(Number(e.target.value))}
+                        className={`${inputCls} border-[#4B515D] bg-[#1B1E25] text-white`}
+                        aria-describedby="secret-chance-help"
+                      />
+                      <div id="secret-chance-help" className="mt-1 text-xs text-white/60">Entre 0,0001% e 5%, até 4 casas decimais.</div>
+                      {secretChancePercent > 0.01 && <div className="mt-1 text-xs font-medium text-amber-300">Chance alta: revise o impacto no estoque antes de salvar.</div>}
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-white/80">Estoque máximo global</label>
+                      <input
+                        type="number"
+                        min={secretSupply[templates.find(template => template.name === editingTemplate)?.dbId ?? '']?.minted ?? 1}
+                        step="1"
+                        value={secretMaxSupply}
+                        onChange={e => setSecretMaxSupply(Number(e.target.value))}
+                        className={`${inputCls} border-[#4B515D] bg-[#1B1E25] text-white`}
+                        aria-describedby="secret-supply-help"
+                      />
+                      <div id="secret-supply-help" className="mt-1 text-xs text-white/60">
+                        {editingTemplate
+                          ? `Já emitidas: ${secretSupply[templates.find(template => template.name === editingTemplate)?.dbId ?? '']?.minted ?? '—'}. O limite não pode ser reduzido abaixo desse total.`
+                          : 'Quantidade total que poderá ser emitida para todos os jogadores.'}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-sm font-semibold">Chance e custo estimado por pacote</h3>
+                    <SecretCardOddsTable chancePercent={secretChancePercent} position={form.position as Position} />
+                  </div>
+                </div>
+              )}
               {isOffSale && (
                 <div className="rounded-xl border border-[#E9EAF0] bg-[#FAFAFB] p-3.5 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -694,7 +868,7 @@ export default function Admin() {
               disabled={creating || !form.name.trim() || !form.club.trim() || (!editingTemplate && teams.length === 0)}
               className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
             >
-              {creating ? 'Salvando...' : editingTemplate ? 'Salvar alterações' : isInventory ? 'Criar no Inventário' : isOffSale ? 'Adicionar somente ao Pacote Off-Sale' : 'Adicionar aos Pacotes'}
+              {creating ? 'Salvando...' : editingTemplate ? 'Salvar alterações' : isSecret ? 'Adicionar Carta Secreta' : isInventory ? 'Criar no Inventário' : isOffSale ? 'Adicionar somente ao Pacote Off-Sale' : 'Adicionar aos Pacotes'}
             </button>
           </div>
 
@@ -711,7 +885,9 @@ export default function Admin() {
           <h2 className="text-lg font-semibold text-[#252733]">Editar templates das cartas</h2>
           <div className="text-xs text-[#858A98]">Os atributos e o overall base dos templates são sincronizados no banco e refletidos nos pacotes.</div>
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
-            {allTemplates().map(t => (
+            {templates.map(t => {
+              const supply = t.dbId ? secretSupply[t.dbId] : undefined;
+              return (
               <div key={t.name} className="p-3 bg-[#F7F7F9] rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -719,17 +895,31 @@ export default function Admin() {
                     <div className="text-xs text-[#858A98]">
                       {t.position} · {t.club} · OVR {t.baseOverall ?? calculateOverall(t)}
                       {t.packGroup === 'off_sale' && <span className="ml-2 font-semibold text-[#E30613]">Off-Sale</span>}
+                      {t.packGroup === 'secret' && <span className="ml-2 rounded-full bg-[#111318] px-2 py-0.5 font-semibold text-white">Secreta</span>}
+                      {t.packGroup === 'secret' && supply && <span className="ml-2">Emitidas {supply.minted}/{supply.maxSupply}</span>}
                     </div>
                   </div>
                   <button
                     onClick={() => editingTemplate === t.name ? cancelTemplateEdit() : startEditingTemplate(t)}
-                    className="px-3 py-1.5 rounded-xl bg-[#E9EAF0] text-[#252733] text-xs font-bold hover:bg-[#E30613] hover:text-white transition"
+                    disabled={t.packGroup === 'secret' && !secretSupplyLoaded}
+                    className="px-3 py-1.5 rounded-xl bg-[#E9EAF0] text-[#252733] text-xs font-bold hover:bg-[#E30613] hover:text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {editingTemplate === t.name ? 'Cancelar' : 'Editar'}
                   </button>
                 </div>
+                {t.packGroup === 'secret' && (
+                  <details className="rounded-lg border border-[#E2E4EA] bg-white p-3">
+                    <summary className="cursor-pointer text-xs font-semibold text-[#252733]">
+                      {supply
+                        ? `Chance ${(supply.dropChance * 100).toLocaleString('pt-BR', { maximumFractionDigits: 4 })}% por carta · ver odds por pacote`
+                        : 'Configuração de chance e estoque não carregada'}
+                    </summary>
+                    {supply && <div className="mt-3"><SecretCardOddsTable chancePercent={supply.dropChance * 100} position={t.position} /></div>}
+                  </details>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

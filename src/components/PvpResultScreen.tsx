@@ -147,17 +147,21 @@ function PvpPlayerCard({
     : [];
   const cardBorder = rarity === 'icon'
     ? '4px solid #ff0040'
+    : rarity === 'secret'
+      ? '3px solid #7B8492'
     : `2px solid ${rarityMeta?.color ?? '#E9EAF0'}`;
   const cardGlow = accent === 'gold'
     ? '0 0 24px rgba(245,197,66,0.18)'
-    : '0 2px 12px rgba(37,39,51,0.06)';
+    : rarity === 'secret'
+      ? '0 0 0 1px rgba(255,255,255,0.12) inset, 0 0 28px rgba(8,9,13,0.7)'
+      : '0 2px 12px rgba(37,39,51,0.06)';
 
   return (
     <motion.article
       initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: reduceMotion ? 0 : 0.4 }}
-      className={`relative w-full overflow-hidden rounded-2xl bg-white ${rarity === 'icon' ? 'rgb-card' : ''} ${compact ? 'max-w-[155px]' : 'max-w-[230px]'}`}
+      className={`relative w-full overflow-hidden rounded-2xl ${rarity === 'secret' ? 'bg-[#08090D]' : 'bg-white'} ${rarity === 'icon' ? 'rgb-card' : ''} ${compact ? 'max-w-[155px]' : 'max-w-[230px]'}`}
       style={{ border: cardBorder, boxShadow: cardGlow }}
       aria-label={`Carta de ${displayName}${rating === undefined ? '' : `, nota ${rating.toFixed(1)}`}`}
     >
@@ -177,10 +181,10 @@ function PvpPlayerCard({
             </span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+        <div className={`absolute inset-0 ${rarity === 'secret' ? 'bg-gradient-to-t from-[#050609]/95 via-[#08090D]/50 to-black/20' : 'bg-gradient-to-t from-black via-black/35 to-transparent'}`} />
         <div className="absolute left-3 top-3 flex max-w-[70%] flex-col gap-1">
           {rarityMeta ? (
-            <span className={`w-fit max-w-full truncate rounded-full px-2 py-0.5 text-[9px] font-bold uppercase text-white ${rarity === 'icon' ? 'rgb-stat' : ''}`} style={{ backgroundColor: rarity === 'icon' ? undefined : rarityMeta.color }}>
+            <span className={`w-fit max-w-full truncate rounded-full px-2 py-0.5 text-[9px] font-bold uppercase text-white ${rarity === 'icon' ? 'rgb-stat' : ''} ${rarity === 'secret' ? 'border border-[#BFC5CE]' : ''}`} style={{ backgroundColor: rarity === 'icon' ? undefined : rarityMeta.color }}>
               {rarityMeta.label}
             </span>
           ) : (
@@ -196,7 +200,7 @@ function PvpPlayerCard({
         </div>
         <div
           className={`absolute right-3 top-3 z-10 text-3xl font-black leading-none ${rarity === 'icon' ? 'rgb-text' : ''}`}
-          style={{ color: rarity === 'icon' ? undefined : rarityMeta?.color ?? '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.6)' }}
+          style={{ color: rarity === 'icon' ? undefined : rarity === 'secret' ? '#F3F4F6' : rarityMeta?.color ?? '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.6)' }}
         >
           {snapshotCard ? snapshotCard.overall : overall ?? '—'}
         </div>
@@ -213,7 +217,7 @@ function PvpPlayerCard({
           {attributes.length > 0 && (
             <div className="mt-2 grid grid-cols-6 gap-1">
               {attributes.map(([label, value]) => (
-                <div key={label} className="rounded bg-black/55 px-0.5 py-1 text-center">
+                <div key={label} className={`rounded px-0.5 py-1 text-center ${rarity === 'secret' ? 'border border-white/25 bg-[#090B10]/80' : 'bg-black/55'}`}>
                   <div className="text-[7px] text-white/55">{label}</div>
                   <div className="text-[9px] font-bold text-white">{value}</div>
                 </div>

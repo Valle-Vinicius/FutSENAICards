@@ -20,7 +20,7 @@ export default function SBC() {
   const chosen = activeSbc ? selected[activeSbc.id] || [] : [];
   const filteredCards = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    const eligibleCards = cards.filter(card => card.rarity !== 'icon' && !card.favorite);
+    const eligibleCards = cards.filter(card => card.rarity !== 'icon' && card.rarity !== 'secret' && !card.favorite);
     if (!query) return eligibleCards;
     return eligibleCards.filter(card =>
       card.name.toLocaleLowerCase().includes(query)
@@ -117,7 +117,7 @@ export default function SBC() {
                   aria-label="Buscar cartas"
                   className="min-w-0 flex-1 bg-transparent text-sm text-[#252733] outline-none placeholder:text-[#858A98]"
                 />
-                <span className="shrink-0 text-xs">{filteredCards.length} cartas · ícones e favoritas não podem ser entregues</span>
+                <span className="shrink-0 text-xs">{filteredCards.length} cartas · ícones, secretas e favoritas não podem ser entregues</span>
               </label>
 
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">

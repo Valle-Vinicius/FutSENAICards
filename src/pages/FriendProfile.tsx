@@ -216,7 +216,7 @@ export default function FriendProfile() {
   const wins = matches.filter(m => m.home_score > m.away_score).length;
   const losses = matches.filter(m => m.home_score < m.away_score).length;
   const winRate = matches.length ? Math.round((wins / matches.length) * 100) : 0;
-  const rareCount = cards.filter(c => ['rare', 'epic', 'legendary', 'icon'].includes(c.rarity)).length;
+  const rareCount = cards.filter(c => ['rare', 'epic', 'legendary', 'icon', 'secret'].includes(c.rarity)).length;
   const specialCount = cards.filter(c => c.special && c.special !== 'none').length;
   const rarest = [...cards].sort((a, b) => b.overall - a.overall)[0];
 

@@ -40,7 +40,7 @@ function CardName({ card, showRarity }: { card: PlayerCard; showRarity: boolean 
   return (
     <span
       className={`${showRarity ? 'font-semibold' : ''} ${showRarity && card.rarity === 'icon' ? 'rgb-text' : ''}`}
-      style={hasColor ? { color: rarity.color } : undefined}
+      style={hasColor ? { color: card.rarity === 'secret' ? '#30343D' : rarity.color } : undefined}
     >
       {card.name}{showRarity ? ` (${rarity.label})` : ''}
     </span>

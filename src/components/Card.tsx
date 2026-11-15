@@ -8,6 +8,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
   const meta = RARITY_META[card.rarity] ?? RARITY_META.common;
   const img = card.image || getPlayerImage(card.name);
   const isGK = card.position === 'GK';
+  const isSecret = card.rarity === 'secret';
   const compact = size === 'sm' || size === 'fluid';
   const dims = size === 'fluid' ? 'w-full aspect-[7/10]' : size === 'sm' ? 'w-36 h-52' : size === 'lg' ? 'w-60 h-84' : 'w-48 h-64';
   const attrFont = 'text-[11px]';
@@ -26,8 +27,13 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       aria-label={`${card.name}, overall ${card.overall}, ${card.position}`}
-      className={`${dims} relative cursor-pointer select-none rounded-2xl overflow-hidden max-w-full ${card.rarity === 'icon' ? 'rgb-card' : ''}`}
-      style={{ border: card.rarity === 'icon' ? '4px solid #ff0040' : `2px solid ${meta.color}`, boxShadow: `0 8px 24px rgba(37,39,51,0.15)` }}
+      className={`${dims} relative cursor-pointer select-none rounded-2xl overflow-hidden max-w-full ${card.rarity === 'icon' ? 'rgb-card' : ''} ${isSecret ? 'bg-[#08090D]' : ''}`}
+      style={{
+        border: card.rarity === 'icon' ? '4px solid #ff0040' : isSecret ? '3px solid #7B8492' : `2px solid ${meta.color}`,
+        boxShadow: isSecret
+          ? '0 0 0 1px rgba(255,255,255,0.12) inset, 0 0 28px rgba(8,9,13,0.7)'
+          : '0 8px 24px rgba(37,39,51,0.15)',
+      }}
     >
       {isNew && <span className={`absolute ${compact ? 'top-10' : 'top-16'} right-2 z-20 bg-[#E30613] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow`}>NOVA</span>}
 
@@ -37,17 +43,22 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
         <div className="absolute inset-0 bg-gradient-to-b from-[#F7F7F9] to-[#E9EAF0] flex items-center justify-center opacity-20"><Circle className="w-12 h-12" /></div>
       )}
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
+      <div className={`absolute inset-0 ${isSecret ? 'bg-gradient-to-t from-[#050609]/95 via-[#08090D]/50 to-black/20' : 'bg-gradient-to-t from-black/80 via-black/35 to-transparent'}`} />
 
       <div className="absolute top-2 left-2 flex flex-col items-start gap-1 z-10 max-w-[60%]">
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full truncate max-w-full ${card.rarity === 'icon' ? 'rgb-stat' : ''}`} style={{ background: card.rarity === 'icon' ? undefined : meta.color, color: '#fff' }}>{meta.label}</span>
+        <span
+          className={`text-[10px] font-bold px-2 py-0.5 rounded-full truncate max-w-full ${card.rarity === 'icon' ? 'rgb-stat' : ''} ${isSecret ? 'border border-[#BFC5CE] shadow-[0_0_10px_rgba(255,255,255,0.2)]' : ''}`}
+          style={{ background: card.rarity === 'icon' ? undefined : meta.color, color: '#fff' }}
+        >
+          {meta.label}
+        </span>
         {card.special && card.special !== 'none' && (
           <span className="text-[8px] font-bold px-1.5 py-0.5 rounded line-clamp-2 max-w-full leading-tight" style={{ background: SPECIAL_META[card.special]?.color ?? '', color: '#fff' }}>
             {SPECIAL_META[card.special]?.label ?? ''}
           </span>
         )}
       </div>
-      <div className={`absolute top-2 right-2 z-10 text-2xl font-bold leading-none ${card.rarity === 'icon' ? 'rgb-text' : ''}`} style={{ color: card.rarity === 'icon' ? undefined : meta.color, textShadow: '0 2px 4px rgba(0,0,0,0.6)' }}>
+      <div className={`absolute top-2 right-2 z-10 text-2xl font-bold leading-none ${card.rarity === 'icon' ? 'rgb-text' : ''}`} style={{ color: card.rarity === 'icon' ? undefined : isSecret ? '#F3F4F6' : meta.color, textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
         {card.overall}
       </div>
 
@@ -62,7 +73,7 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
         <div className={`${nameFont} font-bold text-white leading-tight line-clamp-2 mt-0.5`}>{card.name}</div>
         <div className={`grid ${compact ? 'grid-cols-3' : 'grid-cols-6'} gap-1 mt-1.5 ${attrFont}`}>
           {visibleAttrs.map(a => (
-            <div key={a.l} className={`flex flex-col items-center rounded py-0.5 px-0.5 ${card.rarity === 'icon' ? 'rgb-stat' : 'bg-black/50'}`}>
+            <div key={a.l} className={`flex flex-col items-center rounded py-0.5 px-0.5 ${card.rarity === 'icon' ? 'rgb-stat' : isSecret ? 'border border-white/25 bg-[#090B10]/80' : 'bg-black/50'}`}>
               <span className="text-white/70 leading-none">{a.l}</span>
               <span className="font-bold text-white leading-none mt-0.5">{a.v}</span>
             </div>

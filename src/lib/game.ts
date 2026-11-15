@@ -1,4 +1,4 @@
-import type { Rarity, PackDef, Mission, Achievement } from '../types';
+import type { Rarity, PackDef, PackRarity, Mission, Achievement } from '../types';
 import { RARITY_META } from '../types';
 
 export const DEFAULT_PACKS: PackDef[] = [
@@ -105,11 +105,11 @@ export const DEFAULT_PACKS: PackDef[] = [
   },
 ];
 
-export function rollRarity(prob: Record<Rarity, number>): Rarity {
+export function rollRarity(prob: Record<PackRarity, number>): PackRarity {
   const r = Math.random();
   let acc = 0;
   // build cumulative from highest to lowest? We'll do standard
-  const entries = Object.entries(prob) as [Rarity, number][];
+  const entries = Object.entries(prob) as [PackRarity, number][];
   for (const [rar, p] of entries) {
     acc += p;
     if (r < acc) return rar;

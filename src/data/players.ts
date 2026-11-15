@@ -31,7 +31,8 @@ export interface PlayerTemplate {
   baseOverall?: number;
   autoCalculateOverall?: boolean;
   special?: 'none'|'totw'|'potm'|'revelation'|'legend'|'futsal';
-  packGroup?: 'standard' | 'off_sale';
+  packGroup?: 'standard' | 'off_sale' | 'secret';
+  dbId?: string;
   extraStats?: ExtraStat[];
 }
 
@@ -42,6 +43,7 @@ export const RARITY_MODIFIER: Record<Rarity, number> = {
   epic: 1.10,
   legendary: 1.15,
   icon: 1.20,
+  secret: 1.0,
 };
 
 export const RARITY_OVR_BONUS: Record<Rarity, number> = {
@@ -51,6 +53,7 @@ export const RARITY_OVR_BONUS: Record<Rarity, number> = {
   epic: 4,
   legendary: 6,
   icon: 8,
+  secret: 0,
 };
 
 export const SPECIAL_OVR_BONUS: Record<string, number> = {
@@ -116,7 +119,7 @@ export function applyTemplateToCard<T extends PlayerCard>(c: T, t: PlayerTemplat
   const mod = RARITY_MODIFIER[c.rarity] ?? 1.0;
   const a = t.attributes;
   const gk = t.gkAttributes;
-  const overall = Math.min(99, (t.baseOverall ?? c.overall) + (RARITY_OVR_BONUS[c.rarity] ?? 0) + (SPECIAL_OVR_BONUS[c.special] ?? 0));
+  const overall = Math.min(99, (t.baseOverall ?? c.overall) + (RARITY_OVR_BONUS[c.rarity] ?? 0) + (c.rarity === 'secret' ? 0 : (SPECIAL_OVR_BONUS[c.special] ?? 0)));
   return {
     ...c,
     position: t.position,
@@ -153,7 +156,9 @@ export function generatePlayerCard(t: PlayerTemplate, rarity: Rarity, special: '
     handling: applyModifier(t.gkAttributes.handling, mod),
   } : undefined;
 
-  const effectiveSpecial = t.special && t.special !== 'none' ? t.special as any : special;
+  const effectiveSpecial = rarity === 'secret'
+    ? 'none'
+    : t.special && t.special !== 'none' ? t.special as any : special;
 
   const overall = Math.min(99, (baseOverall ?? t.baseOverall ?? calculateOverall(t)) + (RARITY_OVR_BONUS[rarity] ?? 0) + (SPECIAL_OVR_BONUS[effectiveSpecial] ?? 0));
 
@@ -221,23 +226,25 @@ export async function loadDbTemplates() {
     gkAttributes: t.gk_attributes || undefined,
     image: t.image || '',
     baseRarity: (t.base_rarity as Rarity) || 'uncommon',
+    dbId: t.id,
     baseOverall: t.base_overall ?? undefined,
     autoCalculateOverall: t.auto_calculate_overall ?? undefined,
     special: t.special || 'none',
-    packGroup: t.pack_group === 'off_sale' ? 'off_sale' : 'standard',
+    packGroup: t.pack_group === 'secret' ? 'secret' : t.pack_group === 'off_sale' ? 'off_sale' : 'standard',
     extraStats: Array.isArray(t.extra_stats) ? t.extra_stats as ExtraStat[] : [],
   }));
   setDbTemplates(templates);
   console.log('[loadDbTemplates] carregados', templates.length, 'templates:', templates.map(t => t.name));
 }
 
-export function allTemplates(): PlayerTemplate[] {
-  const dbMap = new Map<string, PlayerTemplate>(dbTemplates.map(t => [t.name, t]));
+export function allTemplates(includeSecret = false): PlayerTemplate[] {
+  const visibleTemplates = includeSecret ? dbTemplates : dbTemplates.filter(template => template.packGroup !== 'secret');
+  const dbMap = new Map<string, PlayerTemplate>(visibleTemplates.map(t => [t.name, t]));
   const merged = TEMPLATES.map(t => {
     const dbTemplate = dbMap.get(t.name);
     return dbTemplate ? { ...t, ...dbTemplate, image: dbTemplate.image || t.image } : t;
   });
-  for (const t of dbTemplates) {
+  for (const t of visibleTemplates) {
     if (!TEMPLATES.some(x => x.name === t.name)) {
       merged.push(t);
     }
@@ -251,7 +258,7 @@ export function getPlayerImage(name: string): string | undefined {
 }
 
 export function randomTemplate(positionFilter?: Position): PlayerTemplate {
-  const standardTemplates = allTemplates().filter(t => t.packGroup !== 'off_sale');
+  const standardTemplates = allTemplates().filter(t => t.packGroup !== 'off_sale' && t.packGroup !== 'secret');
   const pool = positionFilter ? standardTemplates.filter(t => t.position === positionFilter) : standardTemplates;
   if (pool.length === 0) return TEMPLATES[0];
   return pool[Math.floor(Math.random() * pool.length)];

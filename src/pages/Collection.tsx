@@ -186,7 +186,7 @@ export default function Collection() {
         || totalUpgrades(b) + (b.xp ?? 0) / 1000 - totalUpgrades(a) - (a.xp ?? 0) / 1000,
       );
       const eligibleCards = sorted.slice(1).filter(card =>
-        card.rarity !== 'icon' && !card.favorite && !lockedUids.has(card.uid),
+        card.rarity !== 'icon' && card.rarity !== 'secret' && !card.favorite && !lockedUids.has(card.uid),
       );
       count += eligibleCards.length;
       coins += eligibleCards.reduce((sum, card) => sum + (conversionRewards?.[card.rarity] ?? 0), 0);

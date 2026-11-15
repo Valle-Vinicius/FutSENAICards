@@ -523,7 +523,7 @@ export const useGame = create<GameState & Actions>()(
         }));
         const allCards = get().cards;
         const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
-        const rareCount = allCards.filter(c => ['rare','epic','legendary','icon'].includes(c.rarity)).length;
+        const rareCount = allCards.filter(c => ['rare','epic','legendary','icon','secret'].includes(c.rarity)).length;
         const { data: prof } = await supabase!.from('profiles').select('name').eq('id', uid).single();
         await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
         get().addXp(cards.length * 10);
@@ -537,7 +537,7 @@ export const useGame = create<GameState & Actions>()(
           const a = st2.achievements.find(x => x.id === 'a2');
           if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a2' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
         }
-        if (cards.some(c => c.rarity === 'legendary' || c.rarity === 'icon')) {
+        if (cards.some(c => c.rarity === 'legendary' || c.rarity === 'icon' || c.rarity === 'secret')) {
           const a = get().achievements.find(x => x.id === 'a5');
           if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a5' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
         }
@@ -634,8 +634,8 @@ export const useGame = create<GameState & Actions>()(
             if (m.type === 'collect') progress = st.cards.length;
             if (m.type === 'rarity') {
               const has = st.cards.some(c => {
-                if (m.id === 'm4') return ['epic','legendary','icon'].includes(c.rarity);
-                if (m.id === 'm8') return c.rarity === 'legendary' || c.rarity === 'icon';
+                if (m.id === 'm4') return ['epic','legendary','icon','secret'].includes(c.rarity);
+                if (m.id === 'm8') return c.rarity === 'legendary' || c.rarity === 'icon' || c.rarity === 'secret';
                 return false;
               });
               progress = has ? 1 : 0;
@@ -1047,7 +1047,7 @@ export const useGame = create<GameState & Actions>()(
               else if (profileResult.data) set({ coins: profileResult.data.coins });
               const allCards = remoteCards ?? get().cards;
               const squadOverall = Math.round(allCards.reduce((sum, card) => sum + card.overall, 0) / Math.max(1, allCards.length));
-              const rareCount = allCards.filter(card => ['rare', 'epic', 'legendary', 'icon'].includes(card.rarity)).length;
+              const rareCount = allCards.filter(card => ['rare', 'epic', 'legendary', 'icon', 'secret'].includes(card.rarity)).length;
               if (profileResult.data) {
                 await updateCollectorRanking(uid, profileResult.data.name || 'Jogador', allCards.length, squadOverall, rareCount);
               }
@@ -1055,7 +1055,7 @@ export const useGame = create<GameState & Actions>()(
             return { count: converted, coins };
           }
 
-          const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5 };
+          const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5, secret: 6 };
           const st0 = get();
           const cards = st0.cards;
           const locked = new Set<string>();
@@ -1072,7 +1072,7 @@ export const useGame = create<GameState & Actions>()(
           const toRemove: string[] = [];
           Object.values(byName).forEach(group => {
             const nonIcon = group.filter(card =>
-              card.rarity !== 'icon' && DUPLICATE_CONVERSION_REWARD[card.rarity] !== undefined,
+              card.rarity !== 'icon' && card.rarity !== 'secret' && DUPLICATE_CONVERSION_REWARD[card.rarity] !== undefined,
             );
             if (nonIcon.length <= 1) return;
             const score = (card: typeof cards[number]) => [rarityRank[card.rarity] ?? 0, card.overall, totalUpgrades(card as any) + (card.xp ?? 0) / 1000];
@@ -1321,8 +1321,8 @@ export const useGame = create<GameState & Actions>()(
           toast.error('Uma ou mais cartas selecionadas não estão mais no inventário.');
           return false;
         }
-        if (cards.some(card => card.rarity === 'icon' || card.favorite)) {
-          toast.error('Cartas ícone e favoritas não podem ser usadas em SBC.');
+        if (cards.some(card => card.rarity === 'icon' || card.rarity === 'secret' || card.favorite)) {
+          toast.error('Cartas ícone, secretas e favoritas não podem ser usadas em SBC.');
           return false;
         }
         const stSbc = get();

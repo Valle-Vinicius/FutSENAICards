@@ -2,7 +2,8 @@ export type Position = 'GK' | 'Fixo' | 'Ala' | 'Pivo';
 
 export type Sport = 'futsal';
 
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'icon';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'icon' | 'secret';
+export type PackRarity = Exclude<Rarity, 'secret'>;
 
 export const RARITY_META: Record<Rarity, { label: string; color: string; glow: string; minOvr: number; maxOvr: number }> = {
   common: { label: 'Comum', color: '#9ca3af', glow: 'rgba(255,255,255,0.4)', minOvr: 50, maxOvr: 69 },
@@ -11,9 +12,11 @@ export const RARITY_META: Record<Rarity, { label: string; color: string; glow: s
   epic: { label: 'Épica', color: '#a855f7', glow: 'rgba(168,85,247,0.6)', minOvr: 80, maxOvr: 87 },
   legendary: { label: 'Lendária', color: '#f5c542', glow: 'rgba(245,197,66,0.7)', minOvr: 88, maxOvr: 94 },
   icon: { label: 'Ícone', color: '#fbbf24', glow: 'rgba(251,191,36,0.8)', minOvr: 95, maxOvr: 99 },
+  secret: { label: 'Secreta', color: '#111318', glow: 'rgba(17,19,24,0.8)', minOvr: 0, maxOvr: 99 },
 };
 
-export const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'];
+export const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon', 'secret'];
+export const PACK_RARITY_ORDER: PackRarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'];
 
 export type SpecialEdition = 'none' | 'totw' | 'potm' | 'revelation' | 'legend' | 'futsal';
 
@@ -78,7 +81,7 @@ export interface PackDef {
   name: string;
   price: number;
   cards: number;
-  probabilities: Record<Rarity, number>;
+  probabilities: Record<PackRarity, number>;
   legendaryOnly?: boolean;
   unlocked: boolean;
   color: string;

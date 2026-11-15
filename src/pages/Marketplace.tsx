@@ -163,7 +163,7 @@ export default function Marketplace() {
             </select>
             <select value={rar} onChange={e => setRar(e.target.value)} className={sel}>
               <option value="">Raridade</option>
-              {['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon'].map(r => <option key={r} value={r}>{r}</option>)}
+              {['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon', 'secret'].map(r => <option key={r} value={r}>{r === 'secret' ? 'Secreta' : r}</option>)}
             </select>
             <input value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="Preço min" className="w-24 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
             <input value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="Preço max" className="w-24 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
