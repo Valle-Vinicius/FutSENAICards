@@ -167,7 +167,7 @@ begin
     raise exception 'Not authorized';
   end if;
   if p_drop_chance is null or p_drop_chance not between 0.000001 and 0.05 then
-    raise exception 'Chance must be between 0.0001% and 5% per card';
+    raise exception 'Chance must be between 0.0001%% and 5%% per card';
   end if;
   if p_max_supply is null or p_max_supply < 1 then
     raise exception 'Maximum supply must be at least 1';
