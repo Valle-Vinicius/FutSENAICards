@@ -119,17 +119,17 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
   return (
     <section
       key={tactic}
-      className={`match-tactic-preview card-surface mx-auto grid min-h-0 w-full max-w-3xl grid-cols-1 items-center content-center gap-4 p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] md:gap-8 md:p-6 ${reduceMotion ? '' : 'tactic-preview-fade'}`}
+      className={`match-tactic-preview card-surface mx-auto grid min-h-0 w-full grid-cols-1 items-center content-center gap-4 p-4 md:grid-cols-[minmax(0,2fr)_minmax(0,0.8fr)] md:gap-8 md:p-6 ${reduceMotion ? '' : 'tactic-preview-fade'}`}
       aria-label={`Prévia da tática ${copy.title}`}
     >
-      <div className="match-tactic-court flex h-[min(70dvh,640px)] min-h-0 flex-col items-center justify-center md:h-full">
+      <div className="match-tactic-court flex h-[min(80dvh,800px)] min-h-0 flex-col items-center justify-center md:h-full">
         <span className="mb-2 shrink-0 rounded-full bg-[#FFF0F2] px-3 py-1 text-[11px] font-medium text-[#E30613]">
           {PHASE_LABELS[phase]}
         </span>
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <svg
             viewBox="0 0 50 100"
-            className="mx-auto block h-full w-auto max-h-[640px] max-w-full"
+            className="mx-auto block h-full w-auto max-h-[800px] max-w-full"
             role="img"
             aria-label={copy.ariaLabel}
           >
