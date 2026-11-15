@@ -40,6 +40,15 @@ export const TABLE_WIDTH = 2.0;
 export const TABLE_HEIGHT = 1.0;
 export const BALL_RADIUS = 0.025;
 export const POCKET_RADIUS = 0.045;
+export const CORNER_POCKET_RADIUS = 0.065;
+export const POCKETS: { x: number; y: number; radius: number }[] = [
+  { x: 0, y: 0, radius: CORNER_POCKET_RADIUS },
+  { x: TABLE_WIDTH / 2, y: 0, radius: POCKET_RADIUS },
+  { x: TABLE_WIDTH, y: 0, radius: CORNER_POCKET_RADIUS },
+  { x: 0, y: TABLE_HEIGHT, radius: CORNER_POCKET_RADIUS },
+  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT, radius: POCKET_RADIUS },
+  { x: TABLE_WIDTH, y: TABLE_HEIGHT, radius: CORNER_POCKET_RADIUS },
+];
 export const FRICTION = 0.9945;
 export const RESTITUTION = 0.8;
 export const FIXED_DT = 1 / 240;

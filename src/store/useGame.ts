@@ -205,10 +205,9 @@ interface Actions {
   recordMatchStats: (uid: string, goals: number, assists: number) => void;
   convertDuplicates: () => Promise<number | null>;
   recordEvolution: (uid: string, attr: string) => void;
-  listCard: (cardUid: string, price: number, buyNow: number, hours: number) => Promise<string | null>;
+  listCard: (cardUid: string, price: number, hours: number) => Promise<string | null>;
   cancelListing: (id: string) => Promise<boolean>;
   buyListing: (id: string) => Promise<boolean>;
-  bidListing: (id: string, amount: number) => boolean;
   previewPack: (packId: string) => Promise<{ cards: PlayerCard[]; choiceId: string } | null>;
   claimPreviewedCard: (card: PlayerCard, choiceId: string) => Promise<PlayerCard | null>;
   addLocalCard: (card: PlayerCard) => void;
@@ -1093,7 +1092,7 @@ export const useGame = create<GameState & Actions>()(
           seasonStats: { matches: (c.seasonStats?.matches ?? 0) + 1, goals: (c.seasonStats?.goals ?? 0) + goals, assists: (c.seasonStats?.assists ?? 0) + assists },
         } : c),
       })),
-      listCard: async (cardUid, price, buyNow, hours) => {
+      listCard: async (cardUid, price, hours) => {
         if (listingsPending.has(cardUid)) return null;
         const c = get().cards.find(x => x.uid === cardUid);
         if (!c) return null;
@@ -1114,7 +1113,7 @@ export const useGame = create<GameState & Actions>()(
               cardImage: c.image,
               cardAttributes: { pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical, reflexes: c.reflexes, positioning: c.positioning, handling: c.handling },
               price,
-              buyNow,
+              buyNow: price,
               expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
               status: 'active',
             });
@@ -1127,7 +1126,6 @@ export const useGame = create<GameState & Actions>()(
               sellerName: 'Você',
               price: remote.price,
               buyNow: remote.buyNow,
-              bids: [],
               createdAt: new Date(remote.createdAt).getTime(),
               expiresAt: new Date(remote.expiresAt).getTime(),
               status: 'active',
@@ -1155,7 +1153,7 @@ export const useGame = create<GameState & Actions>()(
           const id = nanoid(8);
           const listing: Listing = {
             id, cardUid, seller: 'user', sellerName: 'Você',
-            price, buyNow, bids: [], createdAt: Date.now(),
+            price, buyNow: price, createdAt: Date.now(),
             expiresAt: Date.now() + hours * 3600000, status: 'active',
           };
           set(st => ({
@@ -1216,16 +1214,6 @@ export const useGame = create<GameState & Actions>()(
           set(st => ({ cards: st.cards.map(c => c.uid === listing.cardUid ? { ...c, isNew: true } : c) }));
         }
         set(st => ({ listings: st.listings.map(l => l.id === id ? { ...l, status: 'sold' } : l) }));
-        return true;
-      },
-      bidListing: (id, amount) => {
-        const listing = get().listings.find(l => l.id === id);
-        if (!listing || listing.status !== 'active') return false;
-        if (amount <= (listing.bids.length ? listing.bids[listing.bids.length-1].amount : listing.price)) return false;
-        if (get().coins < amount) return false;
-        set(st => ({
-          listings: st.listings.map(l => l.id === id ? { ...l, bids: [...l.bids, { amount, at: Date.now() }] } : l),
-        }));
         return true;
       },
       previewPack: async (packId) => {

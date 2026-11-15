@@ -30,7 +30,6 @@ export function toGameListing(listing: ListingRecord): Listing {
     sellerName: listing.sellerName || (listing.sellerId ? 'Usuário' : 'Mercado'),
     price: listing.price,
     buyNow: listing.buyNow,
-    bids: [],
     createdAt: new Date(listing.createdAt).getTime(),
     expiresAt: new Date(listing.expiresAt).getTime(),
     status: listing.status as Listing['status'],

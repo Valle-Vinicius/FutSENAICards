@@ -18,7 +18,7 @@ jest.mock('../../../src/lib/supabase', () => ({
   },
 }));
 
-import { comparePoolShotPrediction, getPoolShotPlaybackStartAt, getPoolShotsAfter, submitShot } from '../../../src/lib/services/pool';
+import { comparePoolShotPrediction, enqueuePoolShotOnce, getPoolShotPlaybackStartAt, getPoolShotsAfter, submitShot } from '../../../src/lib/services/pool';
 import type { PoolShotEvent } from '../../../src/lib/services/pool';
 
 describe('pool service', () => {
@@ -80,6 +80,71 @@ describe('pool service', () => {
       ...authoritative,
       nextPlayer: 1,
     }).differences).toContain('nextPlayer');
+  });
+
+  it('deduplicates HTTP, realtime, and polling events before, during, and after playback', () => {
+    const orders = [
+      ['HTTP', 'realtime', 'polling'],
+      ['HTTP', 'polling', 'realtime'],
+      ['realtime', 'HTTP', 'polling'],
+      ['realtime', 'polling', 'HTTP'],
+      ['polling', 'HTTP', 'realtime'],
+      ['polling', 'realtime', 'HTTP'],
+    ];
+    const makeShot = (source: string): PoolShotEvent => ({
+      seq: 5,
+      playerId: source,
+      angle: 0,
+      power: 0.5,
+      anim: [[1, 2]],
+      pocketed: [],
+      foul: false,
+      foulReason: null,
+      firstContact: 1,
+      nextPlayer: 2,
+      winner: null,
+      finalState: { balls: [] },
+      playbackAt: null,
+      turnAvailableAt: null,
+      version: null,
+    });
+
+    for (const phase of ['before', 'during', 'after'] as const) {
+      for (const order of orders) {
+        const queue = new Map<number, PoolShotEvent>();
+        let lastPlayedSeq = 4;
+        let activeSeq: number | null = null;
+        let playCount = 0;
+        const startAndFinish = () => {
+          expect(queue.has(5)).toBe(true);
+          queue.delete(5);
+          activeSeq = 5;
+          playCount += 1;
+          activeSeq = null;
+          lastPlayedSeq = 5;
+        };
+
+        if (phase === 'before') {
+          order.forEach(source => enqueuePoolShotOnce(queue, makeShot(source), lastPlayedSeq, activeSeq));
+          startAndFinish();
+        } else if (phase === 'during') {
+          enqueuePoolShotOnce(queue, makeShot(order[0]), lastPlayedSeq, activeSeq);
+          queue.delete(5);
+          activeSeq = 5;
+          playCount += 1;
+          order.slice(1).forEach(source => enqueuePoolShotOnce(queue, makeShot(source), lastPlayedSeq, activeSeq));
+          activeSeq = null;
+          lastPlayedSeq = 5;
+        } else {
+          enqueuePoolShotOnce(queue, makeShot(order[0]), lastPlayedSeq, activeSeq);
+          startAndFinish();
+          order.slice(1).forEach(source => enqueuePoolShotOnce(queue, makeShot(source), lastPlayedSeq, activeSeq));
+        }
+
+        expect(playCount).toBe(1);
+        expect(queue.size).toBe(0);
+      }
+    }
   });
 
   it('renews the session and retries a shot rejected as unauthorized', async () => {

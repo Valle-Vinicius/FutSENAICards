@@ -1,13 +1,4 @@
-import { BALL_RADIUS, POCKET_RADIUS, TABLE_HEIGHT, TABLE_WIDTH, type Ball, type TableState } from './types.ts';
-
-const POCKETS = [
-  { x: 0, y: 0 },
-  { x: TABLE_WIDTH / 2, y: 0 },
-  { x: TABLE_WIDTH, y: 0 },
-  { x: 0, y: TABLE_HEIGHT },
-  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT },
-  { x: TABLE_WIDTH, y: TABLE_HEIGHT },
-];
+import { BALL_RADIUS, POCKETS, TABLE_HEIGHT, TABLE_WIDTH, type Ball, type TableState } from './types.ts';
 
 export function isValidCuePlacement(position: { x: number; y: number }, balls: Ball[]): boolean {
   if (
@@ -17,7 +8,9 @@ export function isValidCuePlacement(position: { x: number; y: number }, balls: B
     || position.y > TABLE_HEIGHT - BALL_RADIUS
   ) return false;
 
-  if (POCKETS.some(pocket => Math.hypot(position.x - pocket.x, position.y - pocket.y) < POCKET_RADIUS)) {
+  if (POCKETS.some(pocket =>
+    Math.hypot(position.x - pocket.x, position.y - pocket.y) < pocket.radius,
+  )) {
     return false;
   }
 

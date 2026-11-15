@@ -320,7 +320,7 @@ Exemplos:
 ### Funcionalidades
 - Listagens NPC e do usuário.
 - Filtros e ordenação.
-- Compra imediata / lance.
+- Anúncios por preço fixo e compra direta.
 - Cancelamento de listagem.
 - Histórico de preços.
 - Transferências recentes.
@@ -392,7 +392,7 @@ Exemplos:
 - `openPack`, `previewPack`, `claimPreviewedCard`.
 - `assignSlot`, `clearSlot`, `setFormation`.
 - `saveSquad`, `deleteSquad`, `setPrimarySquad`, `loadSquad`.
-- `listCard`, `cancelListing`, `buyListing`, `bidListing`.
+- `listCard`, `cancelListing`, `buyListing`.
 - `completeSBC`.
 - `convertDuplicates`, `upgradePlayer`, `addPlayerXp`.
 - `updateSettings`, `claimDaily`.

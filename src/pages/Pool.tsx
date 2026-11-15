@@ -3,13 +3,13 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
-import { getPoolMatch, getPoolShotsAfter, getRecentPoolShots, getPoolServerClockOffsetMs, getPoolShotPlaybackStartAt, getAvailableWagerCardIds, mapPoolShotEvent, comparePoolShotPrediction, submitShot, abandonPoolMatch, acceptPoolMatch, rejectPoolMatch } from '../lib/services/pool';
+import { getPoolMatch, getPoolShotsAfter, getRecentPoolShots, getPoolServerClockOffsetMs, getPoolShotPlaybackStartAt, getAvailableWagerCardIds, mapPoolShotEvent, comparePoolShotPrediction, enqueuePoolShotOnce, submitShot, abandonPoolMatch, acceptPoolMatch, rejectPoolMatch } from '../lib/services/pool';
 import type { PoolMatch, PoolShotEvent } from '../lib/services/pool';
 import { getCompetitiveProfile } from '../lib/services/leaderboard';
 import { createInitialState, simulateShotPrediction } from '../engine/pool/physics';
 import { isValidCuePlacement } from '../engine/pool/rules';
 import { calculateShotTrajectory } from '../engine/pool/trajectory';
-import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
+import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, CORNER_POCKET_RADIUS, POCKETS } from '../engine/pool/types';
 import type { Ball, TableState } from '../engine/pool/types';
 import { playTone } from '../lib/sound';
 import Card from '../components/Card';
@@ -89,14 +89,11 @@ function drawPoolTable(
     backgroundCtx.lineWidth = 2;
     backgroundCtx.strokeRect(offsetX, offsetY, tableWidth, tableHeight);
 
-    const pockets = [
-      { x: 0, y: 0 }, { x: TABLE_WIDTH / 2, y: 0 }, { x: TABLE_WIDTH, y: 0 },
-      { x: 0, y: TABLE_HEIGHT }, { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT }, { x: TABLE_WIDTH, y: TABLE_HEIGHT },
-    ];
-    for (const pocket of pockets) {
+    for (const pocket of POCKETS) {
       const x = offsetX + pocket.x * scale;
       const y = offsetY + pocket.y * scale;
-      const radius = Math.max(15, scale * 0.04);
+      const visualRadius = pocket.radius === CORNER_POCKET_RADIUS ? pocket.radius : 0.04;
+      const radius = Math.max(15, scale * visualRadius);
       const rim = backgroundCtx.createRadialGradient(x, y, radius * 0.5, x, y, radius);
       rim.addColorStop(0, '#030806');
       rim.addColorStop(0.72, '#080d0a');
@@ -335,15 +332,28 @@ export default function Pool() {
   const [power, setPower] = useState(0.5);
   const [ballInHandPos, setBallInHandPos] = useState<{ x: number; y: number } | null>(null);
   const [shooting, setShooting] = useState(false);
-  const [cueStrikeProgress, setCueStrikeProgress] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
-  const cueStrikeRafRef = useRef<number>(0);
+  const animationActiveRef = useRef(false);
+  const cueStrikeStartedAtRef = useRef<number | null>(null);
+  const shotTimingRef = useRef(new Map<number, {
+    clickedAt: number;
+    simulationEndedAt: number | null;
+    firstFrameAt: number | null;
+    serverRespondedAt: number | null;
+    predictionMatched: boolean | null;
+    logged: boolean;
+  }>());
   const queuedAnimationsRef = useRef(new Map<number, PoolShotEvent>());
   const processingAnimationsRef = useRef(false);
   const activeShotSeqRef = useRef<number | null>(null);
   const lastPlayedShotSeqRef = useRef(0);
-  const pendingPredictionsRef = useRef(new Map<number, { beforeState: TableState; shot: PoolShotEvent; confirmed: boolean }>());
+  const pendingPredictionsRef = useRef(new Map<number, {
+    beforeState: TableState;
+    shot: PoolShotEvent;
+    confirmed: boolean;
+    createdAt: number;
+  }>());
   const cancelActiveAnimationRef = useRef<() => void>(() => undefined);
   const processQueuedAnimationsRef = useRef<() => void>(() => undefined);
   // evita abandono indevido em remount do React StrictMode; só abandona no beforeunload real
@@ -531,7 +541,7 @@ export default function Pool() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !state) return;
+    if (!canvas || !state || animationActiveRef.current) return;
     const activePlayerId = state.currentPlayer === 1 ? match?.player1Id : match?.player2Id;
     const remoteAimIsCurrent = remoteAim
       && remoteAim.playerId === activePlayerId
@@ -553,9 +563,8 @@ export default function Pool() {
       remoteAimIsCurrent && !isMyTurn ? remoteAim.power : power,
       state.assignments,
       state.currentPlayer,
-      cueStrikeProgress,
     );
-  }, [state, match, sessionUserId, angle, power, shooting, remoteAim, now, isMyTurn, cueInHand, ballInHandPos, cueStrikeProgress]);
+  }, [state, match, sessionUserId, angle, power, shooting, remoteAim, now, isMyTurn, cueInHand, ballInHandPos]);
 
   useEffect(() => {
     const updateTime = () => setNow(Date.now());
@@ -590,8 +599,30 @@ export default function Pool() {
   const shootingRef = useRef(false);
   useEffect(() => { shootingRef.current = shooting; }, [shooting]);
   useEffect(() => () => {
+    cancelActiveAnimationRef.current();
     cancelAnimationFrame(rafRef.current);
-    cancelAnimationFrame(cueStrikeRafRef.current);
+    animationActiveRef.current = false;
+    cueStrikeStartedAtRef.current = null;
+  }, []);
+
+  const maybeLogShotTiming = useCallback((seq: number) => {
+    if (!import.meta.env.DEV) return;
+    const timing = shotTimingRef.current.get(seq);
+    if (
+      !timing
+      || timing.logged
+      || timing.simulationEndedAt === null
+      || timing.firstFrameAt === null
+      || timing.serverRespondedAt === null
+      || timing.predictionMatched === null
+    ) return;
+    timing.logged = true;
+    console.info(
+      `[pool-shot] clique→primeiro frame ${Math.round(timing.firstFrameAt - timing.clickedAt)}ms`
+      + ` | servidor respondeu em ${Math.round(timing.serverRespondedAt - timing.clickedAt)}ms`
+      + ` | previsão conferiu: ${timing.predictionMatched ? 'sim' : 'não'}`,
+    );
+    shotTimingRef.current.delete(seq);
   }, []);
 
   const playAnim = useCallback((shot: PoolShotEvent) => new Promise<boolean>(resolve => {
@@ -601,10 +632,13 @@ export default function Pool() {
       return;
     }
 
+    animationActiveRef.current = true;
     let settled = false;
     const finish = (completed: boolean) => {
       if (settled) return;
       settled = true;
+      animationActiveRef.current = false;
+      cueStrikeStartedAtRef.current = null;
       if (cancelActiveAnimationRef.current === cancel) cancelActiveAnimationRef.current = () => undefined;
       resolve(completed);
     };
@@ -633,7 +667,8 @@ export default function Pool() {
       const frame = anim[index];
       const nextFrame = anim[Math.min(index + 1, anim.length - 1)];
       const baseBalls = stateRef.current?.balls;
-      if (baseBalls && canvasRef.current) {
+      const canvas = canvasRef.current;
+      if (baseBalls && canvas) {
         const balls = baseBalls.map((ball, ballIndex) => {
           const x = frame[ballIndex * 2];
           const y = frame[ballIndex * 2 + 1];
@@ -648,27 +683,42 @@ export default function Pool() {
           };
         });
         const finalState = shot.finalState as TableState | null;
+        const cueStrikeStartedAt = cueStrikeStartedAtRef.current;
+        let cueStrikeProgress: number | null = null;
+        if (cueStrikeStartedAt !== null) {
+          const cueStrikeElapsed = performance.now() - cueStrikeStartedAt;
+          if (cueStrikeElapsed < 130) cueStrikeProgress = cueStrikeElapsed / 180;
+          else cueStrikeStartedAtRef.current = null;
+        }
         drawPoolTable(
-          canvasRef.current,
+          canvas,
           balls,
           0,
           false,
           power,
           finalState?.assignments ?? stateRef.current?.assignments,
           finalState?.currentPlayer ?? stateRef.current?.currentPlayer,
+          cueStrikeProgress,
         );
+        const timing = shotTimingRef.current.get(shot.seq);
+        if (timing && timing.firstFrameAt === null) {
+          timing.firstFrameAt = performance.now();
+          maybeLogShotTiming(shot.seq);
+        }
       }
       if (index < anim.length - 1) rafRef.current = requestAnimationFrame(tick);
       else finish(true);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }), [power]);
+  }), [maybeLogShotTiming, power]);
 
   const addQueuedShot = useCallback((shot: PoolShotEvent) => {
-    if (shot.seq <= lastPlayedShotSeqRef.current || shot.seq === activeShotSeqRef.current) return;
-    const existing = queuedAnimationsRef.current.get(shot.seq);
-    if (existing?.anim?.length && existing.finalState) return;
-    queuedAnimationsRef.current.set(shot.seq, shot);
+    enqueuePoolShotOnce(
+      queuedAnimationsRef.current,
+      shot,
+      lastPlayedShotSeqRef.current,
+      activeShotSeqRef.current,
+    );
   }, []);
 
   const processQueuedAnimations = useCallback(async () => {
@@ -740,6 +790,9 @@ export default function Pool() {
     const prediction = pendingPredictionsRef.current.get(shot.seq);
     if (prediction) {
       const comparison = comparePoolShotPrediction(prediction.shot, shot);
+      const timing = shotTimingRef.current.get(shot.seq);
+      if (timing) timing.predictionMatched = comparison.matches;
+      maybeLogShotTiming(shot.seq);
       if (comparison.matches) {
         Object.assign(prediction.shot, shot);
         prediction.confirmed = true;
@@ -774,15 +827,21 @@ export default function Pool() {
         cancelActiveAnimationRef.current();
       }
     }
+    const unmatchedTiming = shotTimingRef.current.get(shot.seq);
+    if (unmatchedTiming && unmatchedTiming.predictionMatched === null) {
+      unmatchedTiming.predictionMatched = false;
+      maybeLogShotTiming(shot.seq);
+    }
     addQueuedShot(shot);
     void processQueuedAnimations();
-  }, [addQueuedShot, processQueuedAnimations]);
+  }, [addQueuedShot, maybeLogShotTiming, processQueuedAnimations]);
 
   const cancelShotPrediction = useCallback((seq: number) => {
     const prediction = pendingPredictionsRef.current.get(seq);
     if (!prediction || prediction.confirmed) return;
     pendingPredictionsRef.current.delete(seq);
     queuedAnimationsRef.current.delete(seq);
+    cueStrikeStartedAtRef.current = null;
     if (lastPlayedShotSeqRef.current >= seq) {
       lastPlayedShotSeqRef.current = seq - 1;
       setLastPlayedShotSeq(seq - 1);
@@ -797,24 +856,60 @@ export default function Pool() {
       shootingRef.current = false;
       setShooting(false);
     }
-  }, []);
+    const timing = shotTimingRef.current.get(seq);
+    if (timing) {
+      maybeLogShotTiming(seq);
+      if (
+        !timing.logged
+        && (timing.serverRespondedAt !== null || performance.now() - timing.clickedAt >= 15_000)
+      ) shotTimingRef.current.delete(seq);
+    }
+  }, [maybeLogShotTiming]);
 
-  const animateCueStrike = () => {
-    cancelAnimationFrame(cueStrikeRafRef.current);
-    const startedAt = performance.now();
-    const duration = 180;
-    const animate = (timestamp: number) => {
-      const progress = Math.min(1, (timestamp - startedAt) / duration);
-      setCueStrikeProgress(progress);
-      if (progress < 0.7) {
-        cueStrikeRafRef.current = requestAnimationFrame(animate);
+  const reconcilePendingPredictions = useCallback(async (serverLastShotSeq?: number) => {
+    if (!matchId) return;
+    const now = performance.now();
+    const candidates = [...pendingPredictionsRef.current.entries()].filter(([seq, prediction]) =>
+      !prediction.confirmed
+      && (
+        (serverLastShotSeq !== undefined && serverLastShotSeq >= seq)
+        || now - prediction.createdAt >= 15_000
+      ),
+    );
+    if (candidates.length === 0) return;
+
+    const firstSeq = Math.min(...candidates.map(([seq]) => seq));
+    const authoritativeShots = await getPoolShotsAfter(matchId, firstSeq - 1);
+    authoritativeShots.forEach(queueShotAnimation);
+
+    for (const [seq, prediction] of candidates) {
+      if (pendingPredictionsRef.current.get(seq) !== prediction || prediction.confirmed) continue;
+      if (performance.now() - prediction.createdAt < 15_000) continue;
+
+      const fresh = serverLastShotSeq !== undefined && serverLastShotSeq >= seq
+        ? await getPoolMatch(matchId)
+        : null;
+      if (fresh && fresh.lastShotSeq >= seq && fresh.tableState) {
+        cancelShotPrediction(seq);
+        const parsed = typeof fresh.tableState === 'string' ? JSON.parse(fresh.tableState) : fresh.tableState;
+        const officialState = {
+          ...parsed,
+          currentPlayer: (fresh.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
+        };
+        lastPlayedShotSeqRef.current = fresh.lastShotSeq;
+        setLastPlayedShotSeq(fresh.lastShotSeq);
+        stateRef.current = officialState;
+        setState(officialState);
+        matchRef.current = fresh;
+        setMatch(fresh);
       } else {
-        cueStrikeRafRef.current = 0;
-        setCueStrikeProgress(null);
+        cancelShotPrediction(seq);
       }
-    };
-    setCueStrikeProgress(0);
-    cueStrikeRafRef.current = requestAnimationFrame(animate);
+    }
+  }, [cancelShotPrediction, matchId, queueShotAnimation]);
+
+  const startCueStrike = () => {
+    cueStrikeStartedAtRef.current = performance.now();
   };
 
   const handleShoot = async () => {
@@ -824,13 +919,26 @@ export default function Pool() {
       toast.alert('Reposicione a bola branca antes de tacar.');
       return;
     }
+    const clickedAt = performance.now();
     shootingRef.current = true;
     setShooting(true);
     setRemoteAim(null);
     playTone(120, 0.1, 'triangle', 0.08);
-    animateCueStrike();
+    startCueStrike();
     const beforeState = JSON.parse(JSON.stringify(state)) as TableState;
-    const predictedSeq = match.lastShotSeq + 1;
+    const predictedSeq = Math.max(
+      match.lastShotSeq,
+      lastPlayedShotSeqRef.current,
+      ...queuedAnimationsRef.current.keys(),
+    ) + 1;
+    shotTimingRef.current.set(predictedSeq, {
+      clickedAt,
+      simulationEndedAt: null,
+      firstFrameAt: null,
+      serverRespondedAt: null,
+      predictionMatched: null,
+      logged: false,
+    });
     let animationQueued = false;
     try {
       const prediction = simulateShotPrediction(state, {
@@ -838,6 +946,8 @@ export default function Pool() {
         power,
         ballInHandPos: cueInHand ? ballInHandPos ?? undefined : undefined,
       });
+      const timing = shotTimingRef.current.get(predictedSeq);
+      if (timing) timing.simulationEndedAt = performance.now();
       const predictedShot: PoolShotEvent = {
         seq: predictedSeq,
         playerId: sessionUserId,
@@ -859,13 +969,22 @@ export default function Pool() {
         beforeState,
         shot: predictedShot,
         confirmed: false,
+        createdAt: clickedAt,
       });
       addQueuedShot(predictedShot);
       animationQueued = true;
       void processQueuedAnimations();
 
       const res = await submitShot(match.id, angle, power, cueInHand ? ballInHandPos ?? undefined : undefined);
+      const timingAfterResponse = shotTimingRef.current.get(predictedSeq);
+      if (timingAfterResponse) timingAfterResponse.serverRespondedAt = performance.now();
+      maybeLogShotTiming(predictedSeq);
       if (res?.anim?.length && res?.finalState && typeof res.seq === 'number') {
+        if (res.seq !== predictedSeq) {
+          if (timingAfterResponse) timingAfterResponse.predictionMatched = false;
+          maybeLogShotTiming(predictedSeq);
+          cancelShotPrediction(predictedSeq);
+        }
         setBallInHandPos(null);
         const shot = mapPoolShotEvent({
           seq: res.seq,
@@ -885,7 +1004,9 @@ export default function Pool() {
           }
         }).catch(error => console.error('failed to refresh pool match after shot', error));
       } else {
+        if (timingAfterResponse) timingAfterResponse.predictionMatched = false;
         cancelShotPrediction(predictedSeq);
+        maybeLogShotTiming(predictedSeq);
         toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
         const fresh = await getPoolMatch(match.id);
         if (fresh) setMatch(fresh);
@@ -899,7 +1020,13 @@ export default function Pool() {
         }
       }
     } catch (e) {
+      const timing = shotTimingRef.current.get(predictedSeq);
+      if (timing) {
+        timing.serverRespondedAt = performance.now();
+        timing.predictionMatched = false;
+      }
       cancelShotPrediction(predictedSeq);
+      maybeLogShotTiming(predictedSeq);
       console.error('shot failed', e);
       toast.alert(e instanceof Error ? e.message : 'Erro na tacada.');
     } finally {
@@ -965,6 +1092,9 @@ export default function Pool() {
           };
           matchRef.current = updated;
           setMatch(updated);
+          void reconcilePendingPredictions(updated.lastShotSeq).catch(error => {
+            console.error('pool pending prediction reconciliation failed after match update', error);
+          });
         }
         if (row?.table_state && (row.last_shot_seq ?? 0) <= lastPlayedShotSeqRef.current && !shootingRef.current) {
           const parsed = typeof row.table_state === 'string' ? JSON.parse(row.table_state) : row.table_state;
@@ -984,6 +1114,9 @@ export default function Pool() {
       .subscribe((status, error) => {
         if (status === 'SUBSCRIBED') {
           aimChannelRef.current = channel;
+          void reconcilePendingPredictions(matchRef.current?.lastShotSeq).catch(reconcileError => {
+            console.error('pool pending prediction reconciliation failed after reconnect', reconcileError);
+          });
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('pool realtime channel subscription failed', error);
           aimChannelRef.current = null;
@@ -1035,6 +1168,9 @@ export default function Pool() {
     const interval = setInterval(async () => {
       try {
         matchPollCount += 1;
+        void reconcilePendingPredictions(matchRef.current?.lastShotSeq).catch(error => {
+          console.error('pool pending prediction reconciliation failed during polling', error);
+        });
         if (matchPollCount % 3 === 0) await refreshShotHistory();
         const newestQueuedSeq = Math.max(
           lastPlayedShotSeqRef.current,
@@ -1070,7 +1206,7 @@ export default function Pool() {
       clearInterval(broadcastTimer);
       clearInterval(interval);
     };
-  }, [matchId, loading, queueShotAnimation]);
+  }, [matchId, loading, queueShotAnimation, reconcilePendingPredictions]);
 
   useEffect(() => {
     const onBeforeUnload = () => {

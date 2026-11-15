@@ -1,13 +1,4 @@
-import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, POCKET_RADIUS, FRICTION, RESTITUTION, FIXED_DT, MAX_SIM_STEPS, type Ball, type TableState, type ShotInput, type ShotResult } from './types.ts';
-
-const POCKETS = [
-  { x: 0, y: 0 },
-  { x: TABLE_WIDTH / 2, y: 0 },
-  { x: TABLE_WIDTH, y: 0 },
-  { x: 0, y: TABLE_HEIGHT },
-  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT },
-  { x: TABLE_WIDTH, y: TABLE_HEIGHT },
-];
+import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, POCKETS, FRICTION, RESTITUTION, FIXED_DT, MAX_SIM_STEPS, type Ball, type TableState, type ShotInput, type ShotResult } from './types.ts';
 
 export function createInitialBalls(): Ball[] {
   const balls: Ball[] = [];
@@ -61,7 +52,7 @@ function distSquared(a: { x: number; y: number }, b: { x: number; y: number }) {
 
 function isPocketed(ball: Ball): number {
   for (let i = 0; i < POCKETS.length; i++) {
-    if (distSquared(ball, POCKETS[i]) < POCKET_RADIUS * POCKET_RADIUS) return i;
+    if (distSquared(ball, POCKETS[i]) < POCKETS[i].radius * POCKETS[i].radius) return i;
   }
   return -1;
 }

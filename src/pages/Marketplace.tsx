@@ -53,7 +53,6 @@ export default function Marketplace() {
     }).catch(() => setLoading(false));
   }, []);
   const buyListing = useGame(s => s.buyListing);
-  const bidListing = useGame(s => s.bidListing);
   const listCard = useGame(s => s.listCard);
   const cancelListing = useGame(s => s.cancelListing);
   const recordTransfer = useGame(s => s.recordTransfer);
@@ -68,7 +67,6 @@ export default function Marketplace() {
   const [sort, setSort] = useState('price_asc');
   const [listUid, setListUid] = useState<string | null>(null);
   const [listPrice, setListPrice] = useState('');
-  const [listBuyNow, setListBuyNow] = useState('');
   const [listSearch, setListSearch] = useState('');
   const [confirmBuy, setConfirmBuy] = useState<string | null>(null);
   const [buyingAnim, setBuyingAnim] = useState<string | null>(null);
@@ -76,25 +74,26 @@ export default function Marketplace() {
   const [creatingListing, setCreatingListing] = useState(false);
 
   const cardOf = (uid: string) => cards.find(c => c.uid === uid);
+  const listingPrice = (listing: typeof listings[number]) => listing.buyNow > 0 ? listing.buyNow : listing.price;
 
   const activeListings = listings.filter(l => l.status === 'active' && l.expiresAt > marketNow).filter(l => {
     const c = cardOf(l.cardUid);
     if (q && c && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
     if (pos && c && c.position !== pos) return false;
     if (rar && c && c.rarity !== rar) return false;
-    if (minPrice && l.price < Number(minPrice)) return false;
-    if (maxPrice && l.price > Number(maxPrice)) return false;
+    if (minPrice && listingPrice(l) < Number(minPrice)) return false;
+    if (maxPrice && listingPrice(l) > Number(maxPrice)) return false;
     return true;
   }).sort((a, b) => {
     const ca = cardOf(a.cardUid), cb = cardOf(b.cardUid);
-    if (sort === 'price_asc') return a.price - b.price;
-    if (sort === 'price_desc') return b.price - a.price;
+    if (sort === 'price_asc') return listingPrice(a) - listingPrice(b);
+    if (sort === 'price_desc') return listingPrice(b) - listingPrice(a);
     if (sort === 'overall') return (cb?.overall ?? 0) - (ca?.overall ?? 0);
     if (sort === 'name') return (ca?.name ?? '').localeCompare(cb?.name ?? '');
     return 0;
   });
 
-  const prices = activeListings.map(l => l.price);
+  const prices = activeListings.map(listingPrice);
   const minP = prices.length ? Math.min(...prices) : 0;
   const maxP = prices.length ? Math.max(...prices) : 0;
   const avgP = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0;
@@ -113,7 +112,7 @@ export default function Marketplace() {
     setTimeout(async () => {
       const ok = await buyListing(confirmBuy);
       if (ok) {
-        if (c) { recordTransfer(c.name, listing!.buyNow > 0 ? listing!.buyNow : listing!.price, 'buy'); recordPrice(c.name, listing!.buyNow > 0 ? listing!.buyNow : listing!.price); }
+        if (c) { recordTransfer(c.name, listingPrice(listing!), 'buy'); recordPrice(c.name, listingPrice(listing!)); }
         toast.success('Compra realizada!');
       } else {
         const failedListing = useGame.getState().listings.find(l => l.id === confirmBuy);
@@ -126,20 +125,13 @@ export default function Marketplace() {
     }, 900);
   };
 
-  const handleBid = (id: string) => {
-    const amt = prompt('Valor do lance:');
-    if (!amt) return;
-    const ok = bidListing(id, Number(amt));
-    if (ok) toast.success('Lance registrado!'); else toast.error('Lance inválido ou saldo insuficiente.');
-  };
-
   const handleList = async () => {
     if (creatingListing) return;
     if (!listUid || !listPrice) { toast.error('Selecione carta e preço.'); return; }
     setCreatingListing(true);
     try {
-      const id = await listCard(listUid, Number(listPrice), Number(listBuyNow) || Number(listPrice) * 2, 24);
-      if (id) { toast.success('Carta anunciada!'); setListUid(null); setListPrice(''); setListBuyNow(''); }
+      const id = await listCard(listUid, Number(listPrice), 24);
+      if (id) { toast.success('Carta anunciada!'); setListUid(null); setListPrice(''); }
       else if (!supabase) toast.error('Carta indisponível para anúncio.');
     } finally {
       setCreatingListing(false);
@@ -227,10 +219,9 @@ export default function Marketplace() {
                 <div key={l.id} className={`card-surface p-3 space-y-2 transition ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
                   <Card card={c} size="sm" />
                   <div className="text-xs text-[#858A98]">Vendedor: {l.sellerName}</div>
-                  <div className="text-sm text-[#252733]">Preço: <span className="font-bold text-[#E30613]">{l.price.toLocaleString('pt-BR')}</span> · Compra imediata: <span className="font-bold">{l.buyNow.toLocaleString('pt-BR')}</span></div>
+                  <div className="text-sm text-[#252733]">Preço: <span className="font-bold text-[#E30613]">{listingPrice(l).toLocaleString('pt-BR')}</span></div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => handleBuy(l.id)} className="btn btn-primary btn-sm">Comprar</button>
-                    <button onClick={() => handleBid(l.id)} className="btn btn-secondary btn-sm">Lance</button>
                   </div>
                 </div>
               );
@@ -267,8 +258,7 @@ export default function Marketplace() {
               </div>
             </div>
             <div className="flex gap-2">
-              <input value={listPrice} onChange={e => setListPrice(e.target.value)} placeholder="Preço inicial" className={`flex-1 ${sel}`} />
-              <input value={listBuyNow} onChange={e => setListBuyNow(e.target.value)} placeholder="Compra imediata" className={`flex-1 ${sel}`} />
+              <input value={listPrice} onChange={e => setListPrice(e.target.value)} placeholder="Preço da carta" className={`flex-1 ${sel}`} />
             </div>
             <button onClick={handleList} disabled={creatingListing} className="btn btn-primary btn-full">{creatingListing ? 'Publicando...' : 'Publicar'}</button>
           </div>
@@ -278,7 +268,7 @@ export default function Marketplace() {
               const expired = l.status === 'active' && l.expiresAt <= marketNow;
               return (
                 <div key={l.id} className="card-surface p-3 flex items-center justify-between gap-3">
-                  <div className="text-sm text-[#252733]">{c?.name || l.cardName || 'Carta'} · {l.price.toLocaleString('pt-BR')} moedas · {expired ? 'expirado' : l.status}</div>
+                  <div className="text-sm text-[#252733]">{c?.name || l.cardName || 'Carta'} · {listingPrice(l).toLocaleString('pt-BR')} moedas · {expired ? 'expirado' : l.status}</div>
                   {l.status === 'active' && !expired && <button disabled={cancellingListingId !== null} onClick={async () => {
                     if (cancellingListingId) return;
                     setCancellingListingId(l.id);
@@ -296,7 +286,7 @@ export default function Marketplace() {
 
       {tab === 'targets' && (
         <div className="card-surface p-4 text-[#858A98] text-sm">
-          Cartas favoritas e lances em andamento aparecerão aqui. (Funcionalidade em desenvolvimento)
+          Cartas favoritas aparecerão aqui. (Funcionalidade em desenvolvimento)
         </div>
       )}
 

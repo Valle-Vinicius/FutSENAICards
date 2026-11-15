@@ -27,7 +27,8 @@ A engine de sinuca simula física de bilhar de forma determinística. A simulaç
 | `TABLE_WIDTH` | 2.0 | Largura da mesa (unidades) |
 | `TABLE_HEIGHT` | 1.0 | Altura da mesa (unidades) |
 | `BALL_RADIUS` | 0.025 | Raio de cada bola |
-| `POCKET_RADIUS` | 0.045 | Raio de cada buraco |
+| `POCKET_RADIUS` | 0.045 | Raio das caçapas centrais |
+| `CORNER_POCKET_RADIUS` | 0.065 | Raio das caçapas dos cantos |
 | `FRICTION` | 0.985 | Atrito aplicado a cada passo |
 | `RESTITUTION` | 0.8 | Coeficiente de restituição (quicada) |
 | `FIXED_DT` | 1/240 | Passo de tempo da simulação |

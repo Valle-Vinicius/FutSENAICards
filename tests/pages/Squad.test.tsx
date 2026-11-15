@@ -157,7 +157,6 @@ describe('squad builder inventory', () => {
         sellerName: 'Jogador',
         price: 100,
         buyNow: 200,
-        bids: [],
         createdAt: 0,
         expiresAt: Date.now() + 60_000,
         status: 'active',

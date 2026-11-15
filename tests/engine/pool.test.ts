@@ -1,6 +1,6 @@
 import { createInitialState, simulateShot, simulateShotAnimation } from '../../src/engine/pool/physics';
 import { calculateShotTrajectory } from '../../src/engine/pool/trajectory';
-import { BALL_RADIUS, FIXED_DT, FRICTION, MAX_SIM_STEPS, POCKET_RADIUS, RESTITUTION, TABLE_HEIGHT, TABLE_WIDTH } from '../../src/engine/pool/types';
+import { BALL_RADIUS, FIXED_DT, FRICTION, MAX_SIM_STEPS, POCKETS, RESTITUTION, TABLE_HEIGHT, TABLE_WIDTH } from '../../src/engine/pool/types';
 import { determineWinner, isValidCuePlacement } from '../../src/engine/pool/rules';
 import type { ShotInput, TableState } from '../../src/engine/pool/types';
 
@@ -22,14 +22,6 @@ function referenceShot(state: TableState, shot: ShotInput) {
   result.firstContact = null;
   result.foul = false;
 
-  const pockets = [
-    { x: 0, y: 0 },
-    { x: TABLE_WIDTH / 2, y: 0 },
-    { x: TABLE_WIDTH, y: 0 },
-    { x: 0, y: TABLE_HEIGHT },
-    { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT },
-    { x: TABLE_WIDTH, y: TABLE_HEIGHT },
-  ];
   const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
     Math.hypot(a.x - b.x, a.y - b.y);
   const animation: number[][] = [];
@@ -53,7 +45,7 @@ function referenceShot(state: TableState, shot: ShotInput) {
       if (ball.x > TABLE_WIDTH - BALL_RADIUS) { ball.x = TABLE_WIDTH - BALL_RADIUS; ball.vx = -ball.vx * RESTITUTION; }
       if (ball.y < BALL_RADIUS) { ball.y = BALL_RADIUS; ball.vy = -ball.vy * RESTITUTION; }
       if (ball.y > TABLE_HEIGHT - BALL_RADIUS) { ball.y = TABLE_HEIGHT - BALL_RADIUS; ball.vy = -ball.vy * RESTITUTION; }
-      if (pockets.some(pocket => distance(ball, pocket) < POCKET_RADIUS)) {
+      if (POCKETS.some(pocket => distance(ball, pocket) < pocket.radius)) {
         ball.pocketed = true;
         ball.vx = 0;
         ball.vy = 0;
@@ -150,6 +142,33 @@ describe('Pool engine', () => {
     expect(s.balls.length).toBe(16);
     expect(s.balls[0].type).toBe('cue');
     expect(s.balls.filter(ball => ball.type === 'eight').map(ball => ball.id)).toEqual([15]);
+  });
+
+  it('uses larger corner pockets while preserving the center-pocket radius', () => {
+    const makeCueOnlyState = (x: number, y: number) => {
+      const state = createInitialState();
+      state.balls = state.balls.map(ball => ({
+        ...ball,
+        x: ball.id === 0 ? x : ball.x,
+        y: ball.id === 0 ? y : ball.y,
+        pocketed: ball.id !== 0,
+      }));
+      return state;
+    };
+
+    const cornerShot = simulateShotAnimation(makeCueOnlyState(0.04, 0.05), {
+      angle: Math.PI,
+      power: 0.0001,
+    });
+    const centerShot = simulateShotAnimation(makeCueOnlyState(1.04, 0.05), {
+      angle: 0,
+      power: 0.0001,
+    });
+
+    expect(cornerShot.finalState.pocketedThisTurn).toContain(0);
+    expect(centerShot.finalState.pocketedThisTurn).not.toContain(0);
+    expect(isValidCuePlacement({ x: 0.04, y: 0.05 }, createInitialState().balls)).toBe(false);
+    expect(isValidCuePlacement({ x: 1.04, y: 0.05 }, createInitialState().balls)).toBe(true);
   });
 
   it('determinism: same state + same shot = same result', () => {

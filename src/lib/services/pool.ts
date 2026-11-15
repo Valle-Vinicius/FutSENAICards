@@ -51,6 +51,19 @@ export interface PoolShotEvent {
   version: number | null;
 }
 
+export function enqueuePoolShotOnce(
+  queue: Map<number, PoolShotEvent>,
+  shot: PoolShotEvent,
+  lastPlayedSeq: number,
+  activeSeq: number | null,
+): boolean {
+  if (shot.seq <= lastPlayedSeq || shot.seq === activeSeq) return false;
+  const existing = queue.get(shot.seq);
+  if (existing?.anim?.length && existing.finalState) return false;
+  queue.set(shot.seq, shot);
+  return true;
+}
+
 export function comparePoolShotPrediction(
   predicted: PoolShotEvent,
   authoritative: PoolShotEvent,

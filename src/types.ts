@@ -149,7 +149,6 @@ export interface Listing {
   sellerName: string;
   price: number;
   buyNow: number;
-  bids: { amount: number; at: number }[];
   createdAt: number;
   expiresAt: number;
   status: 'active' | 'sold' | 'expired' | 'cancelled';

@@ -157,7 +157,8 @@ Qualquer participante pode abandonar:
 | `TABLE_WIDTH` | 2.0 | Largura da mesa |
 | `TABLE_HEIGHT` | 1.0 | Altura da mesa |
 | `BALL_RADIUS` | 0.025 | Raio da bola |
-| `POCKET_RADIUS` | 0.045 | Raio do buraco |
+| `POCKET_RADIUS` | 0.045 | Raio das caçapas centrais |
+| `CORNER_POCKET_RADIUS` | 0.065 | Raio das caçapas dos cantos |
 | `FRICTION` | 0.985 | Atrito por passo |
 | `RESTITUTION` | 0.8 | Coeficiente de restituição |
 | `FIXED_DT` | 1/240 | Passo de tempo |
