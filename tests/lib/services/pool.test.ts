@@ -18,7 +18,7 @@ jest.mock('../../../src/lib/supabase', () => ({
   },
 }));
 
-import { getPoolShotsAfter, submitShot } from '../../../src/lib/services/pool';
+import { getPoolShotPlaybackStartAt, getPoolShotsAfter, submitShot } from '../../../src/lib/services/pool';
 
 describe('pool service', () => {
   beforeEach(() => {
@@ -27,6 +27,20 @@ describe('pool service', () => {
     mockInvoke.mockReset();
     mockFrom.mockReset();
     mockRpc.mockReset();
+  });
+
+  it('starts the local player shot immediately instead of waiting for playbackAt', () => {
+    expect(getPoolShotPlaybackStartAt({
+      playerId: 'player-1',
+      playbackAt: '2026-11-11T00:00:02.000Z',
+    }, 'player-1', 1_000, 250)).toBe(1_250);
+  });
+
+  it('keeps the synchronized playbackAt for the opponent shot', () => {
+    expect(getPoolShotPlaybackStartAt({
+      playerId: 'player-2',
+      playbackAt: '2026-11-11T00:00:02.000Z',
+    }, 'player-1', 1_000, 250)).toBe(Date.parse('2026-11-11T00:00:02.000Z'));
   });
 
   it('renews the session and retries a shot rejected as unauthorized', async () => {

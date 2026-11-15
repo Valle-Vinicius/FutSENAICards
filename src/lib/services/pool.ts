@@ -72,6 +72,18 @@ export function mapPoolShotEvent(shot: any): PoolShotEvent {
   };
 }
 
+export function getPoolShotPlaybackStartAt(
+  shot: Pick<PoolShotEvent, 'playerId' | 'playbackAt'>,
+  sessionUserId: string | null,
+  clientNow: number,
+  serverClockOffsetMs: number,
+): number {
+  const parsedPlaybackAt = shot.playbackAt ? Date.parse(shot.playbackAt) : Number.NaN;
+  return shot.playerId !== sessionUserId && Number.isFinite(parsedPlaybackAt)
+    ? parsedPlaybackAt
+    : clientNow + serverClockOffsetMs;
+}
+
 export async function getPoolServerClockOffsetMs(): Promise<number> {
   if (!supabase) throw new Error('Supabase não está configurado.');
   const startedAt = Date.now();

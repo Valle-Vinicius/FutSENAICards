@@ -3,7 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
-import { getLatestPoolShotSeq, getPoolMatch, getPoolShotsAfter, getRecentPoolShots, getPoolServerClockOffsetMs, getAvailableWagerCardIds, mapPoolShotEvent, submitShot, abandonPoolMatch, acceptPoolMatch, rejectPoolMatch } from '../lib/services/pool';
+import { getPoolMatch, getPoolShotsAfter, getRecentPoolShots, getPoolServerClockOffsetMs, getPoolShotPlaybackStartAt, getAvailableWagerCardIds, mapPoolShotEvent, submitShot, abandonPoolMatch, acceptPoolMatch, rejectPoolMatch } from '../lib/services/pool';
 import type { PoolMatch, PoolShotEvent } from '../lib/services/pool';
 import { getCompetitiveProfile } from '../lib/services/leaderboard';
 import { createInitialState } from '../engine/pool/physics';
@@ -11,6 +11,7 @@ import { isValidCuePlacement } from '../engine/pool/rules';
 import { calculateShotTrajectory } from '../engine/pool/trajectory';
 import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS } from '../engine/pool/types';
 import type { Ball, TableState } from '../engine/pool/types';
+import { playTone } from '../lib/sound';
 import Card from '../components/Card';
 import { useGame } from '../store/useGame';
 
@@ -42,6 +43,7 @@ function drawPoolTable(
   power = 0.5,
   assignments: TableState['assignments'] = { player1: null, player2: null },
   currentPlayer: 1 | 2 = 1,
+  cueStrikeProgress: number | null = null,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -113,8 +115,15 @@ function drawPoolTable(
   const cue = balls.find(ball => ball.type === 'cue');
   const dirX = Math.cos(angle);
   const dirY = Math.sin(angle);
-  if (showAim && cue && !cue.pocketed) {
-    const recoil = BALL_RADIUS * (1.8 + power * 5);
+  const isCueStriking = cueStrikeProgress !== null && cueStrikeProgress < 0.7;
+  if ((showAim || isCueStriking) && cue && !cue.pocketed) {
+    const progress = cueStrikeProgress ?? 0;
+    const pullback = progress < 0.45
+      ? progress / 0.45
+      : progress < 0.65
+        ? 1 - (progress - 0.45) / 0.2
+        : 0;
+    const recoil = BALL_RADIUS * (1.8 + power * 5 + pullback * 4);
     ctx.beginPath();
     ctx.moveTo(offsetX + (cue.x - dirX * (recoil + 0.25)) * scale, offsetY + (cue.y - dirY * (recoil + 0.25)) * scale);
     ctx.lineTo(offsetX + (cue.x - dirX * recoil) * scale, offsetY + (cue.y - dirY * recoil) * scale);
@@ -326,12 +335,14 @@ export default function Pool() {
   const [power, setPower] = useState(0.5);
   const [ballInHandPos, setBallInHandPos] = useState<{ x: number; y: number } | null>(null);
   const [shooting, setShooting] = useState(false);
+  const [cueStrikeProgress, setCueStrikeProgress] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
+  const cueStrikeRafRef = useRef<number>(0);
   const queuedAnimationsRef = useRef(new Map<number, PoolShotEvent>());
   const processingAnimationsRef = useRef(false);
+  const activeShotSeqRef = useRef<number | null>(null);
   const lastPlayedShotSeqRef = useRef(0);
-  const localShotPendingRef = useRef(false);
   const processQueuedAnimationsRef = useRef<() => void>(() => undefined);
   // evita abandono indevido em remount do React StrictMode; só abandona no beforeunload real
   const abandonRef = useRef(false);
@@ -423,13 +434,21 @@ export default function Pool() {
           uid = data.session?.user?.id ?? null;
           setSessionUserId(uid);
         }
-        const latestShotSeq = await getLatestPoolShotSeq(matchId);
-        lastPlayedShotSeqRef.current = latestShotSeq;
-        setLastPlayedShotSeq(latestShotSeq);
-        const m = await getPoolMatch(matchId);
+        const [m, clockOffset] = await Promise.all([
+          getPoolMatch(matchId),
+          getPoolServerClockOffsetMs().catch(error => {
+            console.error('pool server clock sync failed during match load', error);
+            return null;
+          }),
+        ]);
         console.log('[Pool] loaded match:', m);
         if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
+        if (clockOffset !== null) {
+          serverClockOffsetRef.current = clockOffset;
+          setServerClockOffsetMs(clockOffset);
+        }
         setMatch(m);
+        matchRef.current = m;
         const [name1, name2, recentShots] = await Promise.all([
           getCompetitiveProfile(m.player1Id).then(profile => profile.name).catch(error => {
             console.error('failed to load pool player 1 name', error);
@@ -446,6 +465,31 @@ export default function Pool() {
         ]);
         setPlayerNames({ player1: name1, player2: name2 });
         setShotLog(recentShots);
+        const latestShot = recentShots[recentShots.length - 1];
+        const playbackAt = latestShot?.playbackAt ? Date.parse(latestShot.playbackAt) : Number.NaN;
+        const playbackEnd = playbackAt + Math.max((latestShot?.anim?.length ?? 0) - 1, 0) / 48 * 1000;
+        const serverNowAtLoad = Date.now() + (clockOffset ?? serverClockOffsetRef.current);
+        const turnAvailableAt = m.turnAvailableAt ? Date.parse(m.turnAvailableAt) : Number.NaN;
+        const shouldReplayLatestShot = Boolean(
+          m.lastShotSeq > 0
+          && Number.isFinite(turnAvailableAt)
+          && serverNowAtLoad < turnAvailableAt
+          && (
+            !latestShot
+            || latestShot.seq !== m.lastShotSeq
+            || (
+              latestShot.anim?.length
+              && latestShot.finalState
+              && (!Number.isFinite(playbackAt) || serverNowAtLoad < playbackEnd)
+            )
+          ),
+        );
+        const initialPlayedSeq = shouldReplayLatestShot ? m.lastShotSeq - 1 : m.lastShotSeq;
+        lastPlayedShotSeqRef.current = initialPlayedSeq;
+        setLastPlayedShotSeq(initialPlayedSeq);
+        if (shouldReplayLatestShot && latestShot?.seq === m.lastShotSeq) {
+          queuedAnimationsRef.current.set(latestShot.seq, latestShot);
+        }
         const rawState = m.tableState ? (typeof m.tableState === 'string' ? JSON.parse(m.tableState) : m.tableState) : createInitialState();
         const initial = rawState && rawState.balls ? rawState : createInitialState();
         setState({
@@ -507,8 +551,9 @@ export default function Pool() {
       remoteAimIsCurrent && !isMyTurn ? remoteAim.power : power,
       state.assignments,
       state.currentPlayer,
+      cueStrikeProgress,
     );
-  }, [state, match, sessionUserId, angle, power, shooting, remoteAim, now, isMyTurn, cueInHand, ballInHandPos]);
+  }, [state, match, sessionUserId, angle, power, shooting, remoteAim, now, isMyTurn, cueInHand, ballInHandPos, cueStrikeProgress]);
 
   useEffect(() => {
     const updateTime = () => setNow(Date.now());
@@ -542,7 +587,10 @@ export default function Pool() {
 
   const shootingRef = useRef(false);
   useEffect(() => { shootingRef.current = shooting; }, [shooting]);
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  useEffect(() => () => {
+    cancelAnimationFrame(rafRef.current);
+    cancelAnimationFrame(cueStrikeRafRef.current);
+  }, []);
 
   const playAnim = useCallback((shot: PoolShotEvent) => new Promise<void>(resolve => {
     const anim = shot.anim;
@@ -551,10 +599,12 @@ export default function Pool() {
       return;
     }
 
-    const parsedPlaybackAt = shot.playbackAt ? Date.parse(shot.playbackAt) : Number.NaN;
-    const playbackAt = Number.isFinite(parsedPlaybackAt)
-      ? parsedPlaybackAt
-      : Date.now() + serverClockOffsetRef.current;
+    const playbackAt = getPoolShotPlaybackStartAt(
+      shot,
+      sessionUserIdRef.current,
+      Date.now(),
+      serverClockOffsetRef.current,
+    );
     const tick = () => {
       const serverNow = Date.now() + serverClockOffsetRef.current;
       if (serverNow < playbackAt) {
@@ -599,14 +649,14 @@ export default function Pool() {
   }), [power]);
 
   const addQueuedShot = useCallback((shot: PoolShotEvent) => {
-    if (shot.seq <= lastPlayedShotSeqRef.current) return;
+    if (shot.seq <= lastPlayedShotSeqRef.current || shot.seq === activeShotSeqRef.current) return;
     const existing = queuedAnimationsRef.current.get(shot.seq);
     if (existing?.anim?.length && existing.finalState) return;
     queuedAnimationsRef.current.set(shot.seq, shot);
   }, []);
 
   const processQueuedAnimations = useCallback(async () => {
-    if (processingAnimationsRef.current || localShotPendingRef.current || !matchId) return;
+    if (processingAnimationsRef.current || !matchId) return;
     processingAnimationsRef.current = true;
     try {
       while (true) {
@@ -619,24 +669,30 @@ export default function Pool() {
         }
         if (!shot?.anim?.length || !shot.finalState) break;
         queuedAnimationsRef.current.delete(nextSeq);
+        activeShotSeqRef.current = shot.seq;
         setRemoteAim(null);
         shootingRef.current = true;
         setShooting(true);
         await playAnim(shot);
         lastPlayedShotSeqRef.current = shot.seq;
+        queuedAnimationsRef.current.delete(shot.seq);
+        activeShotSeqRef.current = null;
         setLastPlayedShotSeq(shot.seq);
         setState({
           ...(shot.finalState as TableState),
           currentPlayer: (shot.nextPlayer ?? shot.finalState.currentPlayer ?? 1) as 1 | 2,
         });
-        const fresh = await getPoolMatch(matchId);
-        if (fresh && fresh.lastShotSeq >= shot.seq) {
-          setMatch(fresh);
-        }
+        void getPoolMatch(matchId).then(fresh => {
+          if (fresh && fresh.lastShotSeq >= shot.seq) {
+            matchRef.current = fresh;
+            setMatch(fresh);
+          }
+        }).catch(error => console.error('pool match refresh after playback failed', error));
       }
     } catch (error) {
       console.error('authoritative pool shot playback failed', error);
     } finally {
+      activeShotSeqRef.current = null;
       processingAnimationsRef.current = false;
       const nextSeq = lastPlayedShotSeqRef.current + 1;
       const nextShot = queuedAnimationsRef.current.get(nextSeq);
@@ -653,10 +709,32 @@ export default function Pool() {
     processQueuedAnimationsRef.current = () => { void processQueuedAnimations(); };
   }, [processQueuedAnimations]);
 
+  useEffect(() => {
+    if (!loading && queuedAnimationsRef.current.size > 0) processQueuedAnimationsRef.current();
+  }, [loading]);
+
   const queueShotAnimation = useCallback((shot: PoolShotEvent) => {
     addQueuedShot(shot);
     void processQueuedAnimations();
   }, [addQueuedShot, processQueuedAnimations]);
+
+  const animateCueStrike = () => {
+    cancelAnimationFrame(cueStrikeRafRef.current);
+    const startedAt = performance.now();
+    const duration = 180;
+    const animate = (timestamp: number) => {
+      const progress = Math.min(1, (timestamp - startedAt) / duration);
+      setCueStrikeProgress(progress);
+      if (progress < 0.7) {
+        cueStrikeRafRef.current = requestAnimationFrame(animate);
+      } else {
+        cueStrikeRafRef.current = 0;
+        setCueStrikeProgress(null);
+      }
+    };
+    setCueStrikeProgress(0);
+    cueStrikeRafRef.current = requestAnimationFrame(animate);
+  };
 
   const handleShoot = async () => {
     if (shooting || !state || !match || !state.balls || !isMyTurn) return;
@@ -665,28 +743,34 @@ export default function Pool() {
       toast.alert('Reposicione a bola branca antes de tacar.');
       return;
     }
-    localShotPendingRef.current = true;
     shootingRef.current = true;
     setShooting(true);
     setRemoteAim(null);
+    playTone(120, 0.1, 'triangle', 0.08);
+    animateCueStrike();
+    let animationQueued = false;
     try {
       const res = await submitShot(match.id, angle, power, cueInHand ? ballInHandPos ?? undefined : undefined);
-      const recentShots = await getRecentPoolShots(match.id, 12).catch(error => {
-        console.error('failed to refresh pool shot history after shot', error);
-        return [];
-      });
-      setShotLog(recentShots);
       if (res?.anim?.length && res?.finalState && typeof res.seq === 'number') {
         setBallInHandPos(null);
-        queueShotAnimation(mapPoolShotEvent({
+        const shot = mapPoolShotEvent({
           seq: res.seq,
           player_id: sessionUserId,
           angle,
           power,
           result: res,
-        }));
-        const fresh = await getPoolMatch(match.id);
-        if (fresh) setMatch(fresh);
+        });
+        animationQueued = true;
+        queueShotAnimation(shot);
+        void getRecentPoolShots(match.id, 12).then(setShotLog).catch(error => {
+          console.error('failed to refresh pool shot history after shot', error);
+        });
+        void getPoolMatch(match.id).then(fresh => {
+          if (fresh) {
+            matchRef.current = fresh;
+            setMatch(fresh);
+          }
+        }).catch(error => console.error('failed to refresh pool match after shot', error));
       } else {
         toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
         const fresh = await getPoolMatch(match.id);
@@ -704,9 +788,10 @@ export default function Pool() {
       console.error('shot failed', e);
       toast.alert('Erro na tacada.');
     } finally {
-      localShotPendingRef.current = false;
-      shootingRef.current = false;
-      setShooting(false);
+      if (!animationQueued && !processingAnimationsRef.current && queuedAnimationsRef.current.size === 0) {
+        shootingRef.current = false;
+        setShooting(false);
+      }
       if (queuedAnimationsRef.current.size > 0) processQueuedAnimationsRef.current();
     }
   };
@@ -1126,7 +1211,7 @@ export default function Pool() {
                       : 'Toque ou arraste na mesa para mirar. A projeção considera se a força alcança a bola.'}
                   </p>
                   <button onClick={handleShoot} disabled={shooting || (cueInHand && !ballInHandPos)} className="w-full rounded-xl bg-[#E30613] py-3 font-black tracking-wide text-white shadow-lg shadow-red-900/15 transition hover:bg-[#c9000c] disabled:cursor-not-allowed disabled:opacity-60">
-                    {shooting ? 'ANIMANDO TACADA…' : cueInHand && !ballInHandPos ? 'POSICIONE A BRANCA' : 'TACAR'}
+                    {shooting ? 'Tacando…' : cueInHand && !ballInHandPos ? 'POSICIONE A BRANCA' : 'TACAR'}
                   </button>
                 </>
               ) : (

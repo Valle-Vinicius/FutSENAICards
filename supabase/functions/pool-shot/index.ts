@@ -201,8 +201,12 @@ serve(async (req) => {
     }
   }
 
-  // Load match
-  const { data: match, error: matchError } = await supabase.from('pool_matches').select('*').eq('id', matchId).single();
+  // Match and server time are independent reads; overlap their round trips.
+  const [matchResult, serverTimeResult] = await Promise.all([
+    supabase.from('pool_matches').select('*').eq('id', matchId).single(),
+    supabase.rpc('pool_server_time'),
+  ]);
+  const { data: match, error: matchError } = matchResult;
   if (matchError) {
     if (matchError.code === 'PGRST116') {
       console.log(`[pool-shot] user=${user.id} matchId=${matchId} 404 match not found`);
@@ -237,7 +241,7 @@ serve(async (req) => {
     return json({ error: 'not your turn' }, origin, 403);
   }
 
-  const { data: serverTime, error: serverTimeError } = await supabase.rpc('pool_server_time');
+  const { data: serverTime, error: serverTimeError } = serverTimeResult;
   if (serverTimeError) {
     console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to read server time`, serverTimeError.message);
     return json({ error: 'could not validate server time' }, origin, 500);
@@ -248,22 +252,12 @@ serve(async (req) => {
     return json({ error: 'could not validate server time' }, origin, 500);
   }
   const now = new Date(serverNowMs);
+  const staleLockBefore = new Date(now.getTime() - 60_000).toISOString();
   if (match.turn_available_at && new Date(match.turn_available_at).getTime() > now.getTime()) {
     return json({
       error: 'wait for the synchronized shot animation to finish',
       turnAvailableAt: match.turn_available_at,
     }, origin, 409);
-  }
-
-  const staleLockBefore = new Date(now.getTime() - 60_000).toISOString();
-  const { error: clearStaleLockError } = await supabase
-    .from('pool_matches')
-    .update({ shot_lock_id: null, shot_lock_at: null })
-    .eq('id', matchId)
-    .lt('shot_lock_at', staleLockBefore);
-  if (clearStaleLockError) {
-    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to clear stale shot lock`, clearStaleLockError.message);
-    return json({ error: 'could not lock shot' }, origin, 500);
   }
 
   // Validate turn deadline - usar horário do servidor
@@ -278,6 +272,8 @@ serve(async (req) => {
           status: 'finished',
           winner_id: winnerId,
           finish_reason: 'turn_expired',
+          shot_lock_id: null,
+          shot_lock_at: null,
           updated_at: now.toISOString(),
         })
         .eq('id', matchId)
@@ -285,7 +281,7 @@ serve(async (req) => {
         .eq('current_player', match.current_player)
         .in('status', ['accepted', 'playing'])
         .lte('turn_available_at', now.toISOString())
-        .is('shot_lock_id', null)
+        .or(`shot_lock_id.is.null,shot_lock_at.lt.${staleLockBefore}`)
         .select('id');
       if (expireError) {
         console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to expire turn`, expireError.message);
@@ -309,7 +305,7 @@ serve(async (req) => {
     .eq('version', match.version ?? 0)
     .eq('current_player', match.current_player)
     .in('status', ['accepted', 'playing'])
-    .is('shot_lock_id', null)
+    .or(`shot_lock_id.is.null,shot_lock_at.lt.${staleLockBefore}`)
     .select('id');
   if (lockError) {
     console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to acquire shot lock`, lockError.message);
@@ -354,17 +350,7 @@ serve(async (req) => {
   state.firstContact = null;
   state.foul = false;
 
-  const { data: shotCount, error: shotCountError } = await supabase
-    .from('pool_shots')
-    .select('seq')
-    .eq('match_id', matchId)
-    .order('seq', { ascending: false })
-    .limit(1);
-  if (shotCountError) {
-    console.error(`[pool-shot] user=${user.id} matchId=${matchId} failed to read shot sequence`, shotCountError.message);
-    return json({ error: 'could not prepare shot' }, origin, 500);
-  }
-  const seq = shotCount?.length ? shotCount[0].seq + 1 : 1;
+  const seq = (match.last_shot_seq ?? 0) + 1;
 
   const frames: any[] = [];
   let moving = true;
