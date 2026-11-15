@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isValidCuePlacement } from '../../../src/engine/pool/rules.ts';
+import { createInitialState, simulateShotAnimation } from '../../../src/engine/pool/physics.ts';
+import { BALL_RADIUS, TABLE_HEIGHT, TABLE_WIDTH } from '../../../src/engine/pool/types.ts';
 
 // Origem restrita ao domínio da aplicação em produção, mas aceita localhost e previews Vercel
 const ALLOWED_ORIGINS = [
@@ -22,118 +24,6 @@ const corsHeaders = (origin: string | null) => {
 
 const json = (body: unknown, origin: string | null, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
-
-const TABLE_WIDTH = 2.0;
-const TABLE_HEIGHT = 1.0;
-const BALL_RADIUS = 0.025;
-const POCKET_RADIUS = 0.045;
-const FRICTION = 0.9945;
-const RESTITUTION = 0.8;
-const FIXED_DT = 1 / 240;
-const MAX_SIM_STEPS = 240 * 10;
-
-const POCKETS = [
-  { x: 0, y: 0 },
-  { x: TABLE_WIDTH / 2, y: 0 },
-  { x: TABLE_WIDTH, y: 0 },
-  { x: 0, y: TABLE_HEIGHT },
-  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT },
-  { x: TABLE_WIDTH, y: TABLE_HEIGHT },
-];
-
-function dist(a: { x: number; y: number }, b: { x: number; y: number }) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-function toRow(frame: { balls: { x: number; y: number; pocketed: boolean }[] }): number[] {
-  const row: number[] = [];
-  for (const ball of frame.balls) {
-    row.push(
-      ball.pocketed ? -1 : Math.round(ball.x * 1000),
-      ball.pocketed ? -1 : Math.round(ball.y * 1000),
-    );
-  }
-  return row;
-}
-
-function createInitialBalls() {
-  const balls: any[] = [];
-  balls.push({ id: 0, type: 'cue', x: TABLE_WIDTH * 0.25, y: TABLE_HEIGHT / 2, vx: 0, vy: 0, pocketed: false });
-  const rackX = TABLE_WIDTH * 0.75;
-  const rackY = TABLE_HEIGHT / 2;
-  const rows = 5;
-  let ballId = 1;
-  const types: string[] = [];
-  for (let i = 0; i < 7; i++) types.push('solid');
-  for (let i = 0; i < 7; i++) types.push('stripe');
-  types.push('eight');
-  let idx = 0;
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col <= row; col++) {
-      if (ballId > 15) break;
-      const x = rackX + row * BALL_RADIUS * 2;
-      const y = rackY + (col - row / 2) * BALL_RADIUS * 2 * 1.05;
-      const t = types[idx % types.length];
-      idx++;
-      balls.push({ id: ballId, type: t, x, y, vx: 0, vy: 0, pocketed: false });
-      ballId++;
-    }
-  }
-  return balls;
-}
-
-function stepPhysics(state: any): boolean {
-  let moving = false;
-  const balls = state.balls;
-  for (const b of balls) {
-    if (b.pocketed) continue;
-    b.x += b.vx * (1 / 240);
-    b.y += b.vy * (1 / 240);
-    b.vx *= FRICTION;
-    b.vy *= FRICTION;
-    if (Math.abs(b.vx) < 0.001) b.vx = 0;
-    if (Math.abs(b.vy) < 0.001) b.vy = 0;
-    if (b.vx !== 0 || b.vy !== 0) moving = true;
-    if (b.x < BALL_RADIUS) { b.x = BALL_RADIUS; b.vx = -b.vx * RESTITUTION; }
-    if (b.x > TABLE_WIDTH - BALL_RADIUS) { b.x = TABLE_WIDTH - BALL_RADIUS; b.vx = -b.vx * RESTITUTION; }
-    if (b.y < BALL_RADIUS) { b.y = BALL_RADIUS; b.vy = -b.vy * RESTITUTION; }
-    if (b.y > TABLE_HEIGHT - BALL_RADIUS) { b.y = TABLE_HEIGHT - BALL_RADIUS; b.vy = -b.vy * RESTITUTION; }
-    for (let i = 0; i < POCKETS.length; i++) {
-      if (dist(b, POCKETS[i]) < POCKET_RADIUS) {
-        b.pocketed = true;
-        b.vx = 0; b.vy = 0;
-        if (!state.pocketedThisTurn.includes(b.id)) state.pocketedThisTurn.push(b.id);
-      }
-    }
-  }
-  for (let i = 0; i < balls.length; i++) {
-    for (let j = i + 1; j < balls.length; j++) {
-      const a = balls[i], b = balls[j];
-      if (a.pocketed || b.pocketed) continue;
-      const d = dist(a, b);
-      if (d < BALL_RADIUS * 2 && d > 0) {
-        const nx = (b.x - a.x) / d;
-        const ny = (b.y - a.y) / d;
-        const dvx = a.vx - b.vx;
-        const dvy = a.vy - b.vy;
-        const dot = dvx * nx + dvy * ny;
-        if (dot > 0) {
-          a.vx -= dot * nx; a.vy -= dot * ny;
-          b.vx += dot * nx; b.vy += dot * ny;
-          const overlap = BALL_RADIUS * 2 - d;
-          a.x -= nx * overlap / 2; a.y -= ny * overlap / 2;
-          b.x += nx * overlap / 2; b.y += ny * overlap / 2;
-          moving = true;
-          if (state.firstContact === null && a.id === 0) state.firstContact = b.id;
-          else if (state.firstContact === null && b.id === 0) state.firstContact = a.id;
-        }
-      }
-    }
-  }
-  return moving;
-}
 
 serve(async (req) => {
   const origin = req.headers.get('Origin');
@@ -195,7 +85,14 @@ serve(async (req) => {
       return json({ error: 'invalid ballInHandPos' }, origin, 400);
     }
     const pos = ballInHandPos as { x: number; y: number };
-    if (!isFinite(pos.x) || !isFinite(pos.y) || pos.x < 0.025 || pos.x > 1.975 || pos.y < 0.025 || pos.y > 0.975) {
+    if (
+      !isFinite(pos.x)
+      || !isFinite(pos.y)
+      || pos.x < BALL_RADIUS
+      || pos.x > TABLE_WIDTH - BALL_RADIUS
+      || pos.y < BALL_RADIUS
+      || pos.y > TABLE_HEIGHT - BALL_RADIUS
+    ) {
       console.log(`[pool-shot] user=${user.id} matchId=${matchId} 400 ballInHandPos out of bounds`);
       return json({ error: 'ballInHandPos out of bounds' }, origin, 400);
     }
@@ -318,11 +215,10 @@ serve(async (req) => {
   let finalized = false;
   try {
   // Load or create table state
-  let state = match.table_state ? (typeof match.table_state === 'string' ? JSON.parse(match.table_state) : match.table_state) : null;
-  if (!state) {
-    const balls = createInitialBalls();
-    state = { balls, assignments: { player1: null, player2: null }, currentPlayer: match.current_player, winner: null, foul: false, pocketedThisTurn: [], firstContact: null, shotInProgress: false };
-  }
+  let state = match.table_state
+    ? (typeof match.table_state === 'string' ? JSON.parse(match.table_state) : match.table_state)
+    : createInitialState();
+  if (!match.table_state) state.currentPlayer = match.current_player;
 
   // Ball in hand
   const cue = state.balls.find((b: any) => b.id === 0);
@@ -334,39 +230,19 @@ serve(async (req) => {
     if (!isValidCuePlacement(position, state.balls)) {
       return json({ error: 'invalid cue ball placement' }, origin, 400);
     }
-    cue.x = position.x;
-    cue.y = position.y;
-    cue.pocketed = false;
   } else if (ballInHandPos) {
     return json({ error: 'cue ball placement is not available' }, origin, 400);
   }
 
-  // Apply shot
   const clampedPower = Math.max(0, Math.min(1, power));
-  cue.vx = Math.cos(angle) * clampedPower * 8;
-  cue.vy = Math.sin(angle) * clampedPower * 8;
-  state.shotInProgress = true;
-  state.pocketedThisTurn = [];
-  state.firstContact = null;
-  state.foul = false;
-
   const seq = (match.last_shot_seq ?? 0) + 1;
-
-  const frames: any[] = [];
-  let moving = true;
-  let steps = 0;
-  while (moving && steps < MAX_SIM_STEPS) {
-    moving = stepPhysics(state);
-    frames.push({ balls: state.balls.map((b: any) => ({ x: b.x, y: b.y, pocketed: b.pocketed })) });
-    steps++;
-  }
-  state.shotInProgress = false;
-
-  const anim: number[][] = [];
-  for (let i = 0; i < frames.length; i += 4) anim.push(toRow(frames[i]));
-  if (frames.length > 0 && (frames.length - 1) % 4 !== 0) {
-    anim.push(toRow(frames[frames.length - 1]));
-  }
+  const simulation = simulateShotAnimation(state, {
+    angle,
+    power: clampedPower,
+    ballInHandPos: cue.pocketed ? ballInHandPos as { x: number; y: number } : undefined,
+  });
+  state = simulation.finalState;
+  const anim = simulation.animation;
 
   // Determine foul
   const pocketedIds = state.pocketedThisTurn;

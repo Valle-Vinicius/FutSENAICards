@@ -1,4 +1,4 @@
-import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, POCKET_RADIUS, FRICTION, RESTITUTION, FIXED_DT, MAX_SIM_STEPS, type Ball, type TableState, type ShotInput, type ShotResult } from './types';
+import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, POCKET_RADIUS, FRICTION, RESTITUTION, FIXED_DT, MAX_SIM_STEPS, type Ball, type TableState, type ShotInput, type ShotResult } from './types.ts';
 
 const POCKETS = [
   { x: 0, y: 0 },
@@ -53,15 +53,15 @@ export function createInitialState(): TableState {
   };
 }
 
-function dist(a: { x: number; y: number }, b: { x: number; y: number }) {
+function distSquared(a: { x: number; y: number }, b: { x: number; y: number }) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy);
+  return dx * dx + dy * dy;
 }
 
 function isPocketed(ball: Ball): number {
   for (let i = 0; i < POCKETS.length; i++) {
-    if (dist(ball, POCKETS[i]) < POCKET_RADIUS) return i;
+    if (distSquared(ball, POCKETS[i]) < POCKET_RADIUS * POCKET_RADIUS) return i;
   }
   return -1;
 }
@@ -97,8 +97,13 @@ function stepPhysics(state: TableState): boolean {
     for (let j = i + 1; j < balls.length; j++) {
       const a = balls[i], b = balls[j];
       if (a.pocketed || b.pocketed) continue;
-      const d = dist(a, b);
-      if (d < BALL_RADIUS * 2 && d > 0) {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const diameter = BALL_RADIUS * 2;
+      if (Math.abs(dx) >= diameter || Math.abs(dy) >= diameter) continue;
+      const squaredDistance = dx * dx + dy * dy;
+      if (squaredDistance < BALL_RADIUS * BALL_RADIUS * 4 && squaredDistance > 0) {
+        const d = Math.sqrt(squaredDistance);
         const nx = (b.x - a.x) / d;
         const ny = (b.y - a.y) / d;
         const dvx = a.vx - b.vx;
@@ -129,8 +134,25 @@ function stepPhysics(state: TableState): boolean {
   return moving;
 }
 
-export function simulateShot(state: TableState, shot: ShotInput): ShotResult {
-  const s: TableState = JSON.parse(JSON.stringify(state));
+export interface ShotFrameSimulation {
+  frames: ShotResult['frames'];
+  animation: number[][];
+  finalState: TableState;
+}
+
+function toAnimationRow(frame: ShotResult['frames'][number]): number[] {
+  return frame.balls.flatMap(ball =>
+    ball.pocketed ? [-1, -1] : [Math.round(ball.x * 1000), Math.round(ball.y * 1000)],
+  );
+}
+
+function runShotPhysics(state: TableState, shot: ShotInput, captureFrames: boolean): ShotFrameSimulation {
+  const s: TableState = {
+    ...state,
+    balls: state.balls.map(ball => ({ ...ball })),
+    assignments: { ...state.assignments },
+    pocketedThisTurn: [...state.pocketedThisTurn],
+  };
   const cue = s.balls.find(b => b.id === 0)!;
   if (cue.pocketed) {
     // ball in hand
@@ -150,15 +172,44 @@ export function simulateShot(state: TableState, shot: ShotInput): ShotResult {
   s.foul = false;
 
   const frames: ShotResult['frames'] = [];
+  const animation: number[][] = [];
   let moving = true;
   let steps = 0;
   while (moving && steps < MAX_SIM_STEPS) {
     moving = stepPhysics(s);
-    frames.push({ balls: s.balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })) });
+    const shouldCaptureAnimationFrame = steps % 4 === 0;
+    if (captureFrames || shouldCaptureAnimationFrame) {
+      const frame = { balls: s.balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })) };
+      if (captureFrames) frames.push(frame);
+      if (shouldCaptureAnimationFrame) animation.push(toAnimationRow(frame));
+    }
     steps++;
   }
   s.shotInProgress = false;
 
+  if (steps > 0 && (steps - 1) % 4 !== 0) {
+    const finalFrame = captureFrames
+      ? frames[frames.length - 1]
+      : { balls: s.balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })) };
+    animation.push(toAnimationRow(finalFrame));
+  }
+
+  return { frames, animation, finalState: s };
+}
+
+export function simulateShotFrames(state: TableState, shot: ShotInput): ShotFrameSimulation {
+  return runShotPhysics(state, shot, true);
+}
+
+export function simulateShotAnimation(
+  state: TableState,
+  shot: ShotInput,
+): Pick<ShotFrameSimulation, 'animation' | 'finalState'> {
+  const { animation, finalState } = runShotPhysics(state, shot, false);
+  return { animation, finalState };
+}
+
+function resolveShotRules(state: TableState, s: TableState, frames: ShotResult['frames']): ShotResult {
   // determine foul and next player
   const pocketedIds = s.pocketedThisTurn;
 
@@ -175,6 +226,7 @@ export function simulateShot(state: TableState, shot: ShotInput): ShotResult {
       if (ownLeft > 0) foul = true;
     }
   }
+  if (pocketedIds.includes(0)) foul = true;
   // no ball hit cushion/pocket after contact
   if (pocketedIds.length === 0 && !foul) {
     // check if any ball moved to cushion
@@ -235,5 +287,34 @@ export function simulateShot(state: TableState, shot: ShotInput): ShotResult {
     foul,
     nextPlayer,
     winner: s.winner,
+  };
+}
+
+export function simulateShotWithAnimation(state: TableState, shot: ShotInput): ShotResult & { animation: number[][] } {
+  const simulation = simulateShotFrames(state, shot);
+  return {
+    ...resolveShotRules(state, simulation.finalState, simulation.frames),
+    animation: simulation.animation,
+  };
+}
+
+export function simulateShotPrediction(
+  state: TableState,
+  shot: ShotInput,
+): Omit<ShotResult, 'frames'> & { animation: number[][] } {
+  const simulation = simulateShotAnimation(state, shot);
+  const { frames: _frames, ...result } = resolveShotRules(state, simulation.finalState, []);
+  return { ...result, animation: simulation.animation };
+}
+
+export function simulateShot(state: TableState, shot: ShotInput): ShotResult {
+  const result = simulateShotWithAnimation(state, shot);
+  return {
+    frames: result.frames,
+    finalState: result.finalState,
+    pocketed: result.pocketed,
+    foul: result.foul,
+    nextPlayer: result.nextPlayer,
+    winner: result.winner,
   };
 }

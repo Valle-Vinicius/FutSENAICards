@@ -1,9 +1,150 @@
-import { createInitialState, simulateShot } from '../../src/engine/pool/physics';
+import { createInitialState, simulateShot, simulateShotAnimation } from '../../src/engine/pool/physics';
 import { calculateShotTrajectory } from '../../src/engine/pool/trajectory';
-import { BALL_RADIUS } from '../../src/engine/pool/types';
+import { BALL_RADIUS, FIXED_DT, FRICTION, MAX_SIM_STEPS, POCKET_RADIUS, RESTITUTION, TABLE_HEIGHT, TABLE_WIDTH } from '../../src/engine/pool/types';
 import { determineWinner, isValidCuePlacement } from '../../src/engine/pool/rules';
+import type { ShotInput, TableState } from '../../src/engine/pool/types';
+
+function referenceShot(state: TableState, shot: ShotInput) {
+  const result = JSON.parse(JSON.stringify(state)) as TableState;
+  const cue = result.balls.find(ball => ball.id === 0)!;
+  if (cue.pocketed) {
+    if (shot.ballInHandPos) {
+      cue.x = Math.max(BALL_RADIUS, Math.min(TABLE_WIDTH - BALL_RADIUS, shot.ballInHandPos.x));
+      cue.y = Math.max(BALL_RADIUS, Math.min(TABLE_HEIGHT - BALL_RADIUS, shot.ballInHandPos.y));
+    }
+    cue.pocketed = false;
+  }
+  const power = Math.max(0, Math.min(1, shot.power));
+  cue.vx = Math.cos(shot.angle) * power * 8;
+  cue.vy = Math.sin(shot.angle) * power * 8;
+  result.shotInProgress = true;
+  result.pocketedThisTurn = [];
+  result.firstContact = null;
+  result.foul = false;
+
+  const pockets = [
+    { x: 0, y: 0 },
+    { x: TABLE_WIDTH / 2, y: 0 },
+    { x: TABLE_WIDTH, y: 0 },
+    { x: 0, y: TABLE_HEIGHT },
+    { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT },
+    { x: TABLE_WIDTH, y: TABLE_HEIGHT },
+  ];
+  const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y);
+  const animation: number[][] = [];
+  const toRow = () => result.balls.flatMap(ball =>
+    ball.pocketed ? [-1, -1] : [Math.round(ball.x * 1000), Math.round(ball.y * 1000)],
+  );
+  let moving = true;
+  let steps = 0;
+  while (moving && steps < MAX_SIM_STEPS) {
+    moving = false;
+    for (const ball of result.balls) {
+      if (ball.pocketed) continue;
+      ball.x += ball.vx * FIXED_DT;
+      ball.y += ball.vy * FIXED_DT;
+      ball.vx *= FRICTION;
+      ball.vy *= FRICTION;
+      if (Math.abs(ball.vx) < 0.001) ball.vx = 0;
+      if (Math.abs(ball.vy) < 0.001) ball.vy = 0;
+      if (ball.vx !== 0 || ball.vy !== 0) moving = true;
+      if (ball.x < BALL_RADIUS) { ball.x = BALL_RADIUS; ball.vx = -ball.vx * RESTITUTION; }
+      if (ball.x > TABLE_WIDTH - BALL_RADIUS) { ball.x = TABLE_WIDTH - BALL_RADIUS; ball.vx = -ball.vx * RESTITUTION; }
+      if (ball.y < BALL_RADIUS) { ball.y = BALL_RADIUS; ball.vy = -ball.vy * RESTITUTION; }
+      if (ball.y > TABLE_HEIGHT - BALL_RADIUS) { ball.y = TABLE_HEIGHT - BALL_RADIUS; ball.vy = -ball.vy * RESTITUTION; }
+      if (pockets.some(pocket => distance(ball, pocket) < POCKET_RADIUS)) {
+        ball.pocketed = true;
+        ball.vx = 0;
+        ball.vy = 0;
+        if (!result.pocketedThisTurn.includes(ball.id)) result.pocketedThisTurn.push(ball.id);
+      }
+    }
+    for (let i = 0; i < result.balls.length; i++) {
+      for (let j = i + 1; j < result.balls.length; j++) {
+        const a = result.balls[i];
+        const b = result.balls[j];
+        if (a.pocketed || b.pocketed) continue;
+        const d = distance(a, b);
+        if (d >= BALL_RADIUS * 2 || d === 0) continue;
+        const nx = (b.x - a.x) / d;
+        const ny = (b.y - a.y) / d;
+        const dot = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+        if (dot <= 0) continue;
+        a.vx -= dot * nx;
+        a.vy -= dot * ny;
+        b.vx += dot * nx;
+        b.vy += dot * ny;
+        const overlap = BALL_RADIUS * 2 - d;
+        a.x -= nx * overlap / 2;
+        a.y -= ny * overlap / 2;
+        b.x += nx * overlap / 2;
+        b.y += ny * overlap / 2;
+        moving = true;
+        if (result.firstContact === null && a.id === 0) result.firstContact = b.id;
+        else if (result.firstContact === null && b.id === 0) result.firstContact = a.id;
+      }
+    }
+    if (steps % 4 === 0) animation.push(toRow());
+    steps++;
+  }
+  if (steps > 0 && (steps - 1) % 4 !== 0) animation.push(toRow());
+  result.shotInProgress = false;
+  return { animation, finalState: result };
+}
 
 describe('Pool engine', () => {
+  it('shares deterministic shot physics with the server reference for 300 varied shots', () => {
+    jest.setTimeout(30_000);
+    let seed = 0x71a4c39d;
+    const random = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 0x1_0000_0000;
+    };
+    const compareWithReference = (state: TableState, shot: ShotInput) => {
+      const expected = referenceShot(state, shot);
+      const actual = simulateShotAnimation(state, shot);
+      expect(actual.finalState.balls).toHaveLength(expected.finalState.balls.length);
+      actual.finalState.balls.forEach((ball, ballIndex) => {
+        const expectedBall = expected.finalState.balls[ballIndex];
+        expect(Math.abs(ball.x - expectedBall.x)).toBeLessThanOrEqual(1e-9);
+        expect(Math.abs(ball.y - expectedBall.y)).toBeLessThanOrEqual(1e-9);
+        expect(ball.pocketed).toBe(expectedBall.pocketed);
+      });
+      expect(actual.finalState.pocketedThisTurn).toEqual(expected.finalState.pocketedThisTurn);
+      expect(actual.finalState.firstContact).toBe(expected.finalState.firstContact);
+      expect(actual.animation).toEqual(expected.animation);
+    };
+
+    for (let index = 0; index < 300; index++) {
+      const state = createInitialState();
+      state.balls = state.balls.slice(0, 1);
+      const shot: ShotInput = {
+        angle: random() * Math.PI * 2,
+        power: index % 20 === 0 ? 0.2 + random() * 0.8 : random() * 0.00012,
+      };
+      if (index % 17 === 0) {
+        state.balls[0].pocketed = true;
+        shot.ballInHandPos = { x: 0.22 + random() * 0.1, y: 0.4 + random() * 0.2 };
+      }
+      compareWithReference(state, shot);
+    }
+
+    for (let index = 0; index < 25; index++) {
+      const state = createInitialState();
+      state.balls = state.balls.map(ball => ({
+        ...ball,
+        x: ball.id === 0 ? ball.x : 0.65 + (ball.id - 1) * 0.15 + random() * 0.03,
+        y: ball.id === 0 ? ball.y : (ball.id % 2 === 0 ? 0.35 : 0.65) + random() * 0.04,
+        pocketed: ball.id > 4,
+      })).slice(0, 5);
+      compareWithReference(state, {
+        angle: random() * Math.PI * 2,
+        power: 0.15 + random() * 0.85,
+      });
+    }
+  });
+
   it('creates initial state with 16 balls', () => {
     const s = createInitialState();
     expect(s.balls.length).toBe(16);

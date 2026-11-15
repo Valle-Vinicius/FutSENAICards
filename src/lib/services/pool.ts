@@ -51,6 +51,51 @@ export interface PoolShotEvent {
   version: number | null;
 }
 
+export function comparePoolShotPrediction(
+  predicted: PoolShotEvent,
+  authoritative: PoolShotEvent,
+  tolerance = 1e-6,
+): { matches: boolean; differences: string[] } {
+  const differences: string[] = [];
+  const sameRows = (left: number[][] | null, right: number[][] | null) =>
+    !!left && !!right
+    && left.length === right.length
+    && left.every((row, rowIndex) =>
+      row.length === right[rowIndex].length
+      && row.every((value, valueIndex) => value === right[rowIndex][valueIndex]),
+    );
+  if (!sameRows(predicted.anim, authoritative.anim)) differences.push('animation');
+  if (!predicted.finalState || !authoritative.finalState) {
+    differences.push('finalState');
+  } else {
+    const predictedBalls = predicted.finalState.balls ?? [];
+    const authoritativeBalls = authoritative.finalState.balls ?? [];
+    if (predictedBalls.length !== authoritativeBalls.length) {
+      differences.push('balls.length');
+    } else if (predictedBalls.some((ball: { x: number; y: number; pocketed: boolean }, index: number) => {
+      const official = authoritativeBalls[index];
+      return !official
+        || Math.abs(ball.x - official.x) > tolerance
+        || Math.abs(ball.y - official.y) > tolerance
+        || ball.pocketed !== official.pocketed;
+    })) {
+      differences.push('balls');
+    }
+    for (const field of ['currentPlayer', 'foul', 'winner'] as const) {
+      if (predicted.finalState[field] !== authoritative.finalState[field]) differences.push(`finalState.${field}`);
+    }
+  }
+  if (predicted.foul !== authoritative.foul) differences.push('foul');
+  if (predicted.firstContact !== authoritative.firstContact) differences.push('firstContact');
+  if (predicted.nextPlayer !== authoritative.nextPlayer) differences.push('nextPlayer');
+  if (predicted.winner !== authoritative.winner) differences.push('winner');
+  if (predicted.pocketed.length !== authoritative.pocketed.length
+    || predicted.pocketed.some((ballId, index) => ballId !== authoritative.pocketed[index])) {
+    differences.push('pocketed');
+  }
+  return { matches: differences.length === 0, differences };
+}
+
 export function mapPoolShotEvent(shot: any): PoolShotEvent {
   const result = shot.result ?? {};
   return {

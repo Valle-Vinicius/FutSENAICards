@@ -18,7 +18,8 @@ jest.mock('../../../src/lib/supabase', () => ({
   },
 }));
 
-import { getPoolShotPlaybackStartAt, getPoolShotsAfter, submitShot } from '../../../src/lib/services/pool';
+import { comparePoolShotPrediction, getPoolShotPlaybackStartAt, getPoolShotsAfter, submitShot } from '../../../src/lib/services/pool';
+import type { PoolShotEvent } from '../../../src/lib/services/pool';
 
 describe('pool service', () => {
   beforeEach(() => {
@@ -41,6 +42,44 @@ describe('pool service', () => {
       playerId: 'player-2',
       playbackAt: '2026-11-11T00:00:02.000Z',
     }, 'player-1', 1_000, 250)).toBe(Date.parse('2026-11-11T00:00:02.000Z'));
+  });
+
+  it('accepts a matching local prediction within position tolerance', () => {
+    const prediction: PoolShotEvent = {
+      seq: 1,
+      playerId: 'player-1',
+      angle: 0,
+      power: 0.5,
+      anim: [[1, 2]],
+      pocketed: [],
+      foul: false,
+      foulReason: null,
+      firstContact: 3,
+      nextPlayer: 2,
+      winner: null,
+      finalState: {
+        balls: [{ x: 1, y: 2, pocketed: false }],
+        currentPlayer: 2,
+        foul: false,
+        winner: null,
+      },
+      playbackAt: null,
+      turnAvailableAt: null,
+      version: null,
+    };
+    const authoritative = {
+      ...prediction,
+      finalState: {
+        ...prediction.finalState,
+        balls: [{ x: 1 + 5e-7, y: 2, pocketed: false }],
+      },
+    };
+
+    expect(comparePoolShotPrediction(prediction, authoritative).matches).toBe(true);
+    expect(comparePoolShotPrediction(prediction, {
+      ...authoritative,
+      nextPlayer: 1,
+    }).differences).toContain('nextPlayer');
   });
 
   it('renews the session and retries a shot rejected as unauthorized', async () => {
