@@ -11,15 +11,17 @@ function FriendAvatar({ user, size = 'md' }: { user: FriendUser; size?: 'sm' | '
   const status = user.online ? 'Online' : 'Offline';
 
   return (
-    <div className={`${sizeClass} relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0F2] font-semibold text-[#E30613] ring-2 ring-white`}>
-      {user.avatar_url
-        ? <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
-        : user.name.charAt(0).toUpperCase()}
+    <div className={`${sizeClass} relative shrink-0`}>
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#FFF0F2] font-semibold text-[#E30613] ring-2 ring-white">
+        {user.avatar_url
+          ? <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
+          : user.name.charAt(0).toUpperCase()}
+      </div>
       <span
         role="img"
         aria-label={status}
         title={status}
-        className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${user.online ? 'bg-green-500' : 'bg-[#858A98]'}`}
+        className={`absolute bottom-0 right-0 z-10 h-3.5 w-3.5 rounded-full border-2 border-white ${user.online ? 'bg-green-500' : 'bg-[#858A98]'}`}
       />
     </div>
   );
@@ -49,6 +51,12 @@ export default function Friends() {
   const [msg, setMsg] = useState('');
   const navigate = useNavigate();
   const setPendingFriends = useGame(s => s.setPendingFriends);
+  const presenceIds = [...new Set([
+    ...friends.map(friend => friend.id),
+    ...received.map(request => request.user.id),
+    ...sent.map(request => request.user.id),
+  ])].sort();
+  const presenceKey = presenceIds.join(',');
 
   const load = useCallback(async (uid: string) => {
     setFriends(await friendsService.getFriends(uid));
@@ -62,7 +70,6 @@ export default function Friends() {
     if (!supabase) return;
     let active = true;
     let unsubscribe = () => {};
-    let interval: ReturnType<typeof setInterval> | null = null;
     void (async () => {
       try {
         const { data, error: sessionError } = await supabase!.auth.getSession();
@@ -76,12 +83,6 @@ export default function Friends() {
         await load(uid);
         if (!active) return;
         unsubscribe = friendsService.subscribeFriends(uid, () => { void load(uid); });
-        const updateLastSeen = async () => {
-          const { error } = await supabase!.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', uid);
-          if (error) console.error('friend presence update failed', error);
-        };
-        void updateLastSeen();
-        interval = setInterval(() => { void updateLastSeen(); }, 60000);
       } catch (error) {
         console.error('friends page initialization failed', error);
       }
@@ -89,9 +90,21 @@ export default function Friends() {
     return () => {
       active = false;
       unsubscribe();
-      if (interval) clearInterval(interval);
     };
   }, [load]);
+
+  useEffect(() => {
+    if (!userId || !presenceKey) return;
+    return friendsService.subscribeFriendPresence(presenceKey.split(','), (friendId, online) => {
+      setFriends(current => current.map(friend => friend.id === friendId ? { ...friend, online } : friend));
+      setReceived(current => current.map(request => request.user.id === friendId
+        ? { ...request, user: { ...request.user, online } }
+        : request));
+      setSent(current => current.map(request => request.user.id === friendId
+        ? { ...request, user: { ...request.user, online } }
+        : request));
+    });
+  }, [presenceKey, userId]);
 
   const handleSearch = async () => {
     if (!userId) return;

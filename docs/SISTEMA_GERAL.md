@@ -371,11 +371,13 @@ As seguintes tabelas estão na publicação `supabase_realtime`:
 - `pool_matches` - Sincroniza estado da mesa, turno, vencedor
 - `pool_shots` - Sincroniza tacadas realizadas
 - `challenges` - Sincroniza estado de desafios
+- `friendships` - Atualiza pedidos e vínculos de amizade
 
 Canais utilizados:
 - `pool-match-${matchId}` - Sincronização de partida de sinuca
 - `pool-invite-${matchId}` - Notificação de convite de sinuca
 - `challenges-notify-${userId}` - Notificações de desafios PvP
+- `friends-presence:${userId}` - Presença privada atualizada em tempo real para amigos e solicitações
 
 ---
 
@@ -415,7 +417,7 @@ No SQL Editor do Supabase (dashboard), cole o conteúdo de cada arquivo `.sql` n
 - [x] Conversão de duplicatas
 - [x] Marketplace (listings)
 - [x] Sistema de sinuca (8-ball) com física autoritativa
-- [x] Realtime para sinuca e desafios
+- [x] Realtime para sinuca, desafios e presença de amigos
 - [x] Painel admin (criar cartas, templates, editar overall, editar templates base)
 - [x] PvP / Desafios entre amigos
 - [x] Rating competitivo (Elo)

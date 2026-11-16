@@ -218,3 +218,88 @@ export function subscribeFriends(userId: string, onChange: () => void) {
     .subscribe();
   return () => { if (supabase) supabase.removeChannel(channel); };
 }
+
+const FRIEND_PRESENCE_TOPIC = 'friends-presence:';
+
+export function subscribeUserPresence(userId: string) {
+  const client = supabase;
+  if (!client) return () => {};
+
+  const channel = client.channel(`${FRIEND_PRESENCE_TOPIC}${userId}`, {
+    config: { private: true, presence: { key: userId } },
+  });
+  let subscribed = false;
+
+  const updatePresence = () => {
+    if (!subscribed || typeof document === 'undefined') return;
+    const update = document.visibilityState === 'visible'
+      ? channel.track({ user_id: userId })
+      : channel.untrack();
+    void update.then(status => {
+      if (status !== 'ok') console.error('[friends presence] failed to update presence:', status);
+    }).catch(error => console.error('[friends presence] failed to update presence:', error));
+  };
+
+  const handleVisibilityChange = () => updatePresence();
+  channel.subscribe((status, error) => {
+    if (status === 'SUBSCRIBED') {
+      subscribed = true;
+      updatePresence();
+      return;
+    }
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      subscribed = false;
+      console.error('[friends presence] channel subscription failed:', error ?? status);
+    } else if (status === 'CLOSED') {
+      subscribed = false;
+    }
+  });
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }
+
+  return () => {
+    subscribed = false;
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
+    void client.removeChannel(channel).then(status => {
+      if (status !== 'ok') console.error('[friends presence] failed to remove channel:', status);
+    }).catch(error => console.error('[friends presence] failed to remove channel:', error));
+  };
+}
+
+export function subscribeFriendPresence(
+  friendIds: string[],
+  onChange: (friendId: string, online: boolean) => void,
+) {
+  const client = supabase;
+  if (!client || friendIds.length === 0) return () => {};
+
+  const removeChannels = [...new Set(friendIds)].map(friendId => {
+    const channel = client.channel(`${FRIEND_PRESENCE_TOPIC}${friendId}`, {
+      config: { private: true, presence: { key: friendId, enabled: true } },
+    });
+    const syncPresence = () => {
+      onChange(friendId, Boolean(channel.presenceState()[friendId]?.length));
+    };
+
+    channel
+      .on('presence', { event: 'sync' }, syncPresence)
+      .subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          syncPresence();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`[friends presence] failed to subscribe to ${friendId}:`, error ?? status);
+        }
+      });
+
+    return () => {
+      void client.removeChannel(channel).then(status => {
+        if (status !== 'ok') console.error(`[friends presence] failed to remove ${friendId} channel:`, status);
+      }).catch(error => console.error(`[friends presence] failed to remove ${friendId} channel:`, error));
+    };
+  });
+
+  return () => removeChannels.forEach(removeChannel => removeChannel());
+}

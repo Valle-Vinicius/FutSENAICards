@@ -5,6 +5,7 @@ import React from 'react';
 import ToastContainer from './components/ToastContainer';
 import { useGame } from './store/useGame';
 import { supabase } from './lib/supabase';
+import { subscribeUserPresence } from './lib/services/friends';
 import Layout from './components/Layout';
 import Tutorial from './components/Tutorial';
 import NotFound from './pages/NotFound';
@@ -102,6 +103,10 @@ export default function App() {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', markActive);
     };
+  }, [currentUserId]);
+  useEffect(() => {
+    if (!currentUserId) return;
+    return subscribeUserPresence(currentUserId);
   }, [currentUserId]);
   if (!authReady) {
     return <div className="min-h-screen flex items-center justify-center text-[#858A98]">Carregando sessão…</div>;

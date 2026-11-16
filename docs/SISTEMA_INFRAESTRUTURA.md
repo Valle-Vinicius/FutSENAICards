@@ -41,6 +41,7 @@ Todas as migrações estão em `supabase/migrations/` e devem ser aplicadas em o
 | `20261107050000_admin_edit_card_overall.sql` - RPCs de edição de overall |
 | `20261107060000_admin_upsert_template.sql` - upsert de templates |
 | `20261108000000_fix_delete_owned_cards.sql` - corrigir uuid=text |
+| `20261116140000_friend_realtime_presence.sql` | Presença privada em tempo real para amigos e solicitações |
 
 ### Como Aplicar Migrações
 
@@ -104,6 +105,7 @@ As seguintes tabelas estão na publicação `supabase_realtime`:
 
 - `pool_matches`
 - `pool_shots`
+- `friendships`
 
 ### Canais de Realtime
 
@@ -112,6 +114,7 @@ As seguintes tabelas estão na publicação `supabase_realtime`:
 | `pool-match-${matchId}` | UPDATE | Sincroniza estado da mesa, turno, vencedor |
 | `pool-invite-${matchId}` | UPDATE | Notifica aceite/recusa de convite de sinuca |
 | `challenges-notify-${userId}` | INSERT/UPDATE | Notificações de desafios PvP |
+| `friends-presence:${userId}` | Presence | Estado online do usuário, visível apenas para ele e seus contatos com vínculo pendente ou aceito |
 
 ### Exemplo de Uso no Cliente
 
