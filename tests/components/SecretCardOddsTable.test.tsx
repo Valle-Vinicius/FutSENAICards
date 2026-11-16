@@ -17,13 +17,22 @@ describe('SecretCardOddsTable', () => {
     render(<SecretCardOddsTable chancePercent={0.001} position="Ala" />);
 
     expect(screen.getByText(/Pacote mais barato para chegar a 99%: BRONZE/)).toBeInTheDocument();
-    expect(screen.getAllByText('Não elegível')).toHaveLength(3);
+    expect(screen.getAllByText('Não elegível para cartas secretas')).toHaveLength(3);
   });
 
   it('makes the goalkeeper package eligible only for a goalkeeper template', () => {
     render(<SecretCardOddsTable chancePercent={0.001} position="GK" />);
 
-    const goalkeeperRow = screen.getByRole('row', { name: /GOLEIROS/ });
-    expect(goalkeeperRow).toHaveTextContent('0,0030%');
+    const goalkeeperPackage = screen.getByRole('heading', { name: 'GOLEIROS' }).closest('li');
+    expect(goalkeeperPackage).toHaveTextContent('0,0030%');
+  });
+
+  it('keeps package odds readable on dark backgrounds without horizontal overflow', () => {
+    const { container } = render(<SecretCardOddsTable chancePercent={0.001} position="Ala" />);
+
+    expect(screen.getAllByText('Chance por pacote')[0]).toHaveClass('text-white/70');
+    expect(screen.getAllByText('0,0030%')[0]).toHaveClass('text-white');
+    expect(container.querySelector('table')).not.toBeInTheDocument();
+    expect(container.querySelector('ul[aria-label="Chance e custo estimado por pacote"]')).toBeInTheDocument();
   });
 });
