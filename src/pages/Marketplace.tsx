@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
-import { ArrowDown, ArrowUp, Coins, RotateCcw, Search, SlidersHorizontal, Store, User } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock3, Coins, RotateCcw, Search, SlidersHorizontal, Store, Tag, User } from 'lucide-react';
 import { getPlayerImage } from '../data/players';
 import ConfirmModal from '../components/ConfirmModal';
 import { supabase } from '../lib/supabase';
 import { getListings, toGameListing, type ListingRecord } from '../lib/services/marketplace';
+import { RARITY_META, type Listing } from '../types';
 
 function applyRemoteListings(remoteListings: ListingRecord[]) {
   useGame.setState(state => ({
@@ -18,6 +19,13 @@ function applyRemoteListings(remoteListings: ListingRecord[]) {
         .map(listing => ({ ...listing, status: 'expired' as const })),
     ],
   }));
+}
+
+function listingStatusLabel(listing: Listing, now: number) {
+  if (listing.status === 'active') return listing.expiresAt <= now ? 'Expirado' : 'Ativo';
+  if (listing.status === 'sold') return 'Vendido';
+  if (listing.status === 'cancelled') return 'Cancelado';
+  return 'Expirado';
 }
 
 export default function Marketplace() {
@@ -59,7 +67,7 @@ export default function Marketplace() {
   const recordTransfer = useGame(s => s.recordTransfer);
   const recordPrice = useGame(s => s.recordPrice);
   const recentTransfers = useGame(s => s.recentTransfers);
-  const [tab, setTab] = useState<'market' | 'mine' | 'targets' | 'history'>('market');
+  const [tab, setTab] = useState<'market' | 'mine' | 'history'>('market');
   const [q, setQ] = useState('');
   const [pos, setPos] = useState('');
   const [rar, setRar] = useState('');
@@ -140,8 +148,18 @@ export default function Marketplace() {
   };
 
   const availableToSell = cards.filter(c => !listings.some(l => l.cardUid === c.uid && l.status === 'active' && l.expiresAt > marketNow));
+  const matchingSellCards = availableToSell
+    .filter(c => c.name.toLowerCase().includes(listSearch.toLowerCase()))
+    .sort((a, b) => b.overall - a.overall);
+  const selectedSellCard = availableToSell.find(c => c.uid === listUid);
+  const myListings = listings.filter(l => l.sellerId === userId);
+  const myActiveListings = myListings
+    .filter(l => l.status === 'active' && l.expiresAt > marketNow)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const myListingHistory = myListings
+    .filter(l => l.status !== 'active' || l.expiresAt <= marketNow)
+    .sort((a, b) => b.createdAt - a.createdAt);
 
-  const sel = 'bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]';
   const marketControl = 'h-11 w-full min-w-0 rounded-xl border border-[#E9EAF0] bg-white px-3 text-sm text-[#252733] transition-colors focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10';
 
   return (
@@ -154,9 +172,9 @@ export default function Marketplace() {
           <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Transferências</h1>
         </div>
         <div className="flex flex-wrap gap-1 rounded-xl border border-[#E9EAF0] bg-white p-1">
-        {(['market', 'mine', 'targets', 'history'] as const).map(t => (
+        {(['market', 'mine', 'history'] as const).map(t => (
           <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${tab === t ? 'bg-[#E30613] text-white' : 'text-[#858A98] hover:bg-[#F7F7F9] hover:text-[#252733]'}`}>
-            {t === 'market' ? 'Mercado' : t === 'mine' ? 'Minhas vendas' : t === 'targets' ? 'Alvos' : 'Histórico'}
+            {t === 'market' ? 'Mercado' : t === 'mine' ? 'Minhas vendas' : 'Histórico'}
           </button>
         ))}
         </div>
@@ -276,61 +294,217 @@ export default function Marketplace() {
       )}
 
       {tab === 'mine' && (
-        <div className="space-y-4">
-          <div className="card-surface p-4 space-y-2">
-            <h3 className="font-semibold text-[#252733]">Anunciar carta</h3>
-            <div className="flex gap-4">
-              <div className="flex-1 space-y-2">
-                <input value={listSearch} onChange={e => setListSearch(e.target.value)} placeholder="Buscar carta..." className={`w-full ${sel}`} />
-                <div className="max-h-48 overflow-y-auto space-y-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {availableToSell.filter(c => c.name.toLowerCase().includes(listSearch.toLowerCase())).sort((a, b) => b.overall - a.overall).map(c => (
-                    <button key={c.uid} onClick={() => setListUid(c.uid)} className={`w-full text-left px-2 py-1 rounded-lg text-sm ${listUid === c.uid ? 'bg-[#FFF0F2] text-[#E30613]' : 'hover:bg-[#F7F7F9] text-[#252733]'}`}>
-                      {c.name} (OVR {c.overall})
-                    </button>
-                  ))}
-                  {availableToSell.filter(c => c.name.toLowerCase().includes(listSearch.toLowerCase())).length === 0 && (
-                    <div className="text-xs text-[#858A98] px-2 py-1">Nenhuma carta encontrada.</div>
+        <div className="space-y-6">
+          <section className="card-surface overflow-hidden">
+            <div className="border-b border-[#E9EAF0] px-4 py-4 md:px-6">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F2] text-[#E30613]">
+                  <Tag className="h-5 w-5" />
+                </span>
+                <div>
+                  <h2 className="font-semibold text-[#252733]">Anunciar carta</h2>
+                  <p className="mt-0.5 text-sm text-[#858A98]">Escolha uma carta da coleção e defina o preço.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-5 p-4 md:p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+              <div className="min-w-0 space-y-3">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+                  <input
+                    value={listSearch}
+                    onChange={e => setListSearch(e.target.value)}
+                    placeholder="Buscar carta pelo nome..."
+                    aria-label="Buscar carta para anunciar"
+                    className={`${marketControl} pl-10`}
+                  />
+                </label>
+
+                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                  {matchingSellCards.map(c => {
+                    const rarity = RARITY_META[c.rarity];
+                    const image = c.image || getPlayerImage(c.name);
+                    const selected = listUid === c.uid;
+                    return (
+                      <button
+                        key={c.uid}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setListUid(c.uid)}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-colors motion-reduce:transition-none ${selected ? 'border-[#E30613]/40 bg-[#FFF0F2]' : 'border-[#E9EAF0] bg-white hover:border-[#E30613]/20 hover:bg-[#F7F7F9]'}`}
+                      >
+                        <span className="flex h-[68px] w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#F7F7F9]" style={{ border: `1px solid ${rarity.color}` }}>
+                          {image ? <img src={image} alt="" className="h-full w-full object-cover object-top" /> : <User className="h-5 w-5 text-[#858A98]" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-[#252733]">{c.name}</span>
+                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#858A98]">
+                            <span>OVR {c.overall}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{c.position}</span>
+                            <span className="rounded-full border px-2 py-0.5" style={{ borderColor: rarity.color, color: rarity.color }}>{rarity.label}</span>
+                          </span>
+                        </span>
+                        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${selected ? 'bg-[#E30613] text-white' : 'bg-[#F7F7F9] text-[#858A98]'}`}>
+                          {selected ? 'Selecionada' : 'Selecionar'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {matchingSellCards.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-[#E9EAF0] px-4 py-8 text-center text-sm text-[#858A98]">
+                      {availableToSell.length === 0 ? 'Nenhuma carta disponível para anunciar.' : 'Nenhuma carta encontrada.'}
+                    </div>
                   )}
                 </div>
               </div>
-              <div className="w-32 shrink-0 flex items-center justify-center">
-                {listUid && availableToSell.find(c => c.uid === listUid) ? (
-                  <Card card={availableToSell.find(c => c.uid === listUid)!} size="sm" />
-                ) : (
-                  <div className="text-xs text-[#858A98] text-center">Selecione uma carta</div>
-                )}
+
+              <div className="min-w-0 rounded-2xl bg-[#F7F7F9] p-4 md:p-5">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold text-[#252733]">Prévia do anúncio</h3>
+                  <p className="mt-1 text-xs text-[#858A98]">Confira a carta antes de publicar.</p>
+                </div>
+
+                <div className="flex min-h-52 flex-col items-center justify-center gap-4 rounded-xl border border-[#E9EAF0] bg-white p-4 sm:flex-row sm:justify-start">
+                  {selectedSellCard ? (
+                    <>
+                      <Card card={selectedSellCard} size="sm" />
+                      <div className="min-w-0 text-center sm:text-left">
+                        <p className="text-xs font-medium uppercase tracking-wide text-[#858A98]">Carta selecionada</p>
+                        <h4 className="mt-1 break-words text-lg font-semibold text-[#252733]">{selectedSellCard.name}</h4>
+                        <p className="mt-2 text-sm text-[#858A98]">{selectedSellCard.position} · Overall {selectedSellCard.overall}</p>
+                        <span className="mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: RARITY_META[selectedSellCard.rarity].color, color: RARITY_META[selectedSellCard.rarity].color }}>
+                          {RARITY_META[selectedSellCard.rarity].label}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-[#858A98]">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F7F7F9]"><Tag className="h-5 w-5" /></span>
+                      Selecione uma carta para ver a prévia.
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <label htmlFor="listing-price" className="text-sm font-medium text-[#252733]">Preço do anúncio</label>
+                  <div className="relative">
+                    <Coins className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+                    <input
+                      id="listing-price"
+                      value={listPrice}
+                      onChange={e => setListPrice(e.target.value)}
+                      placeholder="Valor em moedas"
+                      aria-label="Preço da carta em moedas"
+                      className={`${marketControl} pl-10`}
+                    />
+                  </div>
+                  <button onClick={handleList} disabled={creatingListing} className="btn btn-primary btn-full btn-lg">
+                    {creatingListing ? 'Publicando...' : 'Publicar anúncio'}
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <input value={listPrice} onChange={e => setListPrice(e.target.value)} placeholder="Preço da carta" className={`flex-1 ${sel}`} />
-            </div>
-            <button onClick={handleList} disabled={creatingListing} className="btn btn-primary btn-full">{creatingListing ? 'Publicando...' : 'Publicar'}</button>
-          </div>
-          <div className="space-y-2">
-            {listings.filter(l => l.sellerId === userId).map(l => {
-              const c = cardOf(l.cardUid);
-              const expired = l.status === 'active' && l.expiresAt <= marketNow;
-              return (
-                <div key={l.id} className="card-surface p-3 flex items-center justify-between gap-3">
-                  <div className="text-sm text-[#252733]">{c?.name || l.cardName || 'Carta'} · {listingPrice(l).toLocaleString('pt-BR')} moedas · {expired ? 'expirado' : l.status}</div>
-                  {l.status === 'active' && !expired && <button disabled={cancellingListingId !== null} onClick={async () => {
-                    if (cancellingListingId) return;
-                    setCancellingListingId(l.id);
-                    const cancelled = await cancelListing(l.id);
-                    if (cancelled) toast.success('Anúncio cancelado.');
-                    else toast.error('O anúncio não está mais ativo ou não foi possível cancelá-lo.');
-                    setCancellingListingId(null);
-                  }} className="btn btn-danger btn-sm">{cancellingListingId === l.id ? 'Cancelando...' : 'Cancelar'}</button>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+          </section>
 
-      {tab === 'targets' && (
-        <div className="card-surface p-4 text-[#858A98] text-sm">
-          Cartas favoritas aparecerão aqui. (Funcionalidade em desenvolvimento)
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold text-[#252733]">Anúncios ativos</h2>
+                <p className="mt-0.5 text-sm text-[#858A98]">Gerencie as cartas disponíveis no mercado.</p>
+              </div>
+              <span className="rounded-full bg-[#FFF0F2] px-3 py-1 text-xs font-semibold text-[#E30613]">{myActiveListings.length} ativos</span>
+            </div>
+
+            {myActiveListings.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                {myActiveListings.map(l => {
+                  const c = cardOf(l.cardUid);
+                  const name = c?.name || l.cardName || 'Carta';
+                  const rarity = c ? RARITY_META[c.rarity] : null;
+                  const image = c?.image || l.cardImage || getPlayerImage(name);
+                  return (
+                    <article key={l.id} className="card-surface flex min-w-0 items-center gap-3 p-3 transition-colors hover:border-[#E30613]/20 sm:gap-4 sm:p-4">
+                      <span className="flex h-24 w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#F7F7F9]" style={rarity ? { border: `1px solid ${rarity.color}` } : undefined}>
+                        {image ? <img src={image} alt={name} className="h-full w-full object-cover object-top" /> : <User className="h-6 w-6 text-[#858A98]" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate text-sm font-semibold text-[#252733]" title={name}>{name}</h3>
+                          <span className="rounded-full bg-[#FFF0F2] px-2 py-0.5 text-[11px] font-medium text-[#E30613]">Ativo</span>
+                        </div>
+                        <p className="mt-1 truncate text-xs text-[#858A98]">
+                          {c ? `${c.position} · OVR ${c.overall}` : `OVR ${l.cardOverall ?? '—'}`}
+                          {rarity ? ` · ${rarity.label}` : l.cardRarity ? ` · ${l.cardRarity}` : ''}
+                        </p>
+                        <p className="mt-2 text-base font-bold tabular-nums text-[#E30613]">
+                          {listingPrice(l).toLocaleString('pt-BR')} <span className="text-xs font-medium">moedas</span>
+                        </p>
+                        <button
+                          disabled={cancellingListingId !== null}
+                          onClick={async () => {
+                            if (cancellingListingId) return;
+                            setCancellingListingId(l.id);
+                            const cancelled = await cancelListing(l.id);
+                            if (cancelled) toast.success('Anúncio cancelado.');
+                            else toast.error('O anúncio não está mais ativo ou não foi possível cancelá-lo.');
+                            setCancellingListingId(null);
+                          }}
+                          className="btn btn-danger btn-sm mt-2"
+                        >
+                          {cancellingListingId === l.id ? 'Cancelando...' : 'Cancelar anúncio'}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="card-surface flex min-h-32 flex-col items-center justify-center gap-2 p-6 text-center">
+                <Store className="h-5 w-5 text-[#858A98]" />
+                <p className="text-sm font-medium text-[#252733]">Nenhum anúncio ativo</p>
+                <p className="text-xs text-[#858A98]">As cartas que você publicar aparecerão aqui.</p>
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Clock3 className="h-4 w-4 text-[#858A98]" />
+                <h2 className="text-lg font-semibold text-[#252733]">Histórico de anúncios</h2>
+              </div>
+              <p className="mt-0.5 text-sm text-[#858A98]">Anúncios expirados, vendidos ou cancelados.</p>
+            </div>
+            {myListingHistory.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {myListingHistory.map(l => {
+                  const c = cardOf(l.cardUid);
+                  const name = c?.name || l.cardName || 'Carta';
+                  const image = c?.image || l.cardImage || getPlayerImage(name);
+                  return (
+                    <article key={l.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E9EAF0] bg-white p-3 opacity-90">
+                      <span className="flex h-14 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#F7F7F9]">
+                        {image ? <img src={image} alt={name} className="h-full w-full object-cover object-top" /> : <User className="h-4 w-4 text-[#858A98]" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-sm font-medium text-[#252733]" title={name}>{name}</h3>
+                        <p className="mt-0.5 text-xs text-[#858A98]">{listingPrice(l).toLocaleString('pt-BR')} moedas</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-[#F7F7F9] px-2.5 py-1 text-xs font-medium text-[#858A98]">
+                        {listingStatusLabel(l, marketNow)}
+                      </span>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-[#E9EAF0] px-4 py-6 text-center text-sm text-[#858A98]">
+                Nenhum anúncio no histórico.
+              </div>
+            )}
+          </section>
         </div>
       )}
 
