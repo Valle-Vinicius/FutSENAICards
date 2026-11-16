@@ -21,6 +21,44 @@ export interface ListingRecord {
   createdAt: string;
 }
 
+export interface MarketplaceTransactionRecord {
+  id: string;
+  listingId: string;
+  cardId: string | null;
+  buyerId: string;
+  sellerId: string | null;
+  buyerName: string;
+  sellerName: string;
+  cardName: string;
+  cardOverall: number | null;
+  cardRarity: string | null;
+  cardImage: string | null;
+  price: number;
+  completedAt: string;
+}
+
+export interface MarketplaceTransactionSummary {
+  purchaseCount: number;
+  saleCount: number;
+  spent: number;
+  received: number;
+  volume: number;
+  net: number;
+}
+
+export interface MarketplaceTransactionPage {
+  rows: MarketplaceTransactionRecord[];
+  total: number;
+}
+
+export interface MarketplaceTransactionFilters {
+  kind: 'all' | 'buy' | 'sell';
+  search: string;
+  since?: string;
+  offset: number;
+  limit: number;
+}
+
 export function toGameListing(listing: ListingRecord): Listing {
   return {
     id: listing.id,
@@ -123,4 +161,54 @@ export async function buyListing(id: string): Promise<boolean> {
   if (!supabase) return false;
   const { error } = await supabase.from('listings').update({ status: 'sold' }).eq('id', id).eq('status', 'active');
   return !error;
+}
+
+export async function getMarketplaceTransactions(
+  userId: string,
+  filters: MarketplaceTransactionFilters,
+): Promise<MarketplaceTransactionPage> {
+  if (!supabase) throw new Error('Supabase não está configurado.');
+
+  let query = supabase
+    .from('marketplace_transactions')
+    .select('*', { count: 'exact' });
+
+  if (filters.kind === 'buy') query = query.eq('buyer_id', userId);
+  else if (filters.kind === 'sell') query = query.eq('seller_id', userId);
+  else query = query.or(`buyer_id.eq.${userId},seller_id.eq.${userId}`);
+
+  if (filters.search.trim()) query = query.ilike('card_name', `%${filters.search.trim()}%`);
+  if (filters.since) query = query.gte('completed_at', filters.since);
+
+  const { data, error, count } = await query
+    .order('completed_at', { ascending: false })
+    .range(filters.offset, filters.offset + filters.limit - 1);
+  if (error) throw error;
+
+  return {
+    rows: (data || []).map((row: any) => ({
+      id: row.id,
+      listingId: row.listing_id,
+      cardId: row.card_id,
+      buyerId: row.buyer_id,
+      sellerId: row.seller_id,
+      buyerName: row.buyer_name,
+      sellerName: row.seller_name,
+      cardName: row.card_name,
+      cardOverall: row.card_overall,
+      cardRarity: row.card_rarity,
+      cardImage: row.card_image,
+      price: row.price,
+      completedAt: row.completed_at,
+    })),
+    total: count ?? 0,
+  };
+}
+
+export async function getMarketplaceTransactionSummary(): Promise<MarketplaceTransactionSummary> {
+  if (!supabase) throw new Error('Supabase não está configurado.');
+  const { data, error } = await supabase.rpc('marketplace_transaction_summary');
+  if (error) throw error;
+  if (!data) throw new Error('O resumo do histórico de transferências está indisponível.');
+  return data as MarketplaceTransactionSummary;
 }

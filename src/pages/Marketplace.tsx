@@ -2,12 +2,29 @@ import { useState, useEffect } from 'react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
-import { ArrowDown, ArrowUp, Clock3, Coins, RotateCcw, Search, SlidersHorizontal, Store, Tag, User } from 'lucide-react';
+import { ArrowDown, ArrowDownLeft, ArrowUp, ArrowUpRight, BadgeCheck, Clock3, Coins, RotateCcw, Search, SlidersHorizontal, Store, Tag, User, X } from 'lucide-react';
 import { getPlayerImage } from '../data/players';
 import ConfirmModal from '../components/ConfirmModal';
 import { supabase } from '../lib/supabase';
-import { getListings, toGameListing, type ListingRecord } from '../lib/services/marketplace';
-import { RARITY_META, type Listing } from '../types';
+import {
+  getListings,
+  getMarketplaceTransactions,
+  getMarketplaceTransactionSummary,
+  toGameListing,
+  type ListingRecord,
+  type MarketplaceTransactionRecord,
+  type MarketplaceTransactionSummary,
+} from '../lib/services/marketplace';
+import { RARITY_META, type Listing, type Rarity } from '../types';
+
+const EMPTY_TRANSACTION_SUMMARY: MarketplaceTransactionSummary = {
+  purchaseCount: 0,
+  saleCount: 0,
+  spent: 0,
+  received: 0,
+  volume: 0,
+  net: 0,
+};
 
 function applyRemoteListings(remoteListings: ListingRecord[]) {
   useGame.setState(state => ({
@@ -28,12 +45,59 @@ function listingStatusLabel(listing: Listing, now: number) {
   return 'Expirado';
 }
 
+function transactionPeriodLabel(completedAt: string) {
+  const date = new Date(completedAt);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (date >= today) return 'Hoje';
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date >= yesterday) return 'Ontem';
+
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(startOfWeek.getDate() - ((startOfWeek.getDay() + 6) % 7));
+  if (date >= startOfWeek) return 'Esta semana';
+  return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function getRarityLabel(value: string | null) {
+  if (!value) return 'Raridade não informada';
+  return RARITY_META[value as Rarity]?.label ?? value;
+}
+
 export default function Marketplace() {
   const listings = useGame(s => s.listings);
   const cards = useGame(s => s.cards);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [marketNow, setMarketNow] = useState(() => Date.now());
+  const [tab, setTab] = useState<'market' | 'mine' | 'history'>('market');
+  const [historyKind, setHistoryKind] = useState<'all' | 'buy' | 'sell'>('all');
+  const [historyPeriod, setHistoryPeriod] = useState<'all' | '7d' | '30d'>('all');
+  const [historySearchInput, setHistorySearchInput] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [historyRows, setHistoryRows] = useState<MarketplaceTransactionRecord[]>([]);
+  const [historySummary, setHistorySummary] = useState(EMPTY_TRANSACTION_SUMMARY);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<MarketplaceTransactionRecord | null>(null);
+  const [q, setQ] = useState('');
+  const [pos, setPos] = useState('');
+  const [rar, setRar] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [sort, setSort] = useState('price_asc');
+  const [listUid, setListUid] = useState<string | null>(null);
+  const [listPrice, setListPrice] = useState('');
+  const [listSearch, setListSearch] = useState('');
+  const [confirmBuy, setConfirmBuy] = useState<string | null>(null);
+  const [buyingAnim, setBuyingAnim] = useState<string | null>(null);
+  const [cancellingListingId, setCancellingListingId] = useState<string | null>(null);
+  const [creatingListing, setCreatingListing] = useState(false);
   useEffect(() => {
     const timer = window.setInterval(() => setMarketNow(Date.now()), 15_000);
     return () => window.clearInterval(timer);
@@ -51,6 +115,9 @@ export default function Marketplace() {
           if (listings !== null) applyRemoteListings(listings);
         });
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'marketplace_transactions' }, () => {
+        setHistoryRefreshKey(key => key + 1);
+      })
       .subscribe();
     return () => { supabase!.removeChannel(channel); };
   }, []);
@@ -61,26 +128,52 @@ export default function Marketplace() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setHistorySearch(historySearchInput.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [historySearchInput]);
+
+  useEffect(() => {
+    if (tab !== 'history') return;
+    if (!supabase || !userId) return;
+    let active = true;
+    const loadHistory = async () => {
+      setHistoryLoading(true);
+      setHistoryError(false);
+      const since = historyPeriod === 'all'
+        ? undefined
+        : new Date(Date.now() - (historyPeriod === '7d' ? 7 : 30) * 24 * 60 * 60 * 1000).toISOString();
+      try {
+        const [page, summary] = await Promise.all([
+          getMarketplaceTransactions(userId, {
+            kind: historyKind,
+            search: historySearch,
+            since,
+            offset: 0,
+            limit: 25,
+          }),
+          getMarketplaceTransactionSummary(),
+        ]);
+        if (!active) return;
+        setHistoryRows(page.rows);
+        setHistoryTotal(page.total);
+        setHistorySummary(summary);
+      } catch (error) {
+        console.error('[marketplace] transaction history load failed:', error);
+        if (active) setHistoryError(true);
+      } finally {
+        if (active) setHistoryLoading(false);
+      }
+    };
+    void loadHistory();
+    return () => { active = false; };
+  }, [tab, userId, historyKind, historyPeriod, historySearch, historyRefreshKey]);
   const buyListing = useGame(s => s.buyListing);
   const listCard = useGame(s => s.listCard);
   const cancelListing = useGame(s => s.cancelListing);
   const recordTransfer = useGame(s => s.recordTransfer);
   const recordPrice = useGame(s => s.recordPrice);
-  const recentTransfers = useGame(s => s.recentTransfers);
-  const [tab, setTab] = useState<'market' | 'mine' | 'history'>('market');
-  const [q, setQ] = useState('');
-  const [pos, setPos] = useState('');
-  const [rar, setRar] = useState('');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [sort, setSort] = useState('price_asc');
-  const [listUid, setListUid] = useState<string | null>(null);
-  const [listPrice, setListPrice] = useState('');
-  const [listSearch, setListSearch] = useState('');
-  const [confirmBuy, setConfirmBuy] = useState<string | null>(null);
-  const [buyingAnim, setBuyingAnim] = useState<string | null>(null);
-  const [cancellingListingId, setCancellingListingId] = useState<string | null>(null);
-  const [creatingListing, setCreatingListing] = useState(false);
 
   const cardOf = (uid: string) => cards.find(c => c.uid === uid);
   const listingPrice = (listing: typeof listings[number]) => listing.buyNow > 0 ? listing.buyNow : listing.price;
@@ -159,8 +252,50 @@ export default function Marketplace() {
   const myListingHistory = myListings
     .filter(l => l.status !== 'active' || l.expiresAt <= marketNow)
     .sort((a, b) => b.createdAt - a.createdAt);
+  const historySince = historyPeriod === 'all'
+    ? undefined
+    : new Date(marketNow - (historyPeriod === '7d' ? 7 : 30) * 24 * 60 * 60 * 1000).toISOString();
+  const historyGroups = historyRows.reduce<{ label: string; rows: MarketplaceTransactionRecord[] }[]>((groups, transaction) => {
+    const label = transactionPeriodLabel(transaction.completedAt);
+    const latestGroup = groups[groups.length - 1];
+    if (latestGroup?.label === label) latestGroup.rows.push(transaction);
+    else groups.push({ label, rows: [transaction] });
+    return groups;
+  }, []);
 
   const marketControl = 'h-11 w-full min-w-0 rounded-xl border border-[#E9EAF0] bg-white px-3 text-sm text-[#252733] transition-colors focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10';
+
+  const clearHistoryFilters = () => {
+    setHistoryKind('all');
+    setHistoryPeriod('all');
+    setHistorySearchInput('');
+    setHistorySearch('');
+  };
+
+  const loadMoreHistory = async () => {
+    if (!userId || historyLoadingMore) return;
+    setHistoryLoadingMore(true);
+    try {
+      const page = await getMarketplaceTransactions(userId, {
+        kind: historyKind,
+        search: historySearch,
+        since: historySince,
+        offset: historyRows.length,
+        limit: 25,
+      });
+      setHistoryRows(rows => {
+        const uniqueRows = new Map(rows.map(row => [row.id, row]));
+        page.rows.forEach(row => uniqueRows.set(row.id, row));
+        return [...uniqueRows.values()];
+      });
+      setHistoryTotal(page.total);
+    } catch (error) {
+      console.error('[marketplace] transaction history pagination failed:', error);
+      setHistoryError(true);
+    } finally {
+      setHistoryLoadingMore(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5 p-4 md:p-6 lg:p-8">
@@ -509,14 +644,215 @@ export default function Marketplace() {
       )}
 
       {tab === 'history' && (
-        <div className="card-surface p-4 space-y-2 max-h-96 overflow-auto">
-          <h3 className="font-semibold text-[#252733]">Transferências recentes</h3>
-          {recentTransfers.map((t, i) => (
-            <div key={i} className="text-sm text-[#252733] py-1 border-b border-[#E9EAF0] last:border-0">
-              {t.type === 'buy' ? 'Compra' : 'Venda'} · {t.cardName} · {t.price.toLocaleString('pt-BR')} moedas · {new Date(t.at).toLocaleString('pt-BR')}
+        <div className="space-y-5">
+          <div className="flex items-start gap-3 rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] p-3 text-sm text-[#858A98]">
+            <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>Este extrato registra negociações confirmadas a partir da ativação do histórico. As transações anteriores não têm comprador e horário de conclusão registrados e não podem ser reconstruídas com segurança.</p>
+          </div>
+
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <article className="card-surface p-4">
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[#858A98]">Compras realizadas</span><ArrowDownLeft className="h-4 w-4 text-[#858A98]" /></div>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-[#252733]">{historySummary.purchaseCount.toLocaleString('pt-BR')}</p>
+              <p className="mt-1 text-xs text-[#858A98]">{historySummary.spent.toLocaleString('pt-BR')} moedas gastas</p>
+            </article>
+            <article className="card-surface p-4">
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[#858A98]">Vendas concluídas</span><ArrowUpRight className="h-4 w-4 text-[#E30613]" /></div>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-[#252733]">{historySummary.saleCount.toLocaleString('pt-BR')}</p>
+              <p className="mt-1 text-xs text-[#858A98]">{historySummary.received.toLocaleString('pt-BR')} moedas recebidas</p>
+            </article>
+            <article className="card-surface p-4">
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[#858A98]">Volume movimentado</span><Coins className="h-4 w-4 text-[#858A98]" /></div>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-[#252733]">{historySummary.volume.toLocaleString('pt-BR')}</p>
+              <p className="mt-1 text-xs text-[#858A98]">moedas em negociações</p>
+            </article>
+            <article className="card-surface p-4">
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[#858A98]">Saldo líquido</span><BadgeCheck className="h-4 w-4 text-[#E30613]" /></div>
+              <p className={`mt-2 text-2xl font-bold tabular-nums ${historySummary.net < 0 ? 'text-[#858A98]' : 'text-[#E30613]'}`}>
+                {historySummary.net > 0 ? '+' : historySummary.net < 0 ? '-' : ''}{Math.abs(historySummary.net).toLocaleString('pt-BR')}
+              </p>
+              <p className="mt-1 text-xs text-[#858A98]">moedas recebidas menos gastas</p>
+            </article>
+          </section>
+
+          <section className="card-surface space-y-4 p-4 md:p-5">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[#252733]">Histórico de transações</h2>
+                <p className="mt-0.5 text-sm text-[#858A98]">Compras e vendas concluídas, da mais recente à mais antiga.</p>
+              </div>
+              <div className="flex flex-wrap gap-1 rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] p-1" role="group" aria-label="Tipo de movimentação">
+                {([
+                  ['all', 'Todas'],
+                  ['buy', 'Compras'],
+                  ['sell', 'Vendas'],
+                ] as const).map(([kind, label]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    aria-pressed={historyKind === kind}
+                    onClick={() => setHistoryKind(kind)}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${historyKind === kind ? 'bg-white text-[#E30613] shadow-sm' : 'text-[#858A98] hover:text-[#252733]'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          ))}
-          {recentTransfers.length === 0 && <div className="text-[#858A98] text-sm">Sem histórico.</div>}
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_180px_auto_auto]">
+              <label className="relative min-w-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+                <input
+                  value={historySearchInput}
+                  onChange={event => setHistorySearchInput(event.target.value)}
+                  placeholder="Buscar jogador..."
+                  aria-label="Buscar no histórico por jogador"
+                  className={`${marketControl} pl-10`}
+                />
+              </label>
+              <select aria-label="Filtrar histórico por período" value={historyPeriod} onChange={event => setHistoryPeriod(event.target.value as typeof historyPeriod)} className={marketControl}>
+                <option value="all">Todo o período</option>
+                <option value="7d">Últimos 7 dias</option>
+                <option value="30d">Últimos 30 dias</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setHistoryRefreshKey(key => key + 1)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#E9EAF0] bg-white px-4 text-sm font-medium text-[#252733] transition-colors hover:bg-[#F7F7F9]"
+              >
+                <RotateCcw className="h-4 w-4" /> Atualizar
+              </button>
+              <button
+                type="button"
+                onClick={clearHistoryFilters}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#E9EAF0] bg-white px-4 text-sm font-medium text-[#858A98] transition-colors hover:bg-[#F7F7F9] hover:text-[#252733]"
+              >
+                Limpar filtros
+              </button>
+            </div>
+
+            {!supabase ? (
+              <div className="rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] p-6 text-center text-sm text-[#858A98]">O histórico de transações precisa de conexão com o servidor.</div>
+            ) : historyError ? (
+              <div className="rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] p-6 text-center">
+                <p className="text-sm font-medium text-[#252733]">Não foi possível carregar o histórico.</p>
+                <button type="button" onClick={() => setHistoryRefreshKey(key => key + 1)} className="mt-3 text-sm font-semibold text-[#E30613] hover:underline">Tentar novamente</button>
+              </div>
+            ) : (historyLoading || !userId) && historyRows.length === 0 ? (
+              <div className="rounded-xl border border-[#E9EAF0] p-8 text-center text-sm text-[#858A98]">Carregando transações confirmadas...</div>
+            ) : historyRows.length === 0 ? (
+              historyKind === 'all' && !historySearch && historyPeriod === 'all' ? (
+                <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-[#E9EAF0] bg-[#F7F7F9]/60 px-5 py-10 text-center">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFF0F2] text-[#E30613]"><Store className="h-7 w-7" /></span>
+                  <h3 className="mt-4 text-lg font-semibold text-[#252733]">Nenhuma movimentação ainda</h3>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-[#858A98]">Compras e vendas concluídas serão exibidas aqui. As movimentações anteriores à ativação do extrato não podem ser recuperadas com os dados existentes.</p>
+                  <button type="button" onClick={() => setTab('market')} className="btn btn-primary mt-5">Ir para o Mercado</button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-[#E9EAF0] px-4 py-8 text-center">
+                  <p className="text-sm font-medium text-[#252733]">Nenhuma movimentação encontrada</p>
+                  <p className="mt-1 text-xs text-[#858A98]">Tente ajustar a busca ou os filtros selecionados.</p>
+                  <button type="button" onClick={clearHistoryFilters} className="mt-3 text-sm font-semibold text-[#E30613] hover:underline">Limpar filtros</button>
+                </div>
+              )
+            ) : (
+              <div className="space-y-5">
+                {historyGroups.map(group => (
+                  <section key={group.label} className="space-y-2">
+                    <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-[#858A98]">{group.label}</h3>
+                    <div className="space-y-2">
+                      {group.rows.map(transaction => {
+                        const isPurchase = transaction.buyerId === userId;
+                        const opponent = isPurchase ? transaction.sellerName : transaction.buyerName;
+                        const image = transaction.cardImage || getPlayerImage(transaction.cardName);
+                        return (
+                          <button
+                            key={transaction.id}
+                            type="button"
+                            onClick={() => setSelectedTransaction(transaction)}
+                            className="card-surface flex w-full min-w-0 items-center gap-3 p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E30613]/20 hover:shadow-sm motion-reduce:transform-none motion-reduce:transition-none sm:gap-4 sm:p-4"
+                          >
+                            <span className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E9EAF0] bg-[#F7F7F9]">
+                              {image ? <img src={image} alt={transaction.cardName} className="h-full w-full object-cover object-top" /> : <User className="h-5 w-5 text-[#858A98]" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex flex-wrap items-center gap-2">
+                                <span className="max-w-full truncate text-sm font-semibold text-[#252733]">{transaction.cardName}</span>
+                                {transaction.cardOverall !== null && <span className="rounded-md bg-[#F7F7F9] px-1.5 py-0.5 text-[11px] font-semibold text-[#858A98]">OVR {transaction.cardOverall}</span>}
+                              </span>
+                              <span className="mt-1 block truncate text-xs text-[#858A98]">{getRarityLabel(transaction.cardRarity)} · {isPurchase ? 'Comprado de' : 'Vendido para'} {opponent}</span>
+                              <span className="mt-2 flex flex-wrap items-center gap-2">
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isPurchase ? 'bg-[#F7F7F9] text-[#858A98]' : 'bg-[#FFF0F2] text-[#E30613]'}`}>{isPurchase ? 'Compra' : 'Venda'}</span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#F7F7F9] px-2.5 py-1 text-[11px] font-medium text-[#858A98]"><BadgeCheck className="h-3 w-3" /> Concluída</span>
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-right">
+                              <span className={`block text-base font-bold tabular-nums sm:text-lg ${isPurchase ? 'text-[#858A98]' : 'text-[#E30613]'}`}>{isPurchase ? '-' : '+'}{transaction.price.toLocaleString('pt-BR')}</span>
+                              <span className="block text-[11px] text-[#858A98]">moedas</span>
+                              <span className="mt-1 hidden text-[11px] text-[#858A98] sm:block">{new Date(transaction.completedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+                <div className="flex flex-col items-center justify-between gap-3 border-t border-[#E9EAF0] pt-4 sm:flex-row">
+                  <p className="text-xs text-[#858A98]">Exibindo {historyRows.length.toLocaleString('pt-BR')} de {historyTotal.toLocaleString('pt-BR')} transações</p>
+                  {historyRows.length < historyTotal && (
+                    <button type="button" onClick={loadMoreHistory} disabled={historyLoadingMore} className="btn btn-secondary btn-sm">
+                      {historyLoadingMore ? 'Carregando...' : 'Carregar mais'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {selectedTransaction && userId && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#252733]/50 p-4" role="presentation" onMouseDown={() => setSelectedTransaction(null)}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="marketplace-transaction-title"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E9EAF0] bg-white p-4 shadow-xl sm:p-6"
+            onMouseDown={event => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#F7F7F9] px-2.5 py-1 text-xs font-semibold text-[#858A98]"><BadgeCheck className="h-3.5 w-3.5" /> Transação concluída</span>
+                <h2 id="marketplace-transaction-title" className="mt-3 text-xl font-semibold text-[#252733]">Detalhes da negociação</h2>
+              </div>
+              <button type="button" onClick={() => setSelectedTransaction(null)} aria-label="Fechar detalhes" className="rounded-lg p-2 text-[#858A98] transition-colors hover:bg-[#F7F7F9] hover:text-[#252733]"><X className="h-5 w-5" /></button>
+            </header>
+            <div className="mt-5 grid gap-5 sm:grid-cols-[minmax(150px,0.7fr)_minmax(0,1.3fr)]">
+              <div className="flex justify-center rounded-xl bg-[#F7F7F9] p-4">
+                {(() => {
+                  const image = selectedTransaction.cardImage || getPlayerImage(selectedTransaction.cardName);
+                  return image
+                    ? <img src={image} alt={selectedTransaction.cardName} className="aspect-[7/10] w-full max-w-48 rounded-xl border border-[#E9EAF0] object-cover object-top shadow-sm" />
+                    : <div className="flex aspect-[7/10] w-full max-w-48 items-center justify-center rounded-xl border border-[#E9EAF0] bg-white"><User className="h-8 w-8 text-[#858A98]" /></div>;
+                })()}
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-[#252733]">{selectedTransaction.cardName}</h3>
+                <p className="mt-1 text-sm text-[#858A98]">{selectedTransaction.cardOverall !== null ? `Overall ${selectedTransaction.cardOverall}` : 'Overall não informado'} · {getRarityLabel(selectedTransaction.cardRarity)}</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-[#F7F7F9] p-3"><p className="text-xs text-[#858A98]">Comprador</p><p className="mt-1 truncate text-sm font-medium text-[#252733]">{selectedTransaction.buyerName}</p></div>
+                  <div className="rounded-xl bg-[#F7F7F9] p-3"><p className="text-xs text-[#858A98]">Vendedor</p><p className="mt-1 truncate text-sm font-medium text-[#252733]">{selectedTransaction.sellerName}</p></div>
+                </div>
+                <dl className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#E9EAF0] pb-2"><dt className="text-sm text-[#858A98]">Preço final</dt><dd className="text-base font-bold tabular-nums text-[#252733]">{selectedTransaction.price.toLocaleString('pt-BR')} moedas</dd></div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#E9EAF0] pb-2"><dt className="text-sm text-[#858A98]">Tipo</dt><dd className="text-sm font-semibold text-[#252733]">{selectedTransaction.buyerId === userId ? 'Compra' : 'Venda'}</dd></div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#E9EAF0] pb-2"><dt className="text-sm text-[#858A98]">Concluída em</dt><dd className="text-right text-sm font-medium text-[#252733]">{new Date(selectedTransaction.completedAt).toLocaleString('pt-BR')}</dd></div>
+                  <div className="flex items-start justify-between gap-3"><dt className="shrink-0 text-sm text-[#858A98]">ID da transação</dt><dd className="break-all text-right font-mono text-xs text-[#858A98]">{selectedTransaction.id}</dd></div>
+                </dl>
+              </div>
+            </div>
+          </section>
         </div>
       )}
 
