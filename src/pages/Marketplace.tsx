@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
+import { ArrowDown, ArrowUp, Coins, RotateCcw, Search, SlidersHorizontal, Store, User } from 'lucide-react';
 import { getPlayerImage } from '../data/players';
 import ConfirmModal from '../components/ConfirmModal';
 import { supabase } from '../lib/supabase';
@@ -141,49 +142,77 @@ export default function Marketplace() {
   const availableToSell = cards.filter(c => !listings.some(l => l.cardUid === c.uid && l.status === 'active' && l.expiresAt > marketNow));
 
   const sel = 'bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]';
+  const marketControl = 'h-11 w-full min-w-0 rounded-xl border border-[#E9EAF0] bg-white px-3 text-sm text-[#252733] transition-colors focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10';
 
   return (
-    <div className="p-4 md:p-8 space-y-4">
-      <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Transferências</h1>
-      <div className="flex gap-2 flex-wrap">
+    <div className="mx-auto max-w-[1600px] space-y-5 p-4 md:p-6 lg:p-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F2] text-[#E30613]">
+            <Store className="h-5 w-5" />
+          </div>
+          <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Transferências</h1>
+        </div>
+        <div className="flex flex-wrap gap-1 rounded-xl border border-[#E9EAF0] bg-white p-1">
         {(['market', 'mine', 'targets', 'history'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`btn btn-sm ${tab === t ? 'btn-primary' : 'btn-secondary'}`}>
+          <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${tab === t ? 'bg-[#E30613] text-white' : 'text-[#858A98] hover:bg-[#F7F7F9] hover:text-[#252733]'}`}>
             {t === 'market' ? 'Mercado' : t === 'mine' ? 'Minhas vendas' : t === 'targets' ? 'Alvos' : 'Histórico'}
           </button>
         ))}
-      </div>
+        </div>
+      </header>
 
       {tab === 'market' && (
         <>
-          <div className="card-surface p-3 flex flex-wrap gap-2">
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar jogador..." className={`flex-1 min-w-[140px] ${sel}`} />
-            <select value={pos} onChange={e => setPos(e.target.value)} className={sel}>
+          <section className="card-surface p-4 md:p-5">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-[#252733]">
+              <SlidersHorizontal className="h-4 w-4 text-[#E30613]" />
+              Filtrar anúncios
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-8">
+              <label className="relative min-w-0 sm:col-span-2 xl:col-span-2">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+                <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar jogador..." aria-label="Buscar jogador" className={`${marketControl} pl-10`} />
+              </label>
+              <select aria-label="Filtrar por posição" value={pos} onChange={e => setPos(e.target.value)} className={marketControl}>
               <option value="">Posição</option>
               {[...new Set(cards.map(c => c.position))].map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <select value={rar} onChange={e => setRar(e.target.value)} className={sel}>
+              </select>
+              <select aria-label="Filtrar por raridade" value={rar} onChange={e => setRar(e.target.value)} className={marketControl}>
               <option value="">Raridade</option>
               {['common', 'uncommon', 'rare', 'epic', 'legendary', 'icon', 'secret'].map(r => <option key={r} value={r}>{r === 'secret' ? 'Secreta' : r}</option>)}
-            </select>
-            <input value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="Preço min" className="w-24 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
-            <input value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="Preço max" className="w-24 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm" />
-            <select value={sort} onChange={e => setSort(e.target.value)} className={sel}>
+              </select>
+              <input aria-label="Preço mínimo" value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="Preço min" className={marketControl} />
+              <input aria-label="Preço máximo" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="Preço max" className={marketControl} />
+              <select aria-label="Ordenar anúncios" value={sort} onChange={e => setSort(e.target.value)} className={marketControl}>
               <option value="price_asc">Preço ↑</option>
               <option value="price_desc">Preço ↓</option>
               <option value="overall">Overall</option>
               <option value="name">Nome</option>
-            </select>
-            <button onClick={clearFilters} className="btn btn-secondary btn-sm">Limpar</button>
-          </div>
+              </select>
+              <button onClick={clearFilters} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] px-3 text-sm font-medium text-[#252733] transition-colors hover:bg-[#FFF0F2] hover:text-[#E30613] motion-reduce:transition-none">
+                <RotateCcw className="h-4 w-4" /> Limpar
+              </button>
+            </div>
+          </section>
 
-          <div className="card-surface p-3 flex flex-wrap gap-4 text-sm text-[#252733]">
-            <div>Preço mín: <span className="font-bold text-[#E30613]">{minP.toLocaleString('pt-BR')}</span></div>
-            <div>Preço médio: <span className="font-bold text-[#E30613]">{avgP.toLocaleString('pt-BR')}</span></div>
-            <div>Preço máx: <span className="font-bold text-[#E30613]">{maxP.toLocaleString('pt-BR')}</span></div>
-          </div>
+          <section className="grid gap-3 sm:grid-cols-3">
+            <div className="card-surface flex items-center gap-3 p-4">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF0F2] text-[#E30613]"><ArrowDown className="h-4 w-4" /></span>
+              <div><div className="text-xs text-[#858A98]">Preço mín</div><div className="text-lg font-bold tabular-nums text-[#252733]">{minP.toLocaleString('pt-BR')}</div></div>
+            </div>
+            <div className="card-surface flex items-center gap-3 p-4">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F7F7F9] text-[#858A98]"><Coins className="h-4 w-4" /></span>
+              <div><div className="text-xs text-[#858A98]">Preço médio</div><div className="text-lg font-bold tabular-nums text-[#252733]">{avgP.toLocaleString('pt-BR')}</div></div>
+            </div>
+            <div className="card-surface flex items-center gap-3 p-4">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF0F2] text-[#E30613]"><ArrowUp className="h-4 w-4" /></span>
+              <div><div className="text-xs text-[#858A98]">Preço máx</div><div className="text-lg font-bold tabular-nums text-[#252733]">{maxP.toLocaleString('pt-BR')}</div></div>
+            </div>
+          </section>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loading && <div className="text-[#858A98] text-sm">Carregando mercado...</div>}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {loading && <div className="card-surface col-span-full p-8 text-center text-sm text-[#858A98]">Carregando mercado...</div>}
             {activeListings.map(l => {
               const c = cardOf(l.cardUid) || {
                 uid: l.cardUid || l.id,
@@ -216,17 +245,32 @@ export default function Marketplace() {
                 upgrades: { pace:0, shooting:0, passing:0, dribbling:0, defending:0, physical:0 },
               } as any;
               return (
-                <div key={l.id} className={`card-surface p-3 space-y-2 transition ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
-                  <Card card={c} size="sm" />
-                  <div className="text-xs text-[#858A98]">Vendedor: {l.sellerName}</div>
-                  <div className="text-sm text-[#252733]">Preço: <span className="font-bold text-[#E30613]">{listingPrice(l).toLocaleString('pt-BR')}</span></div>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => handleBuy(l.id)} className="btn btn-primary btn-sm">Comprar</button>
+                <article key={l.id} aria-busy={buyingAnim === l.id} className={`card-surface group flex min-w-0 flex-col overflow-hidden p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E30613]/20 motion-reduce:transform-none motion-reduce:transition-none sm:p-4 ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
+                  <div className="flex flex-1 items-center justify-center rounded-xl bg-[#F7F7F9] p-3">
+                    <div className="w-full max-w-[232px]">
+                      <Card card={c} size="fluid" />
+                    </div>
                   </div>
-                </div>
+                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#E9EAF0] pt-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF0F2] text-[#E30613]"><User className="h-4 w-4" /></span>
+                      <div className="min-w-0">
+                        <div className="text-xs text-[#858A98]">Vendedor</div>
+                        <div className="truncate text-sm font-medium text-[#252733]" title={l.sellerName}>{l.sellerName}</div>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-xs text-[#858A98]">Preço</div>
+                      <div className="text-lg font-bold tabular-nums text-[#E30613]">{listingPrice(l).toLocaleString('pt-BR')} <span className="text-xs font-medium">moedas</span></div>
+                    </div>
+                  </div>
+                  <button onClick={() => handleBuy(l.id)} className="btn btn-primary btn-full btn-lg mt-3 transition-transform hover:scale-[1.01] motion-reduce:transition-none">
+                    Comprar
+                  </button>
+                </article>
               );
             })}
-            {activeListings.length === 0 && <div className="text-[#858A98]">Nenhuma listagem.</div>}
+            {!loading && activeListings.length === 0 && <div className="card-surface col-span-full flex min-h-48 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-[#858A98]"><Store className="h-6 w-6 text-[#858A98]" />Nenhuma listagem.</div>}
           </div>
         </>
       )}
