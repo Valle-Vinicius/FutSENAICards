@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { ChevronDown, Trash2 } from 'lucide-react';
+import { ChevronDown, Trash2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -11,6 +11,7 @@ import { validateRarityOverall } from '../lib/game';
 import { validateExtraStats } from '../lib/extraStats';
 import SecretCardOddsTable from '../components/SecretCardOddsTable';
 import { useGame } from '../store/useGame';
+import AdminUsersPanel from '../components/AdminUsersPanel';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 const DEFAULT_EDITION = '2025/26';
@@ -72,6 +73,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const syncUserData = useGame(s => s.syncUserData);
   const [userId, setUserId] = useState<string | null>(null);
+  const [adminTab, setAdminTab] = useState<'cards' | 'users'>('cards');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
@@ -565,6 +567,29 @@ export default function Admin() {
       <div className="mx-auto w-full max-w-5xl p-4 md:p-8 space-y-6">
         <h1 className="text-2xl font-bold text-[#252733]">Painel Administrador</h1>
 
+        <div role="tablist" aria-label="Seções do painel administrador" className="flex flex-wrap gap-2 border-b border-[#E9EAF0] pb-3">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={adminTab === 'cards'}
+            onClick={() => setAdminTab('cards')}
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'cards' ? 'bg-[#E30613] text-white' : 'bg-white text-[#555B68] hover:bg-[#F7F7F9]'}`}
+          >
+            Cartas e templates
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={adminTab === 'users'}
+            onClick={() => setAdminTab('users')}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'users' ? 'bg-[#E30613] text-white' : 'bg-white text-[#555B68] hover:bg-[#F7F7F9]'}`}
+          >
+            <Users className="size-4" /> Usuários
+          </button>
+        </div>
+
+        {adminTab === 'users' ? <AdminUsersPanel /> : (
+          <>
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
           <div id="card-template-form" className="min-w-0 card-surface p-4 md:p-5 space-y-5">
             <div className="flex items-center justify-between gap-3">
@@ -924,6 +949,8 @@ export default function Admin() {
             })}
           </div>
         </div>
+          </>
+        )}
       </div>
     </>
   );

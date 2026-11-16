@@ -45,6 +45,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 export default function App() {
   const [authReady, setAuthReady] = useState(false);
   const [authed, setAuthed] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     useGame.getState().init();
@@ -62,8 +63,10 @@ export default function App() {
       try {
         const { data } = await supabase!.auth.getSession();
         setAuthed(!!data.session);
+        setCurrentUserId(data.session?.user.id ?? null);
       } catch {
         setAuthed(false);
+        setCurrentUserId(null);
       } finally {
         setAuthReady(true);
       }
@@ -74,9 +77,32 @@ export default function App() {
         useGame.getState().syncUserData(session.user.id);
       }
       setAuthed(!!session);
+      setCurrentUserId(session?.user.id ?? null);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !currentUserId) return;
+    let active = true;
+    const markActive = async () => {
+      if (document.visibilityState === 'hidden') return;
+      const { error } = await supabase!
+        .from('profiles')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('id', currentUserId);
+      if (error && active) console.error('[presence] failed to update last_seen:', error);
+    };
+
+    void markActive();
+    const interval = window.setInterval(() => void markActive(), 60_000);
+    document.addEventListener('visibilitychange', markActive);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', markActive);
+    };
+  }, [currentUserId]);
   if (!authReady) {
     return <div className="min-h-screen flex items-center justify-center text-[#858A98]">Carregando sessão…</div>;
   }
