@@ -783,7 +783,8 @@ export default function Admin() {
                         step="0.0001"
                         value={secretChancePercent}
                         onChange={e => setSecretChancePercent(Number(e.target.value))}
-                        className={`${inputCls} border-[#4B515D] bg-[#1B1E25] text-white`}
+                        className={`${inputCls} border-[#4B515D]`}
+                        style={{ backgroundColor: '#1B1E25', borderColor: '#4B515D', color: '#FFFFFF', colorScheme: 'dark' }}
                         aria-describedby="secret-chance-help"
                       />
                       <div id="secret-chance-help" className="mt-1 text-xs text-white/60">Entre 0,0001% e 5%, até 4 casas decimais.</div>
@@ -797,7 +798,8 @@ export default function Admin() {
                         step="1"
                         value={secretMaxSupply}
                         onChange={e => setSecretMaxSupply(Number(e.target.value))}
-                        className={`${inputCls} border-[#4B515D] bg-[#1B1E25] text-white`}
+                        className={`${inputCls} border-[#4B515D]`}
+                        style={{ backgroundColor: '#1B1E25', borderColor: '#4B515D', color: '#FFFFFF', colorScheme: 'dark' }}
                         aria-describedby="secret-supply-help"
                       />
                       <div id="secret-supply-help" className="mt-1 text-xs text-white/60">
