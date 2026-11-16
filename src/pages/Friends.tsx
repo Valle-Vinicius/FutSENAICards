@@ -1,9 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Check, ChevronRight, Search, UserPlus, Users, X } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import * as friendsService from '../lib/services/friends';
 import type { FriendUser } from '../lib/services/friends';
+
+function FriendAvatar({ user, size = 'md' }: { user: FriendUser; size?: 'sm' | 'md' }) {
+  const sizeClass = size === 'md' ? 'h-14 w-14 text-lg' : 'h-12 w-12 text-base';
+  const status = user.online ? 'Online' : 'Offline';
+
+  return (
+    <div className={`${sizeClass} relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0F2] font-semibold text-[#E30613] ring-2 ring-white`}>
+      {user.avatar_url
+        ? <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
+        : user.name.charAt(0).toUpperCase()}
+      <span
+        role="img"
+        aria-label={status}
+        title={status}
+        className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${user.online ? 'bg-green-500' : 'bg-[#858A98]'}`}
+      />
+    </div>
+  );
+}
+
+function Presence({ online }: { online?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${online ? 'bg-[#FFF0F2] text-[#E30613]' : 'bg-[#F7F7F9] text-[#858A98]'}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-[#858A98]'}`} />
+      {online ? 'Online' : 'Offline'}
+    </span>
+  );
+}
 
 export default function Friends() {
   const [tab, setTab] = useState<'all' | 'received' | 'sent' | 'add'>('all');
@@ -130,111 +159,159 @@ export default function Friends() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-4">
-      <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Amizades</h1>
+    <div className="mx-auto max-w-[1440px] space-y-5 p-4 md:p-6 lg:p-8">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F2] text-[#E30613]">
+            <Users className="h-5 w-5" />
+          </div>
+          <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Amizades</h1>
+        </div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+          <nav aria-label="Navegação de amizades" className="flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-[#E9EAF0] bg-white p-1">
+            {(['all', 'received', 'sent'] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={tab === t}
+                onClick={() => handleTabChange(t)}
+                className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${tab === t ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98] hover:bg-[#F7F7F9] hover:text-[#252733]'}`}
+              >
+                {t === 'all' ? 'Todos os amigos' : t === 'received' ? `Solicitações recebidas (${received.length})` : 'Enviadas'}
+              </button>
+            ))}
+          </nav>
+          <button
+            type="button"
+            aria-pressed={tab === 'add'}
+            onClick={() => handleTabChange('add')}
+            className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors motion-reduce:transition-none sm:w-auto ${tab === 'add' ? 'bg-[#252733] text-white' : 'bg-[#E30613] text-white hover:bg-[#252733]'}`}
+          >
+            <UserPlus className="h-4 w-4" />
+            Adicionar amigos
+          </button>
+        </div>
+      </header>
       {tableMissing && (
         <div className="card-surface p-4 text-sm text-[#252733]">
           A tabela <code>friendships</code> não existe no Supabase. Rode o SQL de <code>supabase/friends.sql</code> no SQL Editor do Supabase.
         </div>
       )}
-      <div className="flex gap-2 flex-wrap">
-        {(['all', 'received', 'sent', 'add'] as const).map(t => (
-          <button key={t} onClick={() => handleTabChange(t)} className={`px-3 py-1.5 rounded-xl text-sm font-medium ${tab === t ? 'bg-[#E30613] text-white' : 'bg-white border border-[#E9EAF0] text-[#858A98]'}`}>
-            {t === 'all' ? 'Todos os amigos' : t === 'received' ? `Solicitações recebidas (${received.length})` : t === 'sent' ? 'Enviadas' : 'Adicionar amigos'}
-          </button>
-        ))}
-      </div>
-      {msg && <div className="text-sm text-[#E30613]">{msg}</div>}
+      {msg && <div role="status" aria-live="polite" className="card-surface border-[#FFF0F2] px-4 py-3 text-sm text-[#E30613]">{msg}</div>}
 
       {tab === 'all' && (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {friends.map(f => (
-            <div key={f.id} onClick={() => navigate(`/profile/${f.id}`)} className="card-surface p-3 flex items-center gap-3 cursor-pointer hover:shadow-md">
-              <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden">
-                {f.avatar_url ? <img src={f.avatar_url} alt={f.name} className="w-full h-full object-cover" /> : f.name.charAt(0)}
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-[#252733]">{f.name}</div>
-                <div className="text-xs text-[#858A98]">{f.online ? 'Online' : 'Offline'}</div>
-              </div>
-            </div>
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => navigate(`/profile/${f.id}`)}
+              className="card-surface group flex min-h-24 w-full items-center gap-4 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E30613]/20 motion-reduce:transform-none motion-reduce:transition-none sm:p-5"
+              aria-label={`Perfil de ${f.name}, ${f.online ? 'online' : 'offline'}`}
+            >
+              <FriendAvatar user={f} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-[#252733]">{f.name}</span>
+                <span className="mt-2 block"><Presence online={f.online} /></span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[#858A98] transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+            </button>
           ))}
-          {friends.length === 0 && <div className="text-[#858A98]">Nenhum amigo ainda.</div>}
+          {friends.length === 0 && (
+            <div className="card-surface flex min-h-40 flex-col items-center justify-center gap-3 p-6 text-center sm:col-span-2 xl:col-span-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F7F7F9] text-[#858A98]"><Users className="h-5 w-5" /></div>
+              <div className="text-sm text-[#858A98]">Nenhum amigo ainda.</div>
+            </div>
+          )}
         </div>
       )}
 
       {tab === 'received' && (
-        <div className="space-y-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {received.map(r => (
-            <div key={r.friendship.id} className="card-surface p-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/profile/${r.user.id}`)}>
-                <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden relative">
-                  {r.user.avatar_url ? <img src={r.user.avatar_url} alt={r.user.name} className="w-full h-full object-cover" /> : r.user.name.charAt(0)}
-                  {r.user.online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />}
-                </div>
-                <div className="text-sm text-[#252733]">{r.user.name}</div>
+            <article key={r.friendship.id} className="card-surface flex min-w-0 flex-col gap-4 p-4 transition-shadow hover:border-[#E30613]/20 motion-reduce:transition-none sm:p-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <FriendAvatar user={r.user} size="sm" />
+                <button type="button" onClick={() => navigate(`/profile/${r.user.id}`)} className="min-w-0 flex-1 text-left focus-visible:rounded-sm">
+                  <span className="block truncate text-sm font-medium text-[#252733]">{r.user.name}</span>
+                  <span className="mt-1 block"><Presence online={r.user.online} /></span>
+                </button>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => handleAccept(r.friendship.id)} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Aceitar</button>
-                <button onClick={() => handleReject(r.friendship.id)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Recusar</button>
+              <div className="mt-auto flex gap-2">
+                <button onClick={() => handleAccept(r.friendship.id)} className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#E30613] px-3 text-sm font-medium text-white transition-colors hover:bg-[#252733] motion-reduce:transition-none">
+                  <Check className="h-4 w-4" /> Aceitar
+                </button>
+                <button onClick={() => handleReject(r.friendship.id)} className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#E9EAF0] bg-white px-3 text-sm font-medium text-[#858A98] transition-colors hover:bg-[#F7F7F9] hover:text-[#252733] motion-reduce:transition-none">
+                  <X className="h-4 w-4" /> Recusar
+                </button>
               </div>
-            </div>
+            </article>
           ))}
-          {received.length === 0 && <div className="text-[#858A98]">Nenhuma solicitação recebida.</div>}
+          {received.length === 0 && <div className="card-surface p-6 text-center text-sm text-[#858A98] sm:col-span-2 xl:col-span-3">Nenhuma solicitação recebida.</div>}
         </div>
       )}
 
       {tab === 'sent' && (
-        <div className="space-y-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {sent.map(s => (
-            <div key={s.friendship.id} className="card-surface p-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/profile/${s.user.id}`)}>
-                <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden relative">
-                  {s.user.avatar_url ? <img src={s.user.avatar_url} alt={s.user.name} className="w-full h-full object-cover" /> : s.user.name.charAt(0)}
-                  {s.user.online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />}
-                </div>
-                <div className="text-sm text-[#252733]">{s.user.name}</div>
+            <article key={s.friendship.id} className="card-surface flex min-w-0 flex-col gap-4 p-4 transition-shadow hover:border-[#E30613]/20 motion-reduce:transition-none sm:p-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <FriendAvatar user={s.user} size="sm" />
+                <button type="button" onClick={() => navigate(`/profile/${s.user.id}`)} className="min-w-0 flex-1 text-left focus-visible:rounded-sm">
+                  <span className="block truncate text-sm font-medium text-[#252733]">{s.user.name}</span>
+                  <span className="mt-1 block"><Presence online={s.user.online} /></span>
+                </button>
               </div>
-              <button onClick={() => handleCancel(s.friendship.id)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-xs font-medium">Cancelar</button>
-            </div>
+              <button onClick={() => handleCancel(s.friendship.id)} className="mt-auto inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[#E9EAF0] bg-white px-3 text-sm font-medium text-[#858A98] transition-colors hover:bg-[#F7F7F9] hover:text-[#252733] motion-reduce:transition-none">
+                <X className="h-4 w-4" /> Cancelar
+              </button>
+            </article>
           ))}
-          {sent.length === 0 && <div className="text-[#858A98]">Nenhuma solicitação enviada.</div>}
+          {sent.length === 0 && <div className="card-surface p-6 text-center text-sm text-[#858A98] sm:col-span-2 xl:col-span-3">Nenhuma solicitação enviada.</div>}
         </div>
       )}
 
       {tab === 'add' && (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <input
-              value={query}
-              onChange={e => {
-                setQuery(e.target.value);
-                if (!e.target.value.trim()) void loadAddableUsers(true);
-              }}
-              onKeyDown={e => { if (e.key === 'Enter') void handleSearch(); }}
-              placeholder="Buscar usuário..."
-              className="flex-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm"
-            />
-            <button onClick={() => void handleSearch()} disabled={addLoading} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium disabled:opacity-50">Buscar</button>
+        <div className="space-y-4">
+          <div className="card-surface flex flex-col gap-3 p-3 sm:flex-row sm:p-4">
+            <label className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+              <input
+                value={query}
+                onChange={e => {
+                  setQuery(e.target.value);
+                  if (!e.target.value.trim()) void loadAddableUsers(true);
+                }}
+                onKeyDown={e => { if (e.key === 'Enter') void handleSearch(); }}
+                placeholder="Buscar usuário..."
+                aria-label="Buscar usuário"
+                className="h-11 w-full rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] py-2 pl-10 pr-3 text-sm text-[#252733] transition-colors focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10"
+              />
+            </label>
+            <button onClick={() => void handleSearch()} disabled={addLoading} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#E30613] px-5 text-sm font-medium text-white transition-colors hover:bg-[#252733] disabled:opacity-50 motion-reduce:transition-none">
+              <Search className="h-4 w-4" /> Buscar
+            </button>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {results.map(u => (
-              <div key={u.id} className="card-surface p-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E30613] font-bold overflow-hidden relative">
-                    {u.avatar_url ? <img src={u.avatar_url} alt={u.name} className="w-full h-full object-cover" /> : u.name.charAt(0)}
-                    {u.online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />}
+              <article key={u.id} className="card-surface flex min-w-0 items-center justify-between gap-3 p-4 transition-shadow hover:border-[#E30613]/20 motion-reduce:transition-none sm:p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <FriendAvatar user={u} size="sm" />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-[#252733]">{u.name}</div>
+                    <div className="mt-1"><Presence online={u.online} /></div>
                   </div>
-                  <div className="text-sm text-[#252733]">{u.name}</div>
                 </div>
-                <button onClick={() => handleSend(u.id)} className="px-3 py-1.5 rounded-xl bg-[#E30613] text-white text-xs font-medium">Adicionar</button>
-              </div>
+                <button onClick={() => handleSend(u.id)} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#E30613] px-3 text-sm font-medium text-white transition-colors hover:bg-[#252733] motion-reduce:transition-none">
+                  <UserPlus className="h-4 w-4" /> Adicionar
+                </button>
+              </article>
             ))}
           </div>
           {addLoading && <div className="text-sm text-[#858A98]">Carregando usuários...</div>}
-          {!addLoading && results.length === 0 && <div className="text-sm text-[#858A98]">{query.trim() ? 'Nenhum usuário encontrado.' : 'Não há usuários disponíveis para adicionar.'}</div>}
+          {!addLoading && results.length === 0 && <div className="card-surface p-6 text-center text-sm text-[#858A98]">{query.trim() ? 'Nenhum usuário encontrado.' : 'Não há usuários disponíveis para adicionar.'}</div>}
           {!query.trim() && addHasMore && (
-            <button onClick={() => void loadAddableUsers()} disabled={addLoading} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium text-[#252733] disabled:opacity-50">
+            <button onClick={() => void loadAddableUsers()} disabled={addLoading} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#E9EAF0] bg-white px-4 text-sm font-medium text-[#252733] transition-colors hover:bg-[#F7F7F9] disabled:opacity-50 motion-reduce:transition-none">
               Carregar mais
             </button>
           )}

@@ -126,7 +126,7 @@ export default function Layout() {
           </div>
           <div className="text-[10px] text-[#858A98] tracking-widest mt-0.5">FUTEBOL ENTRE AMIGOS</div>
         </div>
-        <nav className="flex flex-col gap-1">
+        <nav className="flex flex-col gap-1.5">
           {NAV_WITH_ADMIN.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
             const params = new URLSearchParams(window.location.search);
@@ -145,27 +145,29 @@ export default function Layout() {
             }
           }}
               className={({ isActive }) =>
-                `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98] hover:bg-[#F7F7F9] hover:text-[#252733]'}`}>
+                `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors motion-reduce:transition-none ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98] hover:bg-[#F7F7F9] hover:text-[#252733]'}`}>
               {({ isActive }) => (
                 <>
-                  {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#E30613] rounded-r" />}
-                   <n.icon className="w-4 h-4" />
-                   <span>{n.label}</span>
-                  {n.to === '/collection' && newCount > 0 && <span className="ml-auto text-xs bg-[#E30613] text-white rounded-full px-2">{newCount}</span>}
-                  {n.to === '/friends' && pendingFriends > 0 && <span className="ml-auto text-xs bg-[#E30613] text-white rounded-full px-2">{pendingFriends}</span>}
+                  {isActive && <span className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r bg-[#E30613]" />}
+                  <n.icon className="h-5 w-5 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{n.label}</span>
+                  {n.to === '/collection' && newCount > 0 && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E30613] px-1 text-xs text-white">{newCount}</span>}
+                  {n.to === '/friends' && pendingFriends > 0 && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E30613] px-1 text-xs text-white">{pendingFriends}</span>}
                 </>
               )}
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto card-surface p-3">
-          <div className="text-xs text-[#858A98]">Nível {level}</div>
-          <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden mt-1">
-            <div className="h-full bg-[#E30613]" style={{ width: `${pct}%` }} />
+        <div className="mt-auto card-surface p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-[#858A98]">Nível {level}</div>
+            <div className="text-xs text-[#858A98]">{xp} / {nextXp} XP</div>
           </div>
-          <div className="text-xs text-[#858A98] mt-1">{xp} / {nextXp} XP</div>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-[#E30613]">●</span>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#E9EAF0]">
+            <div className="h-full rounded-full bg-[#E30613] transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="mt-3 flex items-center gap-2 border-t border-[#E9EAF0] pt-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#FFF0F2] text-[#E30613]">●</span>
             <span className="font-bold text-[#252733]">{coins.toLocaleString('pt-BR')}</span>
             <span className="text-xs text-[#858A98]">moedas</span>
           </div>
@@ -268,8 +270,9 @@ export default function Layout() {
             {NAV_WITH_ADMIN.map(n => (
               <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async () => { setDrawerOpen(false); const params = new URLSearchParams(window.location.search); const challengeId = params.get('challenge'); if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') { await challengesService.abandonChallenge(challengeId); } const poolMatchId = window.location.pathname.match(/\/pool\/([a-f0-9-]+)/)?.[1]; if (poolMatchId && n.to !== '/pool') { await poolService.abandonPoolMatch(poolMatchId); } }}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98]'}`}>
-                 <n.icon className="w-4 h-4" /> {n.label}
+                  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors motion-reduce:transition-none ${isActive ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98]'}`}>
+                 <n.icon className="h-5 w-5 shrink-0" />
+                 <span className="min-w-0 flex-1 truncate">{n.label}</span>
                </NavLink>
             ))}
           </div>
