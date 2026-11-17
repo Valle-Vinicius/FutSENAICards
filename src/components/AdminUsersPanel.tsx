@@ -196,7 +196,7 @@ export default function AdminUsersPanel() {
         </div>
       </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.8fr)]">
+      <div className="grid items-start gap-4">
         <div className="min-w-0 overflow-hidden rounded-2xl border border-[#E9EAF0] bg-white">
           <div className="flex flex-col gap-3 border-b border-[#E9EAF0] p-4 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">
@@ -227,8 +227,8 @@ export default function AdminUsersPanel() {
           ) : visibleUsers.length === 0 ? (
             <div className="p-8 text-center text-sm text-[#687080]">{query ? 'Nenhum usuário encontrado.' : 'Ainda não há usuários para exibir.'}</div>
           ) : (
-            <div className="max-h-[70vh] overflow-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[920px] text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-[#F7F7F9] text-xs uppercase tracking-wide text-[#687080]">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Usuário</th>
@@ -237,6 +237,7 @@ export default function AdminUsersPanel() {
                     <th className="px-4 py-3 font-semibold">Ranked</th>
                     <th className="px-4 py-3 font-semibold">Sinuca</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
+                    <th className="px-4 py-3 font-semibold">Última vez online</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F0F1F4]">
@@ -269,6 +270,9 @@ export default function AdminUsersPanel() {
                             <span className={`size-2 rounded-full ${online ? 'bg-emerald-500 motion-safe:animate-pulse' : 'bg-[#B7BAC4]'}`} />
                             {online ? 'Ativo' : 'Offline'}
                           </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-xs text-[#687080]">
+                          {formattedDate(user.last_seen)}
                         </td>
                       </tr>
                     );

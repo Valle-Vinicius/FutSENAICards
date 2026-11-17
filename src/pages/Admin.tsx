@@ -564,7 +564,7 @@ export default function Admin() {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-5xl p-4 md:p-8 space-y-6">
+      <div className={`mx-auto w-full ${adminTab === 'users' ? 'max-w-none' : 'max-w-5xl'} p-4 md:p-8 space-y-6`}>
         <h1 className="text-2xl font-bold text-[#252733]">Painel Administrador</h1>
 
         <div role="tablist" aria-label="Seções do painel administrador" className="flex flex-wrap gap-2 border-b border-[#E9EAF0] pb-3">
