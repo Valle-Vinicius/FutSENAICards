@@ -4,7 +4,7 @@ import { RARITY_META, SPECIAL_META } from '../types';
 import { getPlayerImage } from '../data/players';
 import { Circle, Star } from 'lucide-react';
 
-export default function Card({ card, size = 'md', onClick, isNew }: { card: PlayerCard; size?: 'sm'|'md'|'lg'|'fluid'; onClick?: () => void; isNew?: boolean }) {
+export default function Card({ card, size = 'md', onClick, isNew, isRevealed }: { card: PlayerCard; size?: 'sm'|'md'|'lg'|'fluid'; onClick?: () => void; isNew?: boolean; isRevealed?: boolean }) {
   const meta = RARITY_META[card.rarity] ?? RARITY_META.common;
   const img = card.image || getPlayerImage(card.name);
   const isGK = card.position === 'GK';
@@ -38,12 +38,12 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
       {isNew && <span className={`absolute ${compact ? 'top-10' : 'top-16'} right-2 z-20 bg-[#E30613] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow`}>NOVA</span>}
 
       {img ? (
-        <img src={img} alt={card.name} className="absolute inset-0 w-full h-full object-cover object-top" />
+        <img src={img} alt={card.name} className={`absolute inset-0 w-full h-full object-cover object-top ${isRevealed ? 'brightness-110' : ''}`} />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-b from-[#F7F7F9] to-[#E9EAF0] flex items-center justify-center opacity-20"><Circle className="w-12 h-12" /></div>
+        <div className={`absolute inset-0 bg-gradient-to-b from-[#F7F7F9] to-[#E9EAF0] flex items-center justify-center ${isRevealed ? 'opacity-50' : 'opacity-20'}`}><Circle className="w-12 h-12" /></div>
       )}
 
-      <div className={`absolute inset-0 ${isSecret ? 'bg-gradient-to-t from-[#050609]/95 via-[#08090D]/50 to-black/20' : 'bg-gradient-to-t from-black/80 via-black/35 to-transparent'}`} />
+      <div className={`absolute inset-0 ${isRevealed ? 'bg-gradient-to-t from-black/55 via-black/15 to-transparent' : isSecret ? 'bg-gradient-to-t from-[#050609]/95 via-[#08090D]/50 to-black/20' : 'bg-gradient-to-t from-black/80 via-black/35 to-transparent'}`} />
 
       <div className="absolute top-2 left-2 flex flex-col items-start gap-1 z-10 max-w-[60%]">
         <span

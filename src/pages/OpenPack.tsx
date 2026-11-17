@@ -203,7 +203,7 @@ export default function OpenPack() {
 
   return (
     <div
-      className={`open-pack-screen ${isDarkPhase ? 'open-pack-screen--dark' : ''}`}
+      className={`open-pack-screen ${isDarkPhase ? 'open-pack-screen--dark' : ''} ${phase === 'reveal' ? 'open-pack-screen--reveal' : ''}`}
       style={{ '--pack-accent': packColor } as CSSProperties}
     >
       <ParticleBurst fire={burstFire} color={packColor} count={particleCount} />
@@ -376,7 +376,7 @@ export default function OpenPack() {
               aria-labelledby="open-pack-reveal-title"
             >
               <h1 id="open-pack-reveal-title">Clique nas cartas para revelar</h1>
-              <div className="open-pack-reveal-list">
+              <div className={`open-pack-reveal-list ${cards.length === 5 ? 'open-pack-reveal-list--five' : ''}`}>
                 {cards.map((c, i) => (
                   <FlipCard
                     key={c.uid}
@@ -509,7 +509,9 @@ function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard;
           <span className="open-pack-flip-card-hint">Clique para revelar</span>
         </div>
         <div className="open-pack-flip-card-face open-pack-flip-card-front">
-          <Card card={card} size="lg" />
+          <div className="open-pack-flip-card-visual">
+            <Card card={card} size="lg" isRevealed />
+          </div>
         </div>
       </motion.div>
     </button>

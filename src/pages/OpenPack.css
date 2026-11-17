@@ -19,6 +19,14 @@
   color: var(--white);
 }
 
+.open-pack-screen--reveal {
+  padding-block: clamp(0.5rem, 1.5vh, 1rem);
+}
+
+.open-pack-screen--reveal .open-pack-content {
+  min-height: min(40rem, calc(100dvh - 9rem));
+}
+
 .open-pack-content {
   position: relative;
   z-index: 1;
@@ -292,6 +300,11 @@
   gap: 1.5rem;
 }
 
+.open-pack-panel--state.open-pack-reveal-state {
+  gap: clamp(0.5rem, 1.25vh, 1rem);
+  padding: clamp(0.75rem, 1.5vh, 1.25rem);
+}
+
 .open-pack-choice-state h1,
 .open-pack-reveal-state h1 {
   max-width: none;
@@ -305,6 +318,11 @@
   font-weight: 700;
 }
 
+.open-pack-reveal-state h1 {
+  font-weight: 700;
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+}
+
 .open-pack-choice-list,
 .open-pack-reveal-list {
   display: flex;
@@ -312,6 +330,63 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 1rem;
+}
+
+.open-pack-reveal-list--five {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(0.25rem, 0.75vw, 0.75rem);
+  container-type: inline-size;
+}
+
+.open-pack-reveal-list--five .open-pack-flip-card {
+  --reveal-card-scale: 0.44;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  aspect-ratio: 61 / 85;
+}
+
+@container (min-width: 600px) {
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    --reveal-card-scale: 0.44;
+  }
+}
+
+@container (min-width: 700px) {
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    --reveal-card-scale: 0.54;
+  }
+}
+
+@container (min-width: 810px) {
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    --reveal-card-scale: 0.62;
+  }
+}
+
+@container (min-width: 890px) {
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    --reveal-card-scale: 0.69;
+  }
+}
+
+@container (min-width: 960px) {
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    --reveal-card-scale: 0.74;
+  }
+}
+
+@container (min-width: 1030px) {
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    --reveal-card-scale: 0.8;
+  }
+}
+
+@container (min-width: 1090px) {
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    --reveal-card-scale: 0.85;
+  }
 }
 
 .open-pack-choice-card {
@@ -381,7 +456,16 @@
 }
 
 .open-pack-flip-card-front {
+  display: grid;
+  place-items: center;
   transform: rotateY(180deg);
+}
+
+.open-pack-flip-card-visual {
+  width: 15rem;
+  height: 21rem;
+  transform: scale(var(--reveal-card-scale, 1));
+  transform-origin: center;
 }
 
 .open-pack-flip-card-hint {
@@ -531,6 +615,11 @@
 }
 
 @media (max-width: 48rem) {
+  main:has(.open-pack-screen--reveal) {
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+
   .open-pack-content {
     min-height: 0;
   }
@@ -578,11 +667,37 @@
     border-top: 1px solid var(--border);
     border-left: 0;
   }
+
+  .open-pack-reveal-list--five {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.5rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    width: 15.25rem;
+    height: 21.25rem;
+    flex: 0 0 15.25rem;
+    aspect-ratio: auto;
+    scroll-snap-align: start;
+  }
+
+  .open-pack-reveal-list--five .open-pack-flip-card-visual {
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 36rem) {
   .open-pack-screen {
     padding: 1rem 1rem 2rem;
+  }
+
+  .open-pack-screen--reveal {
+    padding-block: 0.375rem;
   }
 
   .open-pack-panel,
@@ -633,5 +748,36 @@
 
   .open-pack-flip-shine {
     display: none;
+  }
+}
+
+@media (max-height: 44rem) {
+  .open-pack-screen--reveal {
+    padding-block: 0.375rem;
+  }
+
+  .open-pack-screen--reveal .open-pack-content {
+    min-height: 0;
+  }
+
+  .open-pack-panel--state.open-pack-reveal-state {
+    gap: 0.5rem;
+    padding: 0.625rem;
+  }
+
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    --reveal-card-scale: 0.68;
+  }
+}
+
+@media (max-width: 48rem) and (max-height: 44rem) {
+  .open-pack-reveal-list--five .open-pack-flip-card {
+    width: 12.2rem;
+    height: 17rem;
+    flex-basis: 12.2rem;
+  }
+
+  .open-pack-reveal-list--five .open-pack-flip-card-visual {
+    transform: scale(0.8);
   }
 }
