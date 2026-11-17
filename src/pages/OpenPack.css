@@ -301,6 +301,10 @@
   text-align: center;
 }
 
+.open-pack-choice-state h1 {
+  font-weight: 700;
+}
+
 .open-pack-choice-list,
 .open-pack-reveal-list {
   display: flex;
@@ -341,8 +345,8 @@
 .open-pack-flip-card {
   position: relative;
   display: block;
-  width: 11rem;
-  height: 15rem;
+  width: 15.25rem;
+  height: 21.25rem;
   flex: 0 0 auto;
   perspective: 62.5rem;
   border: 0;

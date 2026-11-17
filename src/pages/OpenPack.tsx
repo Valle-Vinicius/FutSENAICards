@@ -509,7 +509,7 @@ function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard;
           <span className="open-pack-flip-card-hint">Clique para revelar</span>
         </div>
         <div className="open-pack-flip-card-face open-pack-flip-card-front">
-          <Card card={card} size="md" />
+          <Card card={card} size="lg" />
         </div>
       </motion.div>
     </button>
