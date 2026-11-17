@@ -229,7 +229,7 @@ export default function Layout() {
           </div>
         </div>
 
-        <main className={`flex-1 min-w-0 min-h-0 overflow-auto pb-20 md:pb-0 ${isMatchRoute ? 'match-route-main' : ''}`}>
+        <main className={`flex-1 min-w-0 min-h-0 overflow-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0 ${isMatchRoute ? 'match-route-main' : ''}`}>
           {pendingChallengeId && (
             <div className="m-4 card-surface p-3 flex items-center justify-between gap-3">
               <div className="text-sm text-[#252733]">Você foi desafiado para um X1!</div>
@@ -279,7 +279,7 @@ export default function Layout() {
         </div>
       )}
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex overflow-x-auto justify-around border-t border-[#E9EAF0] bg-white z-40">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-stretch border-t border-[#E9EAF0] bg-white z-40 pb-[env(safe-area-inset-bottom)]">
         {[...NAV_WITH_ADMIN.slice(0, 5), NAV_WITH_ADMIN.find(n => n.to === '/leaderboard')!].map(n => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
             const params = new URLSearchParams(window.location.search);
@@ -298,8 +298,9 @@ export default function Layout() {
             }
           }}
             className={({ isActive }) =>
-              `flex flex-col items-center py-2 px-2 text-[10px] shrink-0 min-w-[64px] ${isActive ? 'text-[#E30613]' : 'text-[#858A98]'}`}>
-             <n.icon className="w-4 h-4" /> {n.label}
+              `flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] ${isActive ? 'text-[#E30613]' : 'text-[#858A98]'}`}>
+             <n.icon className="h-5 w-5" />
+             <span className="block max-w-full truncate">{n.label}</span>
            </NavLink>
         ))}
       </nav>

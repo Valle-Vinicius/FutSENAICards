@@ -1288,7 +1288,7 @@ export default function Pool() {
                 <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {filteredWagerCards.map(card => (
                     <div key={card.uid} className={`rounded-2xl p-1 ${selectedWagerCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
-                      <Card card={card} size="sm" onClick={() => setSelectedWagerCardId(card.uid)} />
+                      <Card card={card} size="fluid" onClick={() => setSelectedWagerCardId(card.uid)} />
                     </div>
                   ))}
                   {filteredWagerCards.length === 0 && <p className="col-span-full py-4 text-sm">Nenhuma carta disponível.</p>}

@@ -170,7 +170,7 @@ export default function Profile() {
               const card = cards.find((c: any) => c.uid === s.uid);
               return (
                 <div key={i} className="flex flex-col items-center">
-                  {card ? <Card card={card} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-xs text-[#858A98]">{s.position}</div>}
+                  {card ? <Card card={card} size="sm" /> : <div className="flex aspect-[7/10] w-36 items-center justify-center rounded-xl border-2 border-dashed border-[#E9EAF0] text-xs text-[#858A98]">{s.position}</div>}
                 </div>
               );
             })}
@@ -180,7 +180,7 @@ export default function Profile() {
               const card = cards.find((c: any) => c.uid === s.uid);
               return (
                 <div key={i} className="flex flex-col items-center">
-                  {card ? <Card card={card} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-xs text-[#858A98]">{s.position}</div>}
+                  {card ? <Card card={card} size="sm" /> : <div className="flex aspect-[7/10] w-36 items-center justify-center rounded-xl border-2 border-dashed border-[#E9EAF0] text-xs text-[#858A98]">{s.position}</div>}
                 </div>
               );
             })}
@@ -191,8 +191,8 @@ export default function Profile() {
       {/* Carta mais rara */}
       {rarest && (
         <div className="card-surface p-4 flex flex-col md:flex-row items-center gap-4">
-          <div className="shrink-0">
-            <Card card={rarest} size="lg" />
+          <div className="w-[min(100%,15rem)] shrink-0">
+            <Card card={rarest} size="fluid" />
           </div>
           <div className="space-y-2 text-center md:text-left">
             <div className="text-sm font-medium text-[#858A98]">Carta mais rara</div>

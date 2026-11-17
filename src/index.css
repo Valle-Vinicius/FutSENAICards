@@ -17,6 +17,7 @@
 }
 
 html, body, #root { height: 100%; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   background: var(--bg);
@@ -216,6 +217,22 @@ body {
   50% { color: #00c8ff; }
   75% { color: #a855f7; }
   100% { color: #ff0040; }
+}
+
+.fc-card { container-type: inline-size; }
+.fc-pad { padding: 10px; padding: 5.2cqw; }
+.fc-pos { font-size: 10px; font-size: max(7px, 5.2cqw); }
+.fc-badge { font-size: 10px; font-size: max(7px, 5.2cqw); }
+.fc-special { font-size: 8px; font-size: max(6.5px, 4.2cqw); }
+.fc-ovr { font-size: 24px; font-size: max(14px, 12.5cqw); }
+.fc-edition { font-size: 8px; font-size: max(6.5px, 4.2cqw); }
+.fc-name { font-size: 16px; font-size: max(10px, 8.3cqw); }
+.fc-name--compact { font-size: 14px; font-size: max(10px, 9.5cqw); }
+.fc-attr { font-size: 11px; font-size: max(8px, 5.7cqw); }
+.fc-attr--compact { font-size: 11px; font-size: max(8px, 7.6cqw); }
+
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

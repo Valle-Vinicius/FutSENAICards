@@ -240,7 +240,7 @@ export default function Collection() {
     : 'Nenhuma duplicata parece elegível no inventário atual. Cartas favoritas, em elencos, anúncios, partidas e apostas são preservadas. O servidor revalida tudo antes de converter.';
 
   return (
-    <div className="min-h-screen space-y-4 bg-[var(--bg)] p-4 md:p-8">
+    <div className="min-h-[100dvh] space-y-4 bg-[var(--bg)] p-4 md:p-8">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Minhas cartas</h1>
         <p className="text-xs text-[#858A98]">
@@ -324,7 +324,7 @@ export default function Collection() {
       </div>
 
       {album ? (
-        <div className="[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))] grid gap-4">
+        <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] grid gap-4">
           {allTemplates().map(template => {
             const owned = bestByName.get(template.name);
             return owned ? (
@@ -350,7 +350,7 @@ export default function Collection() {
         <div className="py-12 text-center text-[#858A98]">Nenhuma carta encontrada.</div>
       ) : (
         <>
-          <div className="[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))] grid gap-4">
+          <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] grid gap-4">
             {pageGroups.map(group => {
               const card = group.cards[0];
               const expanded = expandedGroups.has(group.key);
@@ -380,7 +380,7 @@ export default function Collection() {
                     </button>
                   </div>
                   {expanded && group.cards.length > 1 && (
-                    <div className="[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))] col-span-full grid gap-4 rounded-xl border border-dashed border-[#E9EAF0] bg-white/50 p-3">
+                    <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] col-span-full grid gap-4 rounded-xl border border-dashed border-[#E9EAF0] bg-white/50 p-3">
                       {group.cards.slice(1).map(copy => (
                         <div key={copy.uid} className="min-w-0 space-y-2">
                           <Card card={copy} size="fluid" onClick={() => openCard(copy)} isNew={copy.isNew} />

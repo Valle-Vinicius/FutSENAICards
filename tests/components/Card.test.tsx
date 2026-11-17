@@ -44,3 +44,18 @@ describe('fluid collection card', () => {
     expect(screen.getByText('NOVA')).toBeInTheDocument();
   });
 });
+
+describe.each([
+  ['sm', 'w-36'],
+  ['md', 'w-48'],
+  ['lg', 'w-60'],
+  ['fluid', 'w-full'],
+] as const)('Card size %s', (size, widthClass) => {
+  it('uses the shared 7:10 ratio without fixed heights', () => {
+    const { container } = render(<Card card={card} size={size} />);
+    const root = container.firstChild;
+
+    expect(root).toHaveClass(widthClass, 'aspect-[7/10]', 'h-auto', 'shrink-0');
+    expect(root).not.toHaveClass('h-52', 'h-64', 'h-84');
+  });
+});

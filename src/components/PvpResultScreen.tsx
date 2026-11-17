@@ -337,7 +337,7 @@ export default function PvpResultScreen({
   ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#F7F7F9] px-3 py-6 text-[#252733] sm:px-6 sm:py-8">
+    <main className="relative min-h-[100dvh] overflow-hidden bg-[#F7F7F9] px-3 py-6 text-[#252733] sm:px-6 sm:py-8">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="absolute -left-40 -top-32 h-96 w-96 rounded-full bg-[#FFF0F2] blur-[120px]" />
         <div className="absolute inset-x-0 top-0 h-64 bg-white/70" />

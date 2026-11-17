@@ -137,11 +137,11 @@ export default function SBC() {
                           toggle(activeSbc.id, card.uid);
                         }
                       }}
-                      className={`cursor-pointer rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E30613] ${
+                      className={`min-w-0 cursor-pointer rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E30613] ${
                         isSelected ? 'ring-2 ring-[#E30613]' : ''
                       }`}
                     >
-                      <Card card={card} size="sm" />
+                      <Card card={card} size="fluid" />
                     </div>
                   );
                 })}

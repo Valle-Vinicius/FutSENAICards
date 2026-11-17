@@ -308,7 +308,7 @@ export default function Leaderboard() {
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-[#F7F7F9] text-[10px] uppercase tracking-wide text-[#858A98]">
               <tr>
-                <th className="w-20 px-4 py-3.5">Pos.</th>
+                <th className="sticky left-0 z-20 w-20 bg-[#F7F7F9] px-4 py-3.5">Pos.</th>
                 <th className="px-4 py-3.5">Jogador</th>
                 <th className="w-28 px-4 py-3.5 text-right">{mode === 'pool' ? 'ELO sinuca' : 'ELO'}</th>
                 {mode === 'pvp' && <th className="w-32 px-4 py-3.5 text-center">Divisão</th>}
@@ -331,7 +331,7 @@ export default function Leaderboard() {
                       transition={{ duration: reduceMotion ? 0 : 0.18 }}
                       className={`transition-colors duration-200 motion-reduce:transition-none ${player.userId === userId ? 'bg-[#FFF0F2]/60' : 'hover:bg-[#F7F7F9]'}`}
                     >
-                      <td className="px-4 py-3.5">
+                      <td className="sticky left-0 z-10 bg-[inherit] px-4 py-3.5">
                         <span className={`inline-flex min-w-10 justify-center rounded-lg px-2 py-1 font-bold tabular-nums ${player.position <= 3 ? 'bg-[#FFF0F2] text-[#E30613]' : 'text-[#858A98]'}`}>
                           #{player.position}
                         </span>

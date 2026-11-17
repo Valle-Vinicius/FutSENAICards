@@ -231,7 +231,7 @@ export default function AdminUsersPanel() {
               <table className="w-full min-w-[920px] text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-[#F7F7F9] text-xs uppercase tracking-wide text-[#687080]">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Usuário</th>
+                    <th className="sticky left-0 z-20 bg-[#F7F7F9] px-4 py-3 font-semibold">Usuário</th>
                     <th className="px-4 py-3 font-semibold">Moedas</th>
                     <th className="px-4 py-3 font-semibold">Cartas</th>
                     <th className="px-4 py-3 font-semibold">Ranked</th>
@@ -257,7 +257,7 @@ export default function AdminUsersPanel() {
                         aria-selected={selectedId === user.user_id}
                         className={`cursor-pointer transition-colors duration-700 ease-out hover:bg-[#F7F7F9] ${selectedId === user.user_id ? 'bg-[#FFF5F5]' : ''} ${highlightedUsers[user.user_id] ? 'bg-emerald-50' : ''}`}
                       >
-                        <td className="max-w-[260px] px-4 py-3">
+                        <td className="sticky left-0 z-10 max-w-[260px] bg-[inherit] px-4 py-3">
                           <div className="truncate font-semibold text-[#252733]">{user.name || 'Sem nome'}</div>
                           <div className="truncate text-xs text-[#858A98]">{user.user_id}</div>
                         </td>

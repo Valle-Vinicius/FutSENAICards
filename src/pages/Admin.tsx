@@ -690,7 +690,7 @@ export default function Admin() {
                 <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">3</span>
                 Atributos
               </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label className={labelCls}>Velocidade</label>
                 <input type="number" value={form.pace} onChange={e => setForm({ ...form, pace: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
@@ -718,7 +718,7 @@ export default function Admin() {
             </div>
 
             {isGK && (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label className={labelCls}>Reflexos</label>
                   <input type="number" value={form.reflexes} onChange={e => setForm({ ...form, reflexes: Number(e.target.value) })} className={`${inputCls} h-14 bg-[#FAFAFB] text-center text-lg font-bold tabular-nums`} min={0} max={99} />
@@ -901,7 +901,9 @@ export default function Admin() {
 
           <div className="flex flex-col items-center justify-start gap-4 rounded-2xl border border-[#E9EAF0] bg-white p-4 md:p-5 xl:sticky xl:top-6">
             <h2 className="text-lg font-semibold text-[#252733]">Prévia</h2>
-            <Card card={makePreviewCard(rarityToUse)} size="lg" />
+            <div className="w-full max-w-[15rem]">
+              <Card card={makePreviewCard(rarityToUse)} size="fluid" />
+            </div>
             <div className="text-xs text-[#858A98] text-center">
               {RARITY_LABELS[rarityToUse]} · OVR {makePreviewCard(rarityToUse).overall}
             </div>

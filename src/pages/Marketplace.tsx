@@ -400,11 +400,11 @@ export default function Marketplace() {
               return (
                 <article key={l.id} aria-busy={buyingAnim === l.id} className={`card-surface group flex min-w-0 flex-col overflow-hidden p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E30613]/20 motion-reduce:transform-none motion-reduce:transition-none sm:p-4 ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
                   <div className="flex flex-1 items-center justify-center rounded-xl bg-[#F7F7F9] p-3">
-                    <div className="w-full max-w-[232px]">
+                    <div className="mx-auto w-full max-w-[232px]">
                       <Card card={c} size="fluid" />
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#E9EAF0] pt-3">
+                  <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-[#E9EAF0] pt-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF0F2] text-[#E30613]"><User className="h-4 w-4" /></span>
                       <div className="min-w-0">
@@ -412,9 +412,9 @@ export default function Marketplace() {
                         <div className="truncate text-sm font-medium text-[#252733]" title={l.sellerName}>{l.sellerName}</div>
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
+                    <div className="min-w-0 max-w-full shrink text-right">
                       <div className="text-xs text-[#858A98]">Preço</div>
-                      <div className="text-lg font-bold tabular-nums text-[#E30613]">{listingPrice(l).toLocaleString('pt-BR')} <span className="text-xs font-medium">moedas</span></div>
+                      <div className="break-words text-lg font-bold tabular-nums text-[#E30613]">{listingPrice(l).toLocaleString('pt-BR')} <span className="text-xs font-medium">moedas</span></div>
                     </div>
                   </div>
                   <button onClick={() => handleBuy(l.id)} className="btn btn-primary btn-full btn-lg mt-3 transition-transform hover:scale-[1.01] motion-reduce:transition-none">
@@ -818,7 +818,7 @@ export default function Marketplace() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="marketplace-transaction-title"
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E9EAF0] bg-white p-4 shadow-xl sm:p-6"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E9EAF0] bg-white p-4 shadow-xl"
             onMouseDown={event => event.stopPropagation()}
           >
             <header className="flex items-start justify-between gap-4">

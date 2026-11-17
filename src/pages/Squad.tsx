@@ -433,7 +433,7 @@ export default function Squad() {
           </div>
         </section>
 
-        <section className="card-surface flex h-[62vh] min-h-[420px] flex-col p-3 md:p-4 lg:h-[calc(100vh-285px)]">
+        <section className="card-surface flex h-[62dvh] min-h-[420px] flex-col p-3 md:p-4 lg:h-[calc(100dvh-285px)]">
           <div className="mb-2 flex items-center justify-between gap-2">
             <h2 className="font-semibold text-[#252733]">Inventário disponível ({available.length})</h2>
             <span className="text-xs text-[#858A98]">{filteredAvailable.length} resultados</span>

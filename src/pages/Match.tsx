@@ -1251,7 +1251,7 @@ function MatchInner() {
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
           <div className="space-y-4">
             <div className="relative mx-auto w-full max-w-5xl overflow-hidden rounded-2xl bg-slate-950 p-2 shadow-lg shadow-slate-950/20 md:p-3">
-              <svg viewBox="0 0 100 50" className="mx-auto block max-h-[50vh] w-full h-auto" role="group" aria-label="Quadra de futsal com a posição dos jogadores">
+              <svg viewBox="0 0 100 50" className="mx-auto block max-h-[50dvh] w-full h-auto" role="group" aria-label="Quadra de futsal com a posição dos jogadores">
                 <defs>
                   <clipPath id="futsal-court-clip">
                     <rect x="1" y="1" width="98" height="48" rx="1.5" />
@@ -1414,7 +1414,7 @@ function MatchInner() {
     if (challengeId) {
       if (!resultConfirmed) {
         return (
-          <div className="flex min-h-[50vh] items-center justify-center bg-[#080b12] px-4 text-center text-sm text-white/65">
+          <div className="flex min-h-[50dvh] items-center justify-center bg-[#080b12] px-4 text-center text-sm text-white/65">
             Aguardando a confirmação oficial do resultado pelo servidor…
           </div>
         );

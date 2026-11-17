@@ -64,7 +64,7 @@ export default function NotFound() {
   }, []);
 
   return (
-    <div className="h-screen overflow-hidden relative flex items-center justify-center" style={{ backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+    <div className="min-h-[100dvh] overflow-y-auto relative flex items-center justify-center" style={{ backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
       <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
       <img src={POSES[left]} alt="Jogador" className="absolute left-0 bottom-0 z-10 h-[90%] object-contain" />
       <img src={POSES[right]} alt="Jogador" className="absolute right-0 bottom-0 z-10 h-[90%] object-contain" />

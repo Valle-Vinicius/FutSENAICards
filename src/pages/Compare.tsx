@@ -280,7 +280,7 @@ export default function Compare() {
           return (
             <div key={side} className={`flex min-w-0 flex-col items-center gap-2 ${side === 'a' ? 'md:col-start-1 md:row-start-1' : 'col-start-2 md:col-start-3 md:row-start-1'}`}>
               <h2 className="text-sm font-semibold text-[#858A98]">Jogador {side.toUpperCase()}</h2>
-              <div className="relative">
+              <div className="relative min-w-0">
                 {card ? (
                   <>
                     <Card card={card} size="sm" />
@@ -294,7 +294,7 @@ export default function Compare() {
                     </button>
                   </>
                 ) : (
-                  <div className="flex h-52 w-36 items-center justify-center rounded-2xl border-2 border-dashed border-[#E9EAF0] text-sm text-[#858A98]">
+                  <div className="flex aspect-[7/10] w-36 max-w-full items-center justify-center rounded-2xl border-2 border-dashed border-[#E9EAF0] text-sm text-[#858A98]">
                     Nenhum jogador
                   </div>
                 )}
@@ -379,7 +379,7 @@ export default function Compare() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="compare-picker-title"
-            className="card-surface max-h-[85vh] w-full max-w-3xl overflow-auto p-4"
+            className="card-surface max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto p-4"
             onClick={event => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -427,7 +427,7 @@ export default function Compare() {
                     disabled={disabled}
                     aria-label={`Selecionar ${card.name}${disabled ? ', já está do outro lado' : ''}`}
                     onClick={() => pick(card.uid)}
-                    className="flex justify-center rounded-2xl text-left transition enabled:hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex w-full min-w-0 justify-center rounded-2xl text-left transition enabled:hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Card card={card} size="sm" />
                   </button>

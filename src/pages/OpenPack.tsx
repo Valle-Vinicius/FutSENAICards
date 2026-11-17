@@ -37,9 +37,12 @@ function ParticleBurst({ fire, color, count }: { fire: boolean; color: string; c
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    canvas.width = canvas.offsetWidth * 2;
-    canvas.height = canvas.offsetHeight * 2;
-    const W = canvas.width, H = canvas.height;
+    const bounds = canvas.getBoundingClientRect();
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(bounds.width * pixelRatio);
+    canvas.height = Math.round(bounds.height * pixelRatio);
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    const W = bounds.width, H = bounds.height;
     const particles: { x: number; y: number; vx: number; vy: number; life: number; size: number; hue: string }[] = [];
     const colors = [color, '#ffffff', '#f5c542', '#a855f7', '#3b82f6', '#b6ff3b'];
     for (let i = 0; i < count; i++) {
@@ -115,12 +118,36 @@ export default function OpenPack() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    let w = canvas.width = canvas.clientWidth || canvas.offsetWidth || 800;
-    let h = canvas.height = canvas.clientHeight || canvas.offsetHeight || 600;
+    let w = 0;
+    let h = 0;
     const particles: { x: number; y: number; vx: number; vy: number }[] = [];
-    for (let i = 0; i < 60; i++) particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 1.2, vy: (Math.random() - 0.5) * 1.2 });
     let raf = 0;
+    const resize = () => {
+      const bounds = canvas.getBoundingClientRect();
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      w = bounds.width;
+      h = bounds.height;
+      canvas.width = Math.round(w * pixelRatio);
+      canvas.height = Math.round(h * pixelRatio);
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      const targetCount = w < 640 ? 24 : 60;
+      while (particles.length > targetCount) particles.pop();
+      while (particles.length < targetCount) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: (Math.random() - 0.5) * 1.2,
+        });
+      }
+      particles.forEach(p => {
+        p.x = Math.min(p.x, w);
+        p.y = Math.min(p.y, h);
+      });
+    };
     const draw = () => {
+      raf = 0;
+      if (document.hidden) return;
       ctx.clearRect(0, 0, w, h);
       for (const p of particles) {
         p.x += p.vx; p.y += p.vy;
@@ -148,13 +175,30 @@ export default function OpenPack() {
       }
       raf = requestAnimationFrame(draw);
     };
-    draw();
-    const onResize = () => {
-      w = canvas.width = canvas.clientWidth || canvas.offsetWidth;
-      h = canvas.height = canvas.clientHeight || canvas.offsetHeight;
+    const scheduleDraw = () => {
+      if (!document.hidden && !raf) raf = requestAnimationFrame(draw);
     };
-    window.addEventListener('resize', onResize);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else {
+        scheduleDraw();
+      }
+    };
+    const resizeObserver = new ResizeObserver(() => {
+      resize();
+      scheduleDraw();
+    });
+    resizeObserver.observe(canvas);
+    resize();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    scheduleDraw();
+    return () => {
+      cancelAnimationFrame(raf);
+      resizeObserver.disconnect();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   if (!pack) return <div className="p-8">Pacote não encontrado.</div>;
@@ -245,7 +289,7 @@ export default function OpenPack() {
 
   return (
     <div
-      className="min-h-[95vh] flex flex-col items-center justify-center p-4 pb-20 relative overflow-y-auto overflow-x-hidden rounded-2xl"
+      className="min-h-[100dvh] flex flex-col items-center justify-center p-4 pb-24 md:pb-8 relative overflow-x-hidden rounded-2xl"
       style={{
         backgroundImage: isDarkPhase
           ? 'linear-gradient(to bottom, #05060a, #0a0d14, #05060a)'
@@ -292,7 +336,7 @@ export default function OpenPack() {
             <motion.div
               animate={{ y: [0, -10, 0], rotate: [0, -2, 2, 0] }}
               transition={{ duration: 3, repeat: Infinity }}
-              className="text-9xl drop-shadow-2xl"
+              className="text-[clamp(4rem,22vw,8rem)] drop-shadow-2xl"
             >
               📦
             </motion.div>
@@ -308,12 +352,12 @@ export default function OpenPack() {
               ABRIR PACOTE
             </motion.button>
             <div className="flex items-center gap-4 text-xs text-[#858A98]">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} />
+              <label className="flex min-h-11 items-center gap-2">
+                <input className="h-5 w-5" type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} />
                 Pular animação
               </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={fast} onChange={e => setFast(e.target.checked)} />
+              <label className="flex min-h-11 items-center gap-2">
+                <input className="h-5 w-5" type="checkbox" checked={fast} onChange={e => setFast(e.target.checked)} />
                 Modo rápido
               </label>
             </div>
@@ -325,7 +369,7 @@ export default function OpenPack() {
             <motion.div
               animate={shake ? { x: [0,-12,12,-10,10,-6,6,-3,3,0], y: [0,6,-6,4,-4,2,-2,0], rotate: [0,-6,6,-4,4,-2,2,0], scale: [1,1.1,1.05,1.12,1] } : {}}
               transition={{ duration: fast ? 0.45 : 1.1 }}
-              className="text-9xl"
+              className="text-[clamp(4rem,22vw,8rem)]"
             >
               📦
             </motion.div>
@@ -337,7 +381,7 @@ export default function OpenPack() {
             >
               ABRINDO...
             </motion.div>
-            <div className="w-64 h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="w-[min(16rem,70vw)] h-2 bg-white/10 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: '100%' }}
@@ -355,7 +399,7 @@ export default function OpenPack() {
               initial={{ scale: 0.2, opacity: 0, rotate: -180 }}
               animate={{ scale: [0.2, 1.8, 1], opacity: [0, 1, 1], rotate: [ -180, 0, 0] }}
               transition={{ duration: fast ? 0.5 : 0.9, ease: 'backOut' }}
-              className="text-9xl"
+              className="text-[clamp(4rem,22vw,8rem)]"
             >
               💥
             </motion.div>
@@ -363,7 +407,7 @@ export default function OpenPack() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="mt-4 text-3xl font-black"
+              className="mt-4 text-2xl sm:text-3xl font-black"
               style={{ color: packColor, textShadow: `0 0 20px ${packColor}` }}
             >
               PACOTE ABERTO!
@@ -372,9 +416,9 @@ export default function OpenPack() {
         )}
 
         {phase === 'choice' && (
-          <motion.div key="choice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-6 relative z-10">
-            <div className="text-2xl font-black text-[#E30613]">ESCOLHA SUA CARTA</div>
-            <div className="flex flex-wrap justify-center gap-5">
+          <motion.div key="choice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex w-full flex-col items-center gap-6 relative z-10">
+            <div className="text-2xl sm:text-3xl font-black text-[#E30613]">ESCOLHA SUA CARTA</div>
+            <div className="grid w-full max-w-[25rem] grid-cols-2 gap-3 sm:max-w-none sm:grid-cols-3 sm:gap-5">
               {choiceCards.map(c => (
                 <motion.div key={c.uid} whileHover={{ scale: 1.05 }} onClick={() => {
                   if (!choiceId || claimingChoice) return;
@@ -390,8 +434,8 @@ export default function OpenPack() {
                       setClaimingChoice(false);
                     }
                   }).catch(() => setClaimingChoice(false));
-                }} className="cursor-pointer">
-                  <Card card={c} size="md" />
+                }} className="mx-auto w-full max-w-48 min-w-0 cursor-pointer">
+                  <Card card={c} size="fluid" />
                 </motion.div>
               ))}
             </div>
@@ -405,17 +449,17 @@ export default function OpenPack() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex flex-col items-center gap-6 w-full relative z-10"
+            className="flex w-full flex-col items-center gap-6 relative z-10"
           >
             <div className="text-lg font-bold text-white/80">Clique nas cartas para revelar</div>
-            <div className="flex flex-wrap justify-center gap-5">
+            <div className="grid w-full max-w-md grid-cols-2 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-5">
               {cards.map((c, i) => (
-                <div key={c.uid}>
+                <div key={c.uid} className="min-w-0">
                   <FlipCard card={c} revealed={revealed[i]} onReveal={() => revealCard(i)} rarityColor={RARITY_META[c.rarity].color} />
                 </div>
               ))}
             </div>
-            <div className="flex gap-3">
+            <div className="sticky bottom-20 z-20 flex w-full flex-wrap justify-center gap-3 py-2 md:bottom-4">
               <button onClick={revealAll} className="px-4 py-2 rounded-xl bg-white/10 text-white font-bold hover:bg-white/20 backdrop-blur">
                 Revelar todas
               </button>
@@ -435,23 +479,25 @@ export default function OpenPack() {
         )}
 
         {phase === 'summary' && (
-          <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-6 w-full relative z-10">
-            <div className="text-3xl font-black text-[#E30613]">PACOTE ABERTO COM SUCESSO!</div>
-            <div className="flex flex-wrap justify-center gap-5 items-end">
+          <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex w-full flex-col items-center gap-6 relative z-10">
+            <div className="text-2xl sm:text-3xl font-black text-[#E30613]">PACOTE ABERTO COM SUCESSO!</div>
+            <div className="grid w-full max-w-md grid-cols-2 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-5 sm:items-end">
               {cards.map((c, i) => (
                 <motion.div
                   key={c.uid}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: i * 0.08, duration: 0.4 }}
+                  className={i === 0 ? 'col-span-2 flex flex-col items-center sm:col-auto' : 'min-w-0 w-full sm:w-48'}
                 >
-                  {i === 0 && <div className="text-center text-xs font-black mb-1" style={{ color: RARITY_META[c.rarity].color }}>MELHOR CARTA</div>}
-                  
-                  <Card card={c} size={i === 0 ? 'lg' : 'md'} />
+                  {i === 0 && <div className="mb-1 text-center text-xs font-black" style={{ color: RARITY_META[c.rarity].color }}>MELHOR CARTA</div>}
+                  <div className={i === 0 ? 'w-[min(60vw,15rem)]' : 'w-full'}>
+                    <Card card={c} size="fluid" />
+                  </div>
                 </motion.div>
               ))}
             </div>
-            <div className="flex gap-3 w-full max-w-2xl">
+            <div className="grid w-full max-w-2xl grid-cols-3 gap-3">
               <div className="flex-1 card-surface p-3 text-center space-y-1">
                 <Coins className="w-6 h-6 mx-auto text-[#EF4444]" />
                 <div className="text-lg font-bold text-[#252733]">{estimatedValue.toLocaleString('pt-BR')}</div>
@@ -468,7 +514,7 @@ export default function OpenPack() {
                 <div className="text-[10px] text-[#858A98]">Duplicatas</div>
               </div>
             </div>
-            <div className="flex gap-3 flex-wrap justify-center">
+            <div className="sticky bottom-20 z-20 flex w-full flex-wrap justify-center gap-3 py-2 md:bottom-4">
               <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: '#E30613' }}>
                 VER COLEÇÃO
               </button>
@@ -485,14 +531,14 @@ export default function OpenPack() {
 
 function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard; revealed: boolean; onReveal: () => void; rarityColor: string }) {
   return (
-    <div className="w-44 h-60 cursor-pointer" style={{ perspective: 1000 }} onClick={() => !revealed && onReveal()}>
+    <div className="aspect-[7/10] w-full max-w-full cursor-pointer" style={{ width: 'min(44vw, 11rem)', perspective: 1000 }} onClick={() => !revealed && onReveal()}>
       <motion.div
         animate={{ rotateY: revealed ? 180 : 0 }}
         transition={{ duration: 0.7, type: 'spring', stiffness: 120 }}
         style={{ transformStyle: 'preserve-3d', position: 'relative', width: '100%', height: '100%' }}
       >
         <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0, border: `2px solid ${rarityColor}` }} className="rounded-2xl overflow-hidden">
-          <img src={CARD_BACKS[card.rarity] || CARD_BACKS.common} alt="Verso da carta" className="w-full h-full object-contain" />
+          <img src={CARD_BACKS[card.rarity] || CARD_BACKS.common} alt="Verso da carta" className="w-full h-full object-cover" />
           <motion.div
             animate={{ x: ['-100%', '100%'] }}
             transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
@@ -507,7 +553,7 @@ function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard;
           <div className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/70 font-bold">Clique para revelar</div>
         </div>
         <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}>
-          <Card card={card} size="md" />
+          <Card card={card} size="fluid" />
           {revealed && (
             <motion.div
               initial={{ opacity: 0 }}

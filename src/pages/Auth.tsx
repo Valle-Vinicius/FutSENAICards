@@ -152,12 +152,12 @@ export default function Auth() {
           <div className="text-white text-lg font-bold">Clique para entrar</div>
         </div>
       )}
-      <div className="h-screen overflow-hidden flex">
-        <div className="hidden md:flex md:w-1/2 relative h-full items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+      <div className="min-h-[100dvh] overflow-y-auto flex">
+        <div className="hidden md:flex md:w-1/2 relative md:min-h-[100dvh] items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
           <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
           <motion.img src={playerPose} alt="Jogador" className="relative z-10" initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }} style={{ width: '100%', height: '90%', objectFit: 'contain', objectPosition: 'center bottom' }} />
         </div>
-        <div className="w-full md:w-1/2 h-full flex items-center justify-center p-6 bg-white overflow-hidden">
+        <div className="w-full md:w-1/2 min-h-[100dvh] flex items-center justify-center p-6 bg-white">
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
             <div className="text-center">
               <img src={logo} alt="FutSENAI Cards" className="mx-auto h-64 object-contain" />

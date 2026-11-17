@@ -109,7 +109,7 @@ export default function App() {
     return subscribeUserPresence(currentUserId);
   }, [currentUserId]);
   if (!authReady) {
-    return <div className="min-h-screen flex items-center justify-center text-[#858A98]">Carregando sessão…</div>;
+    return <div className="min-h-[100dvh] flex items-center justify-center text-[#858A98]">Carregando sessão…</div>;
   }
   return (
     <ErrorBoundary>

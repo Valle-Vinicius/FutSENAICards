@@ -201,9 +201,9 @@ export default function Home() {
           <h2 className="text-lg font-semibold text-[#252733]">Suas cartas em destaque</h2>
           <Link to="/collection" className="text-sm font-medium text-[#E30613] hover:underline">Ver coleção</Link>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
           {rarest.map(card => (
-            <Link key={card.uid} to={`/card/${card.uid}`} className="shrink-0">
+            <Link key={card.uid} to={`/card/${card.uid}`} className="shrink-0 snap-start">
               <Card card={card} size="sm" />
             </Link>
           ))}

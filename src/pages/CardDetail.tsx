@@ -60,8 +60,10 @@ export default function CardDetail() {
 
   return (
     <div className="p-4 md:p-8 flex flex-col md:flex-row gap-8 items-start">
-      <div className="flex justify-center">
-        <Card card={card} size="lg" />
+      <div className="flex w-full justify-center md:w-auto">
+        <div className="w-full max-w-[15rem]">
+          <Card card={card} size="fluid" />
+        </div>
       </div>
       <div className="flex-1 space-y-4">
         <div className="flex items-center gap-3">

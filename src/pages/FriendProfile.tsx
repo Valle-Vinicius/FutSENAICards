@@ -291,25 +291,25 @@ export default function FriendProfile() {
       {squad && squad.starters && squad.starters.some((s: any) => (typeof s === 'string' ? s : s?.uid)) && (
         <div className="card-surface p-4 space-y-2">
           <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
-          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+          <div className="grid w-full max-w-md grid-cols-3 gap-2 mx-auto">
             {squad.starters.slice(0, 3).map((s: any, i: number) => {
               const uid = typeof s === 'string' ? s : s?.uid;
               const card = cards.find((c: any) => c.uid === uid);
               return (
-                <div key={i} className="flex flex-col items-center">
-                  {card ? <Card card={card} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-xs text-[#858A98]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
+                <div key={i} className="flex min-w-0 flex-col items-center">
+                  {card ? <Card card={card} size="fluid" /> : <div className="flex aspect-[7/10] w-full items-center justify-center rounded-xl border-2 border-dashed border-[#E9EAF0] text-xs text-[#858A98]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
                 </div>
               );
             })}
           </div>
-          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+          <div className="grid w-full max-w-md grid-cols-3 gap-2 mx-auto">
             <div />
             {squad.starters.slice(3, 5).map((s: any, i: number) => {
               const uid = typeof s === 'string' ? s : s?.uid;
               const card = cards.find((c: any) => c.uid === uid);
               return (
-                <div key={i} className="flex flex-col items-center">
-                  {card ? <Card card={card} size="sm" /> : <div className="w-32 h-44 rounded-xl border-2 border-dashed border-[#E9EAF0] flex items-center justify-center text-xs text-[#858A98]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
+                <div key={i} className="flex min-w-0 flex-col items-center">
+                  {card ? <Card card={card} size="fluid" /> : <div className="flex aspect-[7/10] w-full items-center justify-center rounded-xl border-2 border-dashed border-[#E9EAF0] text-xs text-[#858A98]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
                 </div>
               );
             })}
@@ -321,8 +321,8 @@ export default function FriendProfile() {
       {/* Carta mais rara */}
       {rarest && (
         <div className="card-surface p-4 flex flex-col md:flex-row items-center gap-4">
-          <div className="shrink-0">
-            <Card card={rarest} size="lg" />
+          <div className="w-full max-w-[15rem] shrink-0">
+            <Card card={rarest} size="fluid" />
           </div>
           <div className="space-y-2 text-center md:text-left">
             <div className="text-sm font-medium text-[#858A98]">Carta mais rara</div>
@@ -336,8 +336,8 @@ export default function FriendProfile() {
       {/* Coleção */}
       <div>
         <h2 className="text-lg font-semibold text-[#252733] mb-3">Coleção ({cards.length})</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {cards.slice(0, 24).map(c => <Card key={c.uid} card={c} size="sm" />)}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {cards.slice(0, 24).map(c => <div key={c.uid} className="min-w-0"><Card card={c} size="fluid" /></div>)}
         </div>
         {cards.length === 0 && <div className="text-[#858A98]">Sem cartas.</div>}
       </div>
@@ -354,7 +354,7 @@ export default function FriendProfile() {
       )}
       {poolWagerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="pool-wager-title">
-          <div className="max-h-[90vh] w-full max-w-3xl space-y-4 overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-3xl space-y-4 overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl">
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.2em] text-[#E30613]">Sinuca · desafio com aposta</div>
               <h2 id="pool-wager-title" className="mt-1 text-xl font-bold text-[#252733]">Escolha o que apostar contra {profile.name}</h2>
@@ -391,8 +391,8 @@ export default function FriendProfile() {
                 ) : (
                   <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4">
                     {myCards.filter(card => availableWagerCardIds.includes(card.uid) && card.name.toLowerCase().includes(poolCardSearch.trim().toLowerCase())).map(card => (
-                      <div key={card.uid} className={`rounded-2xl p-1 ${poolCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
-                        <Card card={card} size="sm" onClick={() => setPoolCardId(card.uid)} />
+                      <div key={card.uid} className={`min-w-0 rounded-2xl p-1 ${poolCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
+                        <Card card={card} size="fluid" onClick={() => setPoolCardId(card.uid)} />
                       </div>
                     ))}
                     {myCards.filter(card => availableWagerCardIds.includes(card.uid) && card.name.toLowerCase().includes(poolCardSearch.trim().toLowerCase())).length === 0 && <p className="col-span-full py-4 text-sm text-[#858A98]">Sem cartas disponíveis para aposta.</p>}
