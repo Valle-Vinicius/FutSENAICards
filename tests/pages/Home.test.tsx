@@ -10,6 +10,17 @@ jest.mock('../../src/lib/supabase', () => ({ supabase: null }));
 jest.mock('../../src/lib/profile', () => ({ getProfile: jest.fn() }));
 jest.mock('../../src/components/Card', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../src/store/toast', () => ({ toast: { success: jest.fn(), info: jest.fn(), error: jest.fn() } }));
+jest.mock('../../src/hooks/useHomePendingCounts', () => ({
+  useHomePendingCounts: () => ({
+    counts: { challenges: 2, friendRequests: 1, soldListings: 0 },
+    loading: false,
+    error: null,
+    retry: jest.fn(),
+  }),
+}));
+jest.mock('../../src/hooks/useJournalNews', () => ({
+  useJournalNews: () => ({ news: [], loading: false, error: null, refresh: jest.fn() }),
+}));
 
 const mockedUseGame = jest.mocked(useGame);
 
@@ -18,12 +29,15 @@ function renderHome(overrides: Record<string, unknown> = {}) {
     coins: 1200,
     xp: 100,
     level: 1,
+    name: 'Jogador Teste',
     cards: [],
     avatarUrl: null,
     lastDailyClaim: null,
+    dailyStreak: 0,
+    newCardUids: [],
     missions: [],
     events: [{ id: 'event-1', name: 'Copa FutSenai', endsAt: Date.now() + 86400000, reward: 'Pacote' }],
-    claimDaily: jest.fn().mockResolvedValue({ ok: true, amount: 700 }),
+    claimDaily: jest.fn().mockResolvedValue({ ok: true, amount: 700, streak: 1, bonus: 0 }),
     packConfigs: [{ id: 'bronze', name: 'Pacote Bronze', price: 500, unlocked: true }],
     ...overrides,
   };
@@ -43,13 +57,17 @@ describe('Home page', () => {
     expect(screen.queryByText('Acesso rápido')).not.toBeInTheDocument();
     expect(screen.queryByText('Ranking de colecionadores')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver eventos' })).toHaveAttribute('href', '/shop');
+    expect(screen.getByRole('heading', { name: 'Pendências' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /desafios recebidos/i })).toHaveTextContent('2');
+    expect(screen.getByRole('link', { name: /pedidos de amizade/i })).toHaveTextContent('1');
+    expect(screen.getByRole('heading', { name: 'Cartas com maior overall' })).toBeInTheDocument();
   });
 
   it('offers the daily reward only when it has not been claimed today', async () => {
     const { state } = renderHome();
     fireEvent.click(screen.getByRole('button', { name: /resgatar recompensa/i }));
     await waitFor(() => expect(state.claimDaily).toHaveBeenCalledTimes(1));
-    expect(toast.success).toHaveBeenCalledWith('Recompensa diária: +700 moedas');
+    expect(toast.success).toHaveBeenCalledWith('Recompensa diária: +700 moedas · 1 dia de sequência');
   });
 
   it('shows the daily reward as already collected for the current day', () => {

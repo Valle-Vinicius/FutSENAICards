@@ -18,6 +18,7 @@ import { getListings, toGameListing, createListing, cancelListing as cancelListi
 import { persistComparePair } from '../lib/services/compare';
 import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, overallFromAttributes } from '../data/players';
 import { DUPLICATE_CONVERSION_REWARD } from '../data/economy';
+import { getDailyStreakPreview } from '../lib/dailyRewards';
 
 // --- Elenco ativo: autosave + serialização do sync ---
 let squadSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -177,7 +178,7 @@ interface Actions {
   spendCoins: (n: number, reason: string) => boolean;
   addXp: (n: number) => void;
   openPack: (packId: string) => Promise<{ cards: PlayerCard[] } | null>;
-  claimDaily: () => Promise<{ ok: boolean; amount: number; error?: string }>;
+  claimDaily: () => Promise<{ ok: boolean; amount: number; streak: number; bonus: number; error?: string }>;
   toggleFavorite: (uid: string) => void;
   markSeen: (uids: string[]) => void;
   updateMissionProgress: () => void;
@@ -243,6 +244,7 @@ const initialState: GameState = {
   coins: 5000,
   xp: 0,
   level: 1,
+  name: 'Jogador',
   avatarUrl: null,
   cards: seedCards(),
   packsOpened: 0,
@@ -264,6 +266,7 @@ const initialState: GameState = {
   settings: { audio: true, animations: true, highContrast: false },
   pendingFriends: 0,
   lastDailyClaim: null,
+  dailyStreak: 0,
   events: [],
   eventHistory: [],
   favorites: [],
@@ -381,16 +384,22 @@ export const useGame = create<GameState & Actions>()(
         if (remoteAchievements.length > 0) set({ achievements: remoteAchievements });
         const remoteSettings = await getSettings(userId);
         if (remoteSettings) set({ settings: remoteSettings });
-        const { data: prof } = await supabase!.from('profiles').select('coins, preferences, xp, level, packs_opened, last_daily_claim, avatar_url, name').eq('id', userId).single();
+        const { data: prof, error: profileError } = await supabase!.from('profiles')
+          .select('coins, preferences, xp, level, packs_opened, last_daily_claim, daily_streak, avatar_url, name')
+          .eq('id', userId)
+          .single();
+        if (profileError) console.error('[game] failed to load profile:', profileError);
         if (prof) {
           const prefs = prof.preferences || {};
           set(st => ({
             coins: prof.coins ?? st.coins,
+            name: prof.name ?? st.name,
             avatarUrl: prof.avatar_url ?? st.avatarUrl,
             xp: prof.xp ?? st.xp,
             level: prof.level ?? st.level,
             packsOpened: prof.packs_opened ?? st.packsOpened,
             lastDailyClaim: prof.last_daily_claim ? new Date(prof.last_daily_claim).getTime() : st.lastDailyClaim,
+            dailyStreak: prof.daily_streak ?? st.dailyStreak,
             favorites: prefs.favorites ?? st.favorites,
             newCardUids: prefs.newCardUids ?? st.newCardUids,
             compareHistory: prefs.compareHistory ?? st.compareHistory,
@@ -548,22 +557,46 @@ export const useGame = create<GameState & Actions>()(
         return { cards };
       },
       claimDaily: async () => {
-        if (dailyClaimPending) return { ok: false, amount: 0 };
+        const existingStreak = get().dailyStreak;
+        if (dailyClaimPending) return { ok: false, amount: 0, streak: existingStreak, bonus: 0 };
         dailyClaimPending = true;
         try {
           let amount: number;
+          let streak: number;
+          let bonus: number;
           if (supabase) {
             const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
             if (sessionError) throw sessionError;
             if (!sessionData.session?.user?.id) throw new Error('Entre na sua conta para resgatar a recompensa.');
             const { data, error } = await supabase.rpc('claim_daily');
             if (error) throw error;
-            const reward = data as { amount: number; coins: number; xp: number; level: number };
+            if (
+              typeof data !== 'object'
+              || data === null
+              || !('amount' in data)
+              || !Number.isInteger(data.amount)
+              || !('coins' in data)
+              || !Number.isInteger(data.coins)
+              || !('xp' in data)
+              || !Number.isInteger(data.xp)
+              || !('level' in data)
+              || !Number.isInteger(data.level)
+              || !('streak' in data)
+              || !Number.isInteger(data.streak)
+              || !('bonus' in data)
+              || !Number.isInteger(data.bonus)
+            ) {
+              throw new Error('Resposta inválida ao resgatar. A migration da sequência diária pode não estar aplicada.');
+            }
+            const reward = data as { amount: number; coins: number; xp: number; level: number; streak: number; bonus: number };
             amount = reward.amount;
+            streak = reward.streak;
+            bonus = reward.bonus;
             set(st => ({
               coins: reward.coins,
               xp: reward.xp,
               level: reward.level,
+              dailyStreak: streak,
               lastDailyClaim: Date.now(),
               transactions: [{ id: nanoid(8), type: 'earn' as const, amount, reason: 'Recompensa diária', at: Date.now() }, ...st.transactions].slice(0, 50),
               missions: st.missions.map(m => m.id === 'm9' ? { ...m, progress: 1, completed: true } : m),
@@ -571,23 +604,26 @@ export const useGame = create<GameState & Actions>()(
           } else {
             const now = Date.now();
             const last = get().lastDailyClaim;
-            const twentyHours = 1000 * 60 * 60 * 20;
-            if (last && now - last < twentyHours) return { ok: false, amount: 0 };
-            amount = 500 + Math.floor(Math.random() * 500);
+            const preview = getDailyStreakPreview(last, get().dailyStreak, now);
+            if (preview.claimedToday) return { ok: false, amount: 0, streak: get().dailyStreak, bonus: 0 };
+            bonus = preview.nextBonus;
+            streak = preview.claimStreak;
+            amount = 500 + Math.floor(Math.random() * 501) + bonus;
             set(st => ({
               coins: st.coins + amount,
               xp: st.xp + 40,
               level: levelFromXp(st.xp + 40),
               lastDailyClaim: now,
+              dailyStreak: streak,
               transactions: [{ id: nanoid(8), type: 'earn' as const, amount, reason: 'Recompensa diária', at: now }, ...st.transactions].slice(0, 50),
               missions: st.missions.map(m => m.id === 'm9' ? { ...m, progress: 1, completed: true } : m),
             }));
           }
-          return { ok: true, amount };
+          return { ok: true, amount, streak, bonus };
         } catch (error) {
           const message = error instanceof Error ? error.message : 'erro desconhecido';
           console.error('[daily] claim failed:', message);
-          return { ok: false, amount: 0, error: message };
+          return { ok: false, amount: 0, streak: get().dailyStreak, bonus: 0, error: message };
         } finally {
           dailyClaimPending = false;
         }

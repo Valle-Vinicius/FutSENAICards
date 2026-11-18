@@ -179,6 +179,7 @@ export interface GameState {
   coins: number;
   xp: number;
   level: number;
+  name: string;
   avatarUrl: string | null;
   cards: PlayerCard[];
   packsOpened: number;
@@ -196,6 +197,7 @@ export interface GameState {
   settings: { audio: boolean; animations: boolean; highContrast: boolean };
   pendingFriends: number;
   lastDailyClaim: number | null;
+  dailyStreak: number;
   events: { id: string; name: string; endsAt: number; reward: string }[];
   eventHistory: string[];
   favorites: string[];
