@@ -2,9 +2,7 @@
 
 Aplicação web de cartas de futsal: coleção, pacotes, elencos, partidas PvP e sinuca, amizades, rankings, missões, desafios e Mercado. O frontend usa React/TypeScript; autenticação, dados persistentes e operações autoritativas usam Supabase.
 
-> **Para entender a arquitetura, o fluxo de dados, o banco, as Edge Functions, o Realtime, os testes e os limites de acesso, comece pelo [Guia completo do projeto](docs/GUIA_COMPLETO_PROJETO.md).**
->
-> Código e migrations atuais são a fonte de verdade. Documentos por domínio podem conter snapshots anteriores.
+Código e migrations atuais são a fonte de verdade. A documentação restante cobre domínios específicos do projeto.
 
 ## Requisitos
 
@@ -66,13 +64,11 @@ npm run balance      # Script auxiliar de balanceamento
 
 O roteamento usa `BrowserRouter`. As rotas de jogo são protegidas por autenticação; a rota do Mercado é `/market`. O workflow `.github/workflows/deploy.yml` publica no GitHub Pages após build em push para `main` ou `master`.
 
-## Documentação por domínio
+## Documentação
 
-- [Guia completo do projeto](docs/GUIA_COMPLETO_PROJETO.md)
 - [Autenticação e sessão](docs/SISTEMA_AUTH_SESSAO.md)
 - [Cartas](docs/SISTEMA_CARTAS.md) e [Overall](docs/SISTEMA_OVERALL.md)
 - [Inventário e Mercado](docs/SISTEMA_INVENTARIO_MERCADO.md)
 - [PvP](docs/SISTEMA_MULTIPLAYER_PVP.md)
 - [Sinuca: multiplayer](docs/SISTEMA_SINUCA_POOL.md) e [engine](docs/SISTEMA_SINUCA_ENGINE.md)
 - [Admin](docs/SISTEMA_ADMIN.md)
-- [Diagnóstico de Realtime e concorrência](docs/DIAGNOSTICO_REALTIME_E_CONCORRENCIA.md)
