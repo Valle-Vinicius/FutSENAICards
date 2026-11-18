@@ -211,6 +211,25 @@ export default function Layout({ children }: { children?: ReactNode }) {
     })();
     return () => { if (channel && supabase) supabase.removeChannel(channel); if (interval) clearInterval(interval); };
   }, []);
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !currentUserId) return;
+    const channel = client
+      .channel('global-announcements', { config: { private: true } })
+      .on('broadcast', { event: 'global-message' }, ({ payload }) => {
+        if (typeof payload?.message !== 'string' || !payload.message.trim()) return;
+        toast.info(`Aviso da administração: ${payload.message}`);
+      })
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[global announcements] subscription failed:', status);
+        }
+      });
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [currentUserId]);
 
   return (
     <div className="h-[100dvh] flex flex-col md:flex-row bg-[var(--bg)]">

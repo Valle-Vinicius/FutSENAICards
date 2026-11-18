@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { ChevronDown, History, Trash2, Users } from 'lucide-react';
+import { ChevronDown, History, Megaphone, Trash2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -13,6 +13,7 @@ import SecretCardOddsTable from '../components/SecretCardOddsTable';
 import { useGame } from '../store/useGame';
 import AdminUsersPanel from '../components/AdminUsersPanel';
 import AdminChangelogPanel from '../components/AdminChangelogPanel';
+import AdminBroadcastPanel from '../components/AdminBroadcastPanel';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 const DEFAULT_EDITION = '2025/26';
@@ -74,7 +75,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const syncUserData = useGame(s => s.syncUserData);
   const [userId, setUserId] = useState<string | null>(null);
-  const [adminTab, setAdminTab] = useState<'cards' | 'users' | 'changelog'>('cards');
+  const [adminTab, setAdminTab] = useState<'cards' | 'users' | 'changelog' | 'broadcast'>('cards');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
@@ -596,9 +597,18 @@ export default function Admin() {
           >
             <History className="size-4" /> Changelog
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={adminTab === 'broadcast'}
+            onClick={() => setAdminTab('broadcast')}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'broadcast' ? 'bg-[var(--red)] text-white' : 'bg-white text-[#555B68] hover:bg-[var(--bg)]'}`}
+          >
+            <Megaphone className="size-4" /> Mensagem global
+          </button>
         </div>
 
-        {adminTab === 'users' ? <AdminUsersPanel /> : adminTab === 'changelog' ? <AdminChangelogPanel /> : (
+        {adminTab === 'users' ? <AdminUsersPanel /> : adminTab === 'changelog' ? <AdminChangelogPanel /> : adminTab === 'broadcast' ? <AdminBroadcastPanel /> : (
           <>
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
           <div id="card-template-form" className="min-w-0 card-surface p-4 md:p-5 space-y-5">

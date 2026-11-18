@@ -14,6 +14,7 @@ import { getMissions, upsertMissions } from '../lib/services/missions';
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { refreshCollectorRanking } from '../lib/services/leaderboard';
+import { convertDuplicateBatches } from '../lib/services/duplicateConversion';
 import { getListings, toGameListing, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { persistComparePair } from '../lib/services/compare';
 import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, getPlayerImage, overallFromAttributes } from '../data/players';
@@ -1077,41 +1078,51 @@ export const useGame = create<GameState & Actions>()(
       convertDuplicates: async () => {
         if (duplicateConversionPending) return null;
         duplicateConversionPending = true;
+        let conversionUserId: string | undefined;
+        let convertedSoFar = 0;
+        const refreshConvertedState = async (userId: string) => {
+          if (!supabase) return;
+          const [remoteCards, profileResult] = await Promise.all([
+            getCards(userId),
+            supabase.from('profiles').select('coins').eq('id', userId).single(),
+          ]);
+          if (remoteCards) set({ cards: remoteCards });
+          if (profileResult.error) console.error('[duplicates] could not refresh profile:', profileResult.error);
+          else if (profileResult.data) set({ coins: profileResult.data.coins });
+          void refreshCollectorRanking().catch(error => {
+            console.error('[leaderboard] failed to refresh after duplicate conversion:', error);
+          });
+        };
         try {
           if (supabase) {
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            const client = supabase;
+            const { data: sessionData, error: sessionError } = await client.auth.getSession();
             if (sessionError) throw sessionError;
             const uid = sessionData.session?.user?.id;
             if (!uid) throw new Error('Entre na sua conta para converter duplicatas.');
-            const { data, error } = await supabase.rpc('convert_duplicates');
-            if (error) throw error;
-            if (
-              typeof data !== 'object'
-              || data === null
-              || !('count' in data)
-              || !('coins' in data)
-              || !Number.isInteger(data.count)
-              || data.count < 0
-              || !Number.isInteger(data.coins)
-              || data.coins < 0
-            ) {
-              throw new Error('O servidor retornou um resultado inválido para a conversão de duplicatas.');
+            conversionUserId = uid;
+            const result = await convertDuplicateBatches(async () => {
+              const { data, error } = await client.rpc('convert_duplicates');
+              if (error) throw error;
+              if (
+                typeof data !== 'object'
+                || data === null
+                || !('count' in data)
+                || !('coins' in data)
+                || !Number.isInteger(data.count)
+                || data.count < 0
+                || !Number.isInteger(data.coins)
+                || data.coins < 0
+              ) {
+                throw new Error('O servidor retornou um resultado inválido para a conversão de duplicatas.');
+              }
+              convertedSoFar += data.count;
+              return { count: data.count, coins: data.coins };
+            });
+            if (result.count > 0) {
+              await refreshConvertedState(uid);
             }
-            const converted = data.count;
-            const coins = data.coins;
-            if (converted > 0) {
-              const [remoteCards, profileResult] = await Promise.all([
-                getCards(uid),
-                supabase.from('profiles').select('coins').eq('id', uid).single(),
-              ]);
-              if (remoteCards) set({ cards: remoteCards });
-              if (profileResult.error) console.error('[duplicates] could not refresh profile:', profileResult.error);
-              else if (profileResult.data) set({ coins: profileResult.data.coins });
-              void refreshCollectorRanking().catch(error => {
-                console.error('[leaderboard] failed to refresh after duplicate conversion:', error);
-              });
-            }
-            return { count: converted, coins };
+            return result;
           }
 
           const rarityRank: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5, secret: 6 };
@@ -1152,8 +1163,20 @@ export const useGame = create<GameState & Actions>()(
           }));
           return { count: toRemove.length, coins };
         } catch (error) {
+          if (conversionUserId && convertedSoFar > 0) {
+            try {
+              await refreshConvertedState(conversionUserId);
+            } catch (refreshError) {
+              console.error('[duplicates] could not refresh partially converted cards:', refreshError);
+            }
+          }
           console.error('[duplicates] conversion failed:', error);
-          toast.error(error instanceof Error ? error.message : 'Não foi possível converter as duplicatas.');
+          const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
+            ? error.code
+            : undefined;
+          toast.error(code === '57014'
+            ? 'A conversão demorou demais. Tente novamente em instantes.'
+            : error instanceof Error ? error.message : 'Não foi possível converter as duplicatas.');
           return null;
         } finally {
           duplicateConversionPending = false;
