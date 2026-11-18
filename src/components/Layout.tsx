@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X } from 'lucide-react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -26,6 +26,7 @@ const NAV = [
   { to: '/settings', label: 'Configurações', icon: SettingsIcon },
   { to: '/friends', label: 'Amizades', icon: UserPlus },
   { to: '/leaderboard', label: 'Leaderboard', icon: Medal },
+  { to: '/changelog', label: 'Changelog', icon: History },
 ];
 
 const TITLES: Record<string, string> = {
