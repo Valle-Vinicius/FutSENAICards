@@ -263,7 +263,7 @@ export default function Marketplace() {
     return groups;
   }, []);
 
-  const marketControl = 'h-11 w-full min-w-0 rounded-xl border border-[#E9EAF0] bg-white px-3 text-sm text-[#252733] transition-colors focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10';
+  const marketControl = 'h-11 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-3 text-sm text-[var(--text)] transition-colors focus:border-[var(--red)] focus:outline-none focus:ring-4 focus:ring-[var(--red)]/10';
 
   const clearHistoryFilters = () => {
     setHistoryKind('all');
@@ -301,14 +301,14 @@ export default function Marketplace() {
     <div className="mx-auto max-w-[1600px] space-y-5 p-4 md:p-6 lg:p-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F2] text-[#E30613]">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--soft)] text-[var(--red)]">
             <Store className="h-5 w-5" />
           </div>
-          <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Transferências</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Transferências</h1>
         </div>
-        <div className="flex flex-wrap gap-1 rounded-xl border border-[#E9EAF0] bg-white p-1">
+        <div className="flex flex-wrap gap-1 rounded-xl border border-[var(--border)] bg-white p-1">
         {(['market', 'mine', 'history'] as const).map(t => (
-          <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${tab === t ? 'bg-[#E30613] text-white' : 'text-[#858A98] hover:bg-[#F7F7F9] hover:text-[#252733]'}`}>
+          <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${tab === t ? 'bg-[var(--red)] text-white' : 'text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--text)]'}`}>
             {t === 'market' ? 'Mercado' : t === 'mine' ? 'Minhas vendas' : 'Histórico'}
           </button>
         ))}
@@ -318,13 +318,13 @@ export default function Marketplace() {
       {tab === 'market' && (
         <>
           <section className="card-surface p-4 md:p-5">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-[#252733]">
-              <SlidersHorizontal className="h-4 w-4 text-[#E30613]" />
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-[var(--text)]">
+              <SlidersHorizontal className="h-4 w-4 text-[var(--red)]" />
               Filtrar anúncios
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-8">
               <label className="relative min-w-0 sm:col-span-2 xl:col-span-2">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
                 <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar jogador..." aria-label="Buscar jogador" className={`${marketControl} pl-10`} />
               </label>
               <select aria-label="Filtrar por posição" value={pos} onChange={e => setPos(e.target.value)} className={marketControl}>
@@ -343,7 +343,7 @@ export default function Marketplace() {
               <option value="overall">Overall</option>
               <option value="name">Nome</option>
               </select>
-              <button onClick={clearFilters} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] px-3 text-sm font-medium text-[#252733] transition-colors hover:bg-[#FFF0F2] hover:text-[#E30613] motion-reduce:transition-none">
+              <button onClick={clearFilters} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--soft)] hover:text-[var(--red)] motion-reduce:transition-none">
                 <RotateCcw className="h-4 w-4" /> Limpar
               </button>
             </div>
@@ -351,21 +351,21 @@ export default function Marketplace() {
 
           <section className="grid gap-3 sm:grid-cols-3">
             <div className="card-surface flex items-center gap-3 p-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF0F2] text-[#E30613]"><ArrowDown className="h-4 w-4" /></span>
-              <div><div className="text-xs text-[#858A98]">Preço mín</div><div className="text-lg font-bold tabular-nums text-[#252733]">{minP.toLocaleString('pt-BR')}</div></div>
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--soft)] text-[var(--red)]"><ArrowDown className="h-4 w-4" /></span>
+              <div><div className="text-xs text-[var(--muted)]">Preço mín</div><div className="text-lg font-bold tabular-nums text-[var(--text)]">{minP.toLocaleString('pt-BR')}</div></div>
             </div>
             <div className="card-surface flex items-center gap-3 p-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F7F7F9] text-[#858A98]"><Coins className="h-4 w-4" /></span>
-              <div><div className="text-xs text-[#858A98]">Preço médio</div><div className="text-lg font-bold tabular-nums text-[#252733]">{avgP.toLocaleString('pt-BR')}</div></div>
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--bg)] text-[var(--muted)]"><Coins className="h-4 w-4" /></span>
+              <div><div className="text-xs text-[var(--muted)]">Preço médio</div><div className="text-lg font-bold tabular-nums text-[var(--text)]">{avgP.toLocaleString('pt-BR')}</div></div>
             </div>
             <div className="card-surface flex items-center gap-3 p-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF0F2] text-[#E30613]"><ArrowUp className="h-4 w-4" /></span>
-              <div><div className="text-xs text-[#858A98]">Preço máx</div><div className="text-lg font-bold tabular-nums text-[#252733]">{maxP.toLocaleString('pt-BR')}</div></div>
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--soft)] text-[var(--red)]"><ArrowUp className="h-4 w-4" /></span>
+              <div><div className="text-xs text-[var(--muted)]">Preço máx</div><div className="text-lg font-bold tabular-nums text-[var(--text)]">{maxP.toLocaleString('pt-BR')}</div></div>
             </div>
           </section>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {loading && <div className="card-surface col-span-full p-8 text-center text-sm text-[#858A98]">Carregando mercado...</div>}
+            {loading && <div className="card-surface col-span-full p-8 text-center text-sm text-[var(--muted)]">Carregando mercado...</div>}
             {activeListings.map(l => {
               const c = cardOf(l.cardUid) || {
                 uid: l.cardUid || l.id,
@@ -398,23 +398,23 @@ export default function Marketplace() {
                 upgrades: { pace:0, shooting:0, passing:0, dribbling:0, defending:0, physical:0 },
               } as any;
               return (
-                <article key={l.id} aria-busy={buyingAnim === l.id} className={`card-surface group flex min-w-0 flex-col overflow-hidden p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E30613]/20 motion-reduce:transform-none motion-reduce:transition-none sm:p-4 ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
-                  <div className="flex flex-1 items-center justify-center rounded-xl bg-[#F7F7F9] p-3">
+                <article key={l.id} aria-busy={buyingAnim === l.id} className={`card-surface group flex min-w-0 flex-col overflow-hidden p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--red)]/20 motion-reduce:transform-none motion-reduce:transition-none sm:p-4 ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
+                  <div className="flex flex-1 items-center justify-center rounded-xl bg-[var(--bg)] p-3">
                     <div className="mx-auto w-full max-w-[232px]">
                       <Card card={c} size="fluid" />
                     </div>
                   </div>
-                  <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-[#E9EAF0] pt-3">
+                  <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF0F2] text-[#E30613]"><User className="h-4 w-4" /></span>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--soft)] text-[var(--red)]"><User className="h-4 w-4" /></span>
                       <div className="min-w-0">
-                        <div className="text-xs text-[#858A98]">Vendedor</div>
-                        <div className="truncate text-sm font-medium text-[#252733]" title={l.sellerName}>{l.sellerName}</div>
+                        <div className="text-xs text-[var(--muted)]">Vendedor</div>
+                        <div className="truncate text-sm font-medium text-[var(--text)]" title={l.sellerName}>{l.sellerName}</div>
                       </div>
                     </div>
                     <div className="min-w-0 max-w-full shrink text-right">
-                      <div className="text-xs text-[#858A98]">Preço</div>
-                      <div className="break-words text-lg font-bold tabular-nums text-[#E30613]">{listingPrice(l).toLocaleString('pt-BR')} <span className="text-xs font-medium">moedas</span></div>
+                      <div className="text-xs text-[var(--muted)]">Preço</div>
+                      <div className="break-words text-lg font-bold tabular-nums text-[var(--red)]">{listingPrice(l).toLocaleString('pt-BR')} <span className="text-xs font-medium">moedas</span></div>
                     </div>
                   </div>
                   <button onClick={() => handleBuy(l.id)} className="btn btn-primary btn-full btn-lg mt-3 transition-transform hover:scale-[1.01] motion-reduce:transition-none">
@@ -423,7 +423,7 @@ export default function Marketplace() {
                 </article>
               );
             })}
-            {!loading && activeListings.length === 0 && <div className="card-surface col-span-full flex min-h-48 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-[#858A98]"><Store className="h-6 w-6 text-[#858A98]" />Nenhuma listagem.</div>}
+            {!loading && activeListings.length === 0 && <div className="card-surface col-span-full flex min-h-48 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-[var(--muted)]"><Store className="h-6 w-6 text-[var(--muted)]" />Nenhuma listagem.</div>}
           </div>
         </>
       )}
@@ -431,14 +431,14 @@ export default function Marketplace() {
       {tab === 'mine' && (
         <div className="space-y-6">
           <section className="card-surface overflow-hidden">
-            <div className="border-b border-[#E9EAF0] px-4 py-4 md:px-6">
+            <div className="border-b border-[var(--border)] px-4 py-4 md:px-6">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F2] text-[#E30613]">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--soft)] text-[var(--red)]">
                   <Tag className="h-5 w-5" />
                 </span>
                 <div>
-                  <h2 className="font-semibold text-[#252733]">Anunciar carta</h2>
-                  <p className="mt-0.5 text-sm text-[#858A98]">Escolha uma carta da coleção e defina o preço.</p>
+                  <h2 className="font-semibold text-[var(--text)]">Anunciar carta</h2>
+                  <p className="mt-0.5 text-sm text-[var(--muted)]">Escolha uma carta da coleção e defina o preço.</p>
                 </div>
               </div>
             </div>
@@ -446,7 +446,7 @@ export default function Marketplace() {
             <div className="grid gap-5 p-4 md:p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
               <div className="min-w-0 space-y-3">
                 <label className="relative block">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
                   <input
                     value={listSearch}
                     onChange={e => setListSearch(e.target.value)}
@@ -467,65 +467,65 @@ export default function Marketplace() {
                         type="button"
                         aria-pressed={selected}
                         onClick={() => setListUid(c.uid)}
-                        className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-colors motion-reduce:transition-none ${selected ? 'border-[#E30613]/40 bg-[#FFF0F2]' : 'border-[#E9EAF0] bg-white hover:border-[#E30613]/20 hover:bg-[#F7F7F9]'}`}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-colors motion-reduce:transition-none ${selected ? 'border-[var(--red)]/40 bg-[var(--soft)]' : 'border-[var(--border)] bg-white hover:border-[var(--red)]/20 hover:bg-[var(--bg)]'}`}
                       >
-                        <span className="flex h-[68px] w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#F7F7F9]" style={{ border: `1px solid ${rarity.color}` }}>
-                          {image ? <img src={image} alt="" className="h-full w-full object-cover object-top" /> : <User className="h-5 w-5 text-[#858A98]" />}
+                        <span className="flex h-[68px] w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg)]" style={{ border: `1px solid ${rarity.color}` }}>
+                          {image ? <img src={image} alt="" className="h-full w-full object-cover object-top" /> : <User className="h-5 w-5 text-[var(--muted)]" />}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-[#252733]">{c.name}</span>
-                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#858A98]">
+                          <span className="block truncate text-sm font-semibold text-[var(--text)]">{c.name}</span>
+                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--muted)]">
                             <span>OVR {c.overall}</span>
                             <span aria-hidden="true">·</span>
                             <span>{c.position}</span>
                             <span className="rounded-full border px-2 py-0.5" style={{ borderColor: rarity.color, color: rarity.color }}>{rarity.label}</span>
                           </span>
                         </span>
-                        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${selected ? 'bg-[#E30613] text-white' : 'bg-[#F7F7F9] text-[#858A98]'}`}>
+                        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${selected ? 'bg-[var(--red)] text-white' : 'bg-[var(--bg)] text-[var(--muted)]'}`}>
                           {selected ? 'Selecionada' : 'Selecionar'}
                         </span>
                       </button>
                     );
                   })}
                   {matchingSellCards.length === 0 && (
-                    <div className="rounded-xl border border-dashed border-[#E9EAF0] px-4 py-8 text-center text-sm text-[#858A98]">
+                    <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-8 text-center text-sm text-[var(--muted)]">
                       {availableToSell.length === 0 ? 'Nenhuma carta disponível para anunciar.' : 'Nenhuma carta encontrada.'}
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="min-w-0 rounded-2xl bg-[#F7F7F9] p-4 md:p-5">
+              <div className="min-w-0 rounded-2xl bg-[var(--bg)] p-4 md:p-5">
                 <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-[#252733]">Prévia do anúncio</h3>
-                  <p className="mt-1 text-xs text-[#858A98]">Confira a carta antes de publicar.</p>
+                  <h3 className="text-sm font-semibold text-[var(--text)]">Prévia do anúncio</h3>
+                  <p className="mt-1 text-xs text-[var(--muted)]">Confira a carta antes de publicar.</p>
                 </div>
 
-                <div className="flex min-h-52 flex-col items-center justify-center gap-4 rounded-xl border border-[#E9EAF0] bg-white p-4 sm:flex-row sm:justify-start">
+                <div className="flex min-h-52 flex-col items-center justify-center gap-4 rounded-xl border border-[var(--border)] bg-white p-4 sm:flex-row sm:justify-start">
                   {selectedSellCard ? (
                     <>
                       <Card card={selectedSellCard} size="sm" />
                       <div className="min-w-0 text-center sm:text-left">
-                        <p className="text-xs font-medium uppercase tracking-wide text-[#858A98]">Carta selecionada</p>
-                        <h4 className="mt-1 break-words text-lg font-semibold text-[#252733]">{selectedSellCard.name}</h4>
-                        <p className="mt-2 text-sm text-[#858A98]">{selectedSellCard.position} · Overall {selectedSellCard.overall}</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Carta selecionada</p>
+                        <h4 className="mt-1 break-words text-lg font-semibold text-[var(--text)]">{selectedSellCard.name}</h4>
+                        <p className="mt-2 text-sm text-[var(--muted)]">{selectedSellCard.position} · Overall {selectedSellCard.overall}</p>
                         <span className="mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: RARITY_META[selectedSellCard.rarity].color, color: RARITY_META[selectedSellCard.rarity].color }}>
                           {RARITY_META[selectedSellCard.rarity].label}
                         </span>
                       </div>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-[#858A98]">
-                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F7F7F9]"><Tag className="h-5 w-5" /></span>
+                    <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-[var(--muted)]">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--bg)]"><Tag className="h-5 w-5" /></span>
                       Selecione uma carta para ver a prévia.
                     </div>
                   )}
                 </div>
 
                 <div className="mt-4 space-y-2">
-                  <label htmlFor="listing-price" className="text-sm font-medium text-[#252733]">Preço do anúncio</label>
+                  <label htmlFor="listing-price" className="text-sm font-medium text-[var(--text)]">Preço do anúncio</label>
                   <div className="relative">
-                    <Coins className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+                    <Coins className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
                     <input
                       id="listing-price"
                       value={listPrice}
@@ -546,10 +546,10 @@ export default function Marketplace() {
           <section className="space-y-3">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h2 className="text-lg font-semibold text-[#252733]">Anúncios ativos</h2>
-                <p className="mt-0.5 text-sm text-[#858A98]">Gerencie as cartas disponíveis no mercado.</p>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Anúncios ativos</h2>
+                <p className="mt-0.5 text-sm text-[var(--muted)]">Gerencie as cartas disponíveis no mercado.</p>
               </div>
-              <span className="rounded-full bg-[#FFF0F2] px-3 py-1 text-xs font-semibold text-[#E30613]">{myActiveListings.length} ativos</span>
+              <span className="rounded-full bg-[var(--soft)] px-3 py-1 text-xs font-semibold text-[var(--red)]">{myActiveListings.length} ativos</span>
             </div>
 
             {myActiveListings.length > 0 ? (
@@ -560,20 +560,20 @@ export default function Marketplace() {
                   const rarity = c ? RARITY_META[c.rarity] : null;
                   const image = c?.image || l.cardImage || getPlayerImage(name);
                   return (
-                    <article key={l.id} className="card-surface flex min-w-0 items-center gap-3 p-3 transition-colors hover:border-[#E30613]/20 sm:gap-4 sm:p-4">
-                      <span className="flex h-24 w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#F7F7F9]" style={rarity ? { border: `1px solid ${rarity.color}` } : undefined}>
-                        {image ? <img src={image} alt={name} className="h-full w-full object-cover object-top" /> : <User className="h-6 w-6 text-[#858A98]" />}
+                    <article key={l.id} className="card-surface flex min-w-0 items-center gap-3 p-3 transition-colors hover:border-[var(--red)]/20 sm:gap-4 sm:p-4">
+                      <span className="flex h-24 w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--bg)]" style={rarity ? { border: `1px solid ${rarity.color}` } : undefined}>
+                        {image ? <img src={image} alt={name} className="h-full w-full object-cover object-top" /> : <User className="h-6 w-6 text-[var(--muted)]" />}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="truncate text-sm font-semibold text-[#252733]" title={name}>{name}</h3>
-                          <span className="rounded-full bg-[#FFF0F2] px-2 py-0.5 text-[11px] font-medium text-[#E30613]">Ativo</span>
+                          <h3 className="truncate text-sm font-semibold text-[var(--text)]" title={name}>{name}</h3>
+                          <span className="rounded-full bg-[var(--soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--red)]">Ativo</span>
                         </div>
-                        <p className="mt-1 truncate text-xs text-[#858A98]">
+                        <p className="mt-1 truncate text-xs text-[var(--muted)]">
                           {c ? `${c.position} · OVR ${c.overall}` : `OVR ${l.cardOverall ?? '—'}`}
                           {rarity ? ` · ${rarity.label}` : l.cardRarity ? ` · ${l.cardRarity}` : ''}
                         </p>
-                        <p className="mt-2 text-base font-bold tabular-nums text-[#E30613]">
+                        <p className="mt-2 text-base font-bold tabular-nums text-[var(--red)]">
                           {listingPrice(l).toLocaleString('pt-BR')} <span className="text-xs font-medium">moedas</span>
                         </p>
                         <button
@@ -597,9 +597,9 @@ export default function Marketplace() {
               </div>
             ) : (
               <div className="card-surface flex min-h-32 flex-col items-center justify-center gap-2 p-6 text-center">
-                <Store className="h-5 w-5 text-[#858A98]" />
-                <p className="text-sm font-medium text-[#252733]">Nenhum anúncio ativo</p>
-                <p className="text-xs text-[#858A98]">As cartas que você publicar aparecerão aqui.</p>
+                <Store className="h-5 w-5 text-[var(--muted)]" />
+                <p className="text-sm font-medium text-[var(--text)]">Nenhum anúncio ativo</p>
+                <p className="text-xs text-[var(--muted)]">As cartas que você publicar aparecerão aqui.</p>
               </div>
             )}
           </section>
@@ -607,10 +607,10 @@ export default function Marketplace() {
           <section className="space-y-3">
             <div>
               <div className="flex items-center gap-2">
-                <Clock3 className="h-4 w-4 text-[#858A98]" />
-                <h2 className="text-lg font-semibold text-[#252733]">Histórico de anúncios</h2>
+                <Clock3 className="h-4 w-4 text-[var(--muted)]" />
+                <h2 className="text-lg font-semibold text-[var(--text)]">Histórico de anúncios</h2>
               </div>
-              <p className="mt-0.5 text-sm text-[#858A98]">Anúncios expirados, vendidos ou cancelados.</p>
+              <p className="mt-0.5 text-sm text-[var(--muted)]">Anúncios expirados, vendidos ou cancelados.</p>
             </div>
             {myListingHistory.length > 0 ? (
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -619,15 +619,15 @@ export default function Marketplace() {
                   const name = c?.name || l.cardName || 'Carta';
                   const image = c?.image || l.cardImage || getPlayerImage(name);
                   return (
-                    <article key={l.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E9EAF0] bg-white p-3 opacity-90">
-                      <span className="flex h-14 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#F7F7F9]">
-                        {image ? <img src={image} alt={name} className="h-full w-full object-cover object-top" /> : <User className="h-4 w-4 text-[#858A98]" />}
+                    <article key={l.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-3 opacity-90">
+                      <span className="flex h-14 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg)]">
+                        {image ? <img src={image} alt={name} className="h-full w-full object-cover object-top" /> : <User className="h-4 w-4 text-[var(--muted)]" />}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <h3 className="truncate text-sm font-medium text-[#252733]" title={name}>{name}</h3>
-                        <p className="mt-0.5 text-xs text-[#858A98]">{listingPrice(l).toLocaleString('pt-BR')} moedas</p>
+                        <h3 className="truncate text-sm font-medium text-[var(--text)]" title={name}>{name}</h3>
+                        <p className="mt-0.5 text-xs text-[var(--muted)]">{listingPrice(l).toLocaleString('pt-BR')} moedas</p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-[#F7F7F9] px-2.5 py-1 text-xs font-medium text-[#858A98]">
+                      <span className="shrink-0 rounded-full bg-[var(--bg)] px-2.5 py-1 text-xs font-medium text-[var(--muted)]">
                         {listingStatusLabel(l, marketNow)}
                       </span>
                     </article>
@@ -635,7 +635,7 @@ export default function Marketplace() {
                 })}
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-[#E9EAF0] px-4 py-6 text-center text-sm text-[#858A98]">
+              <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-6 text-center text-sm text-[var(--muted)]">
                 Nenhum anúncio no histórico.
               </div>
             )}
@@ -645,43 +645,43 @@ export default function Marketplace() {
 
       {tab === 'history' && (
         <div className="space-y-5">
-          <div className="flex items-start gap-3 rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] p-3 text-sm text-[#858A98]">
+          <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3 text-sm text-[var(--muted)]">
             <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
             <p>Este extrato registra negociações confirmadas a partir da ativação do histórico. As transações anteriores não têm comprador e horário de conclusão registrados e não podem ser reconstruídas com segurança.</p>
           </div>
 
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <article className="card-surface p-4">
-              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[#858A98]">Compras realizadas</span><ArrowDownLeft className="h-4 w-4 text-[#858A98]" /></div>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-[#252733]">{historySummary.purchaseCount.toLocaleString('pt-BR')}</p>
-              <p className="mt-1 text-xs text-[#858A98]">{historySummary.spent.toLocaleString('pt-BR')} moedas gastas</p>
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[var(--muted)]">Compras realizadas</span><ArrowDownLeft className="h-4 w-4 text-[var(--muted)]" /></div>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--text)]">{historySummary.purchaseCount.toLocaleString('pt-BR')}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{historySummary.spent.toLocaleString('pt-BR')} moedas gastas</p>
             </article>
             <article className="card-surface p-4">
-              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[#858A98]">Vendas concluídas</span><ArrowUpRight className="h-4 w-4 text-[#E30613]" /></div>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-[#252733]">{historySummary.saleCount.toLocaleString('pt-BR')}</p>
-              <p className="mt-1 text-xs text-[#858A98]">{historySummary.received.toLocaleString('pt-BR')} moedas recebidas</p>
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[var(--muted)]">Vendas concluídas</span><ArrowUpRight className="h-4 w-4 text-[var(--red)]" /></div>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--text)]">{historySummary.saleCount.toLocaleString('pt-BR')}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{historySummary.received.toLocaleString('pt-BR')} moedas recebidas</p>
             </article>
             <article className="card-surface p-4">
-              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[#858A98]">Volume movimentado</span><Coins className="h-4 w-4 text-[#858A98]" /></div>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-[#252733]">{historySummary.volume.toLocaleString('pt-BR')}</p>
-              <p className="mt-1 text-xs text-[#858A98]">moedas em negociações</p>
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[var(--muted)]">Volume movimentado</span><Coins className="h-4 w-4 text-[var(--muted)]" /></div>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--text)]">{historySummary.volume.toLocaleString('pt-BR')}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">moedas em negociações</p>
             </article>
             <article className="card-surface p-4">
-              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[#858A98]">Saldo líquido</span><BadgeCheck className="h-4 w-4 text-[#E30613]" /></div>
-              <p className={`mt-2 text-2xl font-bold tabular-nums ${historySummary.net < 0 ? 'text-[#858A98]' : 'text-[#E30613]'}`}>
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-[var(--muted)]">Saldo líquido</span><BadgeCheck className="h-4 w-4 text-[var(--red)]" /></div>
+              <p className={`mt-2 text-2xl font-bold tabular-nums ${historySummary.net < 0 ? 'text-[var(--muted)]' : 'text-[var(--red)]'}`}>
                 {historySummary.net > 0 ? '+' : historySummary.net < 0 ? '-' : ''}{Math.abs(historySummary.net).toLocaleString('pt-BR')}
               </p>
-              <p className="mt-1 text-xs text-[#858A98]">moedas recebidas menos gastas</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">moedas recebidas menos gastas</p>
             </article>
           </section>
 
           <section className="card-surface space-y-4 p-4 md:p-5">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-[#252733]">Histórico de transações</h2>
-                <p className="mt-0.5 text-sm text-[#858A98]">Compras e vendas concluídas, da mais recente à mais antiga.</p>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Histórico de transações</h2>
+                <p className="mt-0.5 text-sm text-[var(--muted)]">Compras e vendas concluídas, da mais recente à mais antiga.</p>
               </div>
-              <div className="flex flex-wrap gap-1 rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] p-1" role="group" aria-label="Tipo de movimentação">
+              <div className="flex flex-wrap gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-1" role="group" aria-label="Tipo de movimentação">
                 {([
                   ['all', 'Todas'],
                   ['buy', 'Compras'],
@@ -692,7 +692,7 @@ export default function Marketplace() {
                     type="button"
                     aria-pressed={historyKind === kind}
                     onClick={() => setHistoryKind(kind)}
-                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${historyKind === kind ? 'bg-white text-[#E30613] shadow-sm' : 'text-[#858A98] hover:text-[#252733]'}`}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${historyKind === kind ? 'bg-white text-[var(--red)] shadow-sm' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
                   >
                     {label}
                   </button>
@@ -702,7 +702,7 @@ export default function Marketplace() {
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_180px_auto_auto]">
               <label className="relative min-w-0">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
                 <input
                   value={historySearchInput}
                   onChange={event => setHistorySearchInput(event.target.value)}
@@ -719,48 +719,48 @@ export default function Marketplace() {
               <button
                 type="button"
                 onClick={() => setHistoryRefreshKey(key => key + 1)}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#E9EAF0] bg-white px-4 text-sm font-medium text-[#252733] transition-colors hover:bg-[#F7F7F9]"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--bg)]"
               >
                 <RotateCcw className="h-4 w-4" /> Atualizar
               </button>
               <button
                 type="button"
                 onClick={clearHistoryFilters}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#E9EAF0] bg-white px-4 text-sm font-medium text-[#858A98] transition-colors hover:bg-[#F7F7F9] hover:text-[#252733]"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--bg)] hover:text-[var(--text)]"
               >
                 Limpar filtros
               </button>
             </div>
 
             {!supabase ? (
-              <div className="rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] p-6 text-center text-sm text-[#858A98]">O histórico de transações precisa de conexão com o servidor.</div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-6 text-center text-sm text-[var(--muted)]">O histórico de transações precisa de conexão com o servidor.</div>
             ) : historyError ? (
-              <div className="rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] p-6 text-center">
-                <p className="text-sm font-medium text-[#252733]">Não foi possível carregar o histórico.</p>
-                <button type="button" onClick={() => setHistoryRefreshKey(key => key + 1)} className="mt-3 text-sm font-semibold text-[#E30613] hover:underline">Tentar novamente</button>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-6 text-center">
+                <p className="text-sm font-medium text-[var(--text)]">Não foi possível carregar o histórico.</p>
+                <button type="button" onClick={() => setHistoryRefreshKey(key => key + 1)} className="mt-3 text-sm font-semibold text-[var(--red)] hover:underline">Tentar novamente</button>
               </div>
             ) : (historyLoading || !userId) && historyRows.length === 0 ? (
-              <div className="rounded-xl border border-[#E9EAF0] p-8 text-center text-sm text-[#858A98]">Carregando transações confirmadas...</div>
+              <div className="rounded-xl border border-[var(--border)] p-8 text-center text-sm text-[var(--muted)]">Carregando transações confirmadas...</div>
             ) : historyRows.length === 0 ? (
               historyKind === 'all' && !historySearch && historyPeriod === 'all' ? (
-                <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-[#E9EAF0] bg-[#F7F7F9]/60 px-5 py-10 text-center">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFF0F2] text-[#E30613]"><Store className="h-7 w-7" /></span>
-                  <h3 className="mt-4 text-lg font-semibold text-[#252733]">Nenhuma movimentação ainda</h3>
-                  <p className="mt-2 max-w-md text-sm leading-6 text-[#858A98]">Compras e vendas concluídas serão exibidas aqui. As movimentações anteriores à ativação do extrato não podem ser recuperadas com os dados existentes.</p>
+                <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg)]/60 px-5 py-10 text-center">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--soft)] text-[var(--red)]"><Store className="h-7 w-7" /></span>
+                  <h3 className="mt-4 text-lg font-semibold text-[var(--text)]">Nenhuma movimentação ainda</h3>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">Compras e vendas concluídas serão exibidas aqui. As movimentações anteriores à ativação do extrato não podem ser recuperadas com os dados existentes.</p>
                   <button type="button" onClick={() => setTab('market')} className="btn btn-primary mt-5">Ir para o Mercado</button>
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-[#E9EAF0] px-4 py-8 text-center">
-                  <p className="text-sm font-medium text-[#252733]">Nenhuma movimentação encontrada</p>
-                  <p className="mt-1 text-xs text-[#858A98]">Tente ajustar a busca ou os filtros selecionados.</p>
-                  <button type="button" onClick={clearHistoryFilters} className="mt-3 text-sm font-semibold text-[#E30613] hover:underline">Limpar filtros</button>
+                <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-8 text-center">
+                  <p className="text-sm font-medium text-[var(--text)]">Nenhuma movimentação encontrada</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">Tente ajustar a busca ou os filtros selecionados.</p>
+                  <button type="button" onClick={clearHistoryFilters} className="mt-3 text-sm font-semibold text-[var(--red)] hover:underline">Limpar filtros</button>
                 </div>
               )
             ) : (
               <div className="space-y-5">
                 {historyGroups.map(group => (
                   <section key={group.label} className="space-y-2">
-                    <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-[#858A98]">{group.label}</h3>
+                    <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{group.label}</h3>
                     <div className="space-y-2">
                       {group.rows.map(transaction => {
                         const isPurchase = transaction.buyerId === userId;
@@ -771,26 +771,26 @@ export default function Marketplace() {
                             key={transaction.id}
                             type="button"
                             onClick={() => setSelectedTransaction(transaction)}
-                            className="card-surface flex w-full min-w-0 items-center gap-3 p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E30613]/20 hover:shadow-sm motion-reduce:transform-none motion-reduce:transition-none sm:gap-4 sm:p-4"
+                            className="card-surface flex w-full min-w-0 items-center gap-3 p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--red)]/20 hover:shadow-sm motion-reduce:transform-none motion-reduce:transition-none sm:gap-4 sm:p-4"
                           >
-                            <span className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E9EAF0] bg-[#F7F7F9]">
-                              {image ? <img src={image} alt={transaction.cardName} className="h-full w-full object-cover object-top" /> : <User className="h-5 w-5 text-[#858A98]" />}
+                            <span className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+                              {image ? <img src={image} alt={transaction.cardName} className="h-full w-full object-cover object-top" /> : <User className="h-5 w-5 text-[var(--muted)]" />}
                             </span>
                             <span className="min-w-0 flex-1">
                               <span className="flex flex-wrap items-center gap-2">
-                                <span className="max-w-full truncate text-sm font-semibold text-[#252733]">{transaction.cardName}</span>
-                                {transaction.cardOverall !== null && <span className="rounded-md bg-[#F7F7F9] px-1.5 py-0.5 text-[11px] font-semibold text-[#858A98]">OVR {transaction.cardOverall}</span>}
+                                <span className="max-w-full truncate text-sm font-semibold text-[var(--text)]">{transaction.cardName}</span>
+                                {transaction.cardOverall !== null && <span className="rounded-md bg-[var(--bg)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--muted)]">OVR {transaction.cardOverall}</span>}
                               </span>
-                              <span className="mt-1 block truncate text-xs text-[#858A98]">{getRarityLabel(transaction.cardRarity)} · {isPurchase ? 'Comprado de' : 'Vendido para'} {opponent}</span>
+                              <span className="mt-1 block truncate text-xs text-[var(--muted)]">{getRarityLabel(transaction.cardRarity)} · {isPurchase ? 'Comprado de' : 'Vendido para'} {opponent}</span>
                               <span className="mt-2 flex flex-wrap items-center gap-2">
-                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isPurchase ? 'bg-[#F7F7F9] text-[#858A98]' : 'bg-[#FFF0F2] text-[#E30613]'}`}>{isPurchase ? 'Compra' : 'Venda'}</span>
-                                <span className="inline-flex items-center gap-1 rounded-full bg-[#F7F7F9] px-2.5 py-1 text-[11px] font-medium text-[#858A98]"><BadgeCheck className="h-3 w-3" /> Concluída</span>
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isPurchase ? 'bg-[var(--bg)] text-[var(--muted)]' : 'bg-[var(--soft)] text-[var(--red)]'}`}>{isPurchase ? 'Compra' : 'Venda'}</span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--muted)]"><BadgeCheck className="h-3 w-3" /> Concluída</span>
                               </span>
                             </span>
                             <span className="shrink-0 text-right">
-                              <span className={`block text-base font-bold tabular-nums sm:text-lg ${isPurchase ? 'text-[#858A98]' : 'text-[#E30613]'}`}>{isPurchase ? '-' : '+'}{transaction.price.toLocaleString('pt-BR')}</span>
-                              <span className="block text-[11px] text-[#858A98]">moedas</span>
-                              <span className="mt-1 hidden text-[11px] text-[#858A98] sm:block">{new Date(transaction.completedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                              <span className={`block text-base font-bold tabular-nums sm:text-lg ${isPurchase ? 'text-[var(--muted)]' : 'text-[var(--red)]'}`}>{isPurchase ? '-' : '+'}{transaction.price.toLocaleString('pt-BR')}</span>
+                              <span className="block text-[11px] text-[var(--muted)]">moedas</span>
+                              <span className="mt-1 hidden text-[11px] text-[var(--muted)] sm:block">{new Date(transaction.completedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
                             </span>
                           </button>
                         );
@@ -798,8 +798,8 @@ export default function Marketplace() {
                     </div>
                   </section>
                 ))}
-                <div className="flex flex-col items-center justify-between gap-3 border-t border-[#E9EAF0] pt-4 sm:flex-row">
-                  <p className="text-xs text-[#858A98]">Exibindo {historyRows.length.toLocaleString('pt-BR')} de {historyTotal.toLocaleString('pt-BR')} transações</p>
+                <div className="flex flex-col items-center justify-between gap-3 border-t border-[var(--border)] pt-4 sm:flex-row">
+                  <p className="text-xs text-[var(--muted)]">Exibindo {historyRows.length.toLocaleString('pt-BR')} de {historyTotal.toLocaleString('pt-BR')} transações</p>
                   {historyRows.length < historyTotal && (
                     <button type="button" onClick={loadMoreHistory} disabled={historyLoadingMore} className="btn btn-secondary btn-sm">
                       {historyLoadingMore ? 'Carregando...' : 'Carregar mais'}
@@ -813,42 +813,42 @@ export default function Marketplace() {
       )}
 
       {selectedTransaction && userId && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#252733]/50 p-4" role="presentation" onMouseDown={() => setSelectedTransaction(null)}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--text)]/50 p-4" role="presentation" onMouseDown={() => setSelectedTransaction(null)}>
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="marketplace-transaction-title"
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E9EAF0] bg-white p-4 shadow-xl"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-white p-4 shadow-xl"
             onMouseDown={event => event.stopPropagation()}
           >
             <header className="flex items-start justify-between gap-4">
               <div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#F7F7F9] px-2.5 py-1 text-xs font-semibold text-[#858A98]"><BadgeCheck className="h-3.5 w-3.5" /> Transação concluída</span>
-                <h2 id="marketplace-transaction-title" className="mt-3 text-xl font-semibold text-[#252733]">Detalhes da negociação</h2>
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--bg)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]"><BadgeCheck className="h-3.5 w-3.5" /> Transação concluída</span>
+                <h2 id="marketplace-transaction-title" className="mt-3 text-xl font-semibold text-[var(--text)]">Detalhes da negociação</h2>
               </div>
-              <button type="button" onClick={() => setSelectedTransaction(null)} aria-label="Fechar detalhes" className="rounded-lg p-2 text-[#858A98] transition-colors hover:bg-[#F7F7F9] hover:text-[#252733]"><X className="h-5 w-5" /></button>
+              <button type="button" onClick={() => setSelectedTransaction(null)} aria-label="Fechar detalhes" className="rounded-lg p-2 text-[var(--muted)] transition-colors hover:bg-[var(--bg)] hover:text-[var(--text)]"><X className="h-5 w-5" /></button>
             </header>
             <div className="mt-5 grid gap-5 sm:grid-cols-[minmax(150px,0.7fr)_minmax(0,1.3fr)]">
-              <div className="flex justify-center rounded-xl bg-[#F7F7F9] p-4">
+              <div className="flex justify-center rounded-xl bg-[var(--bg)] p-4">
                 {(() => {
                   const image = selectedTransaction.cardImage || getPlayerImage(selectedTransaction.cardName);
                   return image
-                    ? <img src={image} alt={selectedTransaction.cardName} className="aspect-[7/10] w-full max-w-48 rounded-xl border border-[#E9EAF0] object-cover object-top shadow-sm" />
-                    : <div className="flex aspect-[7/10] w-full max-w-48 items-center justify-center rounded-xl border border-[#E9EAF0] bg-white"><User className="h-8 w-8 text-[#858A98]" /></div>;
+                    ? <img src={image} alt={selectedTransaction.cardName} className="aspect-[7/10] w-full max-w-48 rounded-xl border border-[var(--border)] object-cover object-top shadow-sm" />
+                    : <div className="flex aspect-[7/10] w-full max-w-48 items-center justify-center rounded-xl border border-[var(--border)] bg-white"><User className="h-8 w-8 text-[var(--muted)]" /></div>;
                 })()}
               </div>
               <div className="min-w-0">
-                <h3 className="text-lg font-semibold text-[#252733]">{selectedTransaction.cardName}</h3>
-                <p className="mt-1 text-sm text-[#858A98]">{selectedTransaction.cardOverall !== null ? `Overall ${selectedTransaction.cardOverall}` : 'Overall não informado'} · {getRarityLabel(selectedTransaction.cardRarity)}</p>
+                <h3 className="text-lg font-semibold text-[var(--text)]">{selectedTransaction.cardName}</h3>
+                <p className="mt-1 text-sm text-[var(--muted)]">{selectedTransaction.cardOverall !== null ? `Overall ${selectedTransaction.cardOverall}` : 'Overall não informado'} · {getRarityLabel(selectedTransaction.cardRarity)}</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-[#F7F7F9] p-3"><p className="text-xs text-[#858A98]">Comprador</p><p className="mt-1 truncate text-sm font-medium text-[#252733]">{selectedTransaction.buyerName}</p></div>
-                  <div className="rounded-xl bg-[#F7F7F9] p-3"><p className="text-xs text-[#858A98]">Vendedor</p><p className="mt-1 truncate text-sm font-medium text-[#252733]">{selectedTransaction.sellerName}</p></div>
+                  <div className="rounded-xl bg-[var(--bg)] p-3"><p className="text-xs text-[var(--muted)]">Comprador</p><p className="mt-1 truncate text-sm font-medium text-[var(--text)]">{selectedTransaction.buyerName}</p></div>
+                  <div className="rounded-xl bg-[var(--bg)] p-3"><p className="text-xs text-[var(--muted)]">Vendedor</p><p className="mt-1 truncate text-sm font-medium text-[var(--text)]">{selectedTransaction.sellerName}</p></div>
                 </div>
                 <dl className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between gap-3 border-b border-[#E9EAF0] pb-2"><dt className="text-sm text-[#858A98]">Preço final</dt><dd className="text-base font-bold tabular-nums text-[#252733]">{selectedTransaction.price.toLocaleString('pt-BR')} moedas</dd></div>
-                  <div className="flex items-center justify-between gap-3 border-b border-[#E9EAF0] pb-2"><dt className="text-sm text-[#858A98]">Tipo</dt><dd className="text-sm font-semibold text-[#252733]">{selectedTransaction.buyerId === userId ? 'Compra' : 'Venda'}</dd></div>
-                  <div className="flex items-center justify-between gap-3 border-b border-[#E9EAF0] pb-2"><dt className="text-sm text-[#858A98]">Concluída em</dt><dd className="text-right text-sm font-medium text-[#252733]">{new Date(selectedTransaction.completedAt).toLocaleString('pt-BR')}</dd></div>
-                  <div className="flex items-start justify-between gap-3"><dt className="shrink-0 text-sm text-[#858A98]">ID da transação</dt><dd className="break-all text-right font-mono text-xs text-[#858A98]">{selectedTransaction.id}</dd></div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-2"><dt className="text-sm text-[var(--muted)]">Preço final</dt><dd className="text-base font-bold tabular-nums text-[var(--text)]">{selectedTransaction.price.toLocaleString('pt-BR')} moedas</dd></div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-2"><dt className="text-sm text-[var(--muted)]">Tipo</dt><dd className="text-sm font-semibold text-[var(--text)]">{selectedTransaction.buyerId === userId ? 'Compra' : 'Venda'}</dd></div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-2"><dt className="text-sm text-[var(--muted)]">Concluída em</dt><dd className="text-right text-sm font-medium text-[var(--text)]">{new Date(selectedTransaction.completedAt).toLocaleString('pt-BR')}</dd></div>
+                  <div className="flex items-start justify-between gap-3"><dt className="shrink-0 text-sm text-[var(--muted)]">ID da transação</dt><dd className="break-all text-right font-mono text-xs text-[var(--muted)]">{selectedTransaction.id}</dd></div>
                 </dl>
               </div>
             </div>

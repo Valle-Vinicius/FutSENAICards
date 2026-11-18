@@ -16,9 +16,12 @@ export default function CardDetail() {
   const upgradePlayer = useGame(s => s.upgradePlayer);
   const card = cards.find(c => c.uid === uid);
   useEffect(() => {
+    document.title = `${card?.name ?? 'Carta'} | FutSENAI Cards`;
+  }, [card?.name]);
+  useEffect(() => {
     if (card?.isNew) markSeen([card.uid]);
   }, [card?.uid, card?.isNew, markSeen]);
-  if (!card) return <div className="p-8 text-[#252733]">Carta não encontrada. <button onClick={()=>navigate('/collection')} className="text-[#E30613]">Voltar</button></div>;
+  if (!card) return <div className="p-8 text-[var(--text)]">Carta não encontrada. <button onClick={()=>navigate('/collection')} className="text-[var(--red)]">Voltar</button></div>;
 
   const isGK = card.position === 'GK';
   // mesmos atributos que aparecem na carta (Card.tsx)
@@ -67,8 +70,8 @@ export default function CardDetail() {
       </div>
       <div className="flex-1 space-y-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-semibold text-[#252733]">{card.name}</h1>
-          <button onClick={() => toggleFav(card.uid)} className={`text-2xl ${card.favorite ? "text-[#E30613]" : "text-[#858A98]"}`}><Star className="w-5 h-5" /></button>
+          <h1 className="text-3xl font-semibold text-[var(--text)]">{card.name}</h1>
+          <button onClick={() => toggleFav(card.uid)} className={`text-2xl ${card.favorite ? "text-[var(--red)]" : "text-[var(--muted)]"}`}><Star className="w-5 h-5" /></button>
           <button
             type="button"
             onClick={() => navigate(`/compare?a=${encodeURIComponent(card.uid)}`)}
@@ -87,60 +90,60 @@ export default function CardDetail() {
           <Row label="Overall" value={String(card.overall)} />
         </div>
         <div className="card-surface p-4">
-          <div className="font-semibold mb-2 text-[#252733]">Atributos</div>
+          <div className="font-semibold mb-2 text-[var(--text)]">Atributos</div>
           <div className="space-y-2">
             {attrs.map(({ label, value }) => (
               <div key={label}>
-                <div className="flex justify-between text-xs mb-1 text-[#858A98]"><span>{label}</span><span className={`font-bold ${value >= 100 ? 'rgb-text' : 'text-[#252733]'}`}>{value}</span></div>
-                <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden">
-                  <div className={`h-full ${value >= 100 || card.rarity === 'icon' ? 'rgb-stat' : card.rarity === 'secret' ? 'bg-[#222831]' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, value)}%` }} />
+                <div className="flex justify-between text-xs mb-1 text-[var(--muted)]"><span>{label}</span><span className={`font-bold ${value >= 100 ? 'rgb-text' : 'text-[var(--text)]'}`}>{value}</span></div>
+                <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
+                  <div className={`h-full ${value >= 100 || card.rarity === 'icon' ? 'rgb-stat' : card.rarity === 'secret' ? 'bg-[#222831]' : 'bg-[var(--red)]'}`} style={{ width: `${Math.min(100, value)}%` }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
         <div className="card-surface p-4">
-          <div className="font-semibold mb-2 text-[#252733]">Evolução</div>
-          <div className="text-xs text-[#858A98] mb-2">XP: {card.xp ?? 0} · Pontos de evolução: {card.evoPoints ?? 0}</div>
-          <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden mb-3">
-            <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : card.rarity === 'secret' ? 'bg-[#222831]' : 'bg-[#E30613]'}`} style={{ width: `${Math.min(100, ((card.xp ?? 0) % 100))}%` }} />
+          <div className="font-semibold mb-2 text-[var(--text)]">Evolução</div>
+          <div className="text-xs text-[var(--muted)] mb-2">XP: {card.xp ?? 0} · Pontos de evolução: {card.evoPoints ?? 0}</div>
+          <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden mb-3">
+            <div className={`h-full ${card.rarity === 'icon' ? 'rgb-stat' : card.rarity === 'secret' ? 'bg-[#222831]' : 'bg-[var(--red)]'}`} style={{ width: `${Math.min(100, ((card.xp ?? 0) % 100))}%` }} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             {upgradable.map(a => (
               <button
                 key={a.key}
                 disabled={(card.evoPoints ?? 0) <= 0 || a.v >= 99}
-                onClick={() => { const ok = upgradePlayer(card.uid, a.key); if (!ok) toast.alert('Sem pontos ou limite atingido.'); }}
-                className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm disabled:opacity-40"
+                onClick={() => { const ok = upgradePlayer(card.uid, a.key); if (!ok) toast.error('Sem pontos ou limite atingido.'); }}
+                className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-[var(--border)] text-sm disabled:opacity-40"
               >
-                <span className="text-[#252733]">{a.label}</span>
-                <span className="font-bold text-[#E30613]">{a.v} +</span>
+                <span className="text-[var(--text)]">{a.label}</span>
+                <span className="font-bold text-[var(--red)]">{a.v} +</span>
               </button>
             ))}
           </div>
-          <p className="text-xs text-[#858A98] mt-2">
+          <p className="text-xs text-[var(--muted)] mt-2">
             Limite total de 15 melhorias por carta e +10 por atributo. Overall máximo 99.
           </p>
         </div>
 
         <div className="card-surface p-4">
-          <div className="font-semibold mb-2 text-[#252733]">Histórico de evolução</div>
-          {(card.evolutionLog ?? []).length === 0 && <div className="text-xs text-[#858A98]">Sem evoluções.</div>}
+          <div className="font-semibold mb-2 text-[var(--text)]">Histórico de evolução</div>
+          {(card.evolutionLog ?? []).length === 0 && <div className="text-xs text-[var(--muted)]">Sem evoluções.</div>}
           <div className="space-y-1 max-h-32 overflow-auto text-xs">
             {(card.evolutionLog ?? []).map((e, i) => (
-              <div key={i} className="text-[#252733]">{new Date(e.at).toLocaleString('pt-BR')} · +1 {e.attr}</div>
+              <div key={i} className="text-[var(--text)]">{new Date(e.at).toLocaleString('pt-BR')} · +1 {e.attr}</div>
             ))}
           </div>
         </div>
 
         <div className="card-surface p-4">
-          <div className="font-semibold mb-2 text-[#252733]">Estatísticas da temporada</div>
-          <div className="text-sm text-[#252733]">Partidas: <span className="font-bold">{card.seasonStats?.matches ?? 0}</span></div>
-          <div className="text-sm text-[#252733]">Gols: <span className="font-bold">{card.seasonStats?.goals ?? 0}</span></div>
-          <div className="text-sm text-[#252733]">Assistências: <span className="font-bold">{card.seasonStats?.assists ?? 0}</span></div>
+          <div className="font-semibold mb-2 text-[var(--text)]">Estatísticas da temporada</div>
+          <div className="text-sm text-[var(--text)]">Partidas: <span className="font-bold">{card.seasonStats?.matches ?? 0}</span></div>
+          <div className="text-sm text-[var(--text)]">Gols: <span className="font-bold">{card.seasonStats?.goals ?? 0}</span></div>
+          <div className="text-sm text-[var(--text)]">Assistências: <span className="font-bold">{card.seasonStats?.assists ?? 0}</span></div>
         </div>
 
-        <button onClick={() => navigate('/collection')} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-medium hover:bg-[#F7F7F9]">Voltar à coleção</button>
+        <button onClick={() => navigate('/collection')} className="px-4 py-2 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] font-medium hover:bg-[var(--bg)]">Voltar à coleção</button>
       </div>
     </div>
   );
@@ -148,9 +151,9 @@ export default function CardDetail() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between border-b border-[#E9EAF0] pb-1">
-      <span className="text-[#858A98]">{label}</span>
-      <span className="font-medium text-[#252733]">{value}</span>
+    <div className="flex justify-between border-b border-[var(--border)] pb-1">
+      <span className="text-[var(--muted)]">{label}</span>
+      <span className="font-medium text-[var(--text)]">{value}</span>
     </div>
   );
 }

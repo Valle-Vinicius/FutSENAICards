@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { loadDbTemplates, allTemplates } from './data/players';
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import ToastContainer from './components/ToastContainer';
 import { useGame } from './store/useGame';
 import { supabase } from './lib/supabase';
@@ -15,8 +15,6 @@ import OpenPack from './pages/OpenPack';
 import Collection from './pages/Collection';
 import CardDetail from './pages/CardDetail';
 import Squad from './pages/Squad';
-import Match from './pages/Match';
-import Pool from './pages/Pool';
 import Compare from './pages/Compare';
 import Marketplace from './pages/Marketplace';
 import SBC from './pages/SBC';
@@ -30,14 +28,20 @@ import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
 import Leaderboard from './pages/Leaderboard';
 import CompetitiveProfile from './pages/CompetitiveProfile';
-import Admin from './pages/Admin';
+const Match = lazy(() => import('./pages/Match'));
+const Pool = lazy(() => import('./pages/Pool'));
+const Admin = lazy(() => import('./pages/Admin'));
+
+function RouteLoading() {
+  return <div className="flex min-h-[50dvh] items-center justify-center text-[var(--muted)]">Carregando…</div>;
+}
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err: Error | null }> {
   state = { err: null as Error | null };
   static getDerivedStateFromError(err: Error) { return { err }; }
   render() {
     if (this.state.err) {
-      return <div className="p-8 text-sm text-[#858A98]">Algo deu errado. <button onClick={() => location.reload()} className="text-[#E30613]">Recarregar</button></div>;
+      return <div className="p-8 text-sm text-[var(--muted)]">Algo deu errado. <button onClick={() => location.reload()} className="text-[var(--red)]">Recarregar</button></div>;
     }
     return this.props.children;
   }
@@ -109,7 +113,7 @@ export default function App() {
     return subscribeUserPresence(currentUserId);
   }, [currentUserId]);
   if (!authReady) {
-    return <div className="min-h-[100dvh] flex items-center justify-center text-[#858A98]">Carregando sessão…</div>;
+    return <div className="min-h-[100dvh] flex items-center justify-center text-[var(--muted)]">Carregando sessão…</div>;
   }
   return (
     <ErrorBoundary>
@@ -129,8 +133,8 @@ export default function App() {
             <Route path="/collection" element={<Collection />} />
             <Route path="/card/:uid" element={<CardDetail />} />
             <Route path="/squad" element={<Squad />} />
-            <Route path="/match" element={<Match />} />
-            <Route path="/pool/:matchId" element={<Pool />} />
+            <Route path="/match" element={<Suspense fallback={<RouteLoading />}><Match /></Suspense>} />
+            <Route path="/pool/:matchId" element={<Suspense fallback={<RouteLoading />}><Pool /></Suspense>} />
             <Route path="/compare" element={<Compare />} />
             <Route path="/market" element={<Marketplace />} />
             <Route path="/sbc" element={<SBC />} />
@@ -142,7 +146,7 @@ export default function App() {
             <Route path="/profile/:userId" element={<FriendProfile />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin" element={<Suspense fallback={<RouteLoading />}><Admin /></Suspense>} />
             </Route>
           </Route>
         )}

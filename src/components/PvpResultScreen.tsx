@@ -149,7 +149,7 @@ function PvpPlayerCard({
     ? '4px solid #ff0040'
     : rarity === 'secret'
       ? '3px solid #7B8492'
-    : `2px solid ${rarityMeta?.color ?? '#E9EAF0'}`;
+    : `2px solid ${rarityMeta?.color ?? 'var(--border)'}`;
   const cardGlow = accent === 'gold'
     ? '0 0 24px rgba(245,197,66,0.18)'
     : rarity === 'secret'
@@ -165,7 +165,7 @@ function PvpPlayerCard({
       style={{ border: cardBorder, boxShadow: cardGlow }}
       aria-label={`Carta de ${displayName}${rating === undefined ? '' : `, nota ${rating.toFixed(1)}`}`}
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-[#F7F7F9]">
+      <div className="relative aspect-[3/4] overflow-hidden bg-[var(--bg)]">
         {snapshotCard && image ? (
           <img
             src={image}
@@ -174,9 +174,9 @@ function PvpPlayerCard({
             onError={() => setFailedImageUrl(image)}
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#F7F7F9] px-3 text-center">
-            {snapshotCard ? <UserRound className="h-10 w-10 text-[#858A98]/50" aria-hidden="true" /> : <ShieldAlert className="h-10 w-10 text-[#E30613]/60" aria-hidden="true" />}
-            <span className="text-[9px] font-semibold tracking-[0.12em] text-[#858A98]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[var(--bg)] px-3 text-center">
+            {snapshotCard ? <UserRound className="h-10 w-10 text-[var(--muted)]/50" aria-hidden="true" /> : <ShieldAlert className="h-10 w-10 text-[var(--red)]/60" aria-hidden="true" />}
+            <span className="text-[9px] font-semibold tracking-[0.12em] text-[var(--muted)]">
               {!snapshotCard ? 'IDENTIDADE DO SNAPSHOT INDISPONÍVEL' : 'IMAGEM INDISPONÍVEL'}
             </span>
           </div>
@@ -225,7 +225,7 @@ function PvpPlayerCard({
             </div>
           )}
           {rating !== undefined && (
-            <div className={`mt-2 flex items-center justify-between rounded-lg px-2 py-1 ${accent === 'gold' ? 'bg-[#FFF0F2] text-[#252733]' : 'bg-[#F7F7F9] text-[#252733]'}`}>
+            <div className={`mt-2 flex items-center justify-between rounded-lg px-2 py-1 ${accent === 'gold' ? 'bg-[var(--soft)] text-[var(--text)]' : 'bg-[var(--bg)] text-[var(--text)]'}`}>
               <span className="text-[9px] font-bold uppercase tracking-wider">Nota</span>
               <span className="text-lg font-black tabular-nums">{rating.toFixed(1)}</span>
             </div>
@@ -265,21 +265,21 @@ function ComparativeStat({
 
   return (
     <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-x-3 gap-y-1.5">
-      <span className="text-right text-sm font-bold tabular-nums text-[#252733]">{homeDisplay}</span>
-      <span className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[#858A98]">{label}</span>
-      <span className="text-sm font-bold tabular-nums text-[#252733]">{awayDisplay}</span>
-      <div className="col-span-3 flex h-1.5 overflow-hidden rounded-full bg-[#E9EAF0]">
+      <span className="text-right text-sm font-bold tabular-nums text-[var(--text)]">{homeDisplay}</span>
+      <span className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">{label}</span>
+      <span className="text-sm font-bold tabular-nums text-[var(--text)]">{awayDisplay}</span>
+      <div className="col-span-3 flex h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
         <motion.div
           initial={reduceMotion ? false : { width: 0 }}
           animate={{ width: `${homePercent}%` }}
           transition={{ duration: reduceMotion ? 0 : 0.7, ease: 'easeOut' }}
-          className="h-full bg-[#E30613]"
+          className="h-full bg-[var(--red)]"
         />
         <motion.div
           initial={reduceMotion ? false : { width: 0 }}
           animate={{ width: `${awayPercent}%` }}
           transition={{ duration: reduceMotion ? 0 : 0.7, ease: 'easeOut', delay: reduceMotion ? 0 : 0.08 }}
-          className="h-full bg-[#858A98]"
+          className="h-full bg-[var(--muted)]"
         />
       </div>
     </div>
@@ -288,7 +288,7 @@ function ComparativeStat({
 
 function eventIcon(event: MatchEvent) {
   const Icon = EVENT_ICON[event.type] ?? Sparkles;
-  return <Icon className={`h-4 w-4 ${event.type === 'goal' ? 'text-[#E30613]' : 'text-[#858A98]'}`} aria-hidden="true" />;
+  return <Icon className={`h-4 w-4 ${event.type === 'goal' ? 'text-[var(--red)]' : 'text-[var(--muted)]'}`} aria-hidden="true" />;
 }
 
 export default function PvpResultScreen({
@@ -321,7 +321,7 @@ export default function PvpResultScreen({
     ?? (myScore === opponentScore ? null : myScore > opponentScore ? mySide : mySide === 'home' ? 'away' : 'home');
   const outcome = decidedWinner === null ? 'draw' : decidedWinner === mySide ? 'win' : 'loss';
   const outcomeLabel = outcome === 'win' ? 'VITÓRIA' : outcome === 'loss' ? 'DERROTA' : 'EMPATE';
-  const outcomeColor = outcome === 'win' ? 'text-[#E30613]' : outcome === 'loss' ? 'text-[#858A98]' : 'text-[#252733]';
+  const outcomeColor = outcome === 'win' ? 'text-[var(--red)]' : outcome === 'loss' ? 'text-[var(--muted)]' : 'text-[var(--text)]';
   const homeName = result.config.homeName || homeSnapshot?.name || 'Desafiante';
   const awayName = result.config.awayName || awaySnapshot?.name || 'Desafiado';
   const rewardedCards = mySnapshotCardsForSide(mySide, homeSnapshotCards, awaySnapshotCards);
@@ -337,9 +337,9 @@ export default function PvpResultScreen({
   ];
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#F7F7F9] px-3 py-6 text-[#252733] sm:px-6 sm:py-8">
+    <main className="relative min-h-[100dvh] overflow-hidden bg-[var(--bg)] px-3 py-6 text-[var(--text)] sm:px-6 sm:py-8">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute -left-40 -top-32 h-96 w-96 rounded-full bg-[#FFF0F2] blur-[120px]" />
+        <div className="absolute -left-40 -top-32 h-96 w-96 rounded-full bg-[var(--soft)] blur-[120px]" />
         <div className="absolute inset-x-0 top-0 h-64 bg-white/70" />
       </div>
 
@@ -350,9 +350,9 @@ export default function PvpResultScreen({
           transition={{ duration: reduceMotion ? 0 : 0.45 }}
           className="flex items-center justify-between gap-3"
         >
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#858A98]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#E30613] text-white shadow-sm">FS</span>
-            <span className="text-[#252733]">FutSENAI</span> <span className="hidden text-[#E9EAF0] sm:inline">/</span><span className="hidden sm:inline">Pós-partida PvP</span>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--red)] text-white shadow-sm">FS</span>
+            <span className="text-[var(--text)]">FutSENAI</span> <span className="hidden text-[var(--border)] sm:inline">/</span><span className="hidden sm:inline">Pós-partida PvP</span>
           </div>
           <div className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-green-700 sm:text-[10px]">
             Resultado oficial do servidor
@@ -365,12 +365,12 @@ export default function PvpResultScreen({
           transition={{ duration: reduceMotion ? 0 : 0.55, delay: reduceMotion ? 0 : 0.08 }}
           className="card-surface relative overflow-hidden p-4 sm:p-8"
         >
-          {outcome === 'win' && <div className="pointer-events-none absolute left-1/2 top-0 h-32 w-3/4 -translate-x-1/2 bg-[#FFF0F2] blur-[70px]" />}
+          {outcome === 'win' && <div className="pointer-events-none absolute left-1/2 top-0 h-32 w-3/4 -translate-x-1/2 bg-[var(--soft)] blur-[70px]" />}
           <div className="relative grid items-center gap-4 md:grid-cols-[1fr_auto_1fr] md:gap-8">
             <div className={`order-2 text-center md:order-1 ${mySide === 'home' ? 'md:text-right' : 'md:text-left'}`}>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#858A98]">Desafiante · Casa</div>
-              <div className="mt-1 break-words text-lg font-bold text-[#252733] sm:text-2xl">{homeName}</div>
-              <div className="mt-1 text-xs text-[#858A98]">{homeSnapshot?.formation ?? result.config.homeFormation}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Desafiante · Casa</div>
+              <div className="mt-1 break-words text-lg font-bold text-[var(--text)] sm:text-2xl">{homeName}</div>
+              <div className="mt-1 text-xs text-[var(--muted)]">{homeSnapshot?.formation ?? result.config.homeFormation}</div>
             </div>
             <div className="order-1 text-center md:order-2">
               <div className={`mb-3 inline-flex items-center gap-2 text-[11px] font-black tracking-[0.22em] ${outcomeColor}`}>
@@ -378,33 +378,33 @@ export default function PvpResultScreen({
                 {outcomeLabel}
               </div>
               <div className="flex items-center justify-center gap-3 sm:gap-5">
-                <span className={`text-6xl font-bold leading-none tracking-tight tabular-nums sm:text-8xl ${mySide === 'home' && outcome === 'win' || mySide === 'away' && outcome === 'loss' ? 'text-[#E30613]' : 'text-[#252733]'}`}>
+                <span className={`text-6xl font-bold leading-none tracking-tight tabular-nums sm:text-8xl ${mySide === 'home' && outcome === 'win' || mySide === 'away' && outcome === 'loss' ? 'text-[var(--red)]' : 'text-[var(--text)]'}`}>
                   {result.homeScore}
                 </span>
-                <span className="text-3xl font-light text-[#E9EAF0] sm:text-5xl">:</span>
-                <span className={`text-6xl font-bold leading-none tracking-tight tabular-nums sm:text-8xl ${mySide === 'away' && outcome === 'win' || mySide === 'home' && outcome === 'loss' ? 'text-[#E30613]' : 'text-[#252733]'}`}>
+                <span className="text-3xl font-light text-[var(--border)] sm:text-5xl">:</span>
+                <span className={`text-6xl font-bold leading-none tracking-tight tabular-nums sm:text-8xl ${mySide === 'away' && outcome === 'win' || mySide === 'home' && outcome === 'loss' ? 'text-[var(--red)]' : 'text-[var(--text)]'}`}>
                   {result.awayScore}
                 </span>
               </div>
-              <div className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#858A98]">
+              <div className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
                 {result.durationMinutes || 90} minutos · apito final
               </div>
               {result.penalties && (
-                <div className="mt-2 rounded-xl border border-[#E9EAF0] bg-white/80 px-3 py-2">
-                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#858A98]">Decisão por pênaltis</div>
-                  <div className="mt-1 text-xl font-black tabular-nums text-[#252733]">
-                    {result.penalties.homeScore} <span className="text-[#858A98]">–</span> {result.penalties.awayScore}
+                <div className="mt-2 rounded-xl border border-[var(--border)] bg-white/80 px-3 py-2">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Decisão por pênaltis</div>
+                  <div className="mt-1 text-xl font-black tabular-nums text-[var(--text)]">
+                    {result.penalties.homeScore} <span className="text-[var(--muted)]">–</span> {result.penalties.awayScore}
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-[#252733]">
+                  <div className="mt-1 text-sm font-semibold text-[var(--text)]">
                     {result.penalties.winnerSide === 'home' ? homeName : awayName} venceu nos pênaltis
                   </div>
                 </div>
               )}
             </div>
             <div className={`order-3 text-center ${mySide === 'away' ? 'md:text-right' : 'md:text-left'}`}>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#858A98]">Desafiado · Visitante</div>
-              <div className="mt-1 break-words text-lg font-bold text-[#252733] sm:text-2xl">{awayName}</div>
-              <div className="mt-1 text-xs text-[#858A98]">{awaySnapshot?.formation ?? result.config.awayFormation}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Desafiado · Visitante</div>
+              <div className="mt-1 break-words text-lg font-bold text-[var(--text)] sm:text-2xl">{awayName}</div>
+              <div className="mt-1 text-xs text-[var(--muted)]">{awaySnapshot?.formation ?? result.config.awayFormation}</div>
             </div>
           </div>
         </motion.section>
@@ -412,19 +412,19 @@ export default function PvpResultScreen({
         <section className="space-y-4">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E30613]">Performance da partida</div>
-              <h2 className="mt-1 text-xl font-semibold text-[#252733] sm:text-2xl">Destaques individuais</h2>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--red)]">Performance da partida</div>
+              <h2 className="mt-1 text-xl font-semibold text-[var(--text)] sm:text-2xl">Destaques individuais</h2>
             </div>
             <button
               onClick={() => setShowRatingFormula(value => !value)}
-              className="text-right text-[10px] font-medium text-[#858A98] underline decoration-[#E9EAF0] underline-offset-4 hover:text-[#E30613]"
+              className="text-right text-[10px] font-medium text-[var(--muted)] underline decoration-[var(--border)] underline-offset-4 hover:text-[var(--red)]"
               aria-expanded={showRatingFormula}
             >
               Como calculamos as notas?
             </button>
           </div>
           {showRatingFormula && (
-            <p className="rounded-xl border border-[#E9EAF0] bg-white p-3 text-xs leading-relaxed text-[#858A98]">
+            <p className="rounded-xl border border-[var(--border)] bg-white p-3 text-xs leading-relaxed text-[var(--muted)]">
               Nota determinística: base 6,0; +1,4 por gol, +0,8 por assistência, +0,35 por defesa, +0,18 por desarme, +0,025 por passe completo e +0,1 por chute no alvo. Desconta 0,08 por passe incompleto, 0,15 por chute para fora, 0,2 por falta e 0,5 por cartão amarelo. Resultado limitado a 0–10 e arredondado a uma casa. O motor não registra perdas de posse nem assistência no fluxo atual.
             </p>
           )}
@@ -432,7 +432,7 @@ export default function PvpResultScreen({
             {mvp && (
               <article className="card-surface relative overflow-hidden border-l-4 border-l-[#f5c542] p-4 sm:p-5">
                 <div className="absolute right-4 top-4 text-[#f5c542]/25"><Trophy className="h-12 w-12" aria-hidden="true" /></div>
-                <div className="relative mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#252733]">
+                <div className="relative mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text)]">
                   <Sparkles className="h-4 w-4 text-[#f5c542]" aria-hidden="true" /> MVP da partida
                 </div>
                 <div className="relative flex items-center justify-center gap-4 sm:gap-6">
@@ -446,16 +446,16 @@ export default function PvpResultScreen({
                     rating={mvp.rating}
                     accent="gold"
                   />
-                  <div className="hidden max-w-[150px] text-sm leading-relaxed text-[#858A98] lg:block">
+                  <div className="hidden max-w-[150px] text-sm leading-relaxed text-[var(--muted)] lg:block">
                     Melhor avaliação entre os jogadores com estatísticas registradas.
-                    <div className="mt-2 font-medium text-[#252733]">{mvp.side === 'home' ? homeName : awayName}</div>
+                    <div className="mt-2 font-medium text-[var(--text)]">{mvp.side === 'home' ? homeName : awayName}</div>
                   </div>
                 </div>
               </article>
             )}
             {worst && (
-              <article className="card-surface relative overflow-hidden border-l-4 border-l-[#E30613] p-4 sm:p-5">
-                <div className="relative mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#252733]">
+              <article className="card-surface relative overflow-hidden border-l-4 border-l-[var(--red)] p-4 sm:p-5">
+                <div className="relative mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text)]">
                   <ShieldAlert className="h-4 w-4" aria-hidden="true" /> Nota mais baixa
                 </div>
                 <div className="relative flex items-center justify-center gap-4 sm:gap-6">
@@ -469,9 +469,9 @@ export default function PvpResultScreen({
                     rating={worst.rating}
                     accent="red"
                   />
-                  <div className="hidden max-w-[150px] text-sm leading-relaxed text-[#858A98] lg:block">
+                  <div className="hidden max-w-[150px] text-sm leading-relaxed text-[var(--muted)] lg:block">
                     Menor nota entre os demais jogadores elegíveis. Avaliação baseada apenas nas ações registradas.
-                    <div className="mt-2 font-medium text-[#252733]">{worst.side === 'home' ? homeName : awayName}</div>
+                    <div className="mt-2 font-medium text-[var(--text)]">{worst.side === 'home' ? homeName : awayName}</div>
                   </div>
                 </div>
               </article>
@@ -491,15 +491,15 @@ export default function PvpResultScreen({
                     accent="neutral"
                   />
                   <div className="min-w-0">
-                    <div className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-[#858A98]">{award.title}</div>
-                    <div className="mt-1 truncate text-xs font-semibold text-[#252733]">{award.player.player.name}</div>
-                    <div className="mt-0.5 text-[10px] text-[#858A98]">{award.detail}</div>
+                    <div className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">{award.title}</div>
+                    <div className="mt-1 truncate text-xs font-semibold text-[var(--text)]">{award.player.player.name}</div>
+                    <div className="mt-0.5 text-[10px] text-[var(--muted)]">{award.detail}</div>
                   </div>
                 </article>
               ))}
             </div>
           )}
-          <div className="text-[10px] leading-relaxed text-[#858A98]">
+          <div className="text-[10px] leading-relaxed text-[var(--muted)]">
             Desarmes registrados incluem interceptações e desarmes do motor. Dribles não são contabilizados em estatísticas individuais; por isso, não há prêmio de drible. Assistências também não são atualmente atribuídas pelo motor.
           </div>
         </section>
@@ -508,14 +508,14 @@ export default function PvpResultScreen({
           <article className="card-surface p-4 sm:p-5">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#858A98]">Comparativo</div>
-                <h2 className="mt-1 text-lg font-semibold text-[#252733]">Números da partida</h2>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo</div>
+                <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Números da partida</h2>
               </div>
-              <ArrowLeftRight className="h-5 w-5 text-[#858A98]" aria-hidden="true" />
+              <ArrowLeftRight className="h-5 w-5 text-[var(--muted)]" aria-hidden="true" />
             </div>
             <div className="mb-5 grid grid-cols-2 gap-3 text-xs font-bold">
-              <div className="truncate text-[#E30613]">{homeName}<span className="ml-1 text-[9px] font-medium text-[#858A98]">· DESAFIANTE</span></div>
-              <div className="truncate text-right text-[#252733]">{awayName}<span className="ml-1 text-[9px] font-medium text-[#858A98]">· DESAFIADO</span></div>
+              <div className="truncate text-[var(--red)]">{homeName}<span className="ml-1 text-[9px] font-medium text-[var(--muted)]">· DESAFIANTE</span></div>
+              <div className="truncate text-right text-[var(--text)]">{awayName}<span className="ml-1 text-[9px] font-medium text-[var(--muted)]">· DESAFIADO</span></div>
             </div>
             <div className="space-y-4">
               {statRows.map(row => (
@@ -533,10 +533,10 @@ export default function PvpResultScreen({
 
           <article className="card-surface p-4 sm:p-5">
             <div className="mb-5 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#E30613]" aria-hidden="true" />
+              <Sparkles className="h-4 w-4 text-[var(--red)]" aria-hidden="true" />
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#858A98]">Pós-jogo</div>
-                <h2 className="mt-1 text-lg font-semibold text-[#252733]">Recompensas da sua equipe</h2>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Pós-jogo</div>
+                <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Recompensas da sua equipe</h2>
               </div>
             </div>
             <div className="rounded-xl border border-green-200 bg-green-50 p-3">
@@ -544,7 +544,7 @@ export default function PvpResultScreen({
                 <Check className="h-4 w-4" aria-hidden="true" />
                 {rewardsSyncStatus === 'synced' ? 'Dados sincronizados com o servidor' : rewardsSyncStatus === 'syncing' ? 'Sincronizando dados confirmados…' : 'Não foi possível confirmar a sincronização'}
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-[#858A98]">
+              <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
                 O resultado oficial aplica XP e estatísticas às cartas titulares pela transação do servidor. Esta interface não concede recompensas novamente.
               </p>
             </div>
@@ -559,10 +559,10 @@ export default function PvpResultScreen({
                     ? localImage
                     : null;
                 return (
-                  <div key={snapshotCard.uid} className="flex items-center justify-between gap-3 rounded-lg border border-[#E9EAF0] bg-white px-3 py-2">
+                  <div key={snapshotCard.uid} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-white px-3 py-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <div
-                        className="flex h-11 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-[#E9EAF0] bg-[#F7F7F9]"
+                        className="flex h-11 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-[var(--border)] bg-[var(--bg)]"
                         title={!cardImage ? 'Foto do jogador indisponível' : undefined}
                       >
                         {cardImage
@@ -572,11 +572,11 @@ export default function PvpResultScreen({
                             className="h-full w-full object-cover object-top"
                             onError={() => setFailedRewardImages(current => ({ ...current, [snapshotCard.uid]: cardImage }))}
                           />
-                          : <UserRound className="h-4 w-4 text-[#858A98]/50" aria-hidden="true" />}
+                          : <UserRound className="h-4 w-4 text-[var(--muted)]/50" aria-hidden="true" />}
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-xs font-semibold text-[#252733]">{snapshotCard.name}</div>
-                        <div className="text-[9px] text-[#858A98]">
+                        <div className="truncate text-xs font-semibold text-[var(--text)]">{snapshotCard.name}</div>
+                        <div className="text-[9px] text-[var(--muted)]">
                           {snapshotCard.position} · OVR {snapshotCard.overall}
                           {cardDetailsById[snapshotCard.uid]?.rarity && isRarity(cardDetailsById[snapshotCard.uid].rarity)
                             ? ` · ${RARITY_META[cardDetailsById[snapshotCard.uid].rarity as Rarity].label}`
@@ -585,24 +585,24 @@ export default function PvpResultScreen({
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="text-[9px] font-semibold uppercase tracking-wider text-[#858A98]">XP atual</div>
-                      <div className="text-xs font-bold tabular-nums text-[#252733]">{cardDetailsById[snapshotCard.uid]?.xp ?? '—'}</div>
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-[var(--muted)]">XP atual</div>
+                      <div className="text-xs font-bold tabular-nums text-[var(--text)]">{cardDetailsById[snapshotCard.uid]?.xp ?? '—'}</div>
                     </div>
                   </div>
                 );
               })}
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2 text-[10px]">
-              <div className="rounded-lg bg-[#F7F7F9] p-2 text-[#858A98]">
-                <span className="block font-semibold uppercase tracking-wider text-[#252733]">Moedas</span>
+              <div className="rounded-lg bg-[var(--bg)] p-2 text-[var(--muted)]">
+                <span className="block font-semibold uppercase tracking-wider text-[var(--text)]">Moedas</span>
                 Não há recompensa em moedas registrada no PvP.
               </div>
-              <div className="rounded-lg bg-[#F7F7F9] p-2 text-[#858A98]">
-                <span className="block font-semibold uppercase tracking-wider text-[#252733]">Nível da conta</span>
+              <div className="rounded-lg bg-[var(--bg)] p-2 text-[var(--muted)]">
+                <span className="block font-semibold uppercase tracking-wider text-[var(--text)]">Nível da conta</span>
                 O PvP atualiza XP das cartas, não o nível global.
               </div>
             </div>
-            <p className="mt-3 text-[9px] leading-relaxed text-[#858A98]">
+            <p className="mt-3 text-[9px] leading-relaxed text-[var(--muted)]">
               O backend não retorna um recibo com o XP ganho nesta partida. Os valores acima são o XP total atual das mesmas instâncias, após sincronização; não representam o acréscimo desta partida.
             </p>
           </article>
@@ -611,13 +611,13 @@ export default function PvpResultScreen({
         <section id="match-details" className="card-surface scroll-mt-6 p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#858A98]">Replay oficial</div>
-              <h2 className="mt-1 text-lg font-semibold text-[#252733]">Linha do tempo</h2>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Replay oficial</div>
+              <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Linha do tempo</h2>
             </div>
-            <div className="text-[10px] text-[#858A98]">{events.length} eventos registrados</div>
+            <div className="text-[10px] text-[var(--muted)]">{events.length} eventos registrados</div>
           </div>
           <div className="relative max-h-[440px] space-y-1 overflow-y-auto pr-1">
-            <div className="absolute bottom-3 left-[17px] top-3 w-px bg-[#E9EAF0]" aria-hidden="true" />
+            <div className="absolute bottom-3 left-[17px] top-3 w-px bg-[var(--border)]" aria-hidden="true" />
             {events.map((event, index) => {
               const isGoal = event.type === 'goal';
               const name = getEventPlayerName(event, result);
@@ -627,15 +627,15 @@ export default function PvpResultScreen({
                   initial={reduceMotion ? false : { opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: reduceMotion ? 0 : 0.2, delay: reduceMotion ? 0 : Math.min(index * 0.012, 0.25) }}
-                  className={`relative grid grid-cols-[2.25rem_2.5rem_1fr] items-start gap-2 rounded-xl p-2.5 ${isGoal ? 'border border-[#E30613]/20 bg-[#FFF0F2]' : 'border border-transparent hover:bg-[#F7F7F9]'}`}
+                  className={`relative grid grid-cols-[2.25rem_2.5rem_1fr] items-start gap-2 rounded-xl p-2.5 ${isGoal ? 'border border-[var(--red)]/20 bg-[var(--soft)]' : 'border border-transparent hover:bg-[var(--bg)]'}`}
                 >
-                  <span className={`pt-0.5 text-right font-mono text-[10px] font-bold tabular-nums ${isGoal ? 'text-[#E30613]' : 'text-[#858A98]'}`}>{event.minute}'</span>
-                  <span className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full ${isGoal ? 'bg-white' : 'bg-[#F7F7F9]'}`}>
+                  <span className={`pt-0.5 text-right font-mono text-[10px] font-bold tabular-nums ${isGoal ? 'text-[var(--red)]' : 'text-[var(--muted)]'}`}>{event.minute}'</span>
+                  <span className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full ${isGoal ? 'bg-white' : 'bg-[var(--bg)]'}`}>
                     {eventIcon(event)}
                   </span>
                   <div className="min-w-0">
-                    {name && <div className={`truncate text-[10px] font-semibold ${isGoal ? 'text-[#252733]' : 'text-[#858A98]'}`}>{name}</div>}
-                    <div className={`text-xs leading-relaxed ${isGoal ? 'font-semibold text-[#252733]' : 'text-[#858A98]'}`}>{event.description}</div>
+                    {name && <div className={`truncate text-[10px] font-semibold ${isGoal ? 'text-[var(--text)]' : 'text-[var(--muted)]'}`}>{name}</div>}
+                    <div className={`text-xs leading-relaxed ${isGoal ? 'font-semibold text-[var(--text)]' : 'text-[var(--muted)]'}`}>{event.description}</div>
                   </div>
                 </motion.div>
               );
@@ -643,18 +643,18 @@ export default function PvpResultScreen({
           </div>
         </section>
 
-        <footer className="flex flex-col-reverse gap-3 border-t border-[#E9EAF0] pt-5 sm:flex-row sm:justify-between">
-          <button onClick={onMenu} className="rounded-xl border border-[#E9EAF0] bg-white px-5 py-3 text-sm font-medium text-[#252733] transition hover:bg-[#F7F7F9]">
+        <footer className="flex flex-col-reverse gap-3 border-t border-[var(--border)] pt-5 sm:flex-row sm:justify-between">
+          <button onClick={onMenu} className="rounded-xl border border-[var(--border)] bg-white px-5 py-3 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--bg)]">
             Voltar ao menu
           </button>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <a href="#match-details" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#E9EAF0] bg-white px-5 py-3 text-sm font-medium text-[#252733] transition hover:bg-[#F7F7F9]">
+            <a href="#match-details" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-white px-5 py-3 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--bg)]">
               <ArrowDown className="h-4 w-4" aria-hidden="true" /> Detalhes da partida
             </a>
             <button
               onClick={onRematch}
               disabled={rematchLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E30613] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--red)] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
             >
               <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
               {rematchLoading ? 'Criando revanche…' : 'Jogar revanche'}

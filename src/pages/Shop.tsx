@@ -83,40 +83,40 @@ export default function Shop() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Loja e eventos</h1>
-      <div className="card-surface p-4 text-sm text-[#252733]">
-        Saldo atual: <span className="font-bold text-[#E30613]">{coins.toLocaleString('pt-BR')} moedas</span>
+      <h1 className="text-2xl md:text-3xl font-semibold text-[var(--text)]">Loja e eventos</h1>
+      <div className="card-surface p-4 text-sm text-[var(--text)]">
+        Saldo atual: <span className="font-bold text-[var(--red)]">{coins.toLocaleString('pt-BR')} moedas</span>
       </div>
 
       <div className="card-surface p-4 space-y-3">
-        <h2 className="text-lg font-semibold text-[#252733]">Pacote de moedas (demo)</h2>
-        <p className="text-sm text-[#858A98]">Receba 10.000 moedas virtuais para testar a loja. Sem pagamento real.</p>
+        <h2 className="text-lg font-semibold text-[var(--text)]">Pacote de moedas (demo)</h2>
+        <p className="text-sm text-[var(--muted)]">Receba 10.000 moedas virtuais para testar a loja. Sem pagamento real.</p>
         <button
           onClick={handleBuyCoins}
           disabled={buying || lockUntil > now || (supabase !== null && userId === null)}
-          className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium disabled:opacity-60"
+          className="px-4 py-2 rounded-xl bg-[var(--red)] text-white text-sm font-medium disabled:opacity-60"
         >
           {buying || lockUntil > now ? 'Processando...' : bought ? 'Concluído! +10.000' : 'Comprar 10.000 moedas (demo)'}
         </button>
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3 text-[#252733]">Eventos temporários</h2>
+        <h2 className="text-lg font-semibold mb-3 text-[var(--text)]">Eventos temporários</h2>
         <div className="grid md:grid-cols-2 gap-3">
           {events.map(e => (
             <div key={e.id} className="card-surface p-4">
-              <div className="font-medium text-[#252733]">{e.name}</div>
-              <div className="text-xs text-[#858A98] mt-1">Recompensa: {e.reward}</div>
-              <div className="mt-2 text-sm text-[#252733]">
-                Termina em: <span className="font-mono text-[#E30613]">{fmt(e.endsAt - now)}</span>
+              <div className="font-medium text-[var(--text)]">{e.name}</div>
+              <div className="text-xs text-[var(--muted)] mt-1">Recompensa: {e.reward}</div>
+              <div className="mt-2 text-sm text-[var(--text)]">
+                Termina em: <span className="font-mono text-[var(--red)]">{fmt(e.endsAt - now)}</span>
               </div>
             </div>
           ))}
-          {events.length === 0 && <div className="text-[#858A98]">Nenhum evento ativo.</div>}
+          {events.length === 0 && <div className="text-[var(--muted)]">Nenhum evento ativo.</div>}
         </div>
       </div>
 
-      <div className="card-surface p-4 text-xs text-[#858A98]">
+      <div className="card-surface p-4 text-xs text-[var(--muted)]">
         Esta versão utiliza moedas virtuais de demonstração. Não há compras com dinheiro real.
       </div>
     </div>

@@ -161,31 +161,31 @@ export default function Auth() {
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
             <div className="text-center">
               <img src={logo} alt="FutSENAI Cards" className="mx-auto h-64 object-contain" />
-              <div className="text-sm text-[#858A98] mt-1">{recovery ? 'Redefinir senha' : (mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta')}</div>
+              <div className="text-sm text-[var(--muted)] mt-1">{recovery ? 'Redefinir senha' : (mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta')}</div>
             </div>
             <form onSubmit={recovery ? handleResetPassword : submit} className="space-y-4">
               {recovery ? (
-                <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type="password" placeholder="Nova senha" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
+                <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type="password" placeholder="Nova senha" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
               ) : (
                 <>
                   {mode === 'register' && (
-                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Nome" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
+                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Nome" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
                   )}
-                  <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="Email" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
-                  <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Senha" className="w-full bg-[#F7F7F9] border border-[#E9EAF0] rounded-xl px-4 py-3 text-sm" />
+                  <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="Email" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
+                  <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Senha" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
                 </>
               )}
               {error && <div className="text-xs text-red-600">{error}</div>}
-              <button disabled={loading} className="w-full py-3 rounded-xl bg-[#E30613] text-white font-black disabled:opacity-60">
+              <button disabled={loading} className="w-full py-3 rounded-xl bg-[var(--red)] text-white font-black disabled:opacity-60">
                 {loading ? 'Aguarde...' : (recovery ? 'REDEFINIR SENHA' : (mode === 'login' ? 'ENTRAR' : 'CADASTRAR'))}
               </button>
               {!recovery && (
                 <>
-                  <button type="button" onClick={handleGoogleLogin} disabled={loading} className="w-full py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
+                  <button type="button" onClick={handleGoogleLogin} disabled={loading} className="w-full py-3 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
                     <span>Entrar com Google</span>
                   </button>
                   {mode === 'login' && (
-                    <button type="button" onClick={forgotPassword} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
+                    <button type="button" onClick={forgotPassword} className="w-full text-sm text-[var(--muted)] hover:text-[var(--red)]">
                       Esqueci minha senha
                     </button>
                   )}
@@ -193,7 +193,7 @@ export default function Auth() {
               )}
             </form>
             {!recovery && (
-              <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="w-full text-sm text-[#858A98] hover:text-[#E30613]">
+              <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="w-full text-sm text-[var(--muted)] hover:text-[var(--red)]">
                 {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
               </button>
             )}

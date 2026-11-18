@@ -57,7 +57,7 @@ export default function SecretCardOddsTable({ chancePercent, position }: { chanc
         ))}
       </ul>
       <p className="text-xs text-white/75">Os valores assumem que ainda há cópias disponíveis.</p>
-      <p className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#252733]">
+      <p className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[var(--text)]">
         {cheapest
           ? `Pacote mais barato para chegar a 99%: ${cheapest.pack.name.replace(/^PACOTE /, '')} (~${formatSecretCoins(cheapest.costFor99!)})`
           : 'Nenhum pacote elegível para esta posição.'}

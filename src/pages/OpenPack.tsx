@@ -96,6 +96,9 @@ export default function OpenPack() {
   const audioOn = useGame(s => s.settings.audio);
   const animationsOn = useGame(s => s.settings.animations);
   const pack = packs.find(p => p.id === packId);
+  useEffect(() => {
+    document.title = `${pack?.name ?? 'Abrir pacote'} | FutSENAI Cards`;
+  }, [pack?.name]);
 
   const [phase, setPhase] = useState<'idle'|'charging'|'burst'|'rarity'|'reveal'|'summary'|'choice'>('idle');
   const isDarkPhase = phase === 'charging' || phase === 'burst' || phase === 'rarity' || phase === 'reveal';
@@ -282,7 +285,7 @@ export default function OpenPack() {
   const allRevealed = revealed.length > 0 && revealed.every(Boolean);
   const goToSummary = () => setPhase('summary');
 
-  const packColor = pack.color || '#E30613';
+  const packColor = pack.color || 'var(--red)';
   const maxRank = cards.length ? Math.max(...cards.map(c => RARITY_RANK[c.rarity])) : 0;
   const particleCount = [40, 55, 70, 85, 105, 130, 170][maxRank];
   const estimatedValue = cards.reduce((s, c) => s + RARITY_VALUE[c.rarity], 0);
@@ -341,7 +344,7 @@ export default function OpenPack() {
               📦
             </motion.div>
             <div className="text-2xl font-black" style={{ color: packColor }}>{pack.name}</div>
-            <div className="text-[#858A98] text-sm">{pack.cards} cartas · {pack.price === 0 ? 'Evento' : pack.price.toLocaleString('pt-BR') + ' moedas'}</div>
+            <div className="text-[var(--muted)] text-sm">{pack.cards} cartas · {pack.price === 0 ? 'Evento' : pack.price.toLocaleString('pt-BR') + ' moedas'}</div>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -351,7 +354,7 @@ export default function OpenPack() {
             >
               ABRIR PACOTE
             </motion.button>
-            <div className="flex items-center gap-4 text-xs text-[#858A98]">
+            <div className="flex items-center gap-4 text-xs text-[var(--muted)]">
               <label className="flex min-h-11 items-center gap-2">
                 <input className="h-5 w-5" type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} />
                 Pular animação
@@ -417,7 +420,7 @@ export default function OpenPack() {
 
         {phase === 'choice' && (
           <motion.div key="choice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex w-full flex-col items-center gap-6 relative z-10">
-            <div className="text-2xl sm:text-3xl font-black text-[#E30613]">ESCOLHA SUA CARTA</div>
+            <div className="text-2xl sm:text-3xl font-black text-[var(--red)]">ESCOLHA SUA CARTA</div>
             <div className="grid w-full max-w-[25rem] grid-cols-2 gap-3 sm:max-w-none sm:grid-cols-3 sm:gap-5">
               {choiceCards.map(c => (
                 <motion.div key={c.uid} whileHover={{ scale: 1.05 }} onClick={() => {
@@ -480,7 +483,7 @@ export default function OpenPack() {
 
         {phase === 'summary' && (
           <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex w-full flex-col items-center gap-6 relative z-10">
-            <div className="text-2xl sm:text-3xl font-black text-[#E30613]">PACOTE ABERTO COM SUCESSO!</div>
+            <div className="text-2xl sm:text-3xl font-black text-[var(--red)]">PACOTE ABERTO COM SUCESSO!</div>
             <div className="grid w-full max-w-md grid-cols-2 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-5 sm:items-end">
               {cards.map((c, i) => (
                 <motion.div
@@ -500,25 +503,25 @@ export default function OpenPack() {
             <div className="grid w-full max-w-2xl grid-cols-3 gap-3">
               <div className="flex-1 card-surface p-3 text-center space-y-1">
                 <Coins className="w-6 h-6 mx-auto text-[#EF4444]" />
-                <div className="text-lg font-bold text-[#252733]">{estimatedValue.toLocaleString('pt-BR')}</div>
-                <div className="text-[10px] text-[#858A98]">Valor total</div>
+                <div className="text-lg font-bold text-[var(--text)]">{estimatedValue.toLocaleString('pt-BR')}</div>
+                <div className="text-[10px] text-[var(--muted)]">Valor total</div>
               </div>
               <div className="flex-1 card-surface p-3 text-center space-y-1">
                 <Trophy className="w-6 h-6 mx-auto text-[#EF4444]" />
-                <div className="text-lg font-bold text-[#252733]">{cards[0]?.overall ?? 0}</div>
-                <div className="text-[10px] text-[#858A98]">Melhor carta</div>
+                <div className="text-lg font-bold text-[var(--text)]">{cards[0]?.overall ?? 0}</div>
+                <div className="text-[10px] text-[var(--muted)]">Melhor carta</div>
               </div>
               <div className="flex-1 card-surface p-3 text-center space-y-1">
                 <Copy className="w-6 h-6 mx-auto text-[#EF4444]" />
-                <div className="text-lg font-bold text-[#252733]">{duplicateCount}</div>
-                <div className="text-[10px] text-[#858A98]">Duplicatas</div>
+                <div className="text-lg font-bold text-[var(--text)]">{duplicateCount}</div>
+                <div className="text-[10px] text-[var(--muted)]">Duplicatas</div>
               </div>
             </div>
             <div className="sticky bottom-20 z-20 flex w-full flex-wrap justify-center gap-3 py-2 md:bottom-4">
-              <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: '#E30613' }}>
+              <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: 'var(--red)' }}>
                 VER COLEÇÃO
               </button>
-              <button onClick={() => { openingRef.current = false; setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setShake(false); setDuplicateCount(0); }} className="px-6 py-3 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] font-black hover:bg-[#F7F7F9]">
+              <button onClick={() => { openingRef.current = false; setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setShake(false); setDuplicateCount(0); }} className="px-6 py-3 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] font-black hover:bg-[var(--bg)]">
                 ABRIR OUTRO PACOTE
               </button>
             </div>

@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'alert';
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+const DISMISS_AFTER: Record<ToastType, number> = {
+  success: 3500,
+  error: 5500,
+  warning: 4500,
+  info: 3500,
+};
 
 export interface Toast {
   id: string;
@@ -19,7 +26,7 @@ export const useToast = create<ToastStore>((set) => ({
   show: (type, message) => {
     const id = Math.random().toString(36).slice(2);
     set(st => ({ toasts: [...st.toasts, { id, type, message }] }));
-    setTimeout(() => set(st => ({ toasts: st.toasts.filter(t => t.id !== id) })), 3500);
+    setTimeout(() => set(st => ({ toasts: st.toasts.filter(t => t.id !== id) })), DISMISS_AFTER[type]);
   },
   remove: (id) => set(st => ({ toasts: st.toasts.filter(t => t.id !== id) })),
 }));
@@ -29,5 +36,4 @@ export const toast = {
   error: (m: string) => useToast.getState().show('error', m),
   warning: (m: string) => useToast.getState().show('warning', m),
   info: (m: string) => useToast.getState().show('info', m),
-  alert: (m: string) => useToast.getState().show('alert', m),
 };

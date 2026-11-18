@@ -8,12 +8,12 @@ export default function LoadingScreen({ onDone }: { onDone: () => void }) {
     return () => { clearInterval(t); clearTimeout(done); };
   }, [onDone]);
   return (
-    <div className="fixed inset-0 z-[200] bg-[#F7F7F9] flex flex-col items-center justify-center gap-6">
-      <div className="text-4xl font-black"><span className="text-[#E30613]">FUT</span><span className="text-[#252733]">SENAI</span> <span className="text-[#858A98] text-lg">CARDS</span></div>
-      <div className="w-64 h-2 bg-[#E9EAF0] rounded-full overflow-hidden">
-        <div className="h-full bg-[#E30613] transition-all" style={{ width: `${progress}%` }} />
+    <div className="fixed inset-0 z-[200] bg-[var(--bg)] flex flex-col items-center justify-center gap-6">
+      <div className="text-4xl font-black"><span className="text-[var(--red)]">FUT</span><span className="text-[var(--text)]">SENAI</span> <span className="text-[var(--muted)] text-lg">CARDS</span></div>
+      <div className="w-64 h-2 bg-[var(--border)] rounded-full overflow-hidden">
+        <div className="h-full bg-[var(--red)] transition-all" style={{ width: `${progress}%` }} />
       </div>
-      <div className="text-xs text-[#858A98]">Carregando...</div>
+      <div className="text-xs text-[var(--muted)]">Carregando...</div>
     </div>
   );
 }

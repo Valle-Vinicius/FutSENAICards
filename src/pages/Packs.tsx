@@ -11,34 +11,34 @@ const PACK_SECTIONS = [
 ];
 
 const PACK_BUTTON_STYLES: Record<string, { background: string; foreground: string }> = {
-  '#cd7f32': { background: '#cd7f32', foreground: '#252733' },
-  '#c0c0c0': { background: '#c0c0c0', foreground: '#252733' },
-  '#f5c542': { background: '#f5c542', foreground: '#252733' },
-  '#e30613': { background: '#E30613', foreground: '#FFFFFF' },
-  '#a855f7': { background: '#7e22ce', foreground: '#FFFFFF' },
-  '#3b82f6': { background: '#1d4ed8', foreground: '#FFFFFF' },
-  '#b6ff3b': { background: '#b6ff3b', foreground: '#252733' },
+  '#cd7f32': { background: '#cd7f32', foreground: 'var(--text)' },
+  '#c0c0c0': { background: '#c0c0c0', foreground: 'var(--text)' },
+  '#f5c542': { background: '#f5c542', foreground: 'var(--text)' },
+  '#e30613': { background: 'var(--red)', foreground: 'var(--white)' },
+  '#a855f7': { background: '#7e22ce', foreground: 'var(--white)' },
+  '#3b82f6': { background: '#1d4ed8', foreground: 'var(--white)' },
+  '#b6ff3b': { background: '#b6ff3b', foreground: 'var(--text)' },
 };
 
 const PACK_ICON_COLORS: Record<string, string> = {
-  '#cd7f32': '#252733',
-  '#c0c0c0': '#252733',
-  '#f5c542': '#252733',
-  '#e30613': '#E30613',
+  '#cd7f32': 'var(--text)',
+  '#c0c0c0': 'var(--text)',
+  '#f5c542': 'var(--text)',
+  '#e30613': 'var(--red)',
   '#a855f7': '#7e22ce',
   '#3b82f6': '#1d4ed8',
-  '#b6ff3b': '#252733',
+  '#b6ff3b': 'var(--text)',
 };
 
 function renderPack(pack: PackDef, coins: number) {
-  const color = pack.color || '#858A98';
+  const color = pack.color || 'var(--muted)';
   const normalizedColor = color.toLowerCase();
   const buttonStyle = PACK_BUTTON_STYLES[normalizedColor] ?? (
     pack.color
-      ? { background: color, foreground: '#252733' }
-      : { background: '#6B7280', foreground: '#FFFFFF' }
+      ? { background: color, foreground: 'var(--text)' }
+      : { background: '#6B7280', foreground: 'var(--white)' }
   );
-  const iconColor = PACK_ICON_COLORS[normalizedColor] ?? '#252733';
+  const iconColor = PACK_ICON_COLORS[normalizedColor] ?? 'var(--text)';
   const hasBalance = coins >= pack.price;
   const style = {
     borderTopColor: color,
@@ -64,20 +64,20 @@ function renderPack(pack: PackDef, coins: number) {
           <PackageOpen className="h-8 w-8 xl:h-7 xl:w-7 2xl:h-10 2xl:w-10" strokeWidth={1.8} />
         </div>
         <div className="min-w-0">
-          <h3 className="text-base font-bold leading-5 tracking-wide text-[#252733] xl:text-sm xl:leading-4 2xl:text-lg 2xl:leading-6">{pack.name.toLocaleUpperCase('pt-BR')}</h3>
+          <h3 className="text-base font-bold leading-5 tracking-wide text-[var(--text)] xl:text-sm xl:leading-4 2xl:text-lg 2xl:leading-6">{pack.name.toLocaleUpperCase('pt-BR')}</h3>
           <p className="mt-1 text-xs leading-4 text-[#626879] 2xl:text-sm 2xl:leading-5">{pack.description}</p>
         </div>
       </header>
 
-      <div className="flex items-center justify-between gap-2 border-y border-[#E9EAF0] py-2 text-xs xl:py-1 2xl:py-2 2xl:text-sm">
+      <div className="flex items-center justify-between gap-2 border-y border-[var(--border)] py-2 text-xs xl:py-1 2xl:py-2 2xl:text-sm">
         <div className="flex items-center gap-1">
           <span className="text-[#626879]">Cartas</span>
-          <span className="font-semibold text-[#252733]">{pack.cards}</span>
+          <span className="font-semibold text-[var(--text)]">{pack.cards}</span>
         </div>
         <div className="flex min-w-0 items-center gap-1">
           <span className="text-[#626879]">Preço</span>
           <span
-            className="whitespace-nowrap rounded-md px-1.5 py-0.5 text-right font-bold text-[#252733]"
+            className="whitespace-nowrap rounded-md px-1.5 py-0.5 text-right font-bold text-[var(--text)]"
             style={{ backgroundColor: `${color}22` }}
           >
             {pack.price === 0 ? 'Evento' : `${pack.price.toLocaleString('pt-BR')} moedas`}
@@ -90,7 +90,7 @@ function renderPack(pack: PackDef, coins: number) {
         <div
           role="img"
           aria-label={`Probabilidades: ${ariaProbabilities}`}
-          className="flex h-3 overflow-hidden rounded-full bg-[#E9EAF0] xl:h-2 2xl:h-3"
+          className="flex h-3 overflow-hidden rounded-full bg-[var(--border)] xl:h-2 2xl:h-3"
         >
           {rarityEntries.map(([rarity, chance]) => chance > 0 && (
             <span
@@ -123,7 +123,7 @@ function renderPack(pack: PackDef, coins: number) {
             to={`/open/${pack.id}`}
             aria-disabled={!hasBalance}
             tabIndex={hasBalance ? undefined : -1}
-            className={`flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#252733] 2xl:min-h-14 2xl:text-base ${
+            className={`flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text)] 2xl:min-h-14 2xl:text-base ${
               hasBalance
                 ? 'text-white transition-[filter] hover:brightness-110 motion-reduce:transition-none'
                 : 'pointer-events-none cursor-not-allowed bg-[#D5D8E0] text-[#424858]'
@@ -151,7 +151,7 @@ export default function Packs() {
 
   return (
     <div className="space-y-6 p-4 pb-12 md:p-8">
-      <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Loja de pacotes</h1>
+      <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Loja de pacotes</h1>
       {sections.map(section => (
         <section key={section.title} className="space-y-3">
           <h2 className="text-sm font-bold uppercase tracking-wider text-[#424858]">{section.title}</h2>

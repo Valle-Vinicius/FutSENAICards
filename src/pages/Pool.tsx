@@ -13,6 +13,7 @@ import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, CORNER_POCKET_RADIUS, POCKETS }
 import type { Ball, TableState } from '../engine/pool/types';
 import { playTone } from '../lib/sound';
 import Card from '../components/Card';
+import ConfirmModal from '../components/ConfirmModal';
 import { useGame } from '../store/useGame';
 
 const BALL_COLORS = [
@@ -305,6 +306,7 @@ export default function Pool() {
   const [selectedWagerCardId, setSelectedWagerCardId] = useState('');
   const [wagerCardSearch, setWagerCardSearch] = useState('');
   const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [playerNames, setPlayerNames] = useState({ player1: 'Jogador 1', player2: 'Jogador 2' });
   const [shotLog, setShotLog] = useState<PoolShotEvent[]>([]);
   const [lastPlayedShotSeq, setLastPlayedShotSeq] = useState(0);
@@ -403,7 +405,7 @@ export default function Pool() {
       console.error('pool invite wager cards load failed', error);
       if (active) {
         setAvailableWagerCardIds([]);
-        toast.alert('Não foi possível carregar as cartas disponíveis para essa aposta.');
+        toast.error('Não foi possível carregar as cartas disponíveis para essa aposta.');
       }
     });
     return () => { active = false; };
@@ -454,7 +456,7 @@ export default function Pool() {
           }),
         ]);
         console.log('[Pool] loaded match:', m);
-        if (!m) { toast.alert('Partida não encontrada.'); navigate('/'); return; }
+        if (!m) { toast.error('Partida não encontrada.'); navigate('/'); return; }
         if (clockOffset !== null) {
           serverClockOffsetRef.current = clockOffset;
           setServerClockOffsetMs(clockOffset);
@@ -511,7 +513,7 @@ export default function Pool() {
         setLoading(false);
       } catch (error) {
         console.error('pool match load failed', error);
-        toast.alert('Não foi possível carregar a partida.');
+        toast.error('Não foi possível carregar a partida.');
         setLoading(false);
       }
     })();
@@ -916,7 +918,7 @@ export default function Pool() {
     if (shooting || !state || !match || !state.balls || !isMyTurn) return;
     if (sessionUserId === null) return;
     if (cueInHand && !ballInHandPos) {
-      toast.alert('Reposicione a bola branca antes de tacar.');
+      toast.error('Reposicione a bola branca antes de tacar.');
       return;
     }
     const clickedAt = performance.now();
@@ -1007,7 +1009,7 @@ export default function Pool() {
         if (timingAfterResponse) timingAfterResponse.predictionMatched = false;
         cancelShotPrediction(predictedSeq);
         maybeLogShotTiming(predictedSeq);
-        toast.alert(res?.error ?? 'Não foi possível validar a tacada.');
+        toast.error(res?.error ?? 'Não foi possível validar a tacada.');
         const fresh = await getPoolMatch(match.id);
         if (fresh) setMatch(fresh);
         if (fresh?.tableState && fresh.lastShotSeq <= lastPlayedShotSeqRef.current) {
@@ -1028,7 +1030,7 @@ export default function Pool() {
       cancelShotPrediction(predictedSeq);
       maybeLogShotTiming(predictedSeq);
       console.error('shot failed', e);
-      toast.alert(e instanceof Error ? e.message : 'Erro na tacada.');
+      toast.error(e instanceof Error ? e.message : 'Erro na tacada.');
     } finally {
       if (!animationQueued && !processingAnimationsRef.current && queuedAnimationsRef.current.size === 0) {
         shootingRef.current = false;
@@ -1243,20 +1245,34 @@ export default function Pool() {
 
   const handleLeave = async () => {
     if (!match) return;
-    const message = match.status === 'pending'
-      ? 'Cancelar este convite e sair da partida?'
-      : 'Sair agora contará como desistência e dará a vitória ao adversário. Deseja continuar?';
-    if (!window.confirm(message)) return;
+    setLeaveConfirmOpen(true);
+  };
+  const confirmLeave = async () => {
+    if (!match) return;
+    setLeaveConfirmOpen(false);
     const abandoned = await abandonPoolMatch(match.id);
     if (!abandoned) {
-      toast.alert('Não foi possível encerrar a partida.');
+      toast.error('Não foi possível encerrar a partida.');
       return;
     }
     navigate('/');
   };
 
-  if (loading) return <div className="p-8 text-[#858A98]">Carregando partida...</div>;
-  if (!match || !state) return <div className="p-8 text-[#858A98]">Partida não encontrada.</div>;
+  if (loading) return <div className="p-8 text-[var(--muted)]">Carregando partida...</div>;
+  if (!match || !state) return <div className="p-8 text-[var(--muted)]">Partida não encontrada.</div>;
+  const leaveConfirmModal = (
+    <ConfirmModal
+      open={leaveConfirmOpen}
+      title={match.status === 'pending' ? 'Cancelar convite' : 'Sair da partida'}
+      message={match.status === 'pending'
+        ? 'Cancelar este convite e sair da partida?'
+        : 'Sair agora contará como desistência e dará a vitória ao adversário. Deseja continuar?'}
+      onCancel={() => setLeaveConfirmOpen(false)}
+      onConfirm={() => void confirmLeave()}
+      confirmLabel={match.status === 'pending' ? 'Cancelar convite' : 'Desistir'}
+      confirmVariant="danger"
+    />
+  );
 
   if (match.status === 'pending') {
     const isInvitedPlayer = sessionUserId === match.player2Id;
@@ -1270,24 +1286,24 @@ export default function Pool() {
     return (
       <div className="p-4 md:p-8 space-y-4">
         <div className="card-surface p-4 text-center">
-          <div className="font-bold text-[#252733]">{playerNames.player1}</div>
-          <div className="text-[#858A98]">vs</div>
-          <div className="font-bold text-[#252733]">{playerNames.player2}</div>
+          <div className="font-bold text-[var(--text)]">{playerNames.player1}</div>
+          <div className="text-[var(--muted)]">vs</div>
+          <div className="font-bold text-[var(--text)]">{playerNames.player2}</div>
         </div>
-        <div className="card-surface p-8 text-center text-[#858A98]">
-          <div className="text-lg font-black text-[#252733]">Convite enviado</div>
+        <div className="card-surface p-8 text-center text-[var(--muted)]">
+          <div className="text-lg font-black text-[var(--text)]">Convite enviado</div>
           <div className="mt-2 text-sm">{isInvitedPlayer ? `${playerNames.player1} te desafiou para uma partida de sinuca.` : `Aguardando ${playerNames.player2} aceitar a partida.`}</div>
-          {match.wagerType === 'coins' && <p className="mt-3 text-sm font-medium text-[#252733]">Aposta: {match.stake.toLocaleString('pt-BR')} moedas por jogador · prêmio total de {(match.stake * 2).toLocaleString('pt-BR')} moedas.</p>}
-          {match.wagerType === 'card' && <p className="mt-3 text-sm font-medium text-[#252733]">Aposta: uma carta por jogador. {isInvitedPlayer ? `Carta oferecida: ${match.player1CardSnapshot?.name ?? 'carta' } · ${match.player1CardSnapshot?.overall ?? '—'} OVR · ${match.player1CardSnapshot?.rarity ?? '—'}. Escolha uma carta sua para igualar.` : `Sua carta reservada: ${match.player1CardSnapshot?.name ?? 'carta' } · ${match.player1CardSnapshot?.overall ?? '—'} OVR · ${match.player1CardSnapshot?.rarity ?? '—'}.`}</p>}
+          {match.wagerType === 'coins' && <p className="mt-3 text-sm font-medium text-[var(--text)]">Aposta: {match.stake.toLocaleString('pt-BR')} moedas por jogador · prêmio total de {(match.stake * 2).toLocaleString('pt-BR')} moedas.</p>}
+          {match.wagerType === 'card' && <p className="mt-3 text-sm font-medium text-[var(--text)]">Aposta: uma carta por jogador. {isInvitedPlayer ? `Carta oferecida: ${match.player1CardSnapshot?.name ?? 'carta' } · ${match.player1CardSnapshot?.overall ?? '—'} OVR · ${match.player1CardSnapshot?.rarity ?? '—'}. Escolha uma carta sua para igualar.` : `Sua carta reservada: ${match.player1CardSnapshot?.name ?? 'carta' } · ${match.player1CardSnapshot?.overall ?? '—'} OVR · ${match.player1CardSnapshot?.rarity ?? '—'}.`}</p>}
           {isInvitedPlayer && match.wagerType === 'card' && (
             <div className="mt-4 space-y-3">
-              <input value={wagerCardSearch} onChange={event => setWagerCardSearch(event.target.value)} placeholder="Buscar sua carta..." className="w-full rounded-xl border border-[#E9EAF0] px-3 py-2 text-sm" />
+              <input value={wagerCardSearch} onChange={event => setWagerCardSearch(event.target.value)} placeholder="Buscar sua carta..." className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-sm" />
               {availableWagerCardIds === null ? (
                 <p className="text-sm">Carregando cartas disponíveis...</p>
               ) : (
                 <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {filteredWagerCards.map(card => (
-                    <div key={card.uid} className={`rounded-2xl p-1 ${selectedWagerCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
+                    <div key={card.uid} className={`rounded-2xl p-1 ${selectedWagerCardId === card.uid ? 'ring-2 ring-[var(--red)]' : ''}`}>
                       <Card card={card} size="fluid" onClick={() => setSelectedWagerCardId(card.uid)} />
                     </div>
                   ))}
@@ -1298,10 +1314,10 @@ export default function Pool() {
             </div>
           )}
           {sessionUserId === match.player1Id && (
-            <div className="text-xs mt-2 text-[#858A98]">Você criou o desafio.</div>
+            <div className="text-xs mt-2 text-[var(--muted)]">Você criou o desafio.</div>
           )}
           {sessionUserId === match.player2Id && (
-            <div className="text-xs mt-2 text-[#858A98]">Você foi desafiado.</div>
+            <div className="text-xs mt-2 text-[var(--muted)]">Você foi desafiado.</div>
           )}
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {isInvitedPlayer && (
@@ -1313,7 +1329,7 @@ export default function Pool() {
                     try {
                       const accepted = await acceptPoolMatch(match.id, match.wagerType === 'card' ? selectedWagerCardId : undefined);
                       if (!accepted) {
-                        toast.alert('O convite não está mais disponível.');
+                        toast.error('O convite não está mais disponível.');
                         return;
                       }
                       const updated = await getPoolMatch(match.id);
@@ -1324,27 +1340,28 @@ export default function Pool() {
                         });
                       }
                     } catch (error) {
-                      toast.alert(error instanceof Error ? error.message : 'Não foi possível aceitar a aposta.');
+                      toast.error(error instanceof Error ? error.message : 'Não foi possível aceitar a aposta.');
                     } finally {
                       setAcceptingInvite(false);
                     }
                   }}
-                  className="rounded-xl bg-[#E30613] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  className="rounded-xl bg-[var(--red)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >{acceptingInvite ? 'Aceitando...' : 'Aceitar aposta e jogar'}</button>
                 <button onClick={async () => {
                   try {
                     const rejected = await rejectPoolMatch(match.id);
                     if (rejected) navigate('/');
-                    else toast.alert('Não foi possível recusar o convite.');
+                    else toast.error('Não foi possível recusar o convite.');
                   } catch (error) {
-                    toast.alert(error instanceof Error ? error.message : 'Não foi possível recusar o convite.');
+                    toast.error(error instanceof Error ? error.message : 'Não foi possível recusar o convite.');
                   }
-                }} className="rounded-xl border border-[#E9EAF0] bg-white px-4 py-2 text-sm font-medium">Recusar</button>
+                }} className="rounded-xl border border-[var(--border)] bg-white px-4 py-2 text-sm font-medium">Recusar</button>
               </>
             )}
-            {sessionUserId === match.player1Id && <button onClick={handleLeave} className="rounded-xl border-2 border-[#E9EAF0] px-4 py-2 text-sm text-[#E30613]">Cancelar convite</button>}
+            {sessionUserId === match.player1Id && <button onClick={handleLeave} className="rounded-xl border-2 border-[var(--border)] px-4 py-2 text-sm text-[var(--red)]">Cancelar convite</button>}
           </div>
         </div>
+        {leaveConfirmModal}
       </div>
     );
   }
@@ -1354,8 +1371,8 @@ export default function Pool() {
       <div className="mx-auto w-full max-w-7xl space-y-4 p-3 sm:p-5 lg:p-6">
         <div className={`card-surface flex flex-wrap items-center justify-between gap-4 border-l-4 p-4 sm:p-5 ${isMyTurn ? 'border-l-[#16834a]' : 'border-l-[#2877db]'}`}>
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-[#858A98]">FutSENAI · PvP</div>
-            <h1 className="mt-1 text-xl font-black text-[#252733] sm:text-2xl">Sinuca 8-ball</h1>
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">FutSENAI · PvP</div>
+            <h1 className="mt-1 text-xl font-black text-[var(--text)] sm:text-2xl">Sinuca 8-ball</h1>
             <div className={`mt-2 text-lg font-black ${isMyTurn ? 'text-[#16834a]' : 'text-[#2877db]'}`}>
               {isMyTurn ? 'Sua vez de jogar' : `Vez de ${activePlayerName}`}
             </div>
@@ -1375,12 +1392,12 @@ export default function Pool() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {remainingSeconds !== null && (
-              <div className={`rounded-xl px-4 py-2 text-center ${remainingSeconds <= 10 ? 'bg-[#FFF0F2] text-[#D00010]' : 'bg-[#F7F7F9] text-[#252733]'}`}>
+              <div className={`rounded-xl px-4 py-2 text-center ${remainingSeconds <= 10 ? 'bg-[var(--soft)] text-[#D00010]' : 'bg-[var(--bg)] text-[var(--text)]'}`}>
                 <div className="text-[10px] font-bold uppercase tracking-wider">Tempo do turno</div>
                 <div className="text-xl font-black tabular-nums">{Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')}</div>
               </div>
             )}
-            <button onClick={handleLeave} className="rounded-xl border border-[#E9EAF0] px-4 py-2 text-sm font-semibold text-[#E30613] transition hover:bg-[#FFF0F2]">Sair da partida</button>
+            <button onClick={handleLeave} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--red)] transition hover:bg-[var(--soft)]">Sair da partida</button>
           </div>
         </div>
 
@@ -1412,11 +1429,12 @@ export default function Pool() {
               <span className="flex items-center gap-2"><i className="h-3 w-3 rounded-full bg-[#171717]" />Bola 8</span>
               <span className="flex items-center gap-2"><i className="h-3 w-3 rounded-full border border-gray-300 bg-white" />Branca</span>
             </div>
+            {leaveConfirmModal}
           </div>
 
           <div className="space-y-4">
             <div className="card-surface space-y-3 p-4 sm:p-5">
-              <div className="text-xs font-bold uppercase tracking-wider text-[#858A98]">Jogadores</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Jogadores</div>
               {[1, 2].map(player => {
                 const playerType = state.assignments[`player${player}` as 'player1' | 'player2'];
                 const remaining = playerType
@@ -1425,10 +1443,10 @@ export default function Pool() {
                 const playerName = player === 1 ? playerNames.player1 : playerNames.player2;
                 const active = state.currentPlayer === player;
                 return (
-                  <div key={player} className={`rounded-xl border p-3 ${active ? 'border-[#E30613] bg-[#FFF8F8]' : 'border-[#E9EAF0] bg-white'}`}>
+                  <div key={player} className={`rounded-xl border p-3 ${active ? 'border-[var(--red)] bg-[#FFF8F8]' : 'border-[var(--border)] bg-white'}`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-bold text-[#252733]">{playerName}</span>
-                      {active && <span className="shrink-0 rounded-full bg-[#E30613] px-2 py-0.5 text-[10px] font-black uppercase text-white">Jogando</span>}
+                      <span className="truncate font-bold text-[var(--text)]">{playerName}</span>
+                      {active && <span className="shrink-0 rounded-full bg-[var(--red)] px-2 py-0.5 text-[10px] font-black uppercase text-white">Jogando</span>}
                     </div>
                     <div className="mt-1 text-xs text-[#626675]">
                       {playerType
@@ -1442,31 +1460,31 @@ export default function Pool() {
               {isMyTurn ? (
                 <>
                   <div className="grid grid-cols-3 gap-1 text-center text-[10px] font-black uppercase tracking-wide text-[#626675]">
-                    <div className="rounded-lg bg-[#F7F7F9] p-2"><b className="mr-1 text-[#E30613]">1</b>Mire</div>
-                    <div className="rounded-lg bg-[#F7F7F9] p-2"><b className="mr-1 text-[#E30613]">2</b>Força</div>
-                    <div className="rounded-lg bg-[#F7F7F9] p-2"><b className="mr-1 text-[#E30613]">3</b>Taque</div>
+                    <div className="rounded-lg bg-[var(--bg)] p-2"><b className="mr-1 text-[var(--red)]">1</b>Mire</div>
+                    <div className="rounded-lg bg-[var(--bg)] p-2"><b className="mr-1 text-[var(--red)]">2</b>Força</div>
+                    <div className="rounded-lg bg-[var(--bg)] p-2"><b className="mr-1 text-[var(--red)]">3</b>Taque</div>
                   </div>
                   <label className="block space-y-2">
                     <span className="flex justify-between text-sm font-semibold text-[#555967]"><span>Ângulo · ajuste fino</span><span>{Math.round(angle * 180 / Math.PI)}°</span></span>
-                    <input type="range" min={0} max={6.283} step={0.001} value={angle} onChange={e => setAngle(Number(e.target.value))} className="w-full accent-[#E30613]" disabled={shooting} />
+                    <input type="range" min={0} max={6.283} step={0.001} value={angle} onChange={e => setAngle(Number(e.target.value))} className="w-full accent-[var(--red)]" disabled={shooting} />
                   </label>
                   <label className="block space-y-2">
                     <span className="flex justify-between text-sm font-semibold text-[#555967]"><span>Força</span><span>{Math.round(power * 100)}%</span></span>
-                    <input type="range" min={0.1} max={1} step={0.01} value={power} onChange={e => setPower(Number(e.target.value))} className="w-full accent-[#E30613]" disabled={shooting} />
+                    <input type="range" min={0.1} max={1} step={0.01} value={power} onChange={e => setPower(Number(e.target.value))} className="w-full accent-[var(--red)]" disabled={shooting} />
                   </label>
-                  <p className="text-xs text-[#858A98]">
+                  <p className="text-xs text-[var(--muted)]">
                     {cueInHand
                       ? ballInHandPos
                         ? 'Branca reposicionada. Toque ou arraste na mesa para mirar.'
                         : 'Falta: toque ou arraste a branca para um espaço livre da mesa.'
                       : 'Toque ou arraste na mesa para mirar. A projeção considera se a força alcança a bola.'}
                   </p>
-                  <button onClick={handleShoot} disabled={shooting || (cueInHand && !ballInHandPos)} className="w-full rounded-xl bg-[#E30613] py-3 font-black tracking-wide text-white shadow-lg shadow-red-900/15 transition hover:bg-[#c9000c] disabled:cursor-not-allowed disabled:opacity-60">
+                  <button onClick={handleShoot} disabled={shooting || (cueInHand && !ballInHandPos)} className="w-full rounded-xl bg-[var(--red)] py-3 font-black tracking-wide text-white shadow-lg shadow-red-900/15 transition hover:bg-[#c9000c] disabled:cursor-not-allowed disabled:opacity-60">
                     {shooting ? 'Tacando…' : cueInHand && !ballInHandPos ? 'POSICIONE A BRANCA' : 'TACAR'}
                   </button>
                 </>
               ) : (
-                <div className="rounded-xl bg-[#F7F7F9] p-4 text-center text-sm font-medium text-[#858A98]">
+                <div className="rounded-xl bg-[var(--bg)] p-4 text-center text-sm font-medium text-[var(--muted)]">
                   {shooting || playbackPending || match.shotLockId || waitingForTurnStart
                     ? 'Sincronizando a tacada…'
                     : 'Aguardando a vez do adversário…'}
@@ -1475,12 +1493,12 @@ export default function Pool() {
             </div>
 
             <div className="card-surface p-4">
-              <div className="text-xs font-bold uppercase tracking-wider text-[#858A98]">Última jogada</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Última jogada</div>
               {shotLog.length > 0
-                ? <p className="mt-2 text-sm font-semibold text-[#252733]">{formatShotLog(shotLog[shotLog.length - 1], match, playerNames)}</p>
-                : <p className="mt-2 text-sm text-[#858A98]">As tacadas e faltas aparecerão aqui.</p>}
+                ? <p className="mt-2 text-sm font-semibold text-[var(--text)]">{formatShotLog(shotLog[shotLog.length - 1], match, playerNames)}</p>
+                : <p className="mt-2 text-sm text-[var(--muted)]">As tacadas e faltas aparecerão aqui.</p>}
               {shotLog.length > 1 && (
-                <details className="mt-3 border-t border-[#E9EAF0] pt-2">
+                <details className="mt-3 border-t border-[var(--border)] pt-2">
                   <summary className="cursor-pointer text-xs font-bold text-[#555967]">Ver tacadas anteriores</summary>
                   <ol className="mt-2 space-y-2">
                     {shotLog.slice(0, -1).slice(-8).reverse().map(shot => (
@@ -1502,13 +1520,13 @@ export default function Pool() {
                     catch (error) { console.error('failed to save pool help preference', error); }
                   }
                 }}
-                className="flex w-full items-center justify-between px-4 py-3 text-left font-bold text-[#252733]"
+                className="flex w-full items-center justify-between px-4 py-3 text-left font-bold text-[var(--text)]"
                 aria-expanded={howToOpen}
               >
                 Como jogar <span aria-hidden="true">{howToOpen ? '−' : '+'}</span>
               </button>
               {howToOpen && (
-                <div className="space-y-2 border-t border-[#E9EAF0] px-4 py-3 text-xs leading-relaxed text-[#626675]">
+                <div className="space-y-2 border-t border-[var(--border)] px-4 py-3 text-xs leading-relaxed text-[#626675]">
                   <p>Encaçape lisas ou listradas; a primeira bola válida define seu grupo.</p>
                   <p>Toque primeiro em uma bola do seu grupo. Depois de limpar o grupo, acerte a bola 8.</p>
                   <p>Se não encaçapar uma bola, acertar o grupo errado ou encaçapar a branca, a vez passa ao adversário.</p>
@@ -1556,18 +1574,18 @@ export default function Pool() {
   return (
     <div className="mx-auto max-w-xl p-4 md:p-8">
       <div className="card-surface p-8 text-center">
-        <div className="text-xs font-bold uppercase tracking-[0.2em] text-[#858A98]">Sinuca 8-ball</div>
-        <h1 className="mt-3 text-2xl font-black text-[#252733]">
+        <div className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">Sinuca 8-ball</div>
+        <h1 className="mt-3 text-2xl font-black text-[var(--text)]">
           {(match.status === 'finished' || match.status === 'forfeited') && winnerName ? `${winnerName} venceu!` : 'Partida encerrada'}
         </h1>
         <p className="mt-3 text-sm text-[#626675]">{endingText}</p>
-        {wagerResultText && <p className="mt-3 rounded-xl bg-[#FFF0F2] p-3 text-sm font-semibold text-[#252733]">{wagerResultText}</p>}
+        {wagerResultText && <p className="mt-3 rounded-xl bg-[var(--soft)] p-3 text-sm font-semibold text-[var(--text)]">{wagerResultText}</p>}
         {shotLog.length > 0 && (
-          <div className="mt-5 rounded-xl bg-[#F7F7F9] p-3 text-left text-sm text-[#555967]">
+          <div className="mt-5 rounded-xl bg-[var(--bg)] p-3 text-left text-sm text-[#555967]">
             <b>Última jogada:</b> {formatShotLog(shotLog[shotLog.length - 1], match, playerNames)}
           </div>
         )}
-        <button onClick={() => navigate('/')} className="mt-6 rounded-xl bg-[#E30613] px-5 py-3 text-sm font-black text-white">Voltar</button>
+        <button onClick={() => navigate('/')} className="mt-6 rounded-xl bg-[var(--red)] px-5 py-3 text-sm font-black text-white">Voltar</button>
       </div>
     </div>
   );

@@ -20,8 +20,8 @@ export default function ConfirmModal({ open, title, message, onConfirm, onCancel
   return (
     <div className="fixed inset-0 z-[150] bg-black/40 flex items-center justify-center p-4" onClick={onCancel}>
       <div className="card-surface max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-[#252733] mb-2">{title}</h3>
-        <p className="text-sm text-[#858A98] mb-4">{message}</p>
+        <h3 className="font-semibold text-[var(--text)] mb-2">{title}</h3>
+        <p className="text-sm text-[var(--muted)] mb-4">{message}</p>
         <div className="flex gap-2 justify-end">
           <button onClick={onCancel} className="btn btn-secondary btn-sm">Cancelar</button>
           <button onClick={onConfirm} disabled={confirmDisabled} className={`btn btn-${confirmVariant} btn-sm`}>{confirmLabel}</button>

@@ -16,6 +16,22 @@
   --blue: #3b82f6;
 }
 
+:root[data-theme='dark'] {
+  --bg: #161821;
+  --panel: #20232e;
+  --panel2: #3a2028;
+  --red: #ff4d5a;
+  --white: #20232e;
+  --text: #f2f3f7;
+  --muted: #a6aabb;
+  --border: #343847;
+  --soft: #3a2028;
+}
+
+:root[data-theme='dark'] .bg-white {
+  background-color: var(--panel);
+}
+
 html, body, #root { height: 100%; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -33,7 +49,7 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 
 :focus-visible {
-  outline: 2px solid #E30613;
+  outline: 2px solid var(--red);
   outline-offset: 2px;
 }
 
@@ -70,7 +86,7 @@ body {
 }
 
 .card-surface {
-  background: #FFFFFF;
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(37,39,51,0.06);
@@ -85,7 +101,7 @@ body {
   justify-content: center;
   text-align: center;
   padding: 3rem 1rem;
-  color: #858A98;
+  color: var(--muted);
 }
 
 .red-glow { box-shadow: 0 0 24px rgba(227,6,19,0.25); }

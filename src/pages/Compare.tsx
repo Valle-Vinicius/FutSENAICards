@@ -79,16 +79,16 @@ function AttributeRows({ rows }: { rows: ComparisonAttribute[] }) {
         return (
           <div key={row.key} className="space-y-1">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              <span className={`text-lg font-bold ${aWins ? 'text-[#E30613]' : 'text-[#252733]'}`}>{row.a}</span>
-              <span className="text-center text-xs font-medium text-[#858A98]">{row.label}</span>
-              <span className={`text-right text-lg font-bold ${bWins ? 'text-[#E30613]' : 'text-[#252733]'}`}>{row.b}</span>
+              <span className={`text-lg font-bold ${aWins ? 'text-[var(--red)]' : 'text-[var(--text)]'}`}>{row.a}</span>
+              <span className="text-center text-xs font-medium text-[var(--muted)]">{row.label}</span>
+              <span className={`text-right text-lg font-bold ${bWins ? 'text-[var(--red)]' : 'text-[var(--text)]'}`}>{row.b}</span>
             </div>
             <div className="grid grid-cols-2 gap-3" aria-hidden="true">
-              <div className="flex h-2 justify-end overflow-hidden rounded-full bg-[#E9EAF0]">
-                <div className="h-full rounded-full" style={{ width: barWidthA, backgroundColor: aWins ? '#E30613' : '#858A98' }} />
+              <div className="flex h-2 justify-end overflow-hidden rounded-full bg-[var(--border)]">
+                <div className="h-full rounded-full" style={{ width: barWidthA, backgroundColor: aWins ? 'var(--red)' : 'var(--muted)' }} />
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[#E9EAF0]">
-                <div className="h-full rounded-full" style={{ width: barWidthB, backgroundColor: bWins ? '#E30613' : '#858A98' }} />
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
+                <div className="h-full rounded-full" style={{ width: barWidthB, backgroundColor: bWins ? 'var(--red)' : 'var(--muted)' }} />
               </div>
             </div>
           </div>
@@ -261,7 +261,7 @@ export default function Compare() {
   return (
     <main className="mx-auto w-full max-w-4xl space-y-5 p-4 md:p-8">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Comparar jogadores</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Comparar jogadores</h1>
         {a && b && (
           <button
             type="button"
@@ -279,7 +279,7 @@ export default function Compare() {
           const triggerRef = side === 'a' ? aPickerButton : bPickerButton;
           return (
             <div key={side} className={`flex min-w-0 flex-col items-center gap-2 ${side === 'a' ? 'md:col-start-1 md:row-start-1' : 'col-start-2 md:col-start-3 md:row-start-1'}`}>
-              <h2 className="text-sm font-semibold text-[#858A98]">Jogador {side.toUpperCase()}</h2>
+              <h2 className="text-sm font-semibold text-[var(--muted)]">Jogador {side.toUpperCase()}</h2>
               <div className="relative min-w-0">
                 {card ? (
                   <>
@@ -288,13 +288,13 @@ export default function Compare() {
                       type="button"
                       aria-label={`Remover ${card.name}`}
                       onClick={() => clearSide(side)}
-                      className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#858A98] shadow hover:text-[#E30613]"
+                      className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white text-[var(--muted)] shadow hover:text-[var(--red)]"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </>
                 ) : (
-                  <div className="flex aspect-[7/10] w-36 max-w-full items-center justify-center rounded-2xl border-2 border-dashed border-[#E9EAF0] text-sm text-[#858A98]">
+                  <div className="flex aspect-[7/10] w-36 max-w-full items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] text-sm text-[var(--muted)]">
                     Nenhum jogador
                   </div>
                 )}
@@ -313,7 +313,7 @@ export default function Compare() {
 
         {a && b && (
           <section className="card-surface col-span-2 space-y-3 p-4 md:col-span-1 md:col-start-2 md:row-start-1">
-            <h2 className="text-center text-base font-semibold text-[#252733]">Atributos em comparação</h2>
+            <h2 className="text-center text-base font-semibold text-[var(--text)]">Atributos em comparação</h2>
             {mixedGoalkeeperMatch && (
               <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
                 Goleiros e jogadores de linha só têm 3 atributos em comum.
@@ -327,22 +327,22 @@ export default function Compare() {
       {a && b && (
         <>
           <section role="status" className="card-surface p-4 text-center">
-            <p className="font-semibold text-[#252733]">
+            <p className="font-semibold text-[var(--text)]">
               {aWins === bWins
                 ? aWins === 0
                   ? `Empate: os ${attributes.length} atributos estão iguais.`
                   : <>Empate em atributos: <CardName card={a} showRarity={showRarity} /> e <CardName card={b} showRarity={showRarity} /> vencem em {aWins} de {attributes.length} cada.</>
                 : <><CardName card={aWins > bWins ? a : b} showRarity={showRarity} /> vence em {Math.max(aWins, bWins)} de {attributes.length} atributos.</>}
             </p>
-            <p className="mt-1 text-sm text-[#858A98]">
+            <p className="mt-1 text-sm text-[var(--muted)]">
               {higherOverall
                 ? <><CardName card={higherOverall} showRarity={showRarity} /> tem o maior overall ({higherOverall.overall}).</>
                 : `Os dois têm o mesmo overall (${a.overall}).`}
             </p>
           </section>
           <section className="card-surface mx-auto max-w-prose p-4">
-            <h2 className="mb-2 font-semibold text-[#252733]">Análise</h2>
-            <ul className="space-y-1 text-sm text-[#252733]">
+            <h2 className="mb-2 font-semibold text-[var(--text)]">Análise</h2>
+            <ul className="space-y-1 text-sm text-[var(--text)]">
               {analysis.map((sentence, index) => <li key={index}>{sentence}</li>)}
             </ul>
           </section>
@@ -351,7 +351,7 @@ export default function Compare() {
 
       {visibleHistory.length > 0 && (
         <section className="card-surface p-4">
-          <h2 className="mb-2 font-semibold text-[#252733]">Comparações recentes</h2>
+          <h2 className="mb-2 font-semibold text-[var(--text)]">Comparações recentes</h2>
           <div className="flex flex-wrap gap-2">
             {visibleHistory.map(entry => (
               <button
@@ -368,7 +368,7 @@ export default function Compare() {
       )}
 
       {!a && !b && (
-        <div className="text-center text-sm text-[#858A98]">
+        <div className="text-center text-sm text-[var(--muted)]">
           Selecione dois jogadores para comparar seus atributos.
         </div>
       )}
@@ -383,7 +383,7 @@ export default function Compare() {
             onClick={event => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 id="compare-picker-title" className="font-semibold text-[#252733]">
+              <h2 id="compare-picker-title" className="font-semibold text-[var(--text)]">
                 Selecionar jogador {pickerFor.toUpperCase()}
               </h2>
               <button type="button" aria-label="Fechar seletor" onClick={closePicker} className="btn btn-ghost btn-sm">
@@ -398,21 +398,21 @@ export default function Compare() {
                 onChange={event => setQ(event.target.value)}
                 placeholder="Buscar por nome ou clube..."
                 aria-label="Buscar jogador"
-                className="min-w-[160px] flex-1 rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm"
+                className="min-w-[160px] flex-1 rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"
               />
-              <select value={pos} onChange={event => setPos(event.target.value)} aria-label="Filtrar posição" className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm">
+              <select value={pos} onChange={event => setPos(event.target.value)} aria-label="Filtrar posição" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
                 <option value="">Todas as posições</option>
                 {[...new Set(cards.map(card => card.position))].map(position => (
                   <option key={position} value={position}>{position}</option>
                 ))}
               </select>
-              <select value={rar} onChange={event => setRar(event.target.value)} aria-label="Filtrar raridade" className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm">
+              <select value={rar} onChange={event => setRar(event.target.value)} aria-label="Filtrar raridade" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
                 <option value="">Todas as raridades</option>
                 {RARITY_ORDER.map(rarity => (
                   <option key={rarity} value={rarity}>{RARITY_META[rarity].label}</option>
                 ))}
               </select>
-              <select value={sort} onChange={event => setSort(event.target.value as typeof sort)} aria-label="Ordenar cartas" className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm">
+              <select value={sort} onChange={event => setSort(event.target.value as typeof sort)} aria-label="Ordenar cartas" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
                 <option value="overall">Overall</option>
                 <option value="name">Nome</option>
               </select>
@@ -434,7 +434,7 @@ export default function Compare() {
                 );
               })}
             </div>
-            {filtered.length === 0 && <div className="py-6 text-center text-[#858A98]">Nenhuma carta encontrada.</div>}
+            {filtered.length === 0 && <div className="py-6 text-center text-[var(--muted)]">Nenhuma carta encontrada.</div>}
           </section>
         </div>
       )}

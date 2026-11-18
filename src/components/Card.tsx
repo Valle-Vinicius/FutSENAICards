@@ -36,12 +36,12 @@ export default function Card({ card, size = 'md', onClick, isNew }: { card: Play
           : '0 8px 24px rgba(37,39,51,0.15)',
       }}
     >
-      {isNew && <span className={`absolute z-20 bg-[#E30613] text-white fc-badge font-bold px-2 py-0.5 rounded-full shadow`} style={{ top: compact ? '21cqw' : '33cqw', right: '4.2cqw' }}>NOVA</span>}
+      {isNew && <span className={`absolute z-20 bg-[var(--red)] text-white fc-badge font-bold px-2 py-0.5 rounded-full shadow`} style={{ top: compact ? '21cqw' : '33cqw', right: '4.2cqw' }}>NOVA</span>}
 
       {img ? (
         <img src={img} alt={card.name} loading="lazy" decoding="async" draggable={false} className="absolute inset-0 w-full h-full object-cover object-top" />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-b from-[#F7F7F9] to-[#E9EAF0] flex items-center justify-center opacity-20"><Circle className="w-12 h-12" /></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--bg)] to-[var(--border)] flex items-center justify-center opacity-20"><Circle className="w-12 h-12" /></div>
       )}
 
       <div className={`absolute inset-0 ${isSecret ? 'bg-gradient-to-t from-[#050609]/95 via-[#08090D]/50 to-black/20' : 'bg-gradient-to-t from-black/80 via-black/35 to-transparent'}`} />

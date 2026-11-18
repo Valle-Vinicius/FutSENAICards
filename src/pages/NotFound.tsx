@@ -69,10 +69,10 @@ export default function NotFound() {
       <img src={POSES[left]} alt="Jogador" className="absolute left-0 bottom-0 z-10 h-[90%] object-contain" />
       <img src={POSES[right]} alt="Jogador" className="absolute right-0 bottom-0 z-10 h-[90%] object-contain" />
       <div className="relative z-20 bg-white rounded-2xl shadow-xl p-8 text-center max-w-md mx-4">
-        <div className="text-6xl font-black text-[#E30613]">404</div>
-        <div className="text-xl font-semibold text-[#252733] mt-2">Página não encontrada</div>
-        <div className="text-sm text-[#858A98] mt-1">A rota que você tentou acessar não existe.</div>
-        <Link to="/" className="mt-4 inline-block px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Voltar ao início</Link>
+        <div className="text-6xl font-black text-[var(--red)]">404</div>
+        <div className="text-xl font-semibold text-[var(--text)] mt-2">Página não encontrada</div>
+        <div className="text-sm text-[var(--muted)] mt-1">A rota que você tentou acessar não existe.</div>
+        <Link to="/" className="mt-4 inline-block px-4 py-2 rounded-xl bg-[var(--red)] text-white text-sm font-medium">Voltar ao início</Link>
       </div>
     </div>
   );

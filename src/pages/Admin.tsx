@@ -547,33 +547,33 @@ export default function Admin() {
     }
   };
 
-  if (loading) return <div className="p-8 text-[#858A98]">Carregando...</div>;
+  if (loading) return <div className="p-8 text-[var(--muted)]">Carregando...</div>;
 
   if (userId !== ADMIN_USER_ID) {
     return (
-      <div className="p-8 text-center text-[#858A98]">
-        <div className="text-lg font-bold text-[#252733] mb-2">Acesso restrito</div>
+      <div className="p-8 text-center text-[var(--muted)]">
+        <div className="text-lg font-bold text-[var(--text)] mb-2">Acesso restrito</div>
         <div className="text-sm">Esta página é exclusiva para administradores.</div>
-        <button onClick={() => navigate('/')} className="mt-4 px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm">Voltar</button>
+        <button onClick={() => navigate('/')} className="mt-4 px-4 py-2 rounded-xl bg-[var(--red)] text-white text-sm">Voltar</button>
       </div>
     );
   }
 
-  const inputCls = "w-full h-11 bg-white border border-[#E2E4EA] rounded-xl px-3 text-sm text-[#252733] placeholder:text-[#B7BAC4] transition focus:border-[#E30613] focus:outline-none focus:ring-4 focus:ring-[#E30613]/10 disabled:bg-[#F7F7F9] disabled:text-[#858A98]";
+  const inputCls = "w-full h-11 bg-white border border-[#E2E4EA] rounded-xl px-3 text-sm text-[var(--text)] placeholder:text-[#B7BAC4] transition focus:border-[var(--red)] focus:outline-none focus:ring-4 focus:ring-[var(--red)]/10 disabled:bg-[var(--bg)] disabled:text-[var(--muted)]";
   const labelCls = "text-xs font-semibold text-[#555B68] mb-1.5 block";
 
   return (
     <>
       <div className={`mx-auto w-full ${adminTab === 'users' ? 'max-w-none' : 'max-w-5xl'} p-4 md:p-8 space-y-6`}>
-        <h1 className="text-2xl font-bold text-[#252733]">Painel Administrador</h1>
+        <h1 className="text-2xl font-bold text-[var(--text)]">Painel Administrador</h1>
 
-        <div role="tablist" aria-label="Seções do painel administrador" className="flex flex-wrap gap-2 border-b border-[#E9EAF0] pb-3">
+        <div role="tablist" aria-label="Seções do painel administrador" className="flex flex-wrap gap-2 border-b border-[var(--border)] pb-3">
           <button
             type="button"
             role="tab"
             aria-selected={adminTab === 'cards'}
             onClick={() => setAdminTab('cards')}
-            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'cards' ? 'bg-[#E30613] text-white' : 'bg-white text-[#555B68] hover:bg-[#F7F7F9]'}`}
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'cards' ? 'bg-[var(--red)] text-white' : 'bg-white text-[#555B68] hover:bg-[var(--bg)]'}`}
           >
             Cartas e templates
           </button>
@@ -582,7 +582,7 @@ export default function Admin() {
             role="tab"
             aria-selected={adminTab === 'users'}
             onClick={() => setAdminTab('users')}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'users' ? 'bg-[#E30613] text-white' : 'bg-white text-[#555B68] hover:bg-[#F7F7F9]'}`}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'users' ? 'bg-[var(--red)] text-white' : 'bg-white text-[#555B68] hover:bg-[var(--bg)]'}`}
           >
             <Users className="size-4" /> Usuários
           </button>
@@ -593,23 +593,23 @@ export default function Admin() {
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
           <div id="card-template-form" className="min-w-0 card-surface p-4 md:p-5 space-y-5">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-[#252733]">
+              <h2 className="text-lg font-semibold text-[var(--text)]">
                 {editingTemplate ? `Editar template: ${editingTemplate}` : 'Criar Carta'}
               </h2>
               {editingTemplate && (
                 <button
                   type="button"
                   onClick={cancelTemplateEdit}
-                  className="rounded-lg border border-[#E9EAF0] bg-white px-3 py-2 text-xs font-semibold text-[#555B68]"
+                  className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[#555B68]"
                 >
                   Cancelar edição
                 </button>
               )}
             </div>
 
-            <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
-                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">1</span>
+            <section className="rounded-2xl border border-[var(--border)] p-4 md:p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
+                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[var(--red)]">1</span>
                 Informações básicas
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -628,7 +628,7 @@ export default function Admin() {
                 <label className={labelCls}>Nacionalidade</label>
                 {editingTemplate
                   ? <input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} className={inputCls} maxLength={50} />
-                  : <div className={`${inputCls} flex items-center bg-[#F7F7F9]`}>{DEFAULT_NATIONALITY}</div>}
+                  : <div className={`${inputCls} flex items-center bg-[var(--bg)]`}>{DEFAULT_NATIONALITY}</div>}
               </div>
               <div>
                 <label className={labelCls}>Idade</label>
@@ -638,14 +638,14 @@ export default function Admin() {
                 <label className={labelCls}>{editingTemplate ? 'Clube' : 'Time (sorteado)'}</label>
                 {editingTemplate
                   ? <input value={form.club} onChange={e => setForm({ ...form, club: e.target.value })} className={inputCls} maxLength={80} />
-                  : <div className={`${inputCls} flex items-center bg-[#F7F7F9]`}>{form.club || 'Aguardando sorteio...'}</div>}
+                  : <div className={`${inputCls} flex items-center bg-[var(--bg)]`}>{form.club || 'Aguardando sorteio...'}</div>}
               </div>
             </div>
             </section>
 
-            <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
-                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">2</span>
+            <section className="rounded-2xl border border-[var(--border)] p-4 md:p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
+                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[var(--red)]">2</span>
                 Características
               </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -655,7 +655,7 @@ export default function Admin() {
                   <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className={`${inputCls} appearance-none pr-10`}>
                     {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
                 </div>
               </div>
               <div>
@@ -675,9 +675,9 @@ export default function Admin() {
                       }} className={`${inputCls} appearance-none pr-10`} disabled={calcMode}>
                         {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
                       </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
                     </div>
-                    {calcMode && <div className="text-[10px] text-[#858A98] mt-1">Cálculo automático fixa a raridade em Incomum.</div>}
+                    {calcMode && <div className="text-[10px] text-[var(--muted)] mt-1">Cálculo automático fixa a raridade em Incomum.</div>}
                   </>
                 )}
               </div>
@@ -685,9 +685,9 @@ export default function Admin() {
 
             </section>
 
-            <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
-                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">3</span>
+            <section className="rounded-2xl border border-[var(--border)] p-4 md:p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
+                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[var(--red)]">3</span>
                 Atributos
               </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -735,12 +735,12 @@ export default function Admin() {
             )}
             </section>
 
-            <section className="rounded-2xl border border-[#E9EAF0] p-4 md:p-5 space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold text-[#252733]">
-                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[#E30613]">4</span>
+            <section className="rounded-2xl border border-[var(--border)] p-4 md:p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
+                <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[var(--red)]">4</span>
                 Configurações
               </div>
-              <p className="text-xs text-[#858A98]">O título especial das cartas dos pacotes é definido por sorteio ao abrir o pacote.</p>
+              <p className="text-xs text-[var(--muted)]">O título especial das cartas dos pacotes é definido por sorteio ao abrir o pacote.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>Destino da carta</label>
@@ -760,20 +760,20 @@ export default function Admin() {
                       <option value="off_sale">Somente Pacote Off-Sale (zoeira)</option>
                       {(!editingTemplate || isSecret) && <option value="secret">Secreta (chance e estoque globais)</option>}
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
                   </div>
                 </div>
                 <div>
-                  <label className={labelCls}>Overall {isInventory ? '' : '(base)'} {calcMode && <span className="text-[#E30613]">(calculado: {calculatedOverall})</span>}</label>
+                  <label className={labelCls}>Overall {isInventory ? '' : '(base)'} {calcMode && <span className="text-[var(--red)]">(calculado: {calculatedOverall})</span>}</label>
                   <input type="number" value={calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall)} onChange={e => {
                     const val = Number(e.target.value);
                     if (!isInventory) setForm({ ...form, baseOverall: val });
                     else setForm({ ...form, overall: val });
                   }} className={`${inputCls} text-center text-lg font-bold tabular-nums`} min={0} max={99} disabled={calcMode} />
-                  {isInventory && !calcMode && <div className="mt-1 text-[10px] text-[#858A98]">O OVR digitado será salvo como informado; confira a faixa típica da raridade.</div>}
+                  {isInventory && !calcMode && <div className="mt-1 text-[10px] text-[var(--muted)]">O OVR digitado será salvo como informado; confira a faixa típica da raridade.</div>}
                 </div>
               </div>
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E9EAF0] bg-[#FAFAFB] p-3.5">
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[#FAFAFB] p-3.5">
                 <input
                   type="checkbox"
                   checked={form.calcOverall}
@@ -785,11 +785,11 @@ export default function Admin() {
                       ...(calcOverall && !isSecret ? { rarity: 'uncommon', baseRarity: 'uncommon' } : {}),
                     }));
                   }}
-                  className="size-4 accent-[#E30613]"
+                  className="size-4 accent-[var(--red)]"
                 />
                 <span>
-                  <span className="block text-sm font-medium text-[#252733]">Calcular OVR automaticamente</span>
-                  <span className="block text-xs text-[#858A98]">{isSecret ? 'A carta secreta usa multiplicador de atributos 1× e não recebe bônus de raridade.' : isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</span>
+                  <span className="block text-sm font-medium text-[var(--text)]">Calcular OVR automaticamente</span>
+                  <span className="block text-xs text-[var(--muted)]">{isSecret ? 'A carta secreta usa multiplicador de atributos 1× e não recebe bônus de raridade.' : isInventory ? 'O overall será calculado a partir dos atributos × raridade.' : 'O overall base será usado direto nos pacotes.'}</span>
                 </span>
               </label>
               {isSecret && (
@@ -809,7 +809,7 @@ export default function Admin() {
                         value={secretChancePercent}
                         onChange={e => setSecretChancePercent(Number(e.target.value))}
                         className={`${inputCls} border-[#4B515D]`}
-                        style={{ backgroundColor: '#1B1E25', borderColor: '#4B515D', color: '#FFFFFF', colorScheme: 'dark' }}
+                        style={{ backgroundColor: '#1B1E25', borderColor: '#4B515D', color: 'var(--white)', colorScheme: 'dark' }}
                         aria-describedby="secret-chance-help"
                       />
                       <div id="secret-chance-help" className="mt-1 text-xs text-white/60">Entre 0,0001% e 5%, até 4 casas decimais.</div>
@@ -824,7 +824,7 @@ export default function Admin() {
                         value={secretMaxSupply}
                         onChange={e => setSecretMaxSupply(Number(e.target.value))}
                         className={`${inputCls} border-[#4B515D]`}
-                        style={{ backgroundColor: '#1B1E25', borderColor: '#4B515D', color: '#FFFFFF', colorScheme: 'dark' }}
+                        style={{ backgroundColor: '#1B1E25', borderColor: '#4B515D', color: 'var(--white)', colorScheme: 'dark' }}
                         aria-describedby="secret-supply-help"
                       />
                       <div id="secret-supply-help" className="mt-1 text-xs text-white/60">
@@ -841,17 +841,17 @@ export default function Admin() {
                 </div>
               )}
               {isOffSale && (
-                <div className="rounded-xl border border-[#E9EAF0] bg-[#FAFAFB] p-3.5 space-y-3">
+                <div className="rounded-xl border border-[var(--border)] bg-[#FAFAFB] p-3.5 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <div className="text-sm font-medium text-[#252733]">Estatísticas extras</div>
-                      <div className="text-xs text-[#858A98]">Aparecem nos atributos da carta, mas não alteram OVR nem evolução.</div>
+                      <div className="text-sm font-medium text-[var(--text)]">Estatísticas extras</div>
+                      <div className="text-xs text-[var(--muted)]">Aparecem nos atributos da carta, mas não alteram OVR nem evolução.</div>
                     </div>
                     <button
                       type="button"
                       disabled={extraStats.length >= 10}
                       onClick={() => setExtraStats(stats => [...stats, { label: '', value: 50 }])}
-                      className="px-3 py-2 rounded-lg bg-white border border-[#E9EAF0] text-xs font-semibold text-[#252733] disabled:opacity-50"
+                      className="px-3 py-2 rounded-lg bg-white border border-[var(--border)] text-xs font-semibold text-[var(--text)] disabled:opacity-50"
                     >
                       Adicionar estatística
                     </button>
@@ -879,7 +879,7 @@ export default function Admin() {
                         type="button"
                         aria-label={`Remover estatística extra ${index + 1}`}
                         onClick={() => setExtraStats(stats => stats.filter((_, i) => i !== index))}
-                        className="grid place-items-center rounded-lg border border-[#E9EAF0] bg-white text-[#858A98] hover:text-[#E30613]"
+                        className="grid place-items-center rounded-lg border border-[var(--border)] bg-white text-[var(--muted)] hover:text-[var(--red)]"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -887,43 +887,43 @@ export default function Admin() {
                   ))}
                 </div>
               )}
-              <div className="text-[10px] text-[#858A98]">Todas as cartas são da temporada {DEFAULT_EDITION}.</div>
+              <div className="text-[10px] text-[var(--muted)]">Todas as cartas são da temporada {DEFAULT_EDITION}.</div>
             </section>
 
             <button
               onClick={handleCreate}
               disabled={creating || !form.name.trim() || !form.club.trim() || (!editingTemplate && teams.length === 0)}
-              className="w-full py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-60"
+              className="w-full py-3 rounded-xl bg-[var(--red)] text-white font-bold disabled:opacity-60"
             >
               {creating ? 'Salvando...' : editingTemplate ? 'Salvar alterações' : isSecret ? 'Adicionar Carta Secreta' : isInventory ? 'Criar no Inventário' : isOffSale ? 'Adicionar somente ao Pacote Off-Sale' : 'Adicionar aos Pacotes'}
             </button>
           </div>
 
-          <div className="flex flex-col items-center justify-start gap-4 rounded-2xl border border-[#E9EAF0] bg-white p-4 md:p-5 xl:sticky xl:top-6">
-            <h2 className="text-lg font-semibold text-[#252733]">Prévia</h2>
+          <div className="flex flex-col items-center justify-start gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 md:p-5 xl:sticky xl:top-6">
+            <h2 className="text-lg font-semibold text-[var(--text)]">Prévia</h2>
             <div className="w-full max-w-[15rem]">
               <Card card={makePreviewCard(rarityToUse)} size="fluid" />
             </div>
-            <div className="text-xs text-[#858A98] text-center">
+            <div className="text-xs text-[var(--muted)] text-center">
               {RARITY_LABELS[rarityToUse]} · OVR {makePreviewCard(rarityToUse).overall}
             </div>
           </div>
         </div>
 
         <div className="card-surface p-4 space-y-4">
-          <h2 className="text-lg font-semibold text-[#252733]">Editar templates das cartas</h2>
-          <div className="text-xs text-[#858A98]">Os atributos e o overall base dos templates são sincronizados no banco e refletidos nos pacotes.</div>
+          <h2 className="text-lg font-semibold text-[var(--text)]">Editar templates das cartas</h2>
+          <div className="text-xs text-[var(--muted)]">Os atributos e o overall base dos templates são sincronizados no banco e refletidos nos pacotes.</div>
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
             {templates.map(t => {
               const supply = t.dbId ? secretSupply[t.dbId] : undefined;
               return (
-              <div key={t.name} className="p-3 bg-[#F7F7F9] rounded-xl space-y-3">
+              <div key={t.name} className="p-3 bg-[var(--bg)] rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-bold text-[#252733]">{t.name}</div>
-                    <div className="text-xs text-[#858A98]">
+                    <div className="text-sm font-bold text-[var(--text)]">{t.name}</div>
+                    <div className="text-xs text-[var(--muted)]">
                       {t.position} · {t.club} · OVR {t.baseOverall ?? calculateOverall(t)}
-                      {t.packGroup === 'off_sale' && <span className="ml-2 font-semibold text-[#E30613]">Off-Sale</span>}
+                      {t.packGroup === 'off_sale' && <span className="ml-2 font-semibold text-[var(--red)]">Off-Sale</span>}
                       {t.packGroup === 'secret' && <span className="ml-2 rounded-full bg-[#111318] px-2 py-0.5 font-semibold text-white">Secreta</span>}
                       {t.packGroup === 'secret' && supply && <span className="ml-2">Emitidas {supply.minted}/{supply.maxSupply}</span>}
                     </div>
@@ -931,14 +931,14 @@ export default function Admin() {
                   <button
                     onClick={() => editingTemplate === t.name ? cancelTemplateEdit() : startEditingTemplate(t)}
                     disabled={t.packGroup === 'secret' && !secretSupplyLoaded}
-                    className="px-3 py-1.5 rounded-xl bg-[#E9EAF0] text-[#252733] text-xs font-bold hover:bg-[#E30613] hover:text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-xl bg-[var(--border)] text-[var(--text)] text-xs font-bold hover:bg-[var(--red)] hover:text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {editingTemplate === t.name ? 'Cancelar' : 'Editar'}
                   </button>
                 </div>
                 {t.packGroup === 'secret' && (
                   <details className="rounded-lg border border-[#E2E4EA] bg-white p-3">
-                    <summary className="cursor-pointer text-xs font-semibold text-[#252733]">
+                    <summary className="cursor-pointer text-xs font-semibold text-[var(--text)]">
                       {supply
                         ? `Chance ${(supply.dropChance * 100).toLocaleString('pt-BR', { maximumFractionDigits: 4 })}% por carta · ver odds por pacote`
                         : 'Configuração de chance e estoque não carregada'}

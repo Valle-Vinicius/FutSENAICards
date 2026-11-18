@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useState, type DragEvent as ReactDragEvent } from 'react';
 import { AlertTriangle, Plus, Search, Star, X } from 'lucide-react';
 import Card from '../components/Card';
+import ConfirmModal from '../components/ConfirmModal';
 import { useGame, squadOverall } from '../store/useGame';
 import { toast } from '../store/toast';
 import { DEFAULT_FUTSAL_FORMATION, FORMATIONS_FUTSAL, normalizeFutsalFormation } from '../lib/game';
@@ -55,6 +56,8 @@ export default function Squad() {
   const [visibleCardCount, setVisibleCardCount] = useState(36);
   const [savedOpen, setSavedOpen] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [pendingPositionSwap, setPendingPositionSwap] = useState<{ index: number; bench: boolean; benchIndex?: number; message: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<SavedSquad | null>(null);
   const deferredSearch = useDeferredValue(search);
 
   const formations = Object.keys(FORMATIONS_FUTSAL);
@@ -109,7 +112,7 @@ export default function Squad() {
     return squad.bench[source.index] ?? null;
   };
 
-  const handleSlotClick = (index: number, bench: boolean, benchIndex?: number) => {
+  const handleSlotClick = (index: number, bench: boolean, benchIndex?: number, allowOutOfPosition = false) => {
     if (bench && benchIndex === undefined) return;
     const source = selectedSource;
     const targetUid = bench ? squad.bench[benchIndex!] : squad.starters[index]?.uid ?? null;
@@ -137,8 +140,13 @@ export default function Squad() {
 
     const sourceCard = cardsByUid.get(sourceUid);
     const targetSlot = !bench ? squad.starters[index] : null;
-    if (sourceCard && targetSlot && sourceCard.position !== targetSlot.position
-      && !window.confirm(`${sourceCard.name} é ${sourceCard.position}, mas o slot é ${targetSlot.position}. Deseja continuar?`)) {
+    if (sourceCard && targetSlot && sourceCard.position !== targetSlot.position && !allowOutOfPosition) {
+      setPendingPositionSwap({
+        index,
+        bench,
+        benchIndex,
+        message: `${sourceCard.name} é ${sourceCard.position}, mas o slot é ${targetSlot.position}. Deseja continuar?`,
+      });
       return;
     }
 
@@ -244,8 +252,8 @@ export default function Squad() {
     <div className="space-y-4 p-4 md:p-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Montar elenco</h1>
-          <p className="mt-1 text-sm text-[#858A98]">{formation} · arraste ou toque para escalar</p>
+          <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Montar elenco</h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">{formation} · arraste ou toque para escalar</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -254,7 +262,7 @@ export default function Squad() {
             onKeyDown={event => { if (event.key === 'Enter') handleSave(); }}
             placeholder="Nome da escalação"
             aria-label="Nome da escalação"
-            className="min-w-[170px] rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm"
+            className="min-w-[170px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"
           />
           <button onClick={handleSave} className="btn btn-primary btn-sm">Salvar</button>
           <button onClick={() => setSavedOpen(value => !value)} aria-expanded={savedOpen} className="btn btn-secondary btn-sm">
@@ -265,14 +273,14 @@ export default function Squad() {
 
       {savedOpen && (
         <section className="card-surface space-y-3 p-4">
-          <h2 className="font-semibold text-[#252733]">Escalações salvas</h2>
-          {mySaved.length === 0 && <p className="text-sm text-[#858A98]">Nenhuma escalação salva.</p>}
+          <h2 className="font-semibold text-[var(--text)]">Escalações salvas</h2>
+          {mySaved.length === 0 && <p className="text-sm text-[var(--muted)]">Nenhuma escalação salva.</p>}
           <div className="space-y-2">
             {mySaved.map(saved => (
-              <div key={saved.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#E9EAF0] p-2">
-                <div className="text-sm text-[#252733]">
-                  {saved.isPrimary && <Star className="mr-1 inline h-3 w-3 text-[#E30613]" />}
-                  {saved.name} <span className="text-xs text-[#858A98]">({normalizeFutsalFormation(saved.formation)})</span>
+              <div key={saved.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] p-2">
+                <div className="text-sm text-[var(--text)]">
+                  {saved.isPrimary && <Star className="mr-1 inline h-3 w-3 text-[var(--red)]" />}
+                  {saved.name} <span className="text-xs text-[var(--muted)]">({normalizeFutsalFormation(saved.formation)})</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => handleLoad(saved)} className="btn btn-secondary btn-sm">Carregar</button>
@@ -280,7 +288,7 @@ export default function Squad() {
                     {duplicatingId === saved.id ? 'Duplicando...' : 'Duplicar'}
                   </button>
                   <button onClick={() => { setPrimary(saved.id); toast.success(`"${saved.name}" definida como principal.`); }} className="btn btn-secondary btn-sm">Principal</button>
-                  <button onClick={() => { if (window.confirm(`Excluir "${saved.name}"?`)) { deleteSquad(saved.id); toast.success('Escalação excluída.'); } }} className="btn btn-danger btn-sm">Excluir</button>
+                  <button onClick={() => setPendingDelete(saved)} className="btn btn-danger btn-sm">Excluir</button>
                 </div>
               </div>
             ))}
@@ -290,10 +298,10 @@ export default function Squad() {
 
       <section className="card-surface flex flex-wrap items-center gap-4 p-4">
         <div className="min-w-[130px]">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[#858A98]">Overall do elenco</div>
-          <div className="text-4xl font-bold leading-tight text-[#E30613]">{overall}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Overall do elenco</div>
+          <div className="text-4xl font-bold leading-tight text-[var(--red)]">{overall}</div>
         </div>
-        <div className="rounded-xl bg-[#F7F7F9] px-4 py-3 text-sm font-semibold text-[#252733]">
+        <div className="rounded-xl bg-[var(--bg)] px-4 py-3 text-sm font-semibold text-[var(--text)]">
           {filledCount}/{squad.starters.length} titulares
         </div>
         {outOfPositionNames.length > 0 && (
@@ -305,15 +313,15 @@ export default function Squad() {
       </section>
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-[#858A98]">
+        <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
           Formação:
-          <select value={formation} onChange={event => handleFormation(event.target.value)} className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm text-[#252733]">
+          <select value={formation} onChange={event => handleFormation(event.target.value)} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text)]">
             {formations.map(value => <option key={value} value={value}>{value}</option>)}
           </select>
         </label>
-        <label className="flex items-center gap-2 text-sm text-[#858A98]">
+        <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
           Critério:
-          <select value={criteria} onChange={event => setCriteria(event.target.value as typeof criteria)} className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-2 text-sm text-[#252733]">
+          <select value={criteria} onChange={event => setCriteria(event.target.value as typeof criteria)} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text)]">
             <option value="overall">Maior overall</option>
             <option value="balance">Melhor equilíbrio</option>
             <option value="position">Melhor adequação</option>
@@ -327,8 +335,8 @@ export default function Squad() {
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <section className="card-surface space-y-3 p-3 md:p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-[#252733]">Quadra</h2>
-            <span className="text-xs text-[#858A98]">Toque em um titular e depois em outro para trocar</span>
+            <h2 className="font-semibold text-[var(--text)]">Quadra</h2>
+            <span className="text-xs text-[var(--muted)]">Toque em um titular e depois em outro para trocar</span>
           </div>
           <div className="relative mx-auto aspect-[4/5] w-full max-w-[620px] overflow-hidden rounded-2xl border-4 border-emerald-800/70 bg-gradient-to-b from-emerald-500 to-emerald-700 shadow-inner">
             <div className="pointer-events-none absolute inset-3 rounded-xl border-2 border-white/55" />
@@ -354,7 +362,7 @@ export default function Squad() {
                       <div
                         draggable
                         onDragStart={event => handleDragStart({ type: 'starter', index }, event)}
-                        className={`relative rounded-2xl ${selected ? 'ring-2 ring-[#E30613] ring-offset-2' : ''}`}
+                        className={`relative rounded-2xl ${selected ? 'ring-2 ring-[var(--red)] ring-offset-2' : ''}`}
                       >
                         <Card card={card} size="fluid" onClick={() => handleSlotClick(index, false)} />
                         <button
@@ -384,8 +392,8 @@ export default function Squad() {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[#252733]">Reservas</h3>
-              <span className="text-xs text-[#858A98]">Toque para selecionar ou arraste uma carta</span>
+              <h3 className="text-sm font-semibold text-[var(--text)]">Reservas</h3>
+              <span className="text-xs text-[var(--muted)]">Toque para selecionar ou arraste uma carta</span>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {squad.bench.map((uid, index) => {
@@ -403,7 +411,7 @@ export default function Squad() {
                         <div
                           draggable
                           onDragStart={event => handleDragStart({ type: 'bench', index }, event)}
-                          className={`relative rounded-2xl ${selected ? 'ring-2 ring-[#E30613] ring-offset-2' : ''}`}
+                          className={`relative rounded-2xl ${selected ? 'ring-2 ring-[var(--red)] ring-offset-2' : ''}`}
                         >
                           <Card card={card} size="fluid" onClick={() => handleSlotClick(0, true, index)} />
                           <button
@@ -421,7 +429,7 @@ export default function Squad() {
                         type="button"
                         aria-label={`Reserva ${index + 1} vazia`}
                         onClick={() => handleSlotClick(0, true, index)}
-                        className="flex aspect-[1.65/1] w-full items-center justify-center rounded-xl border-2 border-dashed border-[#E9EAF0] bg-white text-[#858A98]"
+                        className="flex aspect-[1.65/1] w-full items-center justify-center rounded-xl border-2 border-dashed border-[var(--border)] bg-white text-[var(--muted)]"
                       >
                         <Plus className="h-5 w-5" />
                       </button>
@@ -435,18 +443,18 @@ export default function Squad() {
 
         <section className="card-surface flex h-[62dvh] min-h-[420px] flex-col p-3 md:p-4 lg:h-[calc(100dvh-285px)]">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-[#252733]">Inventário disponível ({available.length})</h2>
-            <span className="text-xs text-[#858A98]">{filteredAvailable.length} resultados</span>
+            <h2 className="font-semibold text-[var(--text)]">Inventário disponível ({available.length})</h2>
+            <span className="text-xs text-[var(--muted)]">{filteredAvailable.length} resultados</span>
           </div>
           <div className="relative mb-2">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
             <input
               type="search"
               value={search}
               onChange={event => { setSearch(event.target.value); setVisibleCardCount(36); }}
               placeholder="Buscar por nome, clube ou raridade..."
               aria-label="Buscar cartas do elenco"
-              className="w-full rounded-xl border border-[#E9EAF0] bg-white py-2 pl-9 pr-3 text-sm"
+              className="w-full rounded-xl border border-[var(--border)] bg-white py-2 pl-9 pr-3 text-sm"
             />
           </div>
           <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Filtrar cartas por posição">
@@ -467,7 +475,7 @@ export default function Squad() {
             <p className="mb-2 text-xs text-amber-800">Cartas anunciadas no mercado ficam indisponíveis até o anúncio ser cancelado ou encerrado.</p>
           )}
           {selectedSource && (
-            <p className="mb-2 rounded-lg bg-[#FFF0F2] px-2 py-1 text-xs text-[#252733]">
+            <p className="mb-2 rounded-lg bg-[var(--soft)] px-2 py-1 text-xs text-[var(--text)]">
               Carta selecionada. Toque em um slot para escalar; toque em outro titular para trocar.
             </p>
           )}
@@ -478,7 +486,7 @@ export default function Squad() {
                 data-testid="inventory-card"
                 draggable
                 onDragStart={event => handleDragStart({ type: 'inventory', uid: card.uid }, event)}
-                className={`min-w-0 rounded-2xl ${selectedSource?.type === 'inventory' && selectedSource.uid === card.uid ? 'ring-2 ring-[#E30613] ring-offset-2' : ''}`}
+                className={`min-w-0 rounded-2xl ${selectedSource?.type === 'inventory' && selectedSource.uid === card.uid ? 'ring-2 ring-[var(--red)] ring-offset-2' : ''}`}
               >
                 <Card
                   card={card}
@@ -490,7 +498,7 @@ export default function Squad() {
               </div>
             ))}
           </div>
-          {filteredAvailable.length === 0 && <div className="pt-3 text-sm text-[#858A98]">Nenhuma carta disponível com esses filtros.</div>}
+          {filteredAvailable.length === 0 && <div className="pt-3 text-sm text-[var(--muted)]">Nenhuma carta disponível com esses filtros.</div>}
           {visibleCards.length < filteredAvailable.length && (
             <button type="button" onClick={() => setVisibleCardCount(count => count + 36)} className="btn btn-secondary btn-sm mt-2 w-full">
               Carregar mais cartas ({filteredAvailable.length - visibleCards.length} restantes)
@@ -498,6 +506,33 @@ export default function Squad() {
           )}
         </section>
       </div>
+      <ConfirmModal
+        open={pendingPositionSwap !== null}
+        title="Carta fora de posição"
+        message={pendingPositionSwap?.message ?? ''}
+        onCancel={() => setPendingPositionSwap(null)}
+        onConfirm={() => {
+          if (!pendingPositionSwap) return;
+          const pending = pendingPositionSwap;
+          setPendingPositionSwap(null);
+          handleSlotClick(pending.index, pending.bench, pending.benchIndex, true);
+        }}
+        confirmLabel="Continuar"
+      />
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title="Excluir escalação"
+        message={pendingDelete ? `Tem certeza que deseja excluir "${pendingDelete.name}"?` : ''}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          deleteSquad(pendingDelete.id);
+          toast.success('Escalação excluída.');
+          setPendingDelete(null);
+        }}
+        confirmVariant="danger"
+        confirmLabel="Excluir"
+      />
     </div>
   );
 }

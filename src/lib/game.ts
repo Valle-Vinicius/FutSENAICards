@@ -43,7 +43,7 @@ export const DEFAULT_PACKS: PackDef[] = [
     probabilities: { common: 0.05, uncommon: 0.15, rare: 0.35, epic: 0.30, legendary: 0.12, icon: 0.03 },
     unlocked: true,
     sport: 'futsal',
-    color: '#E30613',
+    color: 'var(--red)',
     description: 'Pelo menos 2 cartas raras.',
   },
   {

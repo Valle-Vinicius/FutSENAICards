@@ -16,14 +16,14 @@ import { supabase } from '../lib/supabase';
 
 function Avatar({ name, url }: { name: string; url: string | null }) {
   return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0F2] text-xl font-bold text-[#E30613]">
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--soft)] text-xl font-bold text-[var(--red)]">
       {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : name.charAt(0).toUpperCase()}
     </div>
   );
 }
 
 function DivisionBadge({ division }: { division: CompetitiveDivision | null }) {
-  return <span className="rounded-full bg-[#FFF0F2] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#E30613]">{division ?? 'Não classificado'}</span>;
+  return <span className="rounded-full bg-[var(--soft)] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--red)]">{division ?? 'Não classificado'}</span>;
 }
 
 function RatingChart({ history }: { history: CompetitiveRatingEvent[] }) {
@@ -41,18 +41,18 @@ function RatingChart({ history }: { history: CompetitiveRatingEvent[] }) {
   }, [history]);
 
   if (points.length === 0) {
-    return <div className="flex h-48 items-center justify-center text-sm text-[#858A98]">O histórico de ELO aparecerá após a primeira partida competitiva.</div>;
+    return <div className="flex h-48 items-center justify-center text-sm text-[var(--muted)]">O histórico de ELO aparecerá após a primeira partida competitiva.</div>;
   }
   const path = points.map(point => `${point.x},${point.y}`).join(' ');
   return (
     <div>
       <svg viewBox="0 0 100 100" role="img" aria-label="Evolução do ELO com base nas partidas oficiais" className="h-48 w-full overflow-visible">
-        <line x1="5" y1="88" x2="95" y2="88" stroke="#E9EAF0" strokeWidth="1" />
-        <line x1="5" y1="15" x2="5" y2="88" stroke="#E9EAF0" strokeWidth="1" />
-        {points.length > 1 && <polyline points={path} fill="none" stroke="#E30613" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
-        {points.map((point, index) => <circle key={`${point.x}-${index}`} cx={point.x} cy={point.y} r="1.8" fill="#E30613" />)}
+        <line x1="5" y1="88" x2="95" y2="88" stroke="var(--border)" strokeWidth="1" />
+        <line x1="5" y1="15" x2="5" y2="88" stroke="var(--border)" strokeWidth="1" />
+        {points.length > 1 && <polyline points={path} fill="none" stroke="var(--red)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+        {points.map((point, index) => <circle key={`${point.x}-${index}`} cx={point.x} cy={point.y} r="1.8" fill="var(--red)" />)}
       </svg>
-      <div className="text-center text-[10px] text-[#858A98]">{points.length} alteração(ões) oficial(is) de ELO, da mais antiga à mais recente</div>
+      <div className="text-center text-[10px] text-[var(--muted)]">{points.length} alteração(ões) oficial(is) de ELO, da mais antiga à mais recente</div>
     </div>
   );
 }
@@ -200,26 +200,26 @@ export default function CompetitiveProfile() {
 
   return (
     <div className="space-y-6 p-4 md:p-8">
-      <Link to="/leaderboard" className="text-sm font-medium text-[#E30613] hover:underline">← Voltar ao Leaderboard</Link>
-      {error && <div role="alert" className="card-surface p-4 text-sm text-[#E30613]">{error}</div>}
-      {loading && <div className="card-surface p-8 text-center text-sm text-[#858A98]">Carregando perfil competitivo...</div>}
+      <Link to="/leaderboard" className="text-sm font-medium text-[var(--red)] hover:underline">← Voltar ao Leaderboard</Link>
+      {error && <div role="alert" className="card-surface p-4 text-sm text-[var(--red)]">{error}</div>}
+      {loading && <div className="card-surface p-8 text-center text-sm text-[var(--muted)]">Carregando perfil competitivo...</div>}
       {!loading && profile && (
         <>
           <section className="card-surface flex flex-col gap-5 p-5 md:flex-row md:items-center md:p-7">
             <Avatar name={profile.name} url={profile.avatarUrl} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="break-words text-2xl font-semibold text-[#252733]">{profile.name}</h1>
+                <h1 className="break-words text-2xl font-semibold text-[var(--text)]">{profile.name}</h1>
                 <DivisionBadge division={profile.division} />
               </div>
-              <div className="mt-1 text-sm text-[#858A98]">
+              <div className="mt-1 text-sm text-[var(--muted)]">
                 {profile.position ? `Posição global #${profile.position}` : 'Ainda não classificado — nenhuma partida competitiva registrada'}
               </div>
             </div>
             <div className="text-left md:text-right">
-              <div className="text-xs font-semibold uppercase tracking-wide text-[#858A98]">ELO atual</div>
-              <div className="text-4xl font-bold tabular-nums text-[#E30613]">{profile.rating}</div>
-              <div className="text-xs text-[#858A98]">Melhor: {profile.peakRating}</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">ELO atual</div>
+              <div className="text-4xl font-bold tabular-nums text-[var(--red)]">{profile.rating}</div>
+              <div className="text-xs text-[var(--muted)]">Melhor: {profile.peakRating}</div>
             </div>
           </section>
 
@@ -235,38 +235,38 @@ export default function CompetitiveProfile() {
               ['Última partida', profile.lastMatchAt ? formatDate(profile.lastMatchAt) : '—'],
             ].map(([label, value]) => (
               <div key={String(label)} className="card-surface p-4">
-                <div className="text-xs text-[#858A98]">{label}</div>
-                <div className="mt-1 text-xl font-bold text-[#252733]">{value}</div>
+                <div className="text-xs text-[var(--muted)]">{label}</div>
+                <div className="mt-1 text-xl font-bold text-[var(--text)]">{value}</div>
               </div>
             ))}
           </section>
 
           <section className="card-surface p-5">
-            <h2 className="mb-3 flex items-center gap-2 font-semibold text-[#252733]"><Trophy className="h-4 w-4 text-[#E30613]" /> Evolução do ELO</h2>
+            <h2 className="mb-3 flex items-center gap-2 font-semibold text-[var(--text)]"><Trophy className="h-4 w-4 text-[var(--red)]" /> Evolução do ELO</h2>
             <RatingChart history={history} />
           </section>
 
           <section className="card-surface overflow-hidden">
-            <div className="border-b border-[#E9EAF0] p-4">
-              <h2 className="font-semibold text-[#252733]">Últimos resultados competitivos</h2>
-              <p className="text-xs text-[#858A98]">Resultado, placar e variação vêm dos eventos oficiais de ELO.</p>
+            <div className="border-b border-[var(--border)] p-4">
+              <h2 className="font-semibold text-[var(--text)]">Últimos resultados competitivos</h2>
+              <p className="text-xs text-[var(--muted)]">Resultado, placar e variação vêm dos eventos oficiais de ELO.</p>
             </div>
             {history.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[#858A98]">Nenhum resultado competitivo registrado.</div>
+              <div className="p-8 text-center text-sm text-[var(--muted)]">Nenhum resultado competitivo registrado.</div>
             ) : (
-              <div className="divide-y divide-[#E9EAF0]">
+              <div className="divide-y divide-[var(--border)]">
                 {history.map(event => (
                   <div key={event.challengeId} className="flex flex-wrap items-center gap-3 p-4">
-                    <span className={`w-16 rounded-lg px-2 py-1 text-center text-[10px] font-bold uppercase ${event.result === 'win' ? 'bg-[#FFF0F2] text-[#E30613]' : 'bg-[#F7F7F9] text-[#858A98]'}`}>
+                    <span className={`w-16 rounded-lg px-2 py-1 text-center text-[10px] font-bold uppercase ${event.result === 'win' ? 'bg-[var(--soft)] text-[var(--red)]' : 'bg-[var(--bg)] text-[var(--muted)]'}`}>
                       {event.result === 'win' ? 'Vitória' : event.result === 'loss' ? 'Derrota' : 'Empate'}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <Link to={`/leaderboard/player/${event.opponentId}`} className="font-medium text-[#252733] hover:text-[#E30613]">{event.opponentName}</Link>
-                      <div className="text-xs text-[#858A98]">{event.scoreFor}–{event.scoreAgainst} · {formatDate(event.createdAt)}</div>
+                      <Link to={`/leaderboard/player/${event.opponentId}`} className="font-medium text-[var(--text)] hover:text-[var(--red)]">{event.opponentName}</Link>
+                      <div className="text-xs text-[var(--muted)]">{event.scoreFor}–{event.scoreAgainst} · {formatDate(event.createdAt)}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-[#858A98]">{event.ratingBefore} → {event.ratingAfter}</div>
-                      <div className={`flex items-center justify-end text-sm font-bold ${event.ratingChange > 0 ? 'text-[#E30613]' : event.ratingChange < 0 ? 'text-[#858A98]' : 'text-[#252733]'}`}>
+                      <div className="text-xs text-[var(--muted)]">{event.ratingBefore} → {event.ratingAfter}</div>
+                      <div className={`flex items-center justify-end text-sm font-bold ${event.ratingChange > 0 ? 'text-[var(--red)]' : event.ratingChange < 0 ? 'text-[var(--muted)]' : 'text-[var(--text)]'}`}>
                         {event.ratingChange > 0 ? <ArrowUpRight className="h-4 w-4" /> : event.ratingChange < 0 ? <ArrowDownRight className="h-4 w-4" /> : null}
                         {event.ratingChange > 0 ? '+' : ''}{event.ratingChange} ELO
                       </div>
@@ -276,16 +276,16 @@ export default function CompetitiveProfile() {
                       name: event.opponentName,
                       avatarUrl: event.opponentAvatarUrl,
                       rating: null,
-                    })} className="w-full text-left text-xs font-medium text-[#E30613] hover:underline sm:w-auto">
+                    })} className="w-full text-left text-xs font-medium text-[var(--red)] hover:underline sm:w-auto">
                       Ver H2H
                     </button>
                   </div>
                 ))}
               </div>
             )}
-            {historyError && <div role="alert" className="p-3 text-sm text-[#E30613]">{historyError}</div>}
+            {historyError && <div role="alert" className="p-3 text-sm text-[var(--red)]">{historyError}</div>}
             {historyHasMore && (
-              <div className="border-t border-[#E9EAF0] p-3 text-center">
+              <div className="border-t border-[var(--border)] p-3 text-center">
                 <button onClick={() => void loadMoreHistory()} disabled={historyLoadingMore} className="btn btn-secondary">
                   {historyLoadingMore ? 'Carregando...' : 'Carregar partidas anteriores'}
                 </button>
@@ -294,27 +294,27 @@ export default function CompetitiveProfile() {
           </section>
 
           <section className="card-surface p-5">
-            <h2 className="font-semibold text-[#252733]">Histórico PvP total — confrontos diretos</h2>
-            <p className="mt-1 text-xs text-[#858A98]">Inclui challenges PvP oficiais anteriores ao ELO; não inclui partidas locais ou contra IA. Os totais podem diferir do histórico competitivo acima.</p>
+            <h2 className="font-semibold text-[var(--text)]">Histórico PvP total — confrontos diretos</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">Inclui challenges PvP oficiais anteriores ao ELO; não inclui partidas locais ou contra IA. Os totais podem diferir do histórico competitivo acima.</p>
             <label className="relative mt-3 block max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#858A98]" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
               <input value={opponentSearch} onChange={event => {
                 setOpponentSearch(event.target.value);
                 setSelectedOpponent(null);
                 setHeadToHead(null);
-              }} placeholder="Buscar adversário..." className="w-full rounded-xl border border-[#E9EAF0] bg-[#F7F7F9] py-2 pl-9 pr-3 text-sm text-[#252733]" />
+              }} placeholder="Buscar adversário..." className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-3 text-sm text-[var(--text)]" />
             </label>
             {opponents.length > 0 && (
-              <div className="mt-2 max-w-md overflow-hidden rounded-xl border border-[#E9EAF0] bg-white">
+              <div className="mt-2 max-w-md overflow-hidden rounded-xl border border-[var(--border)] bg-white">
                 {opponents.map(opponent => (
-                  <button key={opponent.userId} onClick={() => void selectOpponent(opponent)} className="block w-full border-b border-[#E9EAF0] px-3 py-2 text-left text-sm text-[#252733] last:border-0 hover:bg-[#F7F7F9]">
-                    {opponent.name} <span className="text-xs text-[#858A98]">{opponent.rating === null ? '· Sem ELO competitivo' : `· ${opponent.rating} ELO`}</span>
+                  <button key={opponent.userId} onClick={() => void selectOpponent(opponent)} className="block w-full border-b border-[var(--border)] px-3 py-2 text-left text-sm text-[var(--text)] last:border-0 hover:bg-[var(--bg)]">
+                    {opponent.name} <span className="text-xs text-[var(--muted)]">{opponent.rating === null ? '· Sem ELO competitivo' : `· ${opponent.rating} ELO`}</span>
                   </button>
                 ))}
               </div>
             )}
-            {headToHeadError && <div role="alert" className="mt-3 text-sm text-[#E30613]">{headToHeadError}</div>}
-            {headToHeadLoading && <div className="mt-3 text-sm text-[#858A98]">Carregando confrontos...</div>}
+            {headToHeadError && <div role="alert" className="mt-3 text-sm text-[var(--red)]">{headToHeadError}</div>}
+            {headToHeadLoading && <div className="mt-3 text-sm text-[var(--muted)]">Carregando confrontos...</div>}
             {selectedOpponent && headToHead && (
               <div className="mt-4">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -323,17 +323,17 @@ export default function CompetitiveProfile() {
                     [`Vitórias de ${profile.name}`, headToHead.userWins],
                     [`Vitórias de ${selectedOpponent.name}`, headToHead.opponentWins],
                     ['Empates', headToHead.draws],
-                  ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-[#F7F7F9] p-3"><div className="text-[10px] text-[#858A98]">{label}</div><div className="mt-1 font-bold text-[#252733]">{value}</div></div>)}
+                  ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-[var(--bg)] p-3"><div className="text-[10px] text-[var(--muted)]">{label}</div><div className="mt-1 font-bold text-[var(--text)]">{value}</div></div>)}
                 </div>
-                <div className="mt-3 text-xs text-[#858A98]">
+                <div className="mt-3 text-xs text-[var(--muted)]">
                   Último confronto: {headToHead.lastMatchAt ? formatDate(headToHead.lastMatchAt) : 'nenhum'}
                 </div>
-                <div className="mt-3 divide-y divide-[#E9EAF0] rounded-xl border border-[#E9EAF0]">
-                  {headToHead.matches.length === 0 ? <div className="p-4 text-sm text-[#858A98]">Nenhum confronto registrado.</div> : headToHead.matches.map(match => (
+                <div className="mt-3 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)]">
+                  {headToHead.matches.length === 0 ? <div className="p-4 text-sm text-[var(--muted)]">Nenhum confronto registrado.</div> : headToHead.matches.map(match => (
                     <div key={match.challenge_id} className="flex items-center justify-between p-3 text-sm">
-                      <span className="text-[#858A98]">{formatDate(match.updated_at)}</span>
-                      <span className="font-semibold text-[#252733]">{match.user_score} – {match.opponent_score}</span>
-                      <span className="text-xs text-[#858A98]">{match.result === 'win' ? 'Vitória' : match.result === 'loss' ? 'Derrota' : 'Empate'}</span>
+                      <span className="text-[var(--muted)]">{formatDate(match.updated_at)}</span>
+                      <span className="font-semibold text-[var(--text)]">{match.user_score} – {match.opponent_score}</span>
+                      <span className="text-xs text-[var(--muted)]">{match.result === 'win' ? 'Vitória' : match.result === 'loss' ? 'Derrota' : 'Empate'}</span>
                     </div>
                   ))}
                 </div>

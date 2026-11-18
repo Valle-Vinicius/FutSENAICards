@@ -29,7 +29,7 @@ export default function ProtectedRoute() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  if (!ready) return <div className="min-h-[100dvh] flex items-center justify-center text-[#858A98]">Carregando…</div>;
+  if (!ready) return <div className="min-h-[100dvh] flex items-center justify-center text-[var(--muted)]">Carregando…</div>;
   if (!authed) return <Navigate to="/auth" replace />;
   return <Outlet />;
 }

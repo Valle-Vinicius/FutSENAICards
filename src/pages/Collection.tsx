@@ -230,7 +230,7 @@ export default function Collection() {
     }
   };
 
-  const selectClass = 'bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm text-[#252733]';
+  const selectClass = 'bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text)]';
   const conversionMessage = conversionRewardsError
     ? 'Não foi possível carregar os valores atuais. A prévia está indisponível; o servidor continua validando o total pago.'
     : !conversionRewards
@@ -242,8 +242,8 @@ export default function Collection() {
   return (
     <div className="min-h-[100dvh] space-y-4 bg-[var(--bg)] p-4 md:p-8">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-[#252733] md:text-3xl">Minhas cartas</h1>
-        <p className="text-xs text-[#858A98]">
+        <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Minhas cartas</h1>
+        <p className="text-xs text-[var(--muted)]">
           {cards.length} cartas · {unique} únicas · {cards.length - unique} duplicadas
         </p>
       </header>
@@ -304,7 +304,7 @@ export default function Collection() {
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-sm text-[#858A98]">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
           <label htmlFor="collection-sort">Ordenar por</label>
           <select id="collection-sort" value={sort} onChange={event => chooseSort(event.target.value)} className={selectClass}>
             <option value="overall">Overall</option>
@@ -339,7 +339,7 @@ export default function Collection() {
                 </button>
               </div>
             ) : (
-              <div key={template.name} className="flex aspect-[7/10] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#E9EAF0] bg-white/60 text-xs text-[#858A98]">
+              <div key={template.name} className="flex aspect-[7/10] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] bg-white/60 text-xs text-[var(--muted)]">
                 <Lock className="h-6 w-6 opacity-30" />
                 <div className="mt-1 px-2 text-center">{template.name}</div>
               </div>
@@ -347,7 +347,7 @@ export default function Collection() {
           })}
         </div>
       ) : groups.length === 0 ? (
-        <div className="py-12 text-center text-[#858A98]">Nenhuma carta encontrada.</div>
+        <div className="py-12 text-center text-[var(--muted)]">Nenhuma carta encontrada.</div>
       ) : (
         <>
           <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] grid gap-4">
@@ -365,7 +365,7 @@ export default function Collection() {
                           aria-expanded={expanded}
                           aria-label={`${expanded ? 'Ocultar' : 'Mostrar'} ${group.cards.length - 1} ${group.cards.length === 2 ? 'cópia' : 'cópias'} de ${card.name}`}
                           onClick={() => toggleGroup(group.key)}
-                          className="absolute right-2 top-20 z-30 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#252733] shadow"
+                          className="absolute right-2 top-20 z-30 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[var(--text)] shadow"
                         >
                           ×{group.cards.length}
                         </button>
@@ -380,7 +380,7 @@ export default function Collection() {
                     </button>
                   </div>
                   {expanded && group.cards.length > 1 && (
-                    <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] col-span-full grid gap-4 rounded-xl border border-dashed border-[#E9EAF0] bg-white/50 p-3">
+                    <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] col-span-full grid gap-4 rounded-xl border border-dashed border-[var(--border)] bg-white/50 p-3">
                       {group.cards.slice(1).map(copy => (
                         <div key={copy.uid} className="min-w-0 space-y-2">
                           <Card card={copy} size="fluid" onClick={() => openCard(copy)} isNew={copy.isNew} />
@@ -422,7 +422,7 @@ export default function Collection() {
                   >
                     {item}
                   </button>
-                ) : <span key={index} className="px-1 text-[#858A98]">…</span>);
+                ) : <span key={index} className="px-1 text-[var(--muted)]">…</span>);
               })()}
               <button onClick={() => setPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage >= totalPages} className="btn btn-secondary btn-sm" aria-label="Próxima página">›</button>
             </div>

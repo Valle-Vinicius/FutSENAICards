@@ -481,7 +481,7 @@ export const useGame = create<GameState & Actions>()(
         const pack = s.packConfigs.find(p => p.id === packId);
         if (!pack || !pack.unlocked) return null;
         if (s.coins < pack.price) {
-          toast.alert('Saldo insuficiente.');
+          toast.error('Saldo insuficiente.');
           return null;
         }
         if (!supabase) return null;
@@ -1238,7 +1238,7 @@ export const useGame = create<GameState & Actions>()(
         const pack = s.packConfigs.find(p => p.id === packId);
         if (!pack || !pack.unlocked || !pack.choice) return null;
         if (s.coins < pack.price) {
-          toast.alert('Saldo insuficiente.');
+          toast.error('Saldo insuficiente.');
           return null;
         }
         if (!supabase) return null;

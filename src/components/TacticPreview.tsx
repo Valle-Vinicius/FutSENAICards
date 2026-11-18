@@ -113,7 +113,7 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
   const awayPlayers = getPreviewPlayers('1-2-1', 'away', horizontalBall);
   const teams = [
     { side: 'away' as const, players: awayPlayers, color: '#173B6B' },
-    { side: 'home' as const, players: homePlayers, color: '#E30613' },
+    { side: 'home' as const, players: homePlayers, color: 'var(--red)' },
   ];
 
   return (
@@ -123,7 +123,7 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
       aria-label={`Prévia da tática ${copy.title}`}
     >
       <div className="match-tactic-court flex h-[min(80dvh,800px)] min-h-0 flex-col items-center justify-center md:h-full">
-        <span className="mb-2 shrink-0 rounded-full bg-[#FFF0F2] px-3 py-1 text-[11px] font-medium text-[#E30613]">
+        <span className="mb-2 shrink-0 rounded-full bg-[var(--soft)] px-3 py-1 text-[11px] font-medium text-[var(--red)]">
           {PHASE_LABELS[phase]}
         </span>
         <div className="flex min-h-0 flex-1 items-center justify-center">
@@ -204,7 +204,7 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
                   cy={position.y}
                   r="2.45"
                   fill={player.isGoalkeeper ? '#FDE047' : color}
-                  stroke={player.isGoalkeeper ? '#252733' : '#fff'}
+                  stroke={player.isGoalkeeper ? 'var(--text)' : '#fff'}
                   strokeWidth="0.45"
                 />
                 <text
@@ -213,27 +213,27 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
                   textAnchor="middle"
                   fontSize="1.55"
                   fontWeight="900"
-                  fill={player.isGoalkeeper ? '#252733' : '#fff'}
+                  fill={player.isGoalkeeper ? 'var(--text)' : '#fff'}
                 >
                   {player.number}
                 </text>
               </g>
             );
           }))}
-          <circle cx={ball.x} cy={ball.y} r="1.55" fill="#fff" stroke="#252733" strokeWidth="0.4" />
+          <circle cx={ball.x} cy={ball.y} r="1.55" fill="#fff" stroke="var(--text)" strokeWidth="0.4" />
           </svg>
         </div>
-        <div className="mt-2 flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-[#858A98]" aria-hidden="true">
-          <span><span className="text-[#E30613]">●</span> Seu time</span>
+        <div className="mt-2 flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-[var(--muted)]" aria-hidden="true">
+          <span><span className="text-[var(--red)]">●</span> Seu time</span>
           <span><span className="text-[#173B6B]">●</span> Adversário</span>
-          <span><span className="text-[#252733]">○</span> Bola</span>
+          <span><span className="text-[var(--text)]">○</span> Bola</span>
         </div>
       </div>
 
       <div className="min-w-0 md:self-center" aria-live="polite" aria-atomic="true">
         <header className="mb-4">
-          <h2 className="text-lg font-semibold text-[#252733]">{copy.title}</h2>
-          <p className="tactic-preview-description mt-1 text-sm leading-relaxed text-[#858A98]">{copy.description}</p>
+          <h2 className="text-lg font-semibold text-[var(--text)]">{copy.title}</h2>
+          <p className="tactic-preview-description mt-1 text-sm leading-relaxed text-[var(--muted)]">{copy.description}</p>
         </header>
         <div className="space-y-4">
           <div>
@@ -254,7 +254,7 @@ export default function TacticPreview({ tactic, formation, reduceMotion = false 
             type="button"
             aria-label="Sobre esta prévia"
             title="Prévia ilustrativa: o motor considera tentativas de passe e frequência de chute. Pressão e linha defensiva ainda não alteram a simulação."
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[#858A98] hover:bg-[#F0F1F4] focus-visible:outline-2 focus-visible:outline-[#E30613]"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--muted)] hover:bg-[#F0F1F4] focus-visible:outline-2 focus-visible:outline-[var(--red)]"
           >
             <Info size={16} aria-hidden="true" />
           </button>

@@ -32,7 +32,7 @@ const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'co
 const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressão alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
 const TACTIC_ICON: Record<Tactic, LucideIcon> = { balanced: Scale, possession: CircleDot, highpress: Zap, counter: ArrowRight, compact: Shield };
 const DIFFICULTY_LABEL = { easy: 'Fácil', normal: 'Normal', hard: 'Difícil' } as const;
-const TEAM_COLORS = { home: '#E30613', away: '#173B6B' } as const;
+const TEAM_COLORS = { home: 'var(--red)', away: '#173B6B' } as const;
 
 function MatchInner() {
   const cards = useGame(s => s.cards);
@@ -817,15 +817,15 @@ function MatchInner() {
     if (!reduceMotion && typeof navigator.vibrate === 'function') navigator.vibrate([65, 35, 65]);
   }, [step, currentFrame?.lastEvent, audioEnabled, reduceMotion]);
 
-  if (challengeLoading || loadingOpp) return <div className="p-8 text-[#858A98]">Carregando...</div>;
+  if (challengeLoading || loadingOpp) return <div className="p-8 text-[var(--muted)]">Carregando...</div>;
 
   if (challengeId && challenge && challenge.status === 'pending') {
     const isChallenger = currentUserId === challenge.challenger_id;
     if (isChallenger) {
       return (
         <div className="p-4 md:p-8 space-y-4">
-          <h1 className="text-2xl font-semibold text-[#252733]">Desafio enviado</h1>
-          <div className="card-surface p-4 text-sm text-[#858A98]">Aguardando o adversário aceitar...</div>
+          <h1 className="text-2xl font-semibold text-[var(--text)]">Desafio enviado</h1>
+          <div className="card-surface p-4 text-sm text-[var(--muted)]">Aguardando o adversário aceitar...</div>
           <button
             onClick={async () => {
               const ok = await challengesService.rejectChallenge(challengeId);
@@ -836,7 +836,7 @@ function MatchInner() {
               cancelledByMeRef.current = true;
               navigate('/friends');
             }}
-            className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium"
+            className="px-4 py-2 rounded-xl bg-white border border-[var(--border)] text-sm font-medium"
           >
             Cancelar desafio
           </button>
@@ -845,9 +845,9 @@ function MatchInner() {
     }
     return (
       <div className="p-4 md:p-8 space-y-4">
-        <h1 className="text-2xl font-semibold text-[#252733]">Desafio PvP</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">Desafio PvP</h1>
         <div className="card-surface p-4 space-y-3">
-          <div className="text-sm text-[#252733]">Você foi desafiado!</div>
+          <div className="text-sm text-[var(--text)]">Você foi desafiado!</div>
           <div className="flex gap-2">
             <button
               onClick={async () => {
@@ -856,7 +856,7 @@ function MatchInner() {
                 if (!ok && ch?.status !== 'accepted') toast.error('Não foi possível aceitar o desafio.');
                 if (ch) applyChallengeRow(ch);
               }}
-              className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium"
+              className="px-4 py-2 rounded-xl bg-[var(--red)] text-white text-sm font-medium"
             >Aceitar</button>
             <button
               onClick={async () => {
@@ -867,7 +867,7 @@ function MatchInner() {
                 }
                 navigate('/');
               }}
-              className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium"
+              className="px-4 py-2 rounded-xl bg-white border border-[var(--border)] text-sm font-medium"
             >
               Recusar
             </button>
@@ -890,43 +890,43 @@ function MatchInner() {
     return (
       <div className="p-4 md:p-8 space-y-6">
         {fade && <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center text-white text-2xl font-bold">Preparando partida...</div>}
-        <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Pré-jogo (PvP)</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-[var(--text)]">Pré-jogo (PvP)</h1>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="card-surface p-4">
-            <div className="text-sm font-medium text-[#858A98] mb-2">Seu time</div>
-            <div className="text-sm text-[#252733]">{challengeSquads ? `${isChallenger ? challengeSquads.homeName : challengeSquads.awayName} · ${isChallenger ? challengeSquads.homeFormation : challengeSquads.awayFormation} · OVR ${isChallenger ? homeAverage : awayAverage}` : 'Carregando elenco...'}</div>
+            <div className="text-sm font-medium text-[var(--muted)] mb-2">Seu time</div>
+            <div className="text-sm text-[var(--text)]">{challengeSquads ? `${isChallenger ? challengeSquads.homeName : challengeSquads.awayName} · ${isChallenger ? challengeSquads.homeFormation : challengeSquads.awayFormation} · OVR ${isChallenger ? homeAverage : awayAverage}` : 'Carregando elenco...'}</div>
             {challengeSquads && (isChallenger ? challengeSquads.homeCards : challengeSquads.awayCards).map(player => (
-              <div key={player.uid} className="text-xs text-[#858A98] mt-1">{player.name} · {player.position} · {player.overall}</div>
+              <div key={player.uid} className="text-xs text-[var(--muted)] mt-1">{player.name} · {player.position} · {player.overall}</div>
             ))}
           </div>
           <div className="card-surface p-4">
-            <div className="text-sm font-medium text-[#858A98] mb-2">Adversário</div>
-            <div className="text-sm text-[#252733]">{challengeSquads ? `${isChallenger ? challengeSquads.awayName : challengeSquads.homeName} · ${isChallenger ? challengeSquads.awayFormation : challengeSquads.homeFormation} · OVR ${isChallenger ? awayAverage : homeAverage}` : 'Carregando elenco...'}</div>
+            <div className="text-sm font-medium text-[var(--muted)] mb-2">Adversário</div>
+            <div className="text-sm text-[var(--text)]">{challengeSquads ? `${isChallenger ? challengeSquads.awayName : challengeSquads.homeName} · ${isChallenger ? challengeSquads.awayFormation : challengeSquads.homeFormation} · OVR ${isChallenger ? awayAverage : homeAverage}` : 'Carregando elenco...'}</div>
             {challengeSquads && (isChallenger ? challengeSquads.awayCards : challengeSquads.homeCards).map(player => (
-              <div key={player.uid} className="text-xs text-[#858A98] mt-1">{player.name} · {player.position} · {player.overall}</div>
+              <div key={player.uid} className="text-xs text-[var(--muted)] mt-1">{player.name} · {player.position} · {player.overall}</div>
             ))}
           </div>
         </div>
         {challengeError && (
           <div className="card-surface p-4 text-sm text-red-600 space-y-2">
             <div>{challengeError}</div>
-            <button onClick={() => setChallengeError(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] text-xs font-medium">Tentar novamente</button>
+            <button onClick={() => setChallengeError(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] text-xs font-medium">Tentar novamente</button>
           </div>
         )}
-        <div className="text-sm text-[#858A98]">
+        <div className="text-sm text-[var(--muted)]">
           Você: {myReady ? 'Pronto ✓' : 'Aguardando...'} · Adversário: {oppReady ? 'Pronto ✓' : 'Aguardando...'}
         </div>
-        <div className="grid md:grid-cols-2 gap-3 text-xs text-[#858A98]">
+        <div className="grid md:grid-cols-2 gap-3 text-xs text-[var(--muted)]">
           <div>{challengeSquads?.homeName}: {TACTIC_LABEL[TACTICS.find(tactic => tactic === challenge?.challenger_tactic) ?? 'balanced']}</div>
           <div>{challengeSquads?.awayName}: {TACTIC_LABEL[TACTICS.find(tactic => tactic === challenge?.challenged_tactic) ?? 'balanced']}</div>
         </div>
         <div>
-          <label className="text-sm text-[#858A98]">Sua tática</label>
+          <label className="text-sm text-[var(--muted)]">Sua tática</label>
           <select
             value={challengeTactic}
             onChange={event => setChallengeTactic(event.target.value as Tactic)}
             disabled={myReady}
-            className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm disabled:opacity-50"
+            className="w-full mt-1 bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm disabled:opacity-50"
           >
             {TACTICS.map(tactic => <option key={tactic} value={tactic}>{TACTIC_LABEL[tactic]}</option>)}
           </select>
@@ -934,7 +934,7 @@ function MatchInner() {
         {startError && (
           <div className="card-surface p-4 text-sm text-red-600 space-y-2">
             <div>{startError}</div>
-            <button onClick={() => setStartError(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[#E9EAF0] text-[#252733] text-xs font-medium">Tentar novamente</button>
+            <button onClick={() => setStartError(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] text-xs font-medium">Tentar novamente</button>
           </div>
         )}
         <button
@@ -954,7 +954,7 @@ function MatchInner() {
             }
           }}
           disabled={myReady || !challengeSquads || readyLoading}
-          className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40"
+          className="w-full px-4 py-3 rounded-xl bg-[var(--red)] text-white font-bold disabled:opacity-40"
         >
           {readyLoading ? 'Enviando...' : myReady ? 'Aguardando adversário...' : 'Estou pronto'}
         </button>
@@ -969,7 +969,7 @@ function MatchInner() {
             navigate('/friends');
           }}
           disabled={challengerReady && challengedReady}
-          className="w-full px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium text-[#252733]"
+          className="w-full px-4 py-2 rounded-xl bg-white border border-[var(--border)] text-sm font-medium text-[var(--text)]"
         >
           {challengerReady && challengedReady ? 'Partida confirmada' : 'Cancelar desafio'}
         </button>
@@ -988,14 +988,14 @@ function MatchInner() {
       return (
         <div className="match-setup-screen h-full min-h-0 overflow-hidden overscroll-none flex flex-col gap-4 p-4 md:p-6">
           <header className="match-setup-header shrink-0 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-xl md:text-2xl font-semibold text-[#252733]">Partida simulada</h1>
-            <div className="flex items-center gap-2 text-xs md:text-sm text-[#858A98]" aria-label="Confronto">
+            <h1 className="text-xl md:text-2xl font-semibold text-[var(--text)]">Partida simulada</h1>
+            <div className="flex items-center gap-2 text-xs md:text-sm text-[var(--muted)]" aria-label="Confronto">
               <span className="rounded-full bg-white px-3 py-1.5">
-                Seu time · OVR <strong className="text-[#252733]">{homeOverall ?? '—'}</strong>
+                Seu time · OVR <strong className="text-[var(--text)]">{homeOverall ?? '—'}</strong>
               </span>
               <span aria-hidden="true">×</span>
               <span className="rounded-full bg-white px-3 py-1.5">
-                IA {DIFFICULTY_LABEL[difficulty]} · OVR <strong className="text-[#252733]">{AI_BASE_OVR[difficulty]}</strong>
+                IA {DIFFICULTY_LABEL[difficulty]} · OVR <strong className="text-[var(--text)]">{AI_BASE_OVR[difficulty]}</strong>
               </span>
             </div>
           </header>
@@ -1005,20 +1005,20 @@ function MatchInner() {
               <div className="shrink-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h2 className="text-sm font-semibold text-[#252733]">Escalação</h2>
-                    <div className="mt-1 truncate text-sm font-medium text-[#252733]">
+                    <h2 className="text-sm font-semibold text-[var(--text)]">Escalação</h2>
+                    <div className="mt-1 truncate text-sm font-medium text-[var(--text)]">
                       {savedSquad?.name ?? 'Escalação atual'}
                     </div>
-                    <div className="text-xs text-[#858A98]">
+                    <div className="text-xs text-[var(--muted)]">
                       {homeInfo?.formation ?? squad.formation} · OVR {homeOverall ?? '—'}
                     </div>
                   </div>
                   <details className="relative shrink-0">
-                    <summary className="flex h-9 cursor-pointer list-none items-center gap-1 rounded-lg border border-[#E9EAF0] bg-white px-2.5 text-xs font-medium text-[#252733] hover:bg-[#F7F7F9] focus-visible:outline-2 focus-visible:outline-[#E30613]">
+                    <summary className="flex h-9 cursor-pointer list-none items-center gap-1 rounded-lg border border-[var(--border)] bg-white px-2.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg)] focus-visible:outline-2 focus-visible:outline-[var(--red)]">
                       Trocar <ChevronDown size={14} aria-hidden="true" />
                     </summary>
                     <div className="absolute right-0 top-full z-30 mt-2 w-64 card-surface p-3">
-                      <label htmlFor="match-squad-select" className="mb-1 block text-xs text-[#858A98]">Escolher escalação</label>
+                      <label htmlFor="match-squad-select" className="mb-1 block text-xs text-[var(--muted)]">Escolher escalação</label>
                       <select
                         id="match-squad-select"
                         value={selectedSquadId ?? ''}
@@ -1026,7 +1026,7 @@ function MatchInner() {
                           setSelectedSquadId(event.target.value || null);
                           event.currentTarget.closest('details')?.removeAttribute('open');
                         }}
-                        className="w-full bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm"
+                        className="w-full bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm"
                       >
                         <option value="">Escalação atual</option>
                         {mySaved.map(saved => <option key={saved.id} value={saved.id}>{saved.name} ({saved.formation})</option>)}
@@ -1039,7 +1039,7 @@ function MatchInner() {
               </div>
 
               <fieldset className="shrink-0">
-                <legend className="mb-2 text-sm font-semibold text-[#252733]">Dificuldade</legend>
+                <legend className="mb-2 text-sm font-semibold text-[var(--text)]">Dificuldade</legend>
                 <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F0F1F4] p-1" role="group" aria-label="Dificuldade da IA">
                   {(['easy', 'normal', 'hard'] as const).map(level => (
                     <button
@@ -1047,7 +1047,7 @@ function MatchInner() {
                       type="button"
                       aria-pressed={difficulty === level}
                       onClick={() => setDifficulty(level)}
-                      className={`rounded-lg px-1.5 py-2 text-xs font-medium transition-colors ${difficulty === level ? 'bg-white text-[#E30613] shadow-sm' : 'text-[#858A98] hover:text-[#252733]'}`}
+                      className={`rounded-lg px-1.5 py-2 text-xs font-medium transition-colors ${difficulty === level ? 'bg-white text-[var(--red)] shadow-sm' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
                     >
                       {DIFFICULTY_LABEL[level]}
                     </button>
@@ -1056,14 +1056,14 @@ function MatchInner() {
               </fieldset>
 
               <fieldset className="min-h-0">
-                <legend className="mb-2 text-sm font-semibold text-[#252733]">Tática</legend>
+                <legend className="mb-2 text-sm font-semibold text-[var(--text)]">Tática</legend>
                 <div className="grid gap-1" role="radiogroup" aria-label="Tática">
                   {TACTICS.map(tactic => {
                     const Icon = TACTIC_ICON[tactic];
                     return (
                       <label
                         key={tactic}
-                        className={`tactic-radio-option flex h-11 min-w-0 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors focus-within:ring-2 focus-within:ring-[#E30613] ${homeTactic === tactic ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-transparent text-[#858A98] hover:border-[#E9EAF0] hover:bg-white'}`}
+                        className={`tactic-radio-option flex h-11 min-w-0 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors focus-within:ring-2 focus-within:ring-[var(--red)] ${homeTactic === tactic ? 'border-[var(--red)] bg-[var(--soft)] text-[var(--red)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:bg-white'}`}
                       >
                         <input
                           type="radio"
@@ -1084,7 +1084,7 @@ function MatchInner() {
               <button
                 onClick={startMatch}
                 disabled={!homeInfo}
-                className="mt-auto w-full shrink-0 rounded-xl bg-[#E30613] px-4 py-3 font-bold text-white disabled:opacity-40"
+                className="mt-auto w-full shrink-0 rounded-xl bg-[var(--red)] px-4 py-3 font-bold text-white disabled:opacity-40"
               >
                 Iniciar partida
               </button>
@@ -1099,43 +1099,43 @@ function MatchInner() {
 
     return (
       <div className="p-4 md:p-8 space-y-6">
-        <h1 className="text-2xl md:text-3xl font-semibold text-[#252733]">Partida simulada{opponentId ? ` vs ${opponentName}` : challengeId ? ' (PvP)' : ''}</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-[var(--text)]">Partida simulada{opponentId ? ` vs ${opponentName}` : challengeId ? ' (PvP)' : ''}</h1>
         <div className="card-surface max-w-2xl p-4 space-y-4">
           <div>
-            <label className="text-sm text-[#858A98]">Escalação</label>
-            <select value={selectedSquadId ?? ''} onChange={e => setSelectedSquadId(e.target.value || null)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+            <label className="text-sm text-[var(--muted)]">Escalação</label>
+            <select value={selectedSquadId ?? ''} onChange={e => setSelectedSquadId(e.target.value || null)} className="w-full mt-1 bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm">
               <option value="">Escalação atual</option>
               {mySaved.map(s => <option key={s.id} value={s.id}>{s.name} ({s.formation})</option>)}
             </select>
             {!homeInfo && !challengeSquads && <div className="text-xs text-red-600 mt-1">Escalação incompleta.</div>}
-            {homeInfo && <div className="text-xs text-[#858A98] mt-1">Overall médio: {Math.round(homeInfo.cards.reduce((a: number, c: any) => a + (c.overall ?? 0), 0) / homeInfo.cards.length)}</div>}
+            {homeInfo && <div className="text-xs text-[var(--muted)] mt-1">Overall médio: {Math.round(homeInfo.cards.reduce((a: number, c: any) => a + (c.overall ?? 0), 0) / homeInfo.cards.length)}</div>}
             {opponentError && <div className="text-xs text-red-600 mt-2">{opponentError}</div>}
           </div>
           <div>
-            <label className="text-sm text-[#858A98]">Tática</label>
-            <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+            <label className="text-sm text-[var(--muted)]">Tática</label>
+            <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm">
               {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
             </select>
           </div>
           {!opponentId && !challengeId && (
             <>
               <div>
-                <label className="text-sm text-[#858A98]">Dificuldade</label>
-                <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+                <label className="text-sm text-[var(--muted)]">Dificuldade</label>
+                <select value={difficulty} onChange={e => setDifficulty(e.target.value as any)} className="w-full mt-1 bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm">
                   <option value="easy">Fácil</option>
                   <option value="normal">Normal</option>
                   <option value="hard">Difícil</option>
                 </select>
               </div>
               <div>
-                <label className="text-sm text-[#858A98]">Tática</label>
-                <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[#E9EAF0] rounded-xl px-3 py-2 text-sm">
+                <label className="text-sm text-[var(--muted)]">Tática</label>
+                <select value={homeTactic} onChange={e => setHomeTactic(e.target.value as Tactic)} className="w-full mt-1 bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm">
                   {TACTICS.map(t => <option key={t} value={t}>{TACTIC_LABEL[t]}</option>)}
                 </select>
               </div>
             </>
           )}
-          <button onClick={startMatch} disabled={!homeInfo || (!!opponentId && !activeOpponentPlayers)} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
+          <button onClick={startMatch} disabled={!homeInfo || (!!opponentId && !activeOpponentPlayers)} className="w-full px-4 py-3 rounded-xl bg-[var(--red)] text-white font-bold disabled:opacity-40">
             Iniciar partida
           </button>
         </div>
@@ -1152,7 +1152,7 @@ function MatchInner() {
     const opponentTeamFormation = myMatchSide === 'home' ? result.config.awayFormation : result.config.homeFormation;
     return (
       <div className="p-4 md:p-8 space-y-4">
-        <h1 className="text-2xl font-semibold text-[#252733]">{challengeId ? 'Sala da partida PvP' : 'Pré-jogo'}</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">{challengeId ? 'Sala da partida PvP' : 'Pré-jogo'}</h1>
         {challengeId && (
           <div className="card-surface p-3 text-sm text-green-700">
             Resultado oficial confirmado pelo servidor · Relógio compartilhado · {playbackState?.status === 'playing' ? 'Partida em andamento' : 'Aguardando início'}
@@ -1161,26 +1161,26 @@ function MatchInner() {
         <div className="card-surface p-4">
           <div className="flex justify-between items-center mb-4">
             <div className="text-center">
-              <div className="font-bold text-[#252733]">{myTeamName}</div>
-              <div className="text-xs text-[#858A98]">{myFormation}</div>
+              <div className="font-bold text-[var(--text)]">{myTeamName}</div>
+              <div className="text-xs text-[var(--muted)]">{myFormation}</div>
             </div>
-            <div className="text-[#858A98]">vs</div>
+            <div className="text-[var(--muted)]">vs</div>
             <div className="text-center">
-              <div className="font-bold text-[#252733]">{opponentTeamName}</div>
-              <div className="text-xs text-[#858A98]">{opponentTeamFormation}</div>
+              <div className="font-bold text-[var(--text)]">{opponentTeamName}</div>
+              <div className="text-xs text-[var(--muted)]">{opponentTeamFormation}</div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
             <div>
-              <div className="font-semibold text-[#858A98] mb-1">{myTeamName} · Seu time</div>
-              {myPlayers.map(p => <div key={p.id} className="text-[#252733]">{p.number}. {p.name} ({p.position})</div>)}
+              <div className="font-semibold text-[var(--muted)] mb-1">{myTeamName} · Seu time</div>
+              {myPlayers.map(p => <div key={p.id} className="text-[var(--text)]">{p.number}. {p.name} ({p.position})</div>)}
             </div>
             <div>
-              <div className="font-semibold text-[#858A98] mb-1">{opponentTeamName} · Adversário</div>
-              {opponentPlayersForMatch.map(p => <div key={p.id} className="text-[#252733]">{p.number}. {p.name} ({p.position})</div>)}
+              <div className="font-semibold text-[var(--muted)] mb-1">{opponentTeamName} · Adversário</div>
+              {opponentPlayersForMatch.map(p => <div key={p.id} className="text-[var(--text)]">{p.number}. {p.name} ({p.position})</div>)}
             </div>
           </div>
-          <button onClick={startPlay} disabled={!!challengeId && (playbackState?.status === 'playing' || playbackState?.status === 'finished')} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold disabled:opacity-40">
+          <button onClick={startPlay} disabled={!!challengeId && (playbackState?.status === 'playing' || playbackState?.status === 'finished')} className="w-full px-4 py-3 rounded-xl bg-[var(--red)] text-white font-bold disabled:opacity-40">
             {playbackState?.status === 'paused' ? 'Retomar partida' : playbackState?.status === 'playing' ? 'Partida em andamento' : 'Começar'}
           </button>
         </div>
@@ -1220,29 +1220,29 @@ function MatchInner() {
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: TEAM_COLORS[shownHomeSide] }} />
-              <span className="truncate text-sm font-bold text-[#252733] md:text-base">{shownHomeName}</span>
+              <span className="truncate text-sm font-bold text-[var(--text)] md:text-base">{shownHomeName}</span>
             </div>
             <div className="rounded-lg bg-slate-950 px-3 py-1 text-xl font-black tracking-wider text-white md:px-5 md:text-2xl" aria-label={`Placar: ${shownHomeScore} a ${shownAwayScore}`}>
               {shownHomeScore} – {shownAwayScore}
             </div>
             <div className="flex min-w-0 items-center justify-end gap-2">
-              <span className="truncate text-right text-sm font-bold text-[#252733] md:text-base">{shownAwayName}</span>
+              <span className="truncate text-right text-sm font-bold text-[var(--text)] md:text-base">{shownAwayName}</span>
               <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: TEAM_COLORS[shownAwaySide] }} />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex min-w-[120px] items-center gap-2 text-xs font-semibold text-[#858A98]">
+            <div className="flex min-w-[120px] items-center gap-2 text-xs font-semibold text-[var(--muted)]">
               <span>{Math.floor(currentFrame.minute)}′ / {MATCH_DURATION_MINUTES}′</span>
               <span>{currentFrame.half === 1 ? '1º tempo' : '2º tempo'}</span>
             </div>
             <div className="h-2 min-w-[100px] flex-1 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Progresso da partida" aria-valuemin={0} aria-valuemax={MATCH_DURATION_MINUTES} aria-valuenow={Math.floor(currentFrame.minute)}>
-              <div className="h-full rounded-full bg-[#E30613] transition-[width] duration-300" style={{ width: `${scoreProgress}%` }} />
+              <div className="h-full rounded-full bg-[var(--red)] transition-[width] duration-300" style={{ width: `${scoreProgress}%` }} />
             </div>
-            {challengeId && <span className="text-xs text-[#858A98]">Relógio compartilhado · {activeSpeed}x</span>}
+            {challengeId && <span className="text-xs text-[var(--muted)]">Relógio compartilhado · {activeSpeed}x</span>}
             <div className="ml-auto flex gap-2">
-              <button onClick={() => controlPlayback(isPlaying ? 'pause' : 'play')} disabled={matchEnding} className="rounded-xl border border-[#E9EAF0] bg-white px-3 py-1.5 text-sm font-medium disabled:opacity-40">{isPlaying ? 'Pausar' : 'Retomar'}</button>
+              <button onClick={() => controlPlayback(isPlaying ? 'pause' : 'play')} disabled={matchEnding} className="rounded-xl border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium disabled:opacity-40">{isPlaying ? 'Pausar' : 'Retomar'}</button>
               {[1, 2, 4].map(s => (
-                <button key={s} onClick={() => controlPlayback('speed', s as 1 | 2 | 4)} disabled={matchEnding} className={`rounded-xl px-3 py-1.5 text-sm font-medium disabled:opacity-40 ${activeSpeed === s ? 'bg-[#E30613] text-white' : 'border border-[#E9EAF0] bg-white text-[#858A98]'}`}>{s}x</button>
+                <button key={s} onClick={() => controlPlayback('speed', s as 1 | 2 | 4)} disabled={matchEnding} className={`rounded-xl px-3 py-1.5 text-sm font-medium disabled:opacity-40 ${activeSpeed === s ? 'bg-[var(--red)] text-white' : 'border border-[var(--border)] bg-white text-[var(--muted)]'}`}>{s}x</button>
               ))}
             </div>
           </div>
@@ -1375,33 +1375,33 @@ function MatchInner() {
             </div>
 
             {currentFrame.lastEvent && (
-              <div className="card-surface p-3 text-sm text-[#252733]">
-                <span className="font-bold text-[#E30613]">{currentFrame.lastEvent.minute}′</span> {currentFrame.lastEvent.description}
+              <div className="card-surface p-3 text-sm text-[var(--text)]">
+                <span className="font-bold text-[var(--red)]">{currentFrame.lastEvent.minute}′</span> {currentFrame.lastEvent.description}
               </div>
             )}
 
             <div className="card-surface max-h-40 overflow-auto p-3">
-              <div className="mb-2 text-xs font-semibold text-[#858A98]">Lances recentes</div>
+              <div className="mb-2 text-xs font-semibold text-[var(--muted)]">Lances recentes</div>
               {eventsAtCurrentMinute.slice(-8).reverse().map((event, index) => (
-                <div key={`${event.minute}-${event.type}-${index}`} className="py-0.5 text-xs text-[#252733]">{event.minute}′ - {event.description}</div>
+                <div key={`${event.minute}-${event.type}-${index}`} className="py-0.5 text-xs text-[var(--text)]">{event.minute}′ - {event.description}</div>
               ))}
             </div>
           </div>
 
           <aside className="card-surface space-y-3 p-4" aria-label="Estatísticas ao vivo">
-            <h2 className="text-sm font-bold text-[#252733]">Estatísticas ao vivo</h2>
+            <h2 className="text-sm font-bold text-[var(--text)]">Estatísticas ao vivo</h2>
             {[
               { label: 'Finalizações', types: ['goal', 'save', 'miss'] as MatchEvent['type'][] },
               { label: 'No alvo', types: ['goal', 'save'] as MatchEvent['type'][] },
               { label: 'Faltas', types: ['foul'] as MatchEvent['type'][] },
             ].map(stat => (
-              <div key={stat.label} className="flex items-center justify-between border-t border-[#E9EAF0] pt-2 text-sm">
-                <span className="text-[#858A98]">{stat.label}</span>
-                <span className="font-bold text-[#252733]">{displayedStat(stat.types)}</span>
+              <div key={stat.label} className="flex items-center justify-between border-t border-[var(--border)] pt-2 text-sm">
+                <span className="text-[var(--muted)]">{stat.label}</span>
+                <span className="font-bold text-[var(--text)]">{displayedStat(stat.types)}</span>
               </div>
             ))}
-            <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[10px] text-[#858A98]">
-              <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#E30613]" />{shownHomeName}</span>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[10px] text-[var(--muted)]">
+              <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[var(--red)]" />{shownHomeName}</span>
               <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#173B6B]" />{shownAwayName}</span>
             </div>
           </aside>
@@ -1446,61 +1446,61 @@ function MatchInner() {
     const finalAwayName = myMatchSide === 'home' ? result.config.awayName : result.config.homeName;
     return (
       <div className="p-4 md:p-8 space-y-4">
-        <h1 className="text-2xl font-semibold text-[#252733]">Resultado final</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">Resultado final</h1>
         <div className="card-surface p-6 text-center">
           {challengeId && <div className="text-xs font-semibold text-green-700 mb-2">Resultado oficial confirmado pelo servidor</div>}
-          <div className="text-4xl font-bold text-[#252733]">{finalHomeScore} - {finalAwayScore}</div>
-          <div className="text-sm text-[#858A98] mt-1">{finalHomeName} vs {finalAwayName}</div>
+          <div className="text-4xl font-bold text-[var(--text)]">{finalHomeScore} - {finalAwayScore}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{finalHomeName} vs {finalAwayName}</div>
           {result.penalties && (
-            <div className="mt-3 rounded-xl border border-[#E9EAF0] bg-white/80 px-3 py-2">
-              <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#858A98]">Decisão por pênaltis</div>
-              <div className="mt-1 text-xl font-black tabular-nums text-[#252733]">
-                {result.penalties.homeScore} <span className="text-[#858A98]">–</span> {result.penalties.awayScore}
+            <div className="mt-3 rounded-xl border border-[var(--border)] bg-white/80 px-3 py-2">
+              <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Decisão por pênaltis</div>
+              <div className="mt-1 text-xl font-black tabular-nums text-[var(--text)]">
+                {result.penalties.homeScore} <span className="text-[var(--muted)]">–</span> {result.penalties.awayScore}
               </div>
-              <div className="mt-1 text-sm font-semibold text-[#252733]">
+              <div className="mt-1 text-sm font-semibold text-[var(--text)]">
                 {result.penalties.winnerSide === myMatchSide ? finalHomeName : finalAwayName} venceu nos pênaltis
               </div>
             </div>
           )}
         </div>
         <div className="card-surface p-4">
-          <h3 className="font-semibold text-[#252733] mb-3">Estatísticas</h3>
+          <h3 className="font-semibold text-[var(--text)] mb-3">Estatísticas</h3>
           <div className="grid grid-cols-3 gap-2 text-sm">
-            <div className="text-center text-xs text-[#858A98]">{finalHomeName}</div>
+            <div className="text-center text-xs text-[var(--muted)]">{finalHomeName}</div>
             <div />
-            <div className="text-center text-xs text-[#858A98]">{finalAwayName}</div>
-            <div className="text-center font-bold text-[#252733]">{homePossession}%</div>
-            <div className="text-center text-[#858A98] text-xs">Posse de bola</div>
-            <div className="text-center font-bold text-[#252733]">{awayPossession}%</div>
-            <div className="text-center font-bold text-[#252733]">{homeStats.passes}</div>
-            <div className="text-center text-[#858A98] text-xs">Passes</div>
-            <div className="text-center font-bold text-[#252733]">{awayStats.passes}</div>
-            <div className="text-center font-bold text-[#252733]">{homeStats.passCompleted}</div>
-            <div className="text-center text-[#858A98] text-xs">Passes completos</div>
-            <div className="text-center font-bold text-[#252733]">{awayStats.passCompleted}</div>
-            <div className="text-center font-bold text-[#252733]">{homeStats.shots}</div>
-            <div className="text-center text-[#858A98] text-xs">Finalizações</div>
-            <div className="text-center font-bold text-[#252733]">{awayStats.shots}</div>
-            <div className="text-center font-bold text-[#252733]">{homeStats.shotsOnTarget}</div>
-            <div className="text-center text-[#858A98] text-xs">No alvo</div>
-            <div className="text-center font-bold text-[#252733]">{awayStats.shotsOnTarget}</div>
-            <div className="text-center font-bold text-[#252733]">{homeStats.tackles}</div>
-            <div className="text-center text-[#858A98] text-xs">Desarmes</div>
-            <div className="text-center font-bold text-[#252733]">{awayStats.tackles}</div>
+            <div className="text-center text-xs text-[var(--muted)]">{finalAwayName}</div>
+            <div className="text-center font-bold text-[var(--text)]">{homePossession}%</div>
+            <div className="text-center text-[var(--muted)] text-xs">Posse de bola</div>
+            <div className="text-center font-bold text-[var(--text)]">{awayPossession}%</div>
+            <div className="text-center font-bold text-[var(--text)]">{homeStats.passes}</div>
+            <div className="text-center text-[var(--muted)] text-xs">Passes</div>
+            <div className="text-center font-bold text-[var(--text)]">{awayStats.passes}</div>
+            <div className="text-center font-bold text-[var(--text)]">{homeStats.passCompleted}</div>
+            <div className="text-center text-[var(--muted)] text-xs">Passes completos</div>
+            <div className="text-center font-bold text-[var(--text)]">{awayStats.passCompleted}</div>
+            <div className="text-center font-bold text-[var(--text)]">{homeStats.shots}</div>
+            <div className="text-center text-[var(--muted)] text-xs">Finalizações</div>
+            <div className="text-center font-bold text-[var(--text)]">{awayStats.shots}</div>
+            <div className="text-center font-bold text-[var(--text)]">{homeStats.shotsOnTarget}</div>
+            <div className="text-center text-[var(--muted)] text-xs">No alvo</div>
+            <div className="text-center font-bold text-[var(--text)]">{awayStats.shotsOnTarget}</div>
+            <div className="text-center font-bold text-[var(--text)]">{homeStats.tackles}</div>
+            <div className="text-center text-[var(--muted)] text-xs">Desarmes</div>
+            <div className="text-center font-bold text-[var(--text)]">{awayStats.tackles}</div>
           </div>
         </div>
         <div className="card-surface p-4 max-h-60 overflow-auto">
-          <h3 className="font-semibold text-[#252733] mb-2">Linha do tempo</h3>
+          <h3 className="font-semibold text-[var(--text)] mb-2">Linha do tempo</h3>
           {result.events.map((e, i) => (
-            <div key={i} className="text-xs text-[#252733] py-0.5">{e.minute}' - {e.description}</div>
+            <div key={i} className="text-xs text-[var(--text)] py-0.5">{e.minute}' - {e.description}</div>
           ))}
         </div>
         {challengeId ? (
-          <button onClick={() => navigate('/friends')} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
+          <button onClick={() => navigate('/friends')} className="w-full px-4 py-3 rounded-xl bg-[var(--red)] text-white font-bold">
             Voltar
           </button>
         ) : (
-          <button onClick={() => { recordedRef.current = false; setStep('setup'); setResult(null); setChallengeSquads(null); }} className="w-full px-4 py-3 rounded-xl bg-[#E30613] text-white font-bold">
+          <button onClick={() => { recordedRef.current = false; setStep('setup'); setResult(null); setChallengeSquads(null); }} className="w-full px-4 py-3 rounded-xl bg-[var(--red)] text-white font-bold">
             Nova partida
           </button>
         )}

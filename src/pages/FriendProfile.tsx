@@ -34,6 +34,10 @@ export default function FriendProfile() {
   const syncUserData = useGame(s => s.syncUserData);
 
   useEffect(() => {
+    document.title = `${profile?.name ?? 'Perfil'} | FutSENAI Cards`;
+  }, [profile?.name]);
+
+  useEffect(() => {
     if (!supabase || !userId) { setLoading(false); return; }
     (async () => {
       try {
@@ -210,8 +214,8 @@ export default function FriendProfile() {
     }
   };
 
-  if (loading) return <div className="p-8 text-[#858A98]">Carregando...</div>;
-  if (!profile) return <div className="p-8 text-[#858A98]">Perfil não encontrado. <button onClick={() => navigate(-1)} className="text-[#E30613]">Voltar</button></div>;
+  if (loading) return <div className="p-8 text-[var(--muted)]">Carregando...</div>;
+  if (!profile) return <div className="p-8 text-[var(--muted)]">Perfil não encontrado. <button onClick={() => navigate(-1)} className="text-[var(--red)]">Voltar</button></div>;
 
   const wins = matches.filter(m => m.home_score > m.away_score).length;
   const losses = matches.filter(m => m.home_score < m.away_score).length;
@@ -227,42 +231,42 @@ export default function FriendProfile() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
-      <button onClick={() => navigate(-1)} className="text-sm text-[#858A98] hover:text-[#252733]">← Voltar</button>
+      <button onClick={() => navigate(-1)} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">← Voltar</button>
 
       {/* Cabeçalho */}
       <div className="card-surface p-4 md:p-6 flex flex-col md:flex-row items-center gap-4 md:gap-6">
-        <div className="w-24 h-24 rounded-full bg-[#FFF0F2] flex items-center justify-center text-3xl text-[#E30613] font-bold overflow-hidden shrink-0">
+        <div className="w-24 h-24 rounded-full bg-[var(--soft)] flex items-center justify-center text-3xl text-[var(--red)] font-bold overflow-hidden shrink-0">
           {profile.avatar_url ? <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : (profile.level ?? 1)}
         </div>
         <div className="flex-1 min-w-0 text-center md:text-left space-y-1">
-          <div className="text-xl font-bold text-[#252733] truncate">{profile.name}</div>
-          <div className="text-sm text-[#858A98]">Nível {profile.level ?? 1} · {profile.xp ?? 0} XP</div>
-          <div className="h-2 bg-[#E9EAF0] rounded-full overflow-hidden max-w-xs mx-auto md:mx-0">
-            <div className="h-full bg-[#E30613]" style={{ width: `${Math.min(100, (((profile.xp ?? 0) - ((profile.level ?? 1) - 1) * 500) / 500) * 100)}%` }} />
+          <div className="text-xl font-bold text-[var(--text)] truncate">{profile.name}</div>
+          <div className="text-sm text-[var(--muted)]">Nível {profile.level ?? 1} · {profile.xp ?? 0} XP</div>
+          <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden max-w-xs mx-auto md:mx-0">
+            <div className="h-full bg-[var(--red)]" style={{ width: `${Math.min(100, (((profile.xp ?? 0) - ((profile.level ?? 1) - 1) * 500) / 500) * 100)}%` }} />
           </div>
-          <div className="text-xs text-[#858A98]">{(profile.xp ?? 0) - ((profile.level ?? 1) - 1) * 500} / 500 XP para o próximo nível</div>
+          <div className="text-xs text-[var(--muted)]">{(profile.xp ?? 0) - ((profile.level ?? 1) - 1) * 500} / 500 XP para o próximo nível</div>
           {!isSelf && (
             <div className="flex flex-wrap gap-2 mt-2 justify-center md:justify-start">
               {isFriend && (
                 <>
-                  <button onClick={handleRemove} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium text-[#252733]">Remover amigo</button>
-                  <button onClick={handleChallenge} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Desafiar</button>
-                <button onClick={handlePool} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Jogar sinuca</button>
+                  <button onClick={handleRemove} className="px-4 py-2 rounded-xl bg-white border border-[var(--border)] text-sm font-medium text-[var(--text)]">Remover amigo</button>
+                  <button onClick={handleChallenge} className="px-4 py-2 rounded-xl bg-[var(--red)] text-white text-sm font-medium">Desafiar</button>
+                <button onClick={handlePool} className="px-4 py-2 rounded-xl bg-[var(--red)] text-white text-sm font-medium">Jogar sinuca</button>
                 </>
               )}
               {isPendingReceived && (
                 <>
-                  <button onClick={handleAccept} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Aceitar</button>
-                  <button onClick={handleCancel} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Recusar</button>
+                  <button onClick={handleAccept} className="px-4 py-2 rounded-xl bg-[var(--red)] text-white text-sm font-medium">Aceitar</button>
+                  <button onClick={handleCancel} className="px-4 py-2 rounded-xl bg-white border border-[var(--border)] text-sm font-medium">Recusar</button>
                 </>
               )}
               {isPendingSent && (
-                <button onClick={handleCancel} className="px-4 py-2 rounded-xl bg-white border border-[#E9EAF0] text-sm font-medium">Cancelar solicitação</button>
+                <button onClick={handleCancel} className="px-4 py-2 rounded-xl bg-white border border-[var(--border)] text-sm font-medium">Cancelar solicitação</button>
               )}
               {!friendship && (
-                <button onClick={handleAdd} className="px-4 py-2 rounded-xl bg-[#E30613] text-white text-sm font-medium">Adicionar amigo</button>
+                <button onClick={handleAdd} className="px-4 py-2 rounded-xl bg-[var(--red)] text-white text-sm font-medium">Adicionar amigo</button>
               )}
-              {actionMsg && <div className="text-xs text-[#E30613]">{actionMsg}</div>}
+              {actionMsg && <div className="text-xs text-[var(--red)]">{actionMsg}</div>}
             </div>
           )}
         </div>
@@ -281,8 +285,8 @@ export default function FriendProfile() {
           { label: 'Conquistas', value: achievements.length, icon: null },
         ].map(s => (
           <div key={s.label} className="card-surface p-3">
-            <div className="text-xs text-[#858A98]">{s.label}</div>
-            <div className="text-xl font-bold text-[#252733]">{s.value}</div>
+            <div className="text-xs text-[var(--muted)]">{s.label}</div>
+            <div className="text-xl font-bold text-[var(--text)]">{s.value}</div>
           </div>
         ))}
       </div>
@@ -290,14 +294,14 @@ export default function FriendProfile() {
       {/* Elenco atual */}
       {squad && squad.starters && squad.starters.some((s: any) => (typeof s === 'string' ? s : s?.uid)) && (
         <div className="card-surface p-4 space-y-2">
-          <div className="text-sm font-medium text-[#858A98]">Elenco atual · Formação {squad.formation}</div>
+          <div className="text-sm font-medium text-[var(--muted)]">Elenco atual · Formação {squad.formation}</div>
           <div className="grid w-full max-w-md grid-cols-3 gap-2 mx-auto">
             {squad.starters.slice(0, 3).map((s: any, i: number) => {
               const uid = typeof s === 'string' ? s : s?.uid;
               const card = cards.find((c: any) => c.uid === uid);
               return (
                 <div key={i} className="flex min-w-0 flex-col items-center">
-                  {card ? <Card card={card} size="fluid" /> : <div className="flex aspect-[7/10] w-full items-center justify-center rounded-xl border-2 border-dashed border-[#E9EAF0] text-xs text-[#858A98]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
+                  {card ? <Card card={card} size="fluid" /> : <div className="flex aspect-[7/10] w-full items-center justify-center rounded-xl border-2 border-dashed border-[var(--border)] text-xs text-[var(--muted)]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
                 </div>
               );
             })}
@@ -309,7 +313,7 @@ export default function FriendProfile() {
               const card = cards.find((c: any) => c.uid === uid);
               return (
                 <div key={i} className="flex min-w-0 flex-col items-center">
-                  {card ? <Card card={card} size="fluid" /> : <div className="flex aspect-[7/10] w-full items-center justify-center rounded-xl border-2 border-dashed border-[#E9EAF0] text-xs text-[#858A98]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
+                  {card ? <Card card={card} size="fluid" /> : <div className="flex aspect-[7/10] w-full items-center justify-center rounded-xl border-2 border-dashed border-[var(--border)] text-xs text-[var(--muted)]">{typeof s === 'string' ? 'Slot' : s?.position}</div>}
                 </div>
               );
             })}
@@ -325,29 +329,29 @@ export default function FriendProfile() {
             <Card card={rarest} size="fluid" />
           </div>
           <div className="space-y-2 text-center md:text-left">
-            <div className="text-sm font-medium text-[#858A98]">Carta mais rara</div>
-            <div className="text-2xl font-bold text-[#252733]">{rarest.name}</div>
-            <div className="text-lg text-[#E30613] font-bold">OVR {rarest.overall} · {rarest.rarity}</div>
-            <div className="text-sm text-[#858A98]">{rarest.position} · {rarest.club}</div>
+            <div className="text-sm font-medium text-[var(--muted)]">Carta mais rara</div>
+            <div className="text-2xl font-bold text-[var(--text)]">{rarest.name}</div>
+            <div className="text-lg text-[var(--red)] font-bold">OVR {rarest.overall} · {rarest.rarity}</div>
+            <div className="text-sm text-[var(--muted)]">{rarest.position} · {rarest.club}</div>
           </div>
         </div>
       )}
 
       {/* Coleção */}
       <div>
-        <h2 className="text-lg font-semibold text-[#252733] mb-3">Coleção ({cards.length})</h2>
+        <h2 className="text-lg font-semibold text-[var(--text)] mb-3">Coleção ({cards.length})</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {cards.slice(0, 24).map(c => <div key={c.uid} className="min-w-0"><Card card={c} size="fluid" /></div>)}
         </div>
-        {cards.length === 0 && <div className="text-[#858A98]">Sem cartas.</div>}
+        {cards.length === 0 && <div className="text-[var(--muted)]">Sem cartas.</div>}
       </div>
 
       {achievements.length > 0 && (
         <div className="card-surface p-4">
-          <h2 className="text-lg font-semibold text-[#252733] mb-3">Conquistas</h2>
+          <h2 className="text-lg font-semibold text-[var(--text)] mb-3">Conquistas</h2>
           <div className="flex flex-wrap gap-2">
             {achievements.map((a: any) => (
-              <span key={a.id} className="px-3 py-1 rounded-full bg-[#FFF0F2] text-[#E30613] text-xs font-medium">{a.title || a.achievement_id}</span>
+              <span key={a.id} className="px-3 py-1 rounded-full bg-[var(--soft)] text-[var(--red)] text-xs font-medium">{a.title || a.achievement_id}</span>
             ))}
           </div>
         </div>
@@ -356,56 +360,56 @@ export default function FriendProfile() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="pool-wager-title">
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-3xl space-y-4 overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.2em] text-[#E30613]">Sinuca · desafio com aposta</div>
-              <h2 id="pool-wager-title" className="mt-1 text-xl font-bold text-[#252733]">Escolha o que apostar contra {profile.name}</h2>
-              <p className="mt-1 text-sm text-[#858A98]">O adversário precisa igualar a aposta para aceitar. O vencedor leva o total; se o convite for cancelado, a aposta é devolvida.</p>
+              <div className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--red)]">Sinuca · desafio com aposta</div>
+              <h2 id="pool-wager-title" className="mt-1 text-xl font-bold text-[var(--text)]">Escolha o que apostar contra {profile.name}</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">O adversário precisa igualar a aposta para aceitar. O vencedor leva o total; se o convite for cancelado, a aposta é devolvida.</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {([
                 ['coins', 'Moedas'],
                 ['card', 'Carta'],
               ] as const).map(([type, label]) => (
-                <button key={type} type="button" aria-pressed={poolWagerType === type} onClick={() => { setPoolWagerType(type); setActionMsg(''); }} className={`rounded-xl border p-3 text-left text-sm font-semibold ${poolWagerType === type ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-[#E9EAF0] text-[#252733]'}`}>
+                <button key={type} type="button" aria-pressed={poolWagerType === type} onClick={() => { setPoolWagerType(type); setActionMsg(''); }} className={`rounded-xl border p-3 text-left text-sm font-semibold ${poolWagerType === type ? 'border-[var(--red)] bg-[var(--soft)] text-[var(--red)]' : 'border-[var(--border)] text-[var(--text)]'}`}>
                   Apostar {label.toLowerCase()}
                 </button>
               ))}
             </div>
             {poolWagerType === 'coins' ? (
               <div className="space-y-3">
-                <div className="text-sm font-semibold text-[#252733]">Valor por jogador</div>
+                <div className="text-sm font-semibold text-[var(--text)]">Valor por jogador</div>
                 <div className="flex flex-wrap gap-2">
                   {['500', '1000', '5000', 'custom'].map(value => (
-                    <button key={value} type="button" onClick={() => setPoolCoinChoice(value)} className={`rounded-lg border px-3 py-2 text-sm ${poolCoinChoice === value ? 'border-[#E30613] bg-[#FFF0F2] text-[#E30613]' : 'border-[#E9EAF0]'}`}>
+                    <button key={value} type="button" onClick={() => setPoolCoinChoice(value)} className={`rounded-lg border px-3 py-2 text-sm ${poolCoinChoice === value ? 'border-[var(--red)] bg-[var(--soft)] text-[var(--red)]' : 'border-[var(--border)]'}`}>
                       {value === 'custom' ? 'Personalizado' : `${Number(value).toLocaleString('pt-BR')} moedas`}
                     </button>
                   ))}
                 </div>
-                {poolCoinChoice === 'custom' && <input type="number" min={1} max={1000000} step={1} value={poolCustomCoins} onChange={event => setPoolCustomCoins(event.target.value)} placeholder="Valor personalizado" className="w-full max-w-xs rounded-xl border border-[#E9EAF0] px-3 py-2 text-sm" />}
-                <p className="text-xs text-[#858A98]">Sua aposta: {(poolCoinChoice === 'custom' ? Number(poolCustomCoins) : Number(poolCoinChoice)).toLocaleString('pt-BR')} moedas · Saldo: {currentCoins.toLocaleString('pt-BR')}.</p>
+                {poolCoinChoice === 'custom' && <input type="number" min={1} max={1000000} step={1} value={poolCustomCoins} onChange={event => setPoolCustomCoins(event.target.value)} placeholder="Valor personalizado" className="w-full max-w-xs rounded-xl border border-[var(--border)] px-3 py-2 text-sm" />}
+                <p className="text-xs text-[var(--muted)]">Sua aposta: {(poolCoinChoice === 'custom' ? Number(poolCustomCoins) : Number(poolCoinChoice)).toLocaleString('pt-BR')} moedas · Saldo: {currentCoins.toLocaleString('pt-BR')}.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                <input value={poolCardSearch} onChange={event => setPoolCardSearch(event.target.value)} placeholder="Pesquisar sua carta..." className="w-full rounded-xl border border-[#E9EAF0] px-3 py-2 text-sm" />
+                <input value={poolCardSearch} onChange={event => setPoolCardSearch(event.target.value)} placeholder="Pesquisar sua carta..." className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-sm" />
                 {availableWagerCardIds === null ? (
-                  <p className="text-sm text-[#858A98]">Carregando cartas disponíveis...</p>
+                  <p className="text-sm text-[var(--muted)]">Carregando cartas disponíveis...</p>
                 ) : (
                   <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 md:grid-cols-4">
                     {myCards.filter(card => availableWagerCardIds.includes(card.uid) && card.name.toLowerCase().includes(poolCardSearch.trim().toLowerCase())).map(card => (
-                      <div key={card.uid} className={`min-w-0 rounded-2xl p-1 ${poolCardId === card.uid ? 'ring-2 ring-[#E30613]' : ''}`}>
+                      <div key={card.uid} className={`min-w-0 rounded-2xl p-1 ${poolCardId === card.uid ? 'ring-2 ring-[var(--red)]' : ''}`}>
                         <Card card={card} size="fluid" onClick={() => setPoolCardId(card.uid)} />
                       </div>
                     ))}
-                    {myCards.filter(card => availableWagerCardIds.includes(card.uid) && card.name.toLowerCase().includes(poolCardSearch.trim().toLowerCase())).length === 0 && <p className="col-span-full py-4 text-sm text-[#858A98]">Sem cartas disponíveis para aposta.</p>}
+                    {myCards.filter(card => availableWagerCardIds.includes(card.uid) && card.name.toLowerCase().includes(poolCardSearch.trim().toLowerCase())).length === 0 && <p className="col-span-full py-4 text-sm text-[var(--muted)]">Sem cartas disponíveis para aposta.</p>}
                   </div>
                 )}
               </div>
             )}
-            {actionMsg && <p role="alert" className="text-sm text-[#E30613]">{actionMsg}</p>}
+            {actionMsg && <p role="alert" className="text-sm text-[var(--red)]">{actionMsg}</p>}
             <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={poolSubmitting || (poolWagerType === 'coins' && ((poolCoinChoice === 'custom' ? Number(poolCustomCoins) : Number(poolCoinChoice)) > currentCoins)) || (poolWagerType === 'card' && !poolCardId)} onClick={() => void sendPoolChallenge()} className="rounded-xl bg-[#E30613] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              <button type="button" disabled={poolSubmitting || (poolWagerType === 'coins' && ((poolCoinChoice === 'custom' ? Number(poolCustomCoins) : Number(poolCoinChoice)) > currentCoins)) || (poolWagerType === 'card' && !poolCardId)} onClick={() => void sendPoolChallenge()} className="rounded-xl bg-[var(--red)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                 {poolSubmitting ? 'Enviando...' : 'Enviar convite de sinuca'}
               </button>
-              <button type="button" onClick={() => { setPoolWagerOpen(false); setActionMsg(''); }} className="rounded-xl border border-[#E9EAF0] px-4 py-2 text-sm font-medium text-[#252733]">Cancelar</button>
+              <button type="button" onClick={() => { setPoolWagerOpen(false); setActionMsg(''); }} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text)]">Cancelar</button>
             </div>
           </div>
         </div>

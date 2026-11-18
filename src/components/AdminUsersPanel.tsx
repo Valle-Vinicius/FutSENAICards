@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pencil, RefreshCw, Search, ShieldCheck, Users, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { countActiveAdminUsers, isAdminUserOnline, sortAdminUsers, type AdminUserSummary } from '../lib/adminUsers';
+import Skeleton from './Skeleton';
 
 type AdminUser = AdminUserSummary;
 
@@ -169,22 +170,22 @@ export default function AdminUsersPanel() {
     }
   };
 
-  const inputClass = 'h-10 w-full rounded-lg border border-[#E2E4EA] bg-white px-3 text-sm text-[#252733] outline-none transition focus:border-[#E30613] focus:ring-4 focus:ring-[#E30613]/10';
+  const inputClass = 'h-10 w-full rounded-lg border border-[#E2E4EA] bg-white px-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--red)] focus:ring-4 focus:ring-[var(--red)]/10';
 
   return (
     <section className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-[#E9EAF0] bg-white p-4">
+        <div className="rounded-2xl border border-[var(--border)] bg-white p-4">
           <div className="flex items-center gap-2 text-sm text-[#687080]"><Users className="size-4" /> Usuários cadastrados</div>
-          <div className="mt-2 text-2xl font-bold tabular-nums text-[#252733]">{numberFormat.format(users.length)}</div>
+          <div className="mt-2 text-2xl font-bold tabular-nums text-[var(--text)]">{numberFormat.format(users.length)}</div>
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-center gap-2 text-sm text-emerald-800"><span className="size-2.5 rounded-full bg-emerald-500 motion-safe:animate-pulse" /> Ativos agora</div>
           <div className="mt-2 text-2xl font-bold tabular-nums text-emerald-900">{numberFormat.format(activeCount)}</div>
           <div className="mt-1 text-xs text-emerald-800/80">Atividade nos últimos 2 minutos</div>
         </div>
-        <div className="flex flex-col justify-center rounded-2xl border border-[#E9EAF0] bg-white p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[#252733]">
+        <div className="flex flex-col justify-center rounded-2xl border border-[var(--border)] bg-white p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
             <ShieldCheck className={`size-4 ${realtimeStatus === 'SUBSCRIBED' ? 'text-emerald-600' : 'text-amber-600'}`} />
             {realtimeStatus === 'SUBSCRIBED'
               ? 'Atualização em tempo real ativa'
@@ -197,10 +198,10 @@ export default function AdminUsersPanel() {
       </div>
 
       <div className="grid items-start gap-4">
-        <div className="min-w-0 overflow-hidden rounded-2xl border border-[#E9EAF0] bg-white">
-          <div className="flex flex-col gap-3 border-b border-[#E9EAF0] p-4 sm:flex-row sm:items-center">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-white">
+          <div className="flex flex-col gap-3 border-b border-[var(--border)] p-4 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#858A98]" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
               <input
                 value={query}
                 onChange={event => setQuery(event.target.value)}
@@ -213,7 +214,7 @@ export default function AdminUsersPanel() {
               type="button"
               onClick={() => void refreshUsers(true)}
               disabled={refreshing || loading}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#E2E4EA] bg-white px-3 text-sm font-semibold text-[#252733] transition hover:bg-[#F7F7F9] disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#E2E4EA] bg-white px-3 text-sm font-semibold text-[var(--text)] transition hover:bg-[var(--bg)] disabled:opacity-60"
             >
               <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
               Atualizar
@@ -223,15 +224,19 @@ export default function AdminUsersPanel() {
           {error && <div role="alert" className="border-b border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
           {loading ? (
-            <div className="p-8 text-center text-sm text-[#687080]">Carregando usuários…</div>
+            <div role="status" aria-label="Carregando usuários" className="space-y-3 p-4">
+              {Array.from({ length: 5 }, (_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
+            </div>
           ) : visibleUsers.length === 0 ? (
             <div className="p-8 text-center text-sm text-[#687080]">{query ? 'Nenhum usuário encontrado.' : 'Ainda não há usuários para exibir.'}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[920px] text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-[#F7F7F9] text-xs uppercase tracking-wide text-[#687080]">
+                <thead className="sticky top-0 z-10 bg-[var(--bg)] text-xs uppercase tracking-wide text-[#687080]">
                   <tr>
-                    <th className="sticky left-0 z-20 bg-[#F7F7F9] px-4 py-3 font-semibold">Usuário</th>
+                    <th className="sticky left-0 z-20 bg-[var(--bg)] px-4 py-3 font-semibold">Usuário</th>
                     <th className="px-4 py-3 font-semibold">Moedas</th>
                     <th className="px-4 py-3 font-semibold">Cartas</th>
                     <th className="px-4 py-3 font-semibold">Ranked</th>
@@ -255,18 +260,18 @@ export default function AdminUsersPanel() {
                         }}
                         tabIndex={0}
                         aria-selected={selectedId === user.user_id}
-                        className={`cursor-pointer transition-colors duration-700 ease-out hover:bg-[#F7F7F9] ${selectedId === user.user_id ? 'bg-[#FFF5F5]' : ''} ${highlightedUsers[user.user_id] ? 'bg-emerald-50' : ''}`}
+                        className={`cursor-pointer transition-colors duration-700 ease-out hover:bg-[var(--bg)] ${selectedId === user.user_id ? 'bg-[#FFF5F5]' : ''} ${highlightedUsers[user.user_id] ? 'bg-emerald-50' : ''}`}
                       >
                         <td className="sticky left-0 z-10 max-w-[260px] bg-[inherit] px-4 py-3">
-                          <div className="truncate font-semibold text-[#252733]">{user.name || 'Sem nome'}</div>
-                          <div className="truncate text-xs text-[#858A98]">{user.user_id}</div>
+                          <div className="truncate font-semibold text-[var(--text)]">{user.name || 'Sem nome'}</div>
+                          <div className="truncate text-xs text-[var(--muted)]">{user.user_id}</div>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-[#252733]">{numberFormat.format(user.coins)}</td>
-                        <td className="px-4 py-3 tabular-nums text-[#252733]">{numberFormat.format(user.card_count)}</td>
-                        <td className="px-4 py-3 tabular-nums text-[#252733]">{numberFormat.format(user.ranked_elo)}</td>
-                        <td className="px-4 py-3 tabular-nums text-[#252733]">{numberFormat.format(user.pool_elo)}</td>
+                        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-[var(--text)]">{numberFormat.format(user.coins)}</td>
+                        <td className="px-4 py-3 tabular-nums text-[var(--text)]">{numberFormat.format(user.card_count)}</td>
+                        <td className="px-4 py-3 tabular-nums text-[var(--text)]">{numberFormat.format(user.ranked_elo)}</td>
+                        <td className="px-4 py-3 tabular-nums text-[var(--text)]">{numberFormat.format(user.pool_elo)}</td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${online ? 'text-emerald-700' : 'text-[#858A98]'}`}>
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${online ? 'text-emerald-700' : 'text-[var(--muted)]'}`}>
                             <span className={`size-2 rounded-full ${online ? 'bg-emerald-500 motion-safe:animate-pulse' : 'bg-[#B7BAC4]'}`} />
                             {online ? 'Ativo' : 'Offline'}
                           </span>
@@ -283,21 +288,21 @@ export default function AdminUsersPanel() {
           )}
         </div>
 
-        <aside className="rounded-2xl border border-[#E9EAF0] bg-white p-4">
+        <aside className="rounded-2xl border border-[var(--border)] bg-white p-4">
           {!selectedUser ? (
             <div className="py-8 text-center text-sm text-[#687080]">Selecione um usuário para ver os detalhes.</div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate text-lg font-bold text-[#252733]">{selectedUser.name || 'Sem nome'}</h2>
-                  <p className="break-all text-xs text-[#858A98]">{selectedUser.user_id}</p>
+                  <h2 className="truncate text-lg font-bold text-[var(--text)]">{selectedUser.name || 'Sem nome'}</h2>
+                  <p className="break-all text-xs text-[var(--muted)]">{selectedUser.user_id}</p>
                 </div>
                 {!editing ? (
                   <button
                     type="button"
                     onClick={() => { setForm(toEditForm(selectedUser)); setEditing(true); setError(null); }}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#E30613] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#C9000D]"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--red)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#C9000D]"
                   >
                     <Pencil className="size-3.5" /> Editar
                   </button>
@@ -306,7 +311,7 @@ export default function AdminUsersPanel() {
                     type="button"
                     aria-label="Cancelar edição"
                     onClick={() => { setEditing(false); setForm(toEditForm(selectedUser)); setError(null); }}
-                    className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#E2E4EA] text-[#687080] hover:bg-[#F7F7F9]"
+                    className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#E2E4EA] text-[#687080] hover:bg-[var(--bg)]"
                   >
                     <X className="size-4" />
                   </button>
@@ -339,11 +344,11 @@ export default function AdminUsersPanel() {
                     type="button"
                     onClick={() => void saveUser()}
                     disabled={saving}
-                    className="w-full rounded-lg bg-[#E30613] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#C9000D] disabled:opacity-60"
+                    className="w-full rounded-lg bg-[var(--red)] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#C9000D] disabled:opacity-60"
                   >
                     {saving ? 'Salvando…' : 'Salvar alterações'}
                   </button>
-                  <p className="text-xs leading-relaxed text-[#858A98]">As alterações são validadas e registradas no servidor. O nível é recalculado a partir do XP.</p>
+                  <p className="text-xs leading-relaxed text-[var(--muted)]">As alterações são validadas e registradas no servidor. O nível é recalculado a partir do XP.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -365,9 +370,9 @@ export default function AdminUsersPanel() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-xl bg-[#F7F7F9] p-3">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-[#858A98]">{label}</div>
-      <div className="mt-1 break-words font-semibold text-[#252733]">{value}</div>
+    <div className="min-w-0 rounded-xl bg-[var(--bg)] p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</div>
+      <div className="mt-1 break-words font-semibold text-[var(--text)]">{value}</div>
     </div>
   );
 }
