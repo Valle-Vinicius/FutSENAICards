@@ -109,6 +109,7 @@ export default function Admin() {
       handling: 0,
       imageUrl: '',
       calcOverall: false,
+      allowOverallOverride: false,
       destination: 'inventory' as 'inventory' | 'packs' | 'off_sale' | 'secret',
     };
   });
@@ -291,6 +292,7 @@ export default function Admin() {
       handling: template.gkAttributes?.handling ?? 0,
       imageUrl: template.image || '',
       calcOverall: autoCalculateOverall,
+      allowOverallOverride: false,
       destination: template.packGroup === 'secret' ? 'secret' : template.packGroup === 'off_sale' ? 'off_sale' : 'packs',
     });
     if (supply) {
@@ -313,6 +315,7 @@ export default function Admin() {
       baseRarity: prev.baseRarity === 'secret' ? 'uncommon' : prev.baseRarity,
       destination: 'inventory',
       calcOverall: false,
+      allowOverallOverride: false,
     }));
   };
 
@@ -368,8 +371,10 @@ export default function Admin() {
     try {
       const rarityForVal = isInventory ? rarityToUse : form.baseRarity;
       const ovrForVal = calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall);
-      if (!Number.isInteger(ovrForVal) || ovrForVal < 0 || ovrForVal > 99) {
-        toast.error('O OVR deve ser um número inteiro entre 0 e 99.');
+      const allowOverallOverride = isInventory && form.allowOverallOverride && !calcMode;
+      const maxOverall = allowOverallOverride ? 999 : 99;
+      if (!Number.isInteger(ovrForVal) || ovrForVal < 0 || ovrForVal > maxOverall) {
+        toast.error(`O OVR deve ser um número inteiro entre 0 e ${maxOverall}.`);
         return;
       }
       if (!validateRarityOverall(rarityForVal as Rarity, ovrForVal)) {
@@ -469,6 +474,7 @@ export default function Admin() {
           p_nationality: form.nationality.trim(),
           p_age: Number(form.age),
           p_club: club,
+          p_allow_overall_over_99: allowOverallOverride,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         toast.success('Carta criada no inventário!');
@@ -541,7 +547,7 @@ export default function Admin() {
         toast.success(isOffSale ? 'Carta adicionada ao Pacote Off-Sale!' : 'Carta adicionada aos pacotes!');
       }
       if (isOffSale) setExtraStats([]);
-      setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams) }));
+      setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams), allowOverallOverride: false }));
     } catch (e: any) {
       toast.error('Erro: ' + (e?.message || 'desconhecido'));
     } finally {
@@ -770,6 +776,7 @@ export default function Admin() {
                       setForm({
                         ...form,
                         destination,
+                        allowOverallOverride: false,
                         rarity: destination === 'secret' ? 'secret' : form.rarity === 'secret' ? 'uncommon' : form.rarity,
                         baseRarity: destination === 'secret' ? 'secret' : form.baseRarity === 'secret' ? 'uncommon' : form.baseRarity,
                       });
@@ -789,10 +796,25 @@ export default function Admin() {
                     const val = Number(e.target.value);
                     if (!isInventory) setForm({ ...form, baseOverall: val });
                     else setForm({ ...form, overall: val });
-                  }} className={`${inputCls} text-center text-lg font-bold tabular-nums`} min={0} max={99} disabled={calcMode} />
+                  }} className={`${inputCls} text-center text-lg font-bold tabular-nums`} min={0} max={isInventory && form.allowOverallOverride ? 999 : 99} disabled={calcMode} />
                   {isInventory && !calcMode && <div className="mt-1 text-[10px] text-[var(--muted)]">O OVR digitado será salvo como informado; confira a faixa típica da raridade.</div>}
                 </div>
               </div>
+              {isInventory && (
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[#FAFAFB] p-3.5">
+                  <input
+                    type="checkbox"
+                    checked={form.allowOverallOverride}
+                    disabled={calcMode}
+                    onChange={event => setForm(prev => ({ ...prev, allowOverallOverride: event.target.checked }))}
+                    className="size-4 accent-[var(--red)]"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-[var(--text)]">Permitir OVR acima de 99</span>
+                    <span className="block text-xs text-[var(--muted)]">Na carta criada diretamente no inventário, permite OVR manual de até 999. Os atributos continuam limitados a 99.</span>
+                  </span>
+                </label>
+              )}
               <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[#FAFAFB] p-3.5">
                 <input
                   type="checkbox"
@@ -802,6 +824,7 @@ export default function Admin() {
                     setForm(prev => ({
                       ...prev,
                       calcOverall,
+                      ...(calcOverall ? { allowOverallOverride: false } : {}),
                       ...(calcOverall && !isSecret ? { rarity: 'uncommon', baseRarity: 'uncommon' } : {}),
                     }));
                   }}
