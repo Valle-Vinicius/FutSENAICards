@@ -57,6 +57,8 @@ describe('Card detail extra stats', () => {
       </MemoryRouter>
     );
 
+    const previewColumn = container.querySelector('[class~="md:w-60"]');
+    expect(previewColumn).toHaveClass('md:shrink-0');
     expect(screen.getByText('Sorte')).toBeInTheDocument();
     expect(screen.getByText('999')).toHaveClass('rgb-text');
     expect(container.querySelector('.rgb-stat')).toBeInTheDocument();
