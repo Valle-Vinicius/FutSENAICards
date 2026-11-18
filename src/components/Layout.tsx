@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History } from 'lucide-react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History, Heart } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -29,6 +29,8 @@ const NAV = [
   { to: '/changelog', label: 'Changelog', icon: History },
 ];
 
+const CREDITS_NAV = { to: '/credits', label: 'Créditos', icon: Heart };
+
 const TITLES: Record<string, string> = {
   '/': 'Visão geral',
   '/packs': 'Abrir pacotes',
@@ -44,6 +46,7 @@ const TITLES: Record<string, string> = {
   '/settings': 'Configurações',
   '/friends': 'Amizades',
   '/leaderboard': 'Leaderboard',
+  '/credits': 'Créditos',
 };
 
 export default function Layout() {
@@ -104,7 +107,10 @@ export default function Layout() {
   const [pendingChallengesCount, setPendingChallengesCount] = useState(0);
   const [pendingPoolCount, setPendingPoolCount] = useState(0);
   const cards = useGame(s => s.cards);
-  const NAV_WITH_ADMIN = isAdmin ? [...NAV, { to: '/admin', label: 'Administrador', icon: Shield }] : NAV;
+  const NAV_WITH_ADMIN = [
+    ...(isAdmin ? [...NAV, { to: '/admin', label: 'Administrador', icon: Shield }] : NAV),
+    CREDITS_NAV,
+  ];
   const normalizedPaletteQuery = paletteQuery.trim().toLocaleLowerCase();
   const filteredPages = NAV_WITH_ADMIN.filter(page => !normalizedPaletteQuery
     || page.label.toLocaleLowerCase().includes(normalizedPaletteQuery));
@@ -217,7 +223,7 @@ export default function Layout() {
           </div>
           <div className="text-[10px] text-[var(--muted)] tracking-widest mt-0.5">FUTEBOL ENTRE AMIGOS</div>
         </div>
-        <nav className="flex flex-col gap-1.5">
+        <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
           {NAV_WITH_ADMIN.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
             const params = new URLSearchParams(window.location.search);
@@ -248,7 +254,7 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto card-surface p-4">
+        <div className="mt-3 card-surface p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs text-[var(--muted)]">Nível {level}</div>
             <div className="text-xs text-[var(--muted)]">{xp} / {nextXp} XP</div>
@@ -342,7 +348,7 @@ export default function Layout() {
 
       {drawerOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/40" onClick={() => setDrawerOpen(false)}>
-          <div className="w-64 h-full bg-white p-4" onClick={e => e.stopPropagation()}>
+          <div className="w-64 h-full overflow-y-auto bg-white p-4" onClick={e => e.stopPropagation()}>
             <div className="text-xl font-bold mb-4"><span className="text-[var(--red)]">FUT</span>SENAI</div>
             {NAV_WITH_ADMIN.map(n => (
               <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async () => { setDrawerOpen(false); const params = new URLSearchParams(window.location.search); const challengeId = params.get('challenge'); if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') { await challengesService.abandonChallenge(challengeId); } const poolMatchId = window.location.pathname.match(/\/pool\/([a-f0-9-]+)/)?.[1]; if (poolMatchId && n.to !== '/pool') { await poolService.abandonPoolMatch(poolMatchId); } }}

@@ -28,6 +28,7 @@ import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
 import Leaderboard from './pages/Leaderboard';
 import CompetitiveProfile from './pages/CompetitiveProfile';
+import Credits from './pages/Credits';
 const Match = lazy(() => import('./pages/Match'));
 const Pool = lazy(() => import('./pages/Pool'));
 const Admin = lazy(() => import('./pages/Admin'));
@@ -150,6 +151,7 @@ export default function App() {
                   <Route path="/profile/:userId" element={<FriendProfile />} />
                   <Route path="/leaderboard" element={<Leaderboard />} />
                   <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
+                  <Route path="/credits" element={<Credits />} />
                   <Route path="/admin" element={<Suspense fallback={<RouteLoading />}><Admin /></Suspense>} />
                   </Route>
                 </Route>
