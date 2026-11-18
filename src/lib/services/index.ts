@@ -8,5 +8,6 @@ export * from './sbc';
 export * from './transactions';
 export * from './settings';
 export * from './leaderboard';
+export * from './changelog';
 export * from './auth';
 export * from '../profile';

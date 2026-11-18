@@ -5,6 +5,7 @@ import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Stor
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
+import ChangelogPopover from './ChangelogPopover';
 import * as challengesService from '../lib/services/challenges';
 import * as poolService from '../lib/services/pool';
 import * as friendsService from '../lib/services/friends';
@@ -267,6 +268,7 @@ export default function Layout() {
         <div className="text-lg font-bold"><span className="text-[var(--red)]">FUT</span>SENAI</div>
         <div className="flex items-center gap-3 text-sm">
           <button type="button" onClick={openCommandPalette} aria-label="Buscar cartas, páginas e amigos" className="text-[var(--muted)]"><Search className="h-5 w-5" /></button>
+          <ChangelogPopover />
           <span className="text-[var(--red)]">●</span><span className="font-bold">{coins.toLocaleString('pt-BR')}</span>
         </div>
       </header>
@@ -280,6 +282,7 @@ export default function Layout() {
             <button type="button" onClick={openCommandPalette} aria-label="Buscar cartas, páginas e amigos" className="flex w-40 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-1.5 text-left text-sm text-[var(--muted)]">
               <Search className="h-4 w-4" /> Buscar… <kbd className="ml-auto text-[10px]">Ctrl K</kbd>
             </button>
+            <ChangelogPopover />
             <div className="relative">
               <div className="w-8 h-8 rounded-full bg-[var(--soft)] overflow-hidden flex items-center justify-center text-[var(--red)] font-bold text-sm">
                 {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <User className="w-4 h-4" />}

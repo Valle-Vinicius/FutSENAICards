@@ -31,6 +31,7 @@ import CompetitiveProfile from './pages/CompetitiveProfile';
 const Match = lazy(() => import('./pages/Match'));
 const Pool = lazy(() => import('./pages/Pool'));
 const Admin = lazy(() => import('./pages/Admin'));
+const Changelog = lazy(() => import('./pages/Changelog'));
 
 function RouteLoading() {
   return <div className="flex min-h-[50dvh] items-center justify-center text-[var(--muted)]">Carregando…</div>;
@@ -112,45 +113,51 @@ export default function App() {
     if (!currentUserId) return;
     return subscribeUserPresence(currentUserId);
   }, [currentUserId]);
-  if (!authReady) {
-    return <div className="min-h-[100dvh] flex items-center justify-center text-[var(--muted)]">Carregando sessão…</div>;
-  }
   return (
     <ErrorBoundary>
       <ToastContainer />
-      <Tutorial />
+      {authReady && authed && <Tutorial />}
       <BrowserRouter basename={typeof window !== 'undefined' && window.location.pathname.startsWith('/FutSENAICards') ? '/FutSENAICards' : undefined}>
         <Routes>
-        <Route path="/auth" element={<Auth />} />
-        {!authed ? (
-          <Route path="*" element={<Navigate to="/auth" replace />} />
+        <Route path="/changelog" element={<Suspense fallback={<div className="mx-auto max-w-2xl px-4 py-6 text-sm text-[var(--muted)]">Carregando histórico…</div>}><Changelog /></Suspense>} />
+        {!authReady ? (
+          <Route path="*" element={<RouteLoading />} />
         ) : (
-          <Route element={<ProtectedRoute />}>
-            <Route element={<Layout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/packs" element={<Packs />} />
-            <Route path="/open/:packId" element={<OpenPack />} />
-            <Route path="/collection" element={<Collection />} />
-            <Route path="/card/:uid" element={<CardDetail />} />
-            <Route path="/squad" element={<Squad />} />
-            <Route path="/match" element={<Suspense fallback={<RouteLoading />}><Match /></Suspense>} />
-            <Route path="/pool/:matchId" element={<Suspense fallback={<RouteLoading />}><Pool /></Suspense>} />
-            <Route path="/compare" element={<Compare />} />
-            <Route path="/market" element={<Marketplace />} />
-            <Route path="/sbc" element={<SBC />} />
-            <Route path="/missions" element={<Missions />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/friends" element={<Friends />} />
-            <Route path="/profile/:userId" element={<FriendProfile />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
-            <Route path="/admin" element={<Suspense fallback={<RouteLoading />}><Admin /></Suspense>} />
-            </Route>
-          </Route>
+          <>
+            <Route path="/auth" element={<Auth />} />
+            {!authed ? (
+              <Route path="*" element={<Navigate to="/auth" replace />} />
+            ) : (
+              <>
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<Layout />}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/packs" element={<Packs />} />
+                  <Route path="/open/:packId" element={<OpenPack />} />
+                  <Route path="/collection" element={<Collection />} />
+                  <Route path="/card/:uid" element={<CardDetail />} />
+                  <Route path="/squad" element={<Squad />} />
+                  <Route path="/match" element={<Suspense fallback={<RouteLoading />}><Match /></Suspense>} />
+                  <Route path="/pool/:matchId" element={<Suspense fallback={<RouteLoading />}><Pool /></Suspense>} />
+                  <Route path="/compare" element={<Compare />} />
+                  <Route path="/market" element={<Marketplace />} />
+                  <Route path="/sbc" element={<SBC />} />
+                  <Route path="/missions" element={<Missions />} />
+                  <Route path="/shop" element={<Shop />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/friends" element={<Friends />} />
+                  <Route path="/profile/:userId" element={<FriendProfile />} />
+                  <Route path="/leaderboard" element={<Leaderboard />} />
+                  <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
+                  <Route path="/admin" element={<Suspense fallback={<RouteLoading />}><Admin /></Suspense>} />
+                  </Route>
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </>
+            )}
+          </>
         )}
-        <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
