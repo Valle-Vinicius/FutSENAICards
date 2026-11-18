@@ -1,6 +1,6 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History, Heart } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
@@ -29,8 +29,6 @@ const NAV = [
   { to: '/changelog', label: 'Changelog', icon: History },
 ];
 
-const CREDITS_NAV = { to: '/credits', label: 'Créditos', icon: Heart };
-
 const TITLES: Record<string, string> = {
   '/': 'Visão geral',
   '/packs': 'Abrir pacotes',
@@ -46,10 +44,10 @@ const TITLES: Record<string, string> = {
   '/settings': 'Configurações',
   '/friends': 'Amizades',
   '/leaderboard': 'Leaderboard',
-  '/credits': 'Créditos',
+  '/about': 'Sobre',
 };
 
-export default function Layout() {
+export default function Layout({ children }: { children?: ReactNode }) {
   const avatarUrl = useGame(s => s.avatarUrl);
   const coins = useGame(s => s.coins);
   const xp = useGame(s => s.xp);
@@ -88,6 +86,7 @@ export default function Layout() {
     const titleElement = document.querySelector('title');
     if (!titleElement) return;
     const observer = new MutationObserver(() => {
+      if (!document.title.includes(' | ')) return;
       const currentTitle = document.title.split(' | ')[0];
       if (currentTitle) setTitle(currentTitle);
     });
@@ -109,7 +108,6 @@ export default function Layout() {
   const cards = useGame(s => s.cards);
   const NAV_WITH_ADMIN = [
     ...(isAdmin ? [...NAV, { to: '/admin', label: 'Administrador', icon: Shield }] : NAV),
-    CREDITS_NAV,
   ];
   const normalizedPaletteQuery = paletteQuery.trim().toLocaleLowerCase();
   const filteredPages = NAV_WITH_ADMIN.filter(page => !normalizedPaletteQuery
@@ -254,6 +252,10 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <Link to="/about?aba=creditos" className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--text)]">
+          <Heart className="h-5 w-5 shrink-0" />
+          Créditos
+        </Link>
         <div className="mt-3 card-surface p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs text-[var(--muted)]">Nível {level}</div>
@@ -290,7 +292,7 @@ export default function Layout() {
               <Search className="h-4 w-4" /> Buscar… <kbd className="ml-auto text-[10px]">Ctrl K</kbd>
             </button>
             <ChangelogPopover />
-            <div className="relative">
+            <div className="relative flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-[var(--soft)] overflow-hidden flex items-center justify-center text-[var(--red)] font-bold text-sm">
                 {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <User className="w-4 h-4" />}
               </div>
@@ -308,7 +310,6 @@ export default function Layout() {
               )}
             </div>
             <span>Nível {level}</span>
-            <span className="w-8 h-8 rounded-full bg-[var(--soft)] flex items-center justify-center text-[var(--red)] font-bold">{level}</span>
           </div>
         </div>
 
@@ -340,7 +341,7 @@ export default function Layout() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <Outlet />
+              {children ?? <Outlet />}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -359,6 +360,10 @@ export default function Layout() {
                  {(badges[n.to] ?? 0) > 0 && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--red)] px-1 text-xs text-white">{badges[n.to]}</span>}
                </NavLink>
             ))}
+            <Link to="/about?aba=creditos" onClick={() => setDrawerOpen(false)} className="mt-2 flex items-center gap-3 rounded-xl border-t border-[var(--border)] px-3 py-3 text-sm font-medium text-[var(--muted)]">
+              <Heart className="h-5 w-5 shrink-0" />
+              Créditos
+            </Link>
           </div>
         </div>
       )}

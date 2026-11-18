@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { loadDbTemplates, allTemplates } from './data/players';
 import React, { Suspense, lazy } from 'react';
 import ToastContainer from './components/ToastContainer';
+import Skeleton from './components/Skeleton';
 import { useGame } from './store/useGame';
 import { supabase } from './lib/supabase';
 import { subscribeUserPresence } from './lib/services/friends';
@@ -28,7 +29,7 @@ import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
 import Leaderboard from './pages/Leaderboard';
 import CompetitiveProfile from './pages/CompetitiveProfile';
-import Credits from './pages/Credits';
+const About = lazy(() => import('./pages/About'));
 const Match = lazy(() => import('./pages/Match'));
 const Pool = lazy(() => import('./pages/Pool'));
 const Admin = lazy(() => import('./pages/Admin'));
@@ -36,6 +37,25 @@ const Changelog = lazy(() => import('./pages/Changelog'));
 
 function RouteLoading() {
   return <div className="flex min-h-[50dvh] items-center justify-center text-[var(--muted)]">Carregando…</div>;
+}
+
+function AboutLoading() {
+  return (
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-6 sm:px-6">
+      <Skeleton animated={false} className="h-5 w-28" />
+      <Skeleton animated={false} className="h-8 w-40" />
+      <Skeleton animated={false} className="h-24 w-full" />
+    </div>
+  );
+}
+
+function AboutRoute({ authenticated }: { authenticated: boolean }) {
+  const page = (
+    <Suspense fallback={<AboutLoading />}>
+      <About isAuthenticated={authenticated} />
+    </Suspense>
+  );
+  return authenticated ? <Layout>{page}</Layout> : page;
 }
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err: Error | null }> {
@@ -121,6 +141,8 @@ export default function App() {
       <BrowserRouter basename={typeof window !== 'undefined' && window.location.pathname.startsWith('/FutSENAICards') ? '/FutSENAICards' : undefined}>
         <Routes>
         <Route path="/changelog" element={<Suspense fallback={<div className="mx-auto max-w-2xl px-4 py-6 text-sm text-[var(--muted)]">Carregando histórico…</div>}><Changelog /></Suspense>} />
+        <Route path="/about" element={authReady ? <AboutRoute authenticated={authed} /> : <AboutLoading />} />
+        <Route path="/credits" element={<Navigate to="/about?aba=creditos" replace />} />
         {!authReady ? (
           <Route path="*" element={<RouteLoading />} />
         ) : (
@@ -151,7 +173,6 @@ export default function App() {
                   <Route path="/profile/:userId" element={<FriendProfile />} />
                   <Route path="/leaderboard" element={<Leaderboard />} />
                   <Route path="/leaderboard/player/:userId" element={<CompetitiveProfile />} />
-                  <Route path="/credits" element={<Credits />} />
                   <Route path="/admin" element={<Suspense fallback={<RouteLoading />}><Admin /></Suspense>} />
                   </Route>
                 </Route>

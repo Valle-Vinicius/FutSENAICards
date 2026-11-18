@@ -4,7 +4,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
-    '\\.(png|jpg|jpeg|gif|svg|mp3)$': '<rootDir>/__mocks__/fileMock.cjs',
+    '\\.(png|jpe?g|gif|svg|mp3|webp)$': '<rootDir>/__mocks__/fileMock.cjs',
   },
   transformIgnorePatterns: ['/node_modules/(?!(nanoid|zustand)/)'],
   transform: {
