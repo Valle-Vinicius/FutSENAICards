@@ -10,8 +10,9 @@ export interface NewsItem {
 }
 
 export const JOURNAL_HOME_URL = 'https://pietro-guedes.github.io/FutSenai-Jornal/';
-export const JOURNAL_RAW_NEWS_URL = 'https://raw.githubusercontent.com/Pietro-Guedes/FutSenai-Jornal/main/noticias.json';
+export const JOURNAL_SUPABASE_URL = 'https://jilppyiyrfgechgjgzlk.supabase.co';
 const SUMMARY_MAX_LENGTH = 180;
+const JOURNAL_IMAGES_PATH = '/storage/v1/object/public/news-images/';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -54,7 +55,10 @@ function safeJournalImage(image: unknown): string | undefined {
   if (typeof image !== 'string' || !image.trim()) return undefined;
   try {
     const parsedUrl = new URL(image, JOURNAL_HOME_URL);
-    if (parsedUrl.origin !== new URL(JOURNAL_HOME_URL).origin) return undefined;
+    const isJournalPageImage = parsedUrl.origin === new URL(JOURNAL_HOME_URL).origin;
+    const isJournalStorageImage = parsedUrl.origin === JOURNAL_SUPABASE_URL
+      && parsedUrl.pathname.startsWith(JOURNAL_IMAGES_PATH);
+    if (!isJournalPageImage && !isJournalStorageImage) return undefined;
     return parsedUrl.href;
   } catch {
     return undefined;

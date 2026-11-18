@@ -22,6 +22,7 @@ describe('journal news feed', () => {
   });
 
   it('accepts only safe fields from the server-side news proxy', () => {
+    const image = 'https://jilppyiyrfgechgjgzlk.supabase.co/storage/v1/object/public/news-images/latest.jpg';
     const [item] = parseSafeJournalNews([{
       id: 'public-item',
       title: 'Título',
@@ -29,12 +30,14 @@ describe('journal news feed', () => {
       player: 'Turma A',
       date: '23/10/2026',
       summary: 'Introdução da matéria. '.repeat(20),
+      image,
       url: JOURNAL_HOME_URL,
       content: 'Corpo completo não deve passar para o frontend.',
     }]);
 
     expect(item).toMatchObject({ id: 'public-item' });
     expect(item.summary.length).toBeLessThanOrEqual(180);
+    expect(item.image).toBe(image);
     expect(item).not.toHaveProperty('content');
   });
 });
