@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Eye, EyeOff, Volume2, VolumeX } from 'lucide-react';
 import loginBg from '../imagens/login/Background.png';
 import logo from '../imagens/login/Logo_Fut_SENAI_Cards-removebg-preview.png';
 import lofi from '../audio/lofi.mp3';
 import { supabase } from '../lib/supabase';
 import { signIn, signUp, resetPassword, updatePassword, signInWithGoogle } from '../lib/services/auth';
+import { toFriendlyAuthError } from '../lib/authErrors';
 import { POSES } from '../data/poses';
 
 export default function Auth() {
@@ -18,10 +20,14 @@ export default function Auth() {
   const [recovery, setRecovery] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [started, setStarted] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [musicMuted, setMusicMuted] = useState(false);
+  const [audioError, setAudioError] = useState('');
   const [playerPose] = useState(() => POSES[Math.floor(Math.random() * POSES.length)]);
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fadeIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (window.location.hash.includes('type=recovery')) setRecovery(true);
@@ -38,6 +44,10 @@ export default function Auth() {
     for (let i = 0; i < 40; i++) particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2 });
     let raf = 0;
     const draw = () => {
+      if (document.hidden) {
+        raf = 0;
+        return;
+      }
       ctx.clearRect(0, 0, w, h);
       for (const p of particles) {
         p.x += p.vx; p.y += p.vy;
@@ -65,13 +75,26 @@ export default function Auth() {
       }
       raf = requestAnimationFrame(draw);
     };
-    draw();
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else if (!raf) {
+        raf = requestAnimationFrame(draw);
+      }
+    };
+    if (!document.hidden) raf = requestAnimationFrame(draw);
     const onResize = () => {
       w = canvas.width = canvas.clientWidth || canvas.offsetWidth;
       h = canvas.height = canvas.clientHeight || canvas.offsetHeight;
     };
     window.addEventListener('resize', onResize);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   const startExperience = () => {
@@ -80,19 +103,46 @@ export default function Auth() {
     const audio = new Audio(lofi);
     audio.loop = true;
     audio.volume = 0.02;
+    audio.muted = musicMuted;
     audioRef.current = audio;
-    audio.play().catch(() => {});
-    let vol = 0.02;
-    const fade = setInterval(() => {
-      vol = Math.min(0.4, vol + 0.005);
-      audio.volume = vol;
-      if (vol >= 0.4) clearInterval(fade);
-    }, 200);
+    audio.play().then(() => {
+      if (audioRef.current !== audio) return;
+      let volume = 0.02;
+      fadeIntervalRef.current = window.setInterval(() => {
+        volume = Math.min(0.4, volume + 0.005);
+        audio.volume = volume;
+        if (volume >= 0.4 && fadeIntervalRef.current !== null) {
+          window.clearInterval(fadeIntervalRef.current);
+          fadeIntervalRef.current = null;
+        }
+      }, 200);
+    }).catch((playError: unknown) => {
+      if (audioRef.current !== audio) return;
+      console.error('[auth] failed to start background music:', playError);
+      setAudioError('Não foi possível iniciar a música de fundo.');
+    });
+  };
+
+  const toggleMusicMute = () => {
+    setMusicMuted(currentMuted => {
+      const nextMuted = !currentMuted;
+      if (audioRef.current) audioRef.current.muted = nextMuted;
+      return nextMuted;
+    });
   };
 
   useEffect(() => {
     return () => {
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
+      if (fadeIntervalRef.current !== null) {
+        window.clearInterval(fadeIntervalRef.current);
+        fadeIntervalRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.removeAttribute('src');
+        audioRef.current.load();
+        audioRef.current = null;
+      }
     };
   }, []);
 
@@ -104,14 +154,15 @@ export default function Auth() {
     try {
       if (mode === 'login') {
         const { error } = await signIn(email, password);
-        if (error) throw new Error(error);
+        if (error) { setError(toFriendlyAuthError(error)); return; }
       } else {
         const { error } = await signUp(name, email, password);
-        if (error) throw new Error(error);
+        if (error) { setError(toFriendlyAuthError(error)); return; }
       }
       navigate('/');
-    } catch (err: any) {
-      setError(err?.message ?? 'Erro de autenticação.');
+    } catch (err: unknown) {
+      console.error('[auth] sign-in failed:', err);
+      setError(toFriendlyAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -121,28 +172,46 @@ export default function Auth() {
     if (!supabase) { setError('Configure o Supabase.'); return; }
     setLoading(true);
     setError('');
-    const { error } = await signInWithGoogle();
-    if (error) { setError(error); setLoading(false); }
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) { setError(toFriendlyAuthError(error)); setLoading(false); }
+    } catch (authError: unknown) {
+      console.error('[auth] Google sign-in failed:', authError);
+      setError(toFriendlyAuthError(authError));
+      setLoading(false);
+    }
   };
 
   const forgotPassword = async () => {
     if (!email) { setError('Digite seu email.'); return; }
     setLoading(true);
     setError('');
-    const { error } = await resetPassword(email);
-    if (error) setError(error);
-    else setError('Email de recuperação enviado.');
-    setLoading(false);
+    try {
+      const { error } = await resetPassword(email);
+      if (error) setError(toFriendlyAuthError(error));
+      else setError('Email de recuperação enviado.');
+    } catch (authError: unknown) {
+      console.error('[auth] password recovery failed:', authError);
+      setError(toFriendlyAuthError(authError));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { error } = await updatePassword(newPassword);
-    if (error) setError(error);
-    else { setError('Senha atualizada. Faça login.'); setRecovery(false); }
-    setLoading(false);
+    try {
+      const { error } = await updatePassword(newPassword);
+      if (error) setError(toFriendlyAuthError(error));
+      else { setError('Senha atualizada. Faça login.'); setRecovery(false); }
+    } catch (authError: unknown) {
+      console.error('[auth] password update failed:', authError);
+      setError(toFriendlyAuthError(authError));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -151,6 +220,17 @@ export default function Auth() {
         <div onClick={startExperience} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md cursor-pointer">
           <div className="text-white text-lg font-bold">Clique para entrar</div>
         </div>
+      )}
+      {started && (
+        <button
+          type="button"
+          onClick={toggleMusicMute}
+          aria-label={musicMuted ? 'Ativar música de fundo' : 'Mutar música de fundo'}
+          aria-pressed={musicMuted}
+          className="fixed right-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+        >
+          {musicMuted ? <VolumeX className="h-5 w-5" aria-hidden="true" /> : <Volume2 className="h-5 w-5" aria-hidden="true" />}
+        </button>
       )}
       <div className="min-h-[100dvh] overflow-y-auto flex">
         <div className="hidden md:flex md:w-1/2 relative md:min-h-[100dvh] items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
@@ -165,17 +245,28 @@ export default function Auth() {
             </div>
             <form onSubmit={recovery ? handleResetPassword : submit} className="space-y-4">
               {recovery ? (
-                <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type="password" placeholder="Nova senha" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
+                <div className="relative">
+                  <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type={passwordVisible ? 'text' : 'password'} autoComplete="new-password" placeholder="Nova senha" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 pr-12 text-sm" />
+                  <button type="button" onClick={() => setPasswordVisible(value => !value)} aria-label={passwordVisible ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={passwordVisible} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--text)]">
+                    {passwordVisible ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+                  </button>
+                </div>
               ) : (
                 <>
                   {mode === 'register' && (
-                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Nome" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
+                  <input value={name} onChange={e => setName(e.target.value)} autoComplete="name" placeholder="Nome" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
                   )}
-                  <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="Email" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
-                  <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Senha" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
+                <input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete={mode === 'login' ? 'username' : 'email'} placeholder="Email" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
+                <div className="relative">
+                  <input value={password} onChange={e => setPassword(e.target.value)} type={passwordVisible ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Senha" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 pr-12 text-sm" />
+                  <button type="button" onClick={() => setPasswordVisible(value => !value)} aria-label={passwordVisible ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={passwordVisible} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--text)]">
+                    {passwordVisible ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+                  </button>
+                </div>
                 </>
               )}
-              {error && <div className="text-xs text-red-600">{error}</div>}
+              {error && <div role="alert" className="text-xs text-red-600">{error}</div>}
+              {audioError && <div role="status" className="text-xs text-[var(--muted)]">{audioError}</div>}
               <button disabled={loading} className="w-full py-3 rounded-xl bg-[var(--red)] text-white font-black disabled:opacity-60">
                 {loading ? 'Aguarde...' : (recovery ? 'REDEFINIR SENHA' : (mode === 'login' ? 'ENTRAR' : 'CADASTRAR'))}
               </button>

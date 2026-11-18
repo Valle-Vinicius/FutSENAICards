@@ -46,4 +46,92 @@ describe('Auth page', () => {
     render(<MemoryRouter><Auth /></MemoryRouter>);
     expect(screen.getByText('Esqueci minha senha')).toBeInTheDocument();
   });
+
+  it('toggles password visibility and sets login autocomplete attributes', () => {
+    render(<MemoryRouter><Auth /></MemoryRouter>);
+    const password = screen.getByPlaceholderText('Senha');
+    const email = screen.getByPlaceholderText('Email');
+
+    expect(password).toHaveAttribute('type', 'password');
+    expect(password).toHaveAttribute('autocomplete', 'current-password');
+    expect(email).toHaveAttribute('autocomplete', 'username');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar senha' }));
+    expect(password).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: 'Ocultar senha' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('uses name and new-password autocomplete during registration', () => {
+    render(<MemoryRouter><Auth /></MemoryRouter>);
+    fireEvent.click(screen.getByText('Não tem conta? Cadastre-se'));
+
+    expect(screen.getByPlaceholderText('Nome')).toHaveAttribute('autocomplete', 'name');
+    expect(screen.getByPlaceholderText('Email')).toHaveAttribute('autocomplete', 'email');
+    expect(screen.getByPlaceholderText('Senha')).toHaveAttribute('autocomplete', 'new-password');
+  });
+
+  it('can mute and unmute the lazy-loaded background music', async () => {
+    const audio = {
+      loop: false,
+      volume: 1,
+      muted: false,
+      play: jest.fn().mockResolvedValue(undefined),
+      pause: jest.fn(),
+      removeAttribute: jest.fn(),
+      load: jest.fn(),
+    } as unknown as HTMLAudioElement;
+    const originalAudio = window.Audio;
+    window.Audio = jest.fn(() => audio) as unknown as typeof Audio;
+
+    const { unmount } = render(<MemoryRouter><Auth /></MemoryRouter>);
+    try {
+      fireEvent.click(screen.getByText('Clique para entrar'));
+
+      await waitFor(() => expect(window.Audio).toHaveBeenCalled());
+      const muteButton = await screen.findByRole('button', { name: 'Mutar música de fundo' });
+      fireEvent.click(muteButton);
+
+      expect(audio.muted).toBe(true);
+      expect(screen.getByRole('button', { name: 'Ativar música de fundo' })).toHaveAttribute('aria-pressed', 'true');
+    } finally {
+      unmount();
+      window.Audio = originalAudio;
+    }
+  });
+
+  it('pauses particle animation while the browser tab is hidden', () => {
+    const previousHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    const context = {
+      clearRect: jest.fn(),
+      beginPath: jest.fn(),
+      arc: jest.fn(),
+      fill: jest.fn(),
+      moveTo: jest.fn(),
+      lineTo: jest.fn(),
+      stroke: jest.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const getContext = jest.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
+    const requestFrame = jest.spyOn(window, 'requestAnimationFrame').mockReturnValue(42);
+    const cancelFrame = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const { unmount } = render(<MemoryRouter><Auth /></MemoryRouter>);
+
+    try {
+      expect(requestFrame).toHaveBeenCalledTimes(1);
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      fireEvent(document, new Event('visibilitychange'));
+      expect(cancelFrame).toHaveBeenCalledWith(42);
+
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      fireEvent(document, new Event('visibilitychange'));
+      expect(requestFrame).toHaveBeenCalledTimes(2);
+    } finally {
+      unmount();
+      getContext.mockRestore();
+      requestFrame.mockRestore();
+      cancelFrame.mockRestore();
+      if (previousHidden) Object.defineProperty(document, 'hidden', previousHidden);
+      else Reflect.deleteProperty(document, 'hidden');
+    }
+  });
 });
