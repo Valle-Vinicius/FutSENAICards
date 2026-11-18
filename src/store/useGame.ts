@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import type { GameState, PlayerCard, Position, Squad, SavedSquad, Listing } from '../types';
 import { RARITY_META, SPECIAL_META } from '../types';
@@ -13,7 +13,7 @@ import { saveSquad as saveSquadService, getSavedSquads, getSquad as getPrimarySq
 import { getMissions, upsertMissions } from '../lib/services/missions';
 import { getAchievements, upsertAchievements } from '../lib/services/achievements';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
-import { updateCollectorRanking } from '../lib/services/leaderboard';
+import { refreshCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, toGameListing, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { persistComparePair } from '../lib/services/compare';
 import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, overallFromAttributes } from '../data/players';
@@ -31,6 +31,28 @@ let duplicateConversionPending = false;
 const sbcCompletionsPending = new Set<string>();
 const listingsPending = new Set<string>();
 let demoCoinClaimPending = false;
+let storageQuotaErrorReported = false;
+
+function isInlineImage(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.startsWith('data:');
+}
+
+const gameStorage = createJSONStorage(() => ({
+  getItem: (name: string) => localStorage.getItem(name),
+  setItem: (name: string, value: string) => {
+    try {
+      localStorage.setItem(name, value);
+    } catch (error) {
+      if (!(error instanceof Error) || error.name !== 'QuotaExceededError') throw error;
+      if (!storageQuotaErrorReported) {
+        storageQuotaErrorReported = true;
+        console.error('[game] local storage is full; unsynced local data may not persist.');
+        toast.error('O armazenamento local está cheio; o progresso offline pode não persistir neste dispositivo.');
+      }
+    }
+  },
+  removeItem: (name: string) => localStorage.removeItem(name),
+}));
 
 function isResponse(value: unknown): value is Response {
   return typeof value === 'object'
@@ -177,7 +199,7 @@ interface Actions {
   claimDemoCoins: () => Promise<boolean>;
   spendCoins: (n: number, reason: string) => boolean;
   addXp: (n: number) => void;
-  openPack: (packId: string) => Promise<{ cards: PlayerCard[] } | null>;
+  openPack: (packId: string, quantity?: number) => Promise<{ cards: PlayerCard[] } | null>;
   claimDaily: () => Promise<{ ok: boolean; amount: number; streak: number; bonus: number; error?: string }>;
   toggleFavorite: (uid: string) => void;
   markSeen: (uids: string[]) => void;
@@ -485,32 +507,29 @@ export const useGame = create<GameState & Actions>()(
           });
         }
       },
-      openPack: async (packId) => {
+      openPack: async (packId, quantity = 1) => {
         const s = get();
         const pack = s.packConfigs.find(p => p.id === packId);
         if (!pack || !pack.unlocked) return null;
-        if (s.coins < pack.price) {
+        if (!Number.isInteger(quantity) || ![1, 5, 10, 100].includes(quantity)) {
+          toast.error('Quantidade de pacotes inválida.');
+          return null;
+        }
+        if (quantity > 1 && pack.choice) {
+          toast.error('Pacotes de escolha não podem ser abertos em lote.');
+          return null;
+        }
+        if (s.coins < pack.price * quantity) {
           toast.error('Saldo insuficiente.');
           return null;
         }
         if (!supabase) return null;
-        let uid: string | undefined;
-        try {
-          const result = await supabase.auth.getSession();
-          if (result.error) {
-            toast.error('Erro ao validar sessão: ' + result.error.message);
-            return null;
-          }
-          uid = result.data.session?.user.id;
-        } catch (error) {
-          toast.error('Erro ao validar sessão: ' + (error instanceof Error ? error.message : 'erro desconhecido'));
-          return null;
-        }
-        if (!uid) return null;
         let newCards: OpenPackRow[] | null = null;
         let openError: string | null = null;
         try {
-          const result = await supabase.rpc('open_pack', { p_pack_id: packId });
+          const result = quantity === 1
+            ? await supabase.rpc('open_pack', { p_pack_id: packId })
+            : await supabase.rpc('open_packs_bulk', { p_pack_id: packId, p_count: quantity });
           if (result.error) openError = result.error.message;
           else newCards = result.data as OpenPackRow[] | null;
         } catch (error) {
@@ -522,38 +541,45 @@ export const useGame = create<GameState & Actions>()(
         }
         const rows = newCards;
         const cards = rows.map(mapOpenPackCard);
-        const remainingCoins = rows[0].remaining_coins;
+        const remainingCoins = rows[rows.length - 1].remaining_coins;
         set(st => ({
           cards: [...cards, ...st.cards],
           coins: remainingCoins,
-          transactions: [{ id: nanoid(8), type: 'spend' as const, amount: pack.price, reason: `Abertura ${pack.name}`, at: Date.now() }, ...st.transactions].slice(0, 50),
-          packsOpened: st.packsOpened + 1,
+          transactions: [{
+            id: nanoid(8),
+            type: 'spend' as const,
+            amount: pack.price * quantity,
+            reason: quantity === 1 ? `Abertura ${pack.name}` : `Abertura ${quantity}x ${pack.name}`,
+            at: Date.now(),
+          }, ...st.transactions].slice(0, 50),
+          packsOpened: st.packsOpened + quantity,
           newCardUids: [...cards.map(c => c.uid), ...st.newCardUids].slice(0, 50),
         }));
-        const allCards = get().cards;
-        const squadOverall = Math.round(allCards.reduce((s, c) => s + c.overall, 0) / Math.max(1, allCards.length));
-        const rareCount = allCards.filter(c => ['rare','epic','legendary','icon','secret'].includes(c.rarity)).length;
-        const { data: prof } = await supabase!.from('profiles').select('name').eq('id', uid).single();
-        await updateCollectorRanking(uid, prof?.name || 'Jogador', allCards.length, squadOverall, rareCount);
-        get().addXp(cards.length * 10);
-        get().updateMissionProgress();
-        const st2 = get();
-        if (st2.cards.length >= 1) {
-          const a = st2.achievements.find(x => x.id === 'a1');
-          if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a1' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
-        }
-        if (st2.cards.length >= 20) {
-          const a = st2.achievements.find(x => x.id === 'a2');
-          if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a2' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
-        }
+        const openedState = get();
+        const unlockedAchievements = new Set<string>();
+        if (openedState.cards.length >= 1) unlockedAchievements.add('a1');
+        if (openedState.cards.length >= 20) unlockedAchievements.add('a2');
         if (cards.some(c => c.rarity === 'legendary' || c.rarity === 'icon' || c.rarity === 'secret')) {
-          const a = get().achievements.find(x => x.id === 'a5');
-          if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a5' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
+          unlockedAchievements.add('a5');
         }
         if (cards.some(c => c.rarity === 'icon')) {
-          const a = get().achievements.find(x => x.id === 'a6');
-          if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a6' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
+          unlockedAchievements.add('a6');
         }
+        if (unlockedAchievements.size > 0) {
+          const unlockedAt = Date.now();
+          set(st => ({
+            achievements: st.achievements.map(achievement => (
+              unlockedAchievements.has(achievement.id) && !achievement.unlocked
+                ? { ...achievement, unlocked: true, unlockedAt }
+                : achievement
+            )),
+          }));
+        }
+        get().addXp(cards.length * 10);
+        get().updateMissionProgress();
+        void refreshCollectorRanking().catch(error => {
+          console.error('[leaderboard] failed to refresh after pack opening:', error);
+        });
         return { cards };
       },
       claimDaily: async () => {
@@ -1076,17 +1102,14 @@ export const useGame = create<GameState & Actions>()(
             if (converted > 0) {
               const [remoteCards, profileResult] = await Promise.all([
                 getCards(uid),
-                supabase.from('profiles').select('coins, name').eq('id', uid).single(),
+                supabase.from('profiles').select('coins').eq('id', uid).single(),
               ]);
               if (remoteCards) set({ cards: remoteCards });
               if (profileResult.error) console.error('[duplicates] could not refresh profile:', profileResult.error);
               else if (profileResult.data) set({ coins: profileResult.data.coins });
-              const allCards = remoteCards ?? get().cards;
-              const squadOverall = Math.round(allCards.reduce((sum, card) => sum + card.overall, 0) / Math.max(1, allCards.length));
-              const rareCount = allCards.filter(card => ['rare', 'epic', 'legendary', 'icon', 'secret'].includes(card.rarity)).length;
-              if (profileResult.data) {
-                await updateCollectorRanking(uid, profileResult.data.name || 'Jogador', allCards.length, squadOverall, rareCount);
-              }
+              void refreshCollectorRanking().catch(error => {
+                console.error('[leaderboard] failed to refresh after duplicate conversion:', error);
+              });
             }
             return { count: converted, coins };
           }
@@ -1451,6 +1474,19 @@ export const useGame = create<GameState & Actions>()(
     }),
     {
       name: 'futsenai-cards-v3',
+      storage: gameStorage,
+      partialize: state => ({
+        ...state,
+        cards: state.cards.map(card => ({
+          ...card,
+          image: isInlineImage(card.image) ? undefined : card.image,
+          photo: isInlineImage(card.photo) ? undefined : card.photo,
+        })),
+        listings: state.listings.map(listing => ({
+          ...listing,
+          cardImage: isInlineImage(listing.cardImage) ? undefined : listing.cardImage,
+        })),
+      }),
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...(persistedState as Partial<GameState>),

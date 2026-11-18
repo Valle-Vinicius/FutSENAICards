@@ -139,4 +139,47 @@ describe('authoritative card economy client safeguards', () => {
     await expect(useGame.getState().completeSBC(sbcId, cards.map(card => card.uid))).resolves.toBe(true);
     expect(useGame.getState().coins).toBe(expectedReward);
   });
+
+  it('omits inline images from the persisted card and listing snapshots', () => {
+    useGame.setState({
+      cards: [makeCard('inline-image', 'common', {
+        image: 'data:image/png;base64,card',
+        photo: 'data:image/png;base64,photo',
+      })],
+      listings: [{
+        id: 'listing',
+        cardUid: 'inline-image',
+        seller: 'user',
+        sellerName: 'Jogador',
+        price: 10,
+        buyNow: 10,
+        createdAt: 0,
+        expiresAt: 1,
+        status: 'active',
+        cardImage: 'data:image/png;base64,listing',
+      }],
+    });
+
+    const persisted = JSON.parse(localStorage.getItem('futsenai-cards-v3') ?? '{}');
+    expect(persisted.state.cards[0]).not.toHaveProperty('image');
+    expect(persisted.state.cards[0]).not.toHaveProperty('photo');
+    expect(persisted.state.listings[0]).not.toHaveProperty('cardImage');
+  });
+
+  it('does not throw when local storage is full', () => {
+    const quotaError = new Error('Storage quota exceeded');
+    quotaError.name = 'QuotaExceededError';
+    const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw quotaError;
+    });
+    const logError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      expect(() => useGame.setState({ coins: 123 })).not.toThrow();
+      expect(useGame.getState().coins).toBe(123);
+    } finally {
+      setItem.mockRestore();
+      logError.mockRestore();
+    }
+  });
 });

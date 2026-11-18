@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../store/useGame';
+import { supabase } from '../lib/supabase';
 import { playBurst, playCharge, playFlip, playRareReveal } from '../lib/sound';
 import Card from '../components/Card';
 import type { PlayerCard, Rarity } from '../types';
 import { RARITY_META } from '../types';
-import { Coins, Trophy, Copy } from 'lucide-react';
+import { Coins, Trophy, Copy, LoaderCircle } from 'lucide-react';
 import bgWhite from '../imagens/background/backgroundbranco.png';
 import cardBackCommon from '../imagens/cartas/comum.png';
 import cardBackUncommon from '../imagens/cartas/incomum.png';
@@ -27,6 +28,7 @@ const CARD_BACKS: Record<string, string> = {
 
 const RARITY_RANK: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5, secret: 6 };
 const RARITY_VALUE: Record<Rarity, number> = { common: 100, uncommon: 250, rare: 600, epic: 1500, legendary: 4000, icon: 10000, secret: 20000 };
+const BULK_PACK_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 
 function ParticleBurst({ fire, color, count }: { fire: boolean; color: string; count: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,11 +98,33 @@ export default function OpenPack() {
   const audioOn = useGame(s => s.settings.audio);
   const animationsOn = useGame(s => s.settings.animations);
   const pack = packs.find(p => p.id === packId);
+  const coins = useGame(s => s.coins);
   useEffect(() => {
     document.title = `${pack?.name ?? 'Abrir pacote'} | FutSENAI Cards`;
   }, [pack?.name]);
+  const [canBulkOpen, setCanBulkOpen] = useState(false);
+  const [bulkCount, setBulkCount] = useState(1);
+  const [openedPackCount, setOpenedPackCount] = useState(1);
+  useEffect(() => {
+    const client = supabase;
+    if (!client) return;
+    let active = true;
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      if (active) setCanBulkOpen(session?.user.id === BULK_PACK_USER_ID);
+    });
+    void client.auth.getSession().then(({ data, error }) => {
+      if (error) throw error;
+      if (active) setCanBulkOpen(data.session?.user.id === BULK_PACK_USER_ID);
+    }).catch(error => {
+      console.error('[open-pack] failed to check bulk access:', error);
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
-  const [phase, setPhase] = useState<'idle'|'charging'|'burst'|'rarity'|'reveal'|'summary'|'choice'>('idle');
+  const [phase, setPhase] = useState<'idle'|'waiting'|'charging'|'burst'|'rarity'|'reveal'|'summary'|'choice'>('idle');
   const isDarkPhase = phase === 'charging' || phase === 'burst' || phase === 'rarity' || phase === 'reveal';
   const [cards, setCards] = useState<PlayerCard[]>([]);
   const [choiceCards, setChoiceCards] = useState<PlayerCard[]>([]);
@@ -112,9 +136,11 @@ export default function OpenPack() {
   const [fast, setFast] = useState(false);
   const [burstFire, setBurstFire] = useState(false);
   const [shake, setShake] = useState(false);
+  const [chargeTimedOut, setChargeTimedOut] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const openingRef = useRef(false);
+  const chargeWaitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -207,6 +233,8 @@ export default function OpenPack() {
   if (!pack) return <div className="p-8">Pacote não encontrado.</div>;
 
   const isChoice = !!pack.choice;
+  const openingQuantity = canBulkOpen && !isChoice ? bulkCount : 1;
+  const totalPrice = pack.price * openingQuantity;
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const sortCards = (list: PlayerCard[]) => [...list].sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity] || b.overall - a.overall);
@@ -214,17 +242,50 @@ export default function OpenPack() {
   const startOpen = async () => {
     if (phase !== 'idle' || openingRef.current) return;
     openingRef.current = true;
-    setPhase('charging');
-    setShake(true);
+    const openingOwnedIds = new Set(useGame.getState().cards.map(card => card.playerId));
+    const quantity = openingQuantity;
+    const startedAt = performance.now();
+    const chargeMs = 1100;
+    const shouldSkipAnimation = skip || reduceMotion || !animationsOn;
+    const shouldCharge = !shouldSkipAnimation && !fast && quantity === 1;
+    setChargeTimedOut(false);
+    setBurstFire(false);
+    if (shouldCharge) {
+      setPhase('charging');
+      setShake(true);
+      chargeWaitTimeoutRef.current = setTimeout(() => {
+        chargeWaitTimeoutRef.current = null;
+        if (openingRef.current) {
+          setShake(false);
+          setChargeTimedOut(true);
+        }
+      }, chargeMs);
+    } else {
+      setPhase('waiting');
+      setShake(false);
+    }
+
+    const clearChargeWaitTimeout = () => {
+      if (chargeWaitTimeoutRef.current) {
+        clearTimeout(chargeWaitTimeoutRef.current);
+        chargeWaitTimeoutRef.current = null;
+      }
+    };
 
     if (isChoice) {
       let res;
       try {
         res = await previewPack(pack.id);
       } catch (error) {
+        clearChargeWaitTimeout();
         openingRef.current = false;
+        setChargeTimedOut(false);
+        setShake(false);
+        setPhase('idle');
         throw error;
       }
+      clearChargeWaitTimeout();
+      setChargeTimedOut(false);
       if (!res) {
         openingRef.current = false;
         setShake(false);
@@ -242,11 +303,17 @@ export default function OpenPack() {
 
     let res;
     try {
-      res = await openPack(pack.id);
+      res = await openPack(pack.id, quantity);
     } catch (error) {
+      clearChargeWaitTimeout();
       openingRef.current = false;
+      setChargeTimedOut(false);
+      setShake(false);
+      setPhase('idle');
       throw error;
     }
+    clearChargeWaitTimeout();
+    setChargeTimedOut(false);
     if (!res) {
       openingRef.current = false;
       setShake(false);
@@ -257,21 +324,51 @@ export default function OpenPack() {
 
     const sorted = sortCards(res.cards);
     setCards(sorted);
+    setOpenedPackCount(quantity);
     setRevealed(new Array(sorted.length).fill(false));
-    const prevOwned = new Set(useGame.getState().cards.map(c => c.playerId));
-    setDuplicateCount(sorted.filter(c => prevOwned.has(c.playerId)).length);
-    if (skip || reduceMotion || !animationsOn) {
+    const seenPlayerIds = new Set(openingOwnedIds);
+    setDuplicateCount(sorted.reduce((count, card) => {
+      if (seenPlayerIds.has(card.playerId)) return count + 1;
+      seenPlayerIds.add(card.playerId);
+      return count;
+    }, 0));
+    if (quantity > 1) {
+      setShake(false);
       setRevealed(new Array(sorted.length).fill(true));
       setPhase('summary');
       return;
     }
-    setPhase('charging');
-    setShake(true);
-    const chargeMs = fast ? 450 : 1100;
-    if (audioOn) playCharge(chargeMs / 1000);
-    setTimeout(() => { setShake(false); setBurstFire(true); if (audioOn) playBurst(RARITY_RANK[sorted[0]?.rarity ?? 'common']); setPhase(p => (p === 'charging' ? 'burst' : p)); }, chargeMs);
-    const burstMs = fast ? 500 : 900;
-    setTimeout(() => { setBurstFire(false); setPhase(p => (p === 'burst' ? 'reveal' : p)); }, chargeMs + burstMs);
+    if (skip || reduceMotion || !animationsOn) {
+      setShake(false);
+      setRevealed(new Array(sorted.length).fill(true));
+      setPhase('summary');
+      return;
+    }
+    if (fast) {
+      setShake(false);
+      setPhase('reveal');
+      return;
+    }
+    const chargeLeft = Math.max(0, chargeMs - (performance.now() - startedAt));
+    const burstMs = 900;
+    if (chargeLeft > 0) {
+      if (audioOn) playCharge(chargeLeft / 1000);
+      setTimeout(() => {
+        setShake(false);
+        setBurstFire(true);
+        if (audioOn) playBurst(RARITY_RANK[sorted[0]?.rarity ?? 'common']);
+        setPhase(current => (current === 'charging' ? 'burst' : current));
+      }, chargeLeft);
+    } else {
+      setShake(false);
+      setBurstFire(true);
+      if (audioOn) playBurst(RARITY_RANK[sorted[0]?.rarity ?? 'common']);
+      setPhase('burst');
+    }
+    setTimeout(() => {
+      setBurstFire(false);
+      setPhase(current => (current === 'burst' ? 'reveal' : current));
+    }, chargeLeft + burstMs);
   };
 
   const revealCard = (i: number) => {
@@ -289,6 +386,7 @@ export default function OpenPack() {
   const maxRank = cards.length ? Math.max(...cards.map(c => RARITY_RANK[c.rarity])) : 0;
   const particleCount = [40, 55, 70, 85, 105, 130, 170][maxRank];
   const estimatedValue = cards.reduce((s, c) => s + RARITY_VALUE[c.rarity], 0);
+  const summaryCards = openedPackCount > 1 ? cards.slice(0, 12) : cards;
 
   return (
     <div
@@ -344,15 +442,41 @@ export default function OpenPack() {
               📦
             </motion.div>
             <div className="text-2xl font-black" style={{ color: packColor }}>{pack.name}</div>
-            <div className="text-[var(--muted)] text-sm">{pack.cards} cartas · {pack.price === 0 ? 'Evento' : pack.price.toLocaleString('pt-BR') + ' moedas'}</div>
+            <div className="text-[var(--muted)] text-sm">
+              {pack.cards * openingQuantity} cartas · {totalPrice === 0 ? 'Evento' : `${totalPrice.toLocaleString('pt-BR')} moedas`}
+            </div>
+            {canBulkOpen && !isChoice && (
+              <div className="flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Quantidade de pacotes">
+                <span className="w-full text-center text-xs text-[var(--muted)]">Quantidade</span>
+                {[1, 5, 10, 100].map(quantity => (
+                  <button
+                    key={quantity}
+                    type="button"
+                    aria-pressed={bulkCount === quantity}
+                    onClick={() => setBulkCount(quantity)}
+                    className={`min-h-10 rounded-lg border px-3 text-sm font-bold transition-colors ${
+                      bulkCount === quantity
+                        ? 'border-[var(--red)] bg-[var(--red)] text-white'
+                        : 'border-[var(--border)] bg-white/80 text-[var(--text)] hover:bg-white'
+                    }`}
+                  >
+                    {quantity}
+                  </button>
+                ))}
+              </div>
+            )}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={startOpen}
+              disabled={canBulkOpen && coins < totalPrice}
               className="px-10 py-4 rounded-2xl text-white font-black text-lg shadow-lg"
-              style={{ background: `linear-gradient(135deg, ${packColor}, #000)` }}
+              style={{
+                background: `linear-gradient(135deg, ${packColor}, #000)`,
+                opacity: canBulkOpen && coins < totalPrice ? 0.55 : 1,
+              }}
             >
-              ABRIR PACOTE
+              {openingQuantity === 1 ? 'ABRIR PACOTE' : `ABRIR ${openingQuantity} PACOTES`}
             </motion.button>
             <div className="flex items-center gap-4 text-xs text-[var(--muted)]">
               <label className="flex min-h-11 items-center gap-2">
@@ -367,32 +491,58 @@ export default function OpenPack() {
           </motion.div>
         )}
 
+        {phase === 'waiting' && (
+          <motion.div
+            key="waiting"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="status"
+            className="relative z-10 inline-flex items-center gap-2 rounded-full bg-black/10 px-4 py-2 text-sm text-[var(--muted)]"
+          >
+            <LoaderCircle
+              aria-hidden="true"
+              className={`h-4 w-4 ${animationsOn && !reduceMotion && !skip && !fast ? 'animate-spin' : ''}`}
+            />
+            <span>{isChoice ? 'Carregando opções…' : 'Abrindo pacote…'}</span>
+          </motion.div>
+        )}
+
         {phase === 'charging' && (
           <motion.div key="charging" className="flex flex-col items-center gap-6 relative z-10">
             <motion.div
               animate={shake ? { x: [0,-12,12,-10,10,-6,6,-3,3,0], y: [0,6,-6,4,-4,2,-2,0], rotate: [0,-6,6,-4,4,-2,2,0], scale: [1,1.1,1.05,1.12,1] } : {}}
-              transition={{ duration: fast ? 0.45 : 1.1 }}
+              transition={{ duration: 1.1 }}
               className="text-[clamp(4rem,22vw,8rem)]"
             >
               📦
             </motion.div>
-            <motion.div
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 0.6, repeat: Infinity }}
-              className="text-xl font-black"
-              style={{ color: packColor }}
-            >
-              ABRINDO...
-            </motion.div>
-            <div className="w-[min(16rem,70vw)] h-2 bg-white/10 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: '100%' }}
-                transition={{ duration: fast ? 0.45 : 1.1, ease: 'easeInOut' }}
-                className="h-full rounded-full"
-                style={{ background: packColor }}
-              />
-            </div>
+            {chargeTimedOut ? (
+              <div role="status" className="inline-flex items-center gap-2 text-sm font-semibold text-white/75">
+                <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                Aguardando resposta…
+              </div>
+            ) : (
+              <>
+                <motion.div
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 0.6 }}
+                  className="text-xl font-black"
+                  style={{ color: packColor }}
+                >
+                  ABRINDO...
+                </motion.div>
+                <div className="w-[min(16rem,70vw)] h-2 bg-white/10 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 1.1, ease: 'easeInOut' }}
+                    className="h-full rounded-full"
+                    style={{ background: packColor }}
+                  />
+                </div>
+              </>
+            )}
           </motion.div>
         )}
 
@@ -484,8 +634,13 @@ export default function OpenPack() {
         {phase === 'summary' && (
           <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex w-full flex-col items-center gap-6 relative z-10">
             <div className="text-2xl sm:text-3xl font-black text-[var(--red)]">PACOTE ABERTO COM SUCESSO!</div>
+            {openedPackCount > 1 && (
+              <div className="text-center text-sm text-[var(--muted)]">
+                Mostrando {summaryCards.length} de {cards.length} {cards.length === 1 ? 'carta' : 'cartas'}; todas foram adicionadas à coleção.
+              </div>
+            )}
             <div className="grid w-full max-w-md grid-cols-2 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-5 sm:items-end">
-              {cards.map((c, i) => (
+              {summaryCards.map((c, i) => (
                 <motion.div
                   key={c.uid}
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -521,7 +676,7 @@ export default function OpenPack() {
               <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: 'var(--red)' }}>
                 VER COLEÇÃO
               </button>
-              <button onClick={() => { openingRef.current = false; setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setShake(false); setDuplicateCount(0); }} className="px-6 py-3 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] font-black hover:bg-[var(--bg)]">
+              <button onClick={() => { openingRef.current = false; setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setShake(false); setChargeTimedOut(false); setDuplicateCount(0); }} className="px-6 py-3 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] font-black hover:bg-[var(--bg)]">
                 ABRIR OUTRO PACOTE
               </button>
             </div>

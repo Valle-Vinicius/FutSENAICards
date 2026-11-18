@@ -243,16 +243,10 @@ export async function getCompetitiveHeadToHead(
   };
 }
 
-export async function updateCollectorRanking(userId: string, name: string, cardsCount: number, squadOverall: number, rareCount: number): Promise<void> {
-  if (!supabase) return;
-  await supabase.from('leaderboard').upsert({
-    user_id: userId,
-    name,
-    cards_count: cardsCount,
-    squad_overall: squadOverall,
-    rare_count: rareCount,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' });
+export async function refreshCollectorRanking(): Promise<void> {
+  if (!supabase) throw new Error('Supabase não está configurado.');
+  const { error } = await supabase.rpc('refresh_collector_ranking');
+  if (error) throw error;
 }
 
 export async function getCollectorRanking(limit = 10): Promise<CollectorRanking[]> {
