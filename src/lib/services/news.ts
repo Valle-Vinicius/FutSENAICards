@@ -5,7 +5,6 @@ export async function fetchJournalNews(signal?: AbortSignal): Promise<NewsItem[]
   if (!supabase) throw new Error('O feed de notícias requer conexão com o servidor.');
   const { data, error } = await supabase.functions.invoke<unknown>('journal-news', {
     method: 'GET',
-    headers: { 'Cache-Control': 'no-cache' },
     signal,
     timeout: 10_000,
   });
