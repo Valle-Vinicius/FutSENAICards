@@ -140,12 +140,18 @@ describe('authoritative card economy client safeguards', () => {
     expect(useGame.getState().coins).toBe(expectedReward);
   });
 
-  it('omits inline images from the persisted card and listing snapshots', () => {
+  it('keeps inline images for custom cards without a local fallback and omits replaceable images', () => {
     useGame.setState({
-      cards: [makeCard('inline-image', 'common', {
-        image: 'data:image/png;base64,card',
-        photo: 'data:image/png;base64,photo',
-      })],
+      cards: [
+        makeCard('inline-image', 'common', {
+          image: 'data:image/png;base64,custom-card',
+          photo: 'data:image/png;base64,photo',
+        }),
+        makeCard('replaceable-image', 'common', {
+          name: 'Pietro Guedes',
+          image: 'data:image/png;base64,replaceable-card',
+        }),
+      ],
       listings: [{
         id: 'listing',
         cardUid: 'inline-image',
@@ -161,8 +167,9 @@ describe('authoritative card economy client safeguards', () => {
     });
 
     const persisted = JSON.parse(localStorage.getItem('futsenai-cards-v3') ?? '{}');
-    expect(persisted.state.cards[0]).not.toHaveProperty('image');
+    expect(persisted.state.cards[0].image).toBe('data:image/png;base64,custom-card');
     expect(persisted.state.cards[0]).not.toHaveProperty('photo');
+    expect(persisted.state.cards[1]).not.toHaveProperty('image');
     expect(persisted.state.listings[0]).not.toHaveProperty('cardImage');
   });
 

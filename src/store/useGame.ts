@@ -16,7 +16,7 @@ import { getSettings, updateSettings as updateSettingsService } from '../lib/ser
 import { refreshCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, toGameListing, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
 import { persistComparePair } from '../lib/services/compare';
-import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, overallFromAttributes } from '../data/players';
+import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, getPlayerImage, overallFromAttributes } from '../data/players';
 import { DUPLICATE_CONVERSION_REWARD } from '../data/economy';
 import { getDailyStreakPreview } from '../lib/dailyRewards';
 
@@ -1479,7 +1479,7 @@ export const useGame = create<GameState & Actions>()(
         ...state,
         cards: state.cards.map(card => ({
           ...card,
-          image: isInlineImage(card.image) ? undefined : card.image,
+          image: isInlineImage(card.image) && getPlayerImage(card.name) ? undefined : card.image,
           photo: isInlineImage(card.photo) ? undefined : card.photo,
         })),
         listings: state.listings.map(listing => ({
