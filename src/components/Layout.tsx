@@ -315,7 +315,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
 
       {isHomeRoute && (
         <header className="home-topbar">
-          <div className="home-topbar__inner">
+          <div className="home-container home-topbar__inner">
             <Link to="/" className="home-topbar__brand" aria-label="FUTSENAI, início">
               <span>FUT</span>SENAI<small>FUTEBOL ENTRE AMIGOS</small>
             </Link>
@@ -452,7 +452,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
 
         <main className={`${isHomeRoute ? 'home-layout__main' : 'flex-1 min-w-0 min-h-0 overflow-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0'} ${isMatchRoute ? 'match-route-main' : ''}`}>
           {pendingChallengeId && (
-            <div className={isHomeRoute ? 'home-pending-alert' : 'm-4 card-surface p-3 flex items-center justify-between gap-3'}>
+            <div className={isHomeRoute ? 'home-container home-pending-alert' : 'm-4 card-surface p-3 flex items-center justify-between gap-3'}>
               <div className="text-sm text-[var(--text)]">Você foi desafiado para um X1!</div>
               <div className="flex gap-2">
                 <button onClick={() => { navigate(`/match?challenge=${pendingChallengeId}`); setPendingChallengeId(null); }} className="px-3 py-1.5 rounded-xl bg-[var(--red)] text-white text-xs font-medium">Aceitar</button>
@@ -461,7 +461,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
             </div>
           )}
           {pendingPoolMatchId && (
-            <div className={isHomeRoute ? 'home-pending-alert' : 'm-4 card-surface p-3 flex items-center justify-between gap-3'}>
+            <div className={isHomeRoute ? 'home-container home-pending-alert' : 'm-4 card-surface p-3 flex items-center justify-between gap-3'}>
               <div className="text-sm text-[var(--text)]">Você foi desafiado para uma partida de sinuca!</div>
               <div className="flex gap-2">
                 <button onClick={() => { navigate(`/pool/${pendingPoolMatchId}`); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-[var(--red)] text-white text-xs font-medium">Ver aposta</button>

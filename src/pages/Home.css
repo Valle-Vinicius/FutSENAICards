@@ -35,7 +35,6 @@
 
 .home-pending-alert {
   display: flex;
-  width: min(calc(100% - 76px), 1436px);
   align-items: center;
   justify-content: space-between;
   gap: 14px;
@@ -74,15 +73,19 @@
   background: #fff;
 }
 
+.home-container {
+  box-sizing: border-box;
+  width: min(100%, 1440px);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
 .home-topbar__inner {
   display: grid;
-  width: min(100%, 1600px);
   min-height: 76px;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 30px;
-  margin: 0 auto;
-  padding: 0 34px;
 }
 
 .home-topbar__brand {
@@ -335,7 +338,6 @@
 }
 
 .home-page {
-  --home-gutter: clamp(18px, 3vw, 38px);
   --home-section-gap: clamp(26px, 3vw, 34px);
 
   min-height: 100%;
@@ -345,9 +347,7 @@
 }
 
 .home-page__inner {
-  width: min(100%, 1512px);
-  margin: 0 auto;
-  padding: 28px var(--home-gutter) 58px;
+  padding-block: 28px 58px;
 }
 
 .home-hero {
@@ -1513,7 +1513,6 @@
   .home-topbar__inner {
     min-height: 62px;
     gap: 8px;
-    padding: 0 14px;
   }
 
   .home-topbar__brand {
@@ -1548,7 +1547,11 @@
   }
 
   .home-page__inner {
-    padding: 14px 16px 40px;
+    padding-block: 14px 40px;
+  }
+
+  .home-container {
+    padding-inline: 16px;
   }
 
   .home-pending-alert {

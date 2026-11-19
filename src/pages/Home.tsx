@@ -90,7 +90,7 @@ export default function Home() {
 
   return (
     <div className="home-page">
-      <div className="home-page__inner">
+      <div className="home-container home-page__inner">
         <section className="home-hero" aria-labelledby="home-hero-title">
           <div className="home-hero__editorial">
             <p className="home-eyebrow"><span /> FUTSENAI <i>/</i> FUTEBOL ENTRE AMIGOS</p>
