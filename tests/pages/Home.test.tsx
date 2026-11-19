@@ -48,19 +48,18 @@ function renderHome(overrides: Record<string, unknown> = {}) {
 describe('Home page', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('prioritizes game and pack actions without repeating navigation sections', () => {
+  it('shows the editorial hero and preserves the main gameplay actions', () => {
     renderHome();
 
-    expect(screen.getByRole('heading', { name: 'Jogar agora' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^Partida$/ })).toHaveAttribute('href', '/match');
+    expect(screen.getByRole('heading', { name: 'O seu jogo. O seu clube.' })).toBeInTheDocument();
+    expect(screen.getByAltText(/jogador vestindo uniforme vermelho/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /entrar em campo/i })).toHaveAttribute('href', '/match');
     expect(screen.getByRole('link', { name: /abrir pacote bronze/i })).toHaveAttribute('href', '/open/bronze');
-    expect(screen.queryByText('Acesso rápido')).not.toBeInTheDocument();
-    expect(screen.queryByText('Ranking de colecionadores')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver eventos' })).toHaveAttribute('href', '/shop');
     expect(screen.getByRole('heading', { name: 'Pendências' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /desafios recebidos/i })).toHaveTextContent('2');
     expect(screen.getByRole('link', { name: /pedidos de amizade/i })).toHaveTextContent('1');
-    expect(screen.getByRole('heading', { name: 'Cartas com maior overall' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Cartas em destaque' })).toBeInTheDocument();
   });
 
   it('offers the daily reward only when it has not been claimed today', async () => {

@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
-import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History, Heart } from 'lucide-react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History, Heart, ChevronDown } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -28,6 +28,12 @@ const NAV = [
   { to: '/leaderboard', label: 'Leaderboard', icon: Medal },
   { to: '/changelog', label: 'Changelog', icon: History },
 ];
+
+const HOME_NAV_GROUPS = [
+  { label: 'Meu clube', paths: ['/packs', '/collection', '/squad', '/compare'] },
+  { label: 'Competir', paths: ['/match', '/sbc', '/missions'] },
+  { label: 'Comunidade', paths: ['/market', '/shop', '/friends', '/leaderboard'] },
+] as const;
 
 const TITLES: Record<string, string> = {
   '/': 'Visão geral',
@@ -58,6 +64,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const missions = useGame(s => s.missions);
   const listings = useGame(s => s.listings);
   const location = useLocation();
+  const isHomeRoute = location.pathname === '/';
   const isMatchRoute = location.pathname === '/match';
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
@@ -76,6 +83,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const [paletteFriends, setPaletteFriends] = useState<FriendUser[]>([]);
   const paletteInput = useRef<HTMLInputElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [homeMenuOpen, setHomeMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   useLayoutEffect(() => {
@@ -246,8 +254,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
   }, [currentUserId]);
 
   return (
-    <div className="h-[100dvh] flex flex-col md:flex-row bg-[var(--bg)]">
-      <aside className="hidden md:flex w-64 flex-col p-4 bg-white border-r border-[var(--border)]">
+    <div className={isHomeRoute ? 'home-layout' : 'h-[100dvh] flex flex-col md:flex-row bg-[var(--bg)]'}>
+      {!isHomeRoute && <aside className="hidden md:flex w-64 flex-col p-4 bg-white border-r border-[var(--border)]">
         <div className="mb-6 px-2">
           <div className="text-xl font-bold tracking-tight text-[var(--text)]">
             <span className="text-[var(--red)]">FUT</span>SENAI
@@ -303,9 +311,105 @@ export default function Layout({ children }: { children?: ReactNode }) {
             <span className="text-xs text-[var(--muted)]">moedas</span>
           </div>
         </div>
-      </aside>
+      </aside>}
 
-      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-[var(--border)]">
+      {isHomeRoute && (
+        <header className="home-topbar">
+          <div className="home-topbar__inner">
+            <Link to="/" className="home-topbar__brand" aria-label="FUTSENAI, início">
+              <span>FUT</span>SENAI<small>FUTEBOL ENTRE AMIGOS</small>
+            </Link>
+            <nav className="home-topbar__nav" aria-label="Navegação principal">
+              <NavLink to="/" end className="home-topbar__link">Visão geral</NavLink>
+              {HOME_NAV_GROUPS.map(group => (
+                <details key={group.label} className="home-topbar__group">
+                  <summary>{group.label}<ChevronDown aria-hidden="true" /></summary>
+                  <div className="home-topbar__dropdown">
+                    {NAV_WITH_ADMIN.filter(item => group.paths.some(path => path === item.to)).map(item => (
+                      <NavLink key={item.to} to={item.to}>
+                        <item.icon aria-hidden="true" />{item.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </nav>
+            <button
+              type="button"
+              className="home-topbar__mobile-toggle"
+              aria-expanded={homeMenuOpen}
+              onClick={() => setHomeMenuOpen(open => !open)}
+            >
+              <Menu aria-hidden="true" /> Menu
+            </button>
+            <div className="home-topbar__tools">
+              <button type="button" onClick={openCommandPalette} aria-label="Pesquisar" className="home-topbar__icon-button">
+                <Search aria-hidden="true" />
+              </button>
+              <div className="home-topbar__changelog"><ChangelogPopover /></div>
+              <div className="home-topbar__notifications">
+                <button
+                  type="button"
+                  onClick={() => setNotifOpen(open => !open)}
+                  aria-label="Notificações"
+                  aria-expanded={notifOpen}
+                  className="home-topbar__icon-button"
+                >
+                  <Bell aria-hidden="true" />
+                </button>
+                {notifOpen && (
+                  <div className="home-topbar__notifications-panel">
+                    <div className="home-topbar__notifications-title">Notificações</div>
+                    {transactions.slice(0, 6).map(transaction => (
+                      <div key={transaction.id} className="home-topbar__notification">
+                        {transaction.reason} · {transaction.type === 'earn' ? '+' : '-'}{transaction.amount}
+                      </div>
+                    ))}
+                    {transactions.length === 0 && <div className="home-topbar__empty">Sem notificações.</div>}
+                  </div>
+                )}
+              </div>
+              <details className="home-topbar__account">
+                <summary aria-label={`Perfil, nível ${level}`}>
+                  <span className="home-topbar__avatar">
+                    {avatarUrl ? <img src={avatarUrl} alt="" /> : <User aria-hidden="true" />}
+                  </span>
+                  <span className="home-topbar__level">Nível {level}</span>
+                  <ChevronDown aria-hidden="true" />
+                </summary>
+                <div className="home-topbar__account-menu">
+                  <Link to="/profile"><User aria-hidden="true" />Perfil</Link>
+                  <Link to="/settings"><SettingsIcon aria-hidden="true" />Configurações</Link>
+                  <Link to="/changelog"><History aria-hidden="true" />Changelog</Link>
+                  {isAdmin && <Link to="/admin"><Shield aria-hidden="true" />Administrador</Link>}
+                  <Link to="/about?aba=creditos"><Heart aria-hidden="true" />Créditos</Link>
+                </div>
+              </details>
+            </div>
+          </div>
+          {homeMenuOpen && (
+            <nav className="home-mobile-nav" aria-label="Navegação principal">
+              <div className="home-mobile-nav__group">
+                <NavLink to="/" end onClick={() => setHomeMenuOpen(false)}>
+                  <LayoutDashboard aria-hidden="true" />Visão geral
+                </NavLink>
+              </div>
+              {HOME_NAV_GROUPS.map(group => (
+                <div key={group.label} className="home-mobile-nav__group">
+                  <strong>{group.label}</strong>
+                  {NAV_WITH_ADMIN.filter(item => group.paths.some(path => path === item.to)).map(item => (
+                    <NavLink key={item.to} to={item.to} onClick={() => setHomeMenuOpen(false)}>
+                      <item.icon aria-hidden="true" />{item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              ))}
+            </nav>
+          )}
+        </header>
+      )}
+
+      {!isHomeRoute && <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-[var(--border)]">
         <button onClick={() => setDrawerOpen(true)} className="text-2xl text-[var(--text)]" aria-label="Menu"><Menu className="w-5 h-5" /></button>
         <div className="text-lg font-bold"><span className="text-[var(--red)]">FUT</span>SENAI</div>
         <div className="flex items-center gap-3 text-sm">
@@ -313,10 +417,10 @@ export default function Layout({ children }: { children?: ReactNode }) {
           <ChangelogPopover />
           <span className="text-[var(--red)]">●</span><span className="font-bold">{coins.toLocaleString('pt-BR')}</span>
         </div>
-      </header>
+      </header>}
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-[var(--border)]">
+      <div className={isHomeRoute ? 'home-layout__content' : 'flex-1 flex flex-col min-w-0 min-h-0'}>
+        {!isHomeRoute && <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-[var(--border)]">
           <div className="text-sm text-[var(--muted)]">
             Futsenai <span className="mx-1">/</span> <span className="text-[var(--text)] font-medium">{title}</span>
           </div>
@@ -344,11 +448,11 @@ export default function Layout({ children }: { children?: ReactNode }) {
             </div>
             <span>Nível {level}</span>
           </div>
-        </div>
+        </div>}
 
-        <main className={`flex-1 min-w-0 min-h-0 overflow-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0 ${isMatchRoute ? 'match-route-main' : ''}`}>
+        <main className={`${isHomeRoute ? 'home-layout__main' : 'flex-1 min-w-0 min-h-0 overflow-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0'} ${isMatchRoute ? 'match-route-main' : ''}`}>
           {pendingChallengeId && (
-            <div className="m-4 card-surface p-3 flex items-center justify-between gap-3">
+            <div className={isHomeRoute ? 'home-pending-alert' : 'm-4 card-surface p-3 flex items-center justify-between gap-3'}>
               <div className="text-sm text-[var(--text)]">Você foi desafiado para um X1!</div>
               <div className="flex gap-2">
                 <button onClick={() => { navigate(`/match?challenge=${pendingChallengeId}`); setPendingChallengeId(null); }} className="px-3 py-1.5 rounded-xl bg-[var(--red)] text-white text-xs font-medium">Aceitar</button>
@@ -357,7 +461,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
             </div>
           )}
           {pendingPoolMatchId && (
-            <div className="m-4 card-surface p-3 flex items-center justify-between gap-3">
+            <div className={isHomeRoute ? 'home-pending-alert' : 'm-4 card-surface p-3 flex items-center justify-between gap-3'}>
               <div className="text-sm text-[var(--text)]">Você foi desafiado para uma partida de sinuca!</div>
               <div className="flex gap-2">
                 <button onClick={() => { navigate(`/pool/${pendingPoolMatchId}`); setPendingPoolMatchId(null); }} className="px-3 py-1.5 rounded-xl bg-[var(--red)] text-white text-xs font-medium">Ver aposta</button>
@@ -380,7 +484,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
         </main>
       </div>
 
-      {drawerOpen && (
+      {!isHomeRoute && drawerOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/40" onClick={() => setDrawerOpen(false)}>
           <div className="w-64 h-full overflow-y-auto bg-white p-4" onClick={e => e.stopPropagation()}>
             <div className="text-xl font-bold mb-4"><span className="text-[var(--red)]">FUT</span>SENAI</div>
@@ -401,7 +505,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
         </div>
       )}
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-stretch border-t border-[var(--border)] bg-white z-40 pb-[env(safe-area-inset-bottom)]">
+      {!isHomeRoute && <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-stretch border-t border-[var(--border)] bg-white z-40 pb-[env(safe-area-inset-bottom)]">
         {[...NAV_WITH_ADMIN.slice(0, 5), NAV_WITH_ADMIN.find(n => n.to === '/leaderboard')!].map(n => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
             const params = new URLSearchParams(window.location.search);
@@ -426,7 +530,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
              {(badges[n.to] ?? 0) > 0 && <span className="absolute right-1 top-0 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--red)] px-1 text-[9px] text-white">{badges[n.to]}</span>}
            </NavLink>
         ))}
-      </nav>
+      </nav>}
       {paletteOpen && (
         <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/50 p-4 pt-[10vh] md:pt-[15vh]" onMouseDown={closeCommandPalette}>
           <section role="dialog" aria-modal="true" aria-label="Buscar no FutSENAI Cards" className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-2xl" onMouseDown={event => event.stopPropagation()}>
