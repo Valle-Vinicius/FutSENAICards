@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Calendar,
   Check,
   ClipboardList,
+  Coins,
   ExternalLink,
   Flame,
   Gift,
@@ -22,7 +23,7 @@ import { toast } from '../store/toast';
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 import Skeleton from '../components/Skeleton';
-import MateusHome from '../imagens/MATEUSHOMEPAGE.webp';
+import { RARITY_ORDER } from '../types';
 
 export default function Home() {
   const coins = useGame(s => s.coins);
@@ -42,7 +43,13 @@ export default function Home() {
   const [now, setNow] = useState<number | null>(null);
   const pending = useHomePendingCounts();
   const journal = useJournalNews();
-  const topCards = [...cards].sort((a, b) => b.overall - a.overall).slice(0, 5);
+  const topCards = [...cards]
+    .sort((a, b) => b.overall - a.overall || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity))
+    .slice(0, 5);
+  const featuredCard = topCards[0];
+  const animatedCoins = useCountUp(coins);
+  const animatedLevel = useCountUp(level);
+  const greetingName = userName?.trim() || 'craque';
   const lvlXp = (level - 1) * 500;
   const nextXp = level * 500;
   const currentLevelXp = xp - lvlXp;
@@ -96,7 +103,9 @@ export default function Home() {
             <p className="home-eyebrow"><span /> FUTSENAI <i>/</i> FUTEBOL ENTRE AMIGOS</p>
             <h1 id="home-hero-title">O seu jogo.<br /><span>O seu clube.</span></h1>
             <p className="home-hero__intro">
-              {userName ? `Bem-vindo de volta, ${userName}.` : 'Monte seu elenco, entre em campo e escreva sua história.'}
+              {newCardUids.length > 0
+                ? `Bora, ${greetingName}. Tem ${newCardUids.length} carta${newCardUids.length === 1 ? '' : 's'} nova${newCardUids.length === 1 ? '' : 's'} esperando.`
+                : `Bora, ${greetingName}. O campo está esperando por você.`}
             </p>
             <div className="home-hero__actions">
               <Link to="/match" className="home-button home-button--primary">
@@ -110,7 +119,25 @@ export default function Home() {
 
           <div className="home-hero__player">
             <div className="home-hero__circle" />
-            <img src={MateusHome} alt="Jogador vestindo uniforme vermelho do FUTSENAI" />
+            <div className="home-hero__card-stage">
+              {featuredCard ? (
+                <Link
+                  to={`/card/${featuredCard.uid}`}
+                  className="home-hero__featured-card"
+                  aria-label={`Ver carta de ${featuredCard.name}`}
+                >
+                  <Card card={featuredCard} size="lg" animateHover={false} />
+                </Link>
+              ) : (
+                <div className="home-hero__empty">
+                  <Sparkles aria-hidden="true" />
+                  <strong>Sua coleção começa aqui.</strong>
+                  <Link to={openPackHref} className="home-button home-button--primary">
+                    {openPackLabel} <ArrowRight aria-hidden="true" />
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
 
           <aside className="home-account" aria-label="Resumo da sua conta">
@@ -126,7 +153,7 @@ export default function Home() {
               </div>
               <div>
                 <strong>{userName || 'Jogador'}</strong>
-                <span>Nível {level}</span>
+                <span>Conta FUTSENAI</span>
               </div>
             </div>
             <div className="home-account__progress">
@@ -134,7 +161,8 @@ export default function Home() {
               <div className="home-progress"><span style={{ width: `${pct}%` }} /></div>
             </div>
             <dl className="home-account__numbers">
-              <div><dt>Moedas</dt><dd>{coins.toLocaleString('pt-BR')}</dd></div>
+              <div><dt><Coins aria-hidden="true" /> Moedas</dt><dd>{animatedCoins.toLocaleString('pt-BR')}</dd></div>
+              <div><dt>Nível</dt><dd>{animatedLevel}</dd></div>
               <div><dt>Cartas</dt><dd>{cards.length}</dd></div>
             </dl>
             <div className="home-streak">
@@ -351,4 +379,40 @@ function PendingItem({
         : <strong>{count ?? '—'}</strong>}
     </Link>
   );
+}
+
+function useCountUp(value: number) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const previousValue = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const reducedMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion || typeof window.requestAnimationFrame !== 'function') {
+      const timeoutId = window.setTimeout(() => {
+        previousValue.current = value;
+        setDisplayValue(value);
+      }, 0);
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    const startValue = previousValue.current;
+    const startTime = window.performance.now();
+    const duration = 420;
+    let frameId = 0;
+    const animate = (time: number) => {
+      const progress = Math.min(1, (time - startTime) / duration);
+      const easedProgress = 1 - (1 - progress) ** 3;
+      const nextValue = Math.round(startValue + (value - startValue) * easedProgress);
+      previousValue.current = nextValue;
+      setDisplayValue(nextValue);
+      if (progress < 1) frameId = window.requestAnimationFrame(animate);
+    };
+
+    frameId = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [value]);
+
+  return displayValue;
 }

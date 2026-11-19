@@ -5,6 +5,7 @@ import { useGame } from '../../src/store/useGame';
 import { toast } from '../../src/store/toast';
 import { useJournalNews } from '../../src/hooks/useJournalNews';
 import type { NewsItem } from '../../src/data/news';
+import type { PlayerCard } from '../../src/types';
 import Home from '../../src/pages/Home';
 
 jest.mock('../../src/store/useGame', () => ({ useGame: jest.fn() }));
@@ -55,6 +56,32 @@ function renderHome(overrides: Record<string, unknown> = {}, news: NewsItem[] = 
   return { ...render(<MemoryRouter><Home /></MemoryRouter>), state };
 }
 
+function makeCard(uid: string, overall: number, rarity: PlayerCard['rarity']): PlayerCard {
+  return {
+    uid,
+    playerId: uid,
+    name: `Jogador ${uid}`,
+    position: 'Ala',
+    sport: 'futsal',
+    nationality: 'Brasil',
+    age: 18,
+    club: 'SENAI',
+    rarity,
+    edition: '2025',
+    special: 'none',
+    overall,
+    pace: 80,
+    shooting: 80,
+    passing: 80,
+    dribbling: 80,
+    defending: 80,
+    physical: 80,
+    obtainedAt: 1,
+    favorite: false,
+    isNew: false,
+  };
+}
+
 describe('Home page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -64,15 +91,30 @@ describe('Home page', () => {
     renderHome();
 
     expect(screen.getByRole('heading', { name: 'O seu jogo. O seu clube.' })).toBeInTheDocument();
-    expect(screen.getByAltText(/jogador vestindo uniforme vermelho/i)).toBeInTheDocument();
+    expect(screen.getByText('Sua coleção começa aqui.')).toBeInTheDocument();
+    expect(screen.getByText('Bora, Jogador Teste. O campo está esperando por você.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /entrar em campo/i })).toHaveAttribute('href', '/match');
-    expect(screen.getByRole('link', { name: /abrir pacote bronze/i })).toHaveAttribute('href', '/open/bronze');
+    expect(screen.getAllByRole('link', { name: /abrir pacote bronze/i }).every(link => link.getAttribute('href') === '/open/bronze')).toBe(true);
     expect(screen.getByRole('link', { name: 'Ver eventos' })).toHaveAttribute('href', '/shop');
     expect(screen.getByRole('heading', { name: 'Pendências' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /desafios recebidos/i })).toHaveTextContent('2');
     expect(screen.getByRole('link', { name: /pedidos de amizade/i })).toHaveTextContent('1');
     expect(screen.getByRole('heading', { name: 'Cartas em destaque' })).toBeInTheDocument();
     expect(screen.getByText('Nenhuma missão disponível')).toBeInTheDocument();
+  });
+
+  it('features the highest-overall owned card, breaking ties by rarity', () => {
+    renderHome({
+      cards: [
+        makeCard('common-100', 100, 'common'),
+        makeCard('rare-100', 100, 'rare'),
+        makeCard('icon-99', 99, 'icon'),
+      ],
+      newCardUids: ['new-card'],
+    });
+
+    expect(screen.getByRole('link', { name: 'Ver carta de Jogador rare-100' })).toHaveAttribute('href', '/card/rare-100');
+    expect(screen.getByText('Bora, Jogador Teste. Tem 1 carta nova esperando.')).toBeInTheDocument();
   });
 
   it('keeps the full summaries and images for secondary journal stories', () => {
