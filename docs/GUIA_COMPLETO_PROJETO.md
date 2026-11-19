@@ -166,7 +166,7 @@ Há uma Edge Function chamada `open-pack`, mas não foi encontrado uso do client
 
 ### Sinuca
 
-`src/engine/pool/` contém regras, física e tipos. `Pool.tsx` coordena entrada, estado visual, turnos e conexão. O backend valida usuário/turno/tempo e registra tacadas via `pool-shot`/RPCs; Postgres Changes e Broadcast sincronizam o jogo, com polling de recuperação. Há fluxo de convites, apostas/escrow e leaderboard próprio. Consulte `docs/SISTEMA_SINUCA_POOL.md` e `docs/SISTEMA_SINUCA_ENGINE.md`, mas valide no código os intervalos atuais.
+`src/engine/pool/` contém regras, física e tipos. `Pool.tsx` coordena entrada, estado visual, turnos e conexão. O backend valida usuário/turno/tempo e registra tacadas via `pool-shot`/RPCs; Postgres Changes e Broadcast sincronizam o jogo, com polling apenas quando o canal Realtime está indisponível e a aba está visível. O broadcast de mira é limitado a 10 atualizações por segundo, com heartbeat a cada segundo quando a mira não muda. Há fluxo de convites, apostas/escrow e leaderboard próprio. Consulte `docs/SISTEMA_SINUCA_POOL.md` e `docs/SISTEMA_SINUCA_ENGINE.md`, mas valide no código os intervalos atuais.
 
 ### Mercado e histórico oficial
 
@@ -269,7 +269,7 @@ Realtime está implementado por partes. O código atual usa:
 - `friends.ts`: Postgres Changes para `friendships` e Presence privada `friends-presence:<userId>`.
 - `Layout.tsx`/`Match.tsx`: mudanças de `challenges`; os fallbacks de consulta de convites pendentes pausam com a aba oculta.
 - `get_home_pending_counts`: reúne em uma chamada as contagens de desafios, sinuca pendente, pedidos de amizade e anúncios vendidos da Home.
-- `Pool.tsx`: Broadcast de mira, alterações de `pool_matches` e `pool_shots`, além de polling de reconciliação.
+- `Pool.tsx`: Broadcast de mira, alterações de `pool_matches` e `pool_shots`, além de polling de reconciliação somente como fallback do canal.
 - `Marketplace.tsx`: escuta `listings` e novos `marketplace_transactions`, depois recarrega dados de mercado.
 - `AdminUsersPanel.tsx`: Broadcast privado de invalidação `user-updated` no tópico `admin-users`.
 

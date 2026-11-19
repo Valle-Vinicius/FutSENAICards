@@ -6,6 +6,8 @@ import { toast } from '../store/toast';
 import { getPoolMatch, getPoolShotsAfter, getRecentPoolShots, getPoolServerClockOffsetMs, getPoolShotPlaybackStartAt, getAvailableWagerCardIds, mapPoolShotEvent, comparePoolShotPrediction, enqueuePoolShotOnce, submitShot, abandonPoolMatch, acceptPoolMatch, rejectPoolMatch } from '../lib/services/pool';
 import type { PoolMatch, PoolShotEvent } from '../lib/services/pool';
 import { getCompetitiveProfile } from '../lib/services/leaderboard';
+import { AIM_BROADCAST_INTERVAL_MS, isAimBroadcastDue } from '../lib/poolAim';
+import type { AimBroadcast } from '../lib/poolAim';
 import { createInitialState, simulateShotPrediction } from '../engine/pool/physics';
 import { isValidCuePlacement } from '../engine/pool/rules';
 import { calculateShotTrajectory } from '../engine/pool/trajectory';
@@ -328,7 +330,7 @@ export default function Pool() {
   const aimChannelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
   const serverClockOffsetRef = useRef(0);
   const aimDraftRef = useRef({ angle: 0, power: 0.5, isMyTurn: false, playerId: null as string | null });
-  const lastAimBroadcastRef = useRef<{ playerId: string; angle: number; power: number; sentAt: number } | null>(null);
+  const lastAimBroadcastRef = useRef<AimBroadcast | null>(null);
   const loadedRef = useRef(false);
   const [angle, setAngle] = useState(0);
   const [power, setPower] = useState(0.5);
@@ -1049,6 +1051,65 @@ export default function Pool() {
         console.error('pool shot history refresh failed', error);
       }
     };
+    let active = true;
+    let realtimeConnected = false;
+    let fallbackInterval: ReturnType<typeof window.setInterval> | null = null;
+    let matchPollCount = 0;
+    let pollInFlight = false;
+    const pollFallback = async () => {
+      if (!active || realtimeConnected || document.visibilityState === 'hidden' || pollInFlight) return;
+      pollInFlight = true;
+      try {
+        matchPollCount += 1;
+        void reconcilePendingPredictions(matchRef.current?.lastShotSeq).catch(error => {
+          console.error('pool pending prediction reconciliation failed during polling', error);
+        });
+        if (matchPollCount % 3 === 0) await refreshShotHistory();
+        const newestQueuedSeq = Math.max(
+          lastPlayedShotSeqRef.current,
+          ...queuedAnimationsRef.current.keys(),
+        );
+        const newShots = await getPoolShotsAfter(matchId, newestQueuedSeq);
+        if (!active || realtimeConnected) return;
+        newShots.forEach(queueShotAnimation);
+        if (shootingRef.current || queuedAnimationsRef.current.size > 0) return;
+        if (matchPollCount % 3 !== 0) return;
+        const nextMatch = await getPoolMatch(matchId);
+        if (!active || realtimeConnected || !nextMatch) return;
+        matchRef.current = nextMatch;
+        setMatch(nextMatch);
+        if (nextMatch.tableState && nextMatch.lastShotSeq <= lastPlayedShotSeqRef.current) {
+          const parsed = typeof nextMatch.tableState === 'string'
+            ? JSON.parse(nextMatch.tableState)
+            : nextMatch.tableState;
+          setState(previous => {
+            if (previous && previous.currentPlayer === (nextMatch.currentPlayer ?? parsed.currentPlayer ?? 1)) return previous;
+            return {
+              ...parsed,
+              currentPlayer: (nextMatch.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
+            };
+          });
+        }
+      } catch (error) {
+        console.error('pool match polling failed', error);
+      } finally {
+        pollInFlight = false;
+      }
+    };
+    const updateFallbackPolling = () => {
+      if (!active || realtimeConnected || document.visibilityState === 'hidden') {
+        if (fallbackInterval !== null) {
+          window.clearInterval(fallbackInterval);
+          fallbackInterval = null;
+        }
+        return;
+      }
+      if (fallbackInterval === null) {
+        fallbackInterval = window.setInterval(() => void pollFallback(), 1000);
+      }
+    };
+    const onVisibilityChange = () => updateFallbackPolling();
+    document.addEventListener('visibilitychange', onVisibilityChange);
     const channel = supabase
       .channel(`pool-match-${matchId}`, { config: { private: true } })
       .on('broadcast', { event: 'aim_update' }, ({ payload }: { payload?: any }) => {
@@ -1114,30 +1175,40 @@ export default function Pool() {
         void refreshShotHistory();
       })
       .subscribe((status, error) => {
+        if (!active) return;
         if (status === 'SUBSCRIBED') {
+          realtimeConnected = true;
+          updateFallbackPolling();
           aimChannelRef.current = channel;
           void reconcilePendingPredictions(matchRef.current?.lastShotSeq).catch(reconcileError => {
             console.error('pool pending prediction reconciliation failed after reconnect', reconcileError);
           });
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          realtimeConnected = false;
+          updateFallbackPolling();
           console.error('pool realtime channel subscription failed', error);
           aimChannelRef.current = null;
         } else if (status === 'CLOSED') {
+          realtimeConnected = false;
+          updateFallbackPolling();
           aimChannelRef.current = null;
         }
       });
+    updateFallbackPolling();
     const broadcastTimer = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       const currentChannel = aimChannelRef.current;
       const draft = aimDraftRef.current;
       const previous = lastAimBroadcastRef.current;
-      if (!currentChannel || !draft.playerId) return;
+      const playerId = draft.playerId;
+      if (!currentChannel || !playerId) return;
       if (!draft.isMyTurn || shootingRef.current) {
-        if (previous?.playerId === draft.playerId) {
+        if (previous?.playerId === playerId) {
           lastAimBroadcastRef.current = null;
           void currentChannel.send({
             type: 'broadcast',
             event: 'aim_clear',
-            payload: { playerId: draft.playerId },
+            payload: { playerId },
           }).then(status => {
             if (status !== 'ok') console.error('pool aim clear broadcast failed', status);
           });
@@ -1145,68 +1216,29 @@ export default function Pool() {
         return;
       }
       const sentAt = Date.now();
-      if (
-        previous
-        && previous.playerId === draft.playerId
-        && previous.angle === draft.angle
-        && previous.power === draft.power
-        && sentAt - previous.sentAt < 1_000
-      ) return;
+      const nextAim = { playerId, angle: draft.angle, power: draft.power };
+      if (!isAimBroadcastDue(previous, nextAim, sentAt)) return;
       lastAimBroadcastRef.current = {
-        playerId: draft.playerId,
-        angle: draft.angle,
-        power: draft.power,
+        ...nextAim,
         sentAt,
       };
       void currentChannel.send({
         type: 'broadcast',
         event: 'aim_update',
-        payload: { playerId: draft.playerId, angle: draft.angle, power: draft.power },
+        payload: nextAim,
       }).then(status => {
         if (status !== 'ok') console.error('pool aim broadcast failed', status);
       });
-    }, 50);
-    let matchPollCount = 0;
-    const interval = setInterval(async () => {
-      try {
-        matchPollCount += 1;
-        void reconcilePendingPredictions(matchRef.current?.lastShotSeq).catch(error => {
-          console.error('pool pending prediction reconciliation failed during polling', error);
-        });
-        if (matchPollCount % 3 === 0) await refreshShotHistory();
-        const newestQueuedSeq = Math.max(
-          lastPlayedShotSeqRef.current,
-          ...queuedAnimationsRef.current.keys(),
-        );
-        const newShots = await getPoolShotsAfter(matchId, newestQueuedSeq);
-        newShots.forEach(queueShotAnimation);
-        if (shootingRef.current || queuedAnimationsRef.current.size > 0) return;
-        if (matchPollCount % 3 !== 0) return;
-        const m = await getPoolMatch(matchId);
-        if (m) {
-          setMatch(m);
-          matchRef.current = m;
-          if (m.tableState && m.lastShotSeq <= lastPlayedShotSeqRef.current) {
-            const parsed = typeof m.tableState === 'string' ? JSON.parse(m.tableState) : m.tableState;
-            setState(prev => {
-              if (prev && prev.currentPlayer === (m.currentPlayer ?? parsed.currentPlayer ?? 1)) return prev;
-              return {
-                ...parsed,
-                currentPlayer: (m.currentPlayer ?? parsed.currentPlayer ?? 1) as 1 | 2,
-              };
-            });
-          }
-        }
-      } catch (error) {
-        console.error('pool match polling failed', error);
-      }
-    }, 1000);
+    }, AIM_BROADCAST_INTERVAL_MS);
     return () => {
+      active = false;
+      realtimeConnected = false;
       aimChannelRef.current = null;
       lastAimBroadcastRef.current = null;
-      supabase!.removeChannel(channel);
-      clearInterval(broadcastTimer);
-      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (fallbackInterval !== null) window.clearInterval(fallbackInterval);
+      void supabase!.removeChannel(channel);
+      window.clearInterval(broadcastTimer);
     };
   }, [matchId, loading, queueShotAnimation, reconcilePendingPredictions]);
 
