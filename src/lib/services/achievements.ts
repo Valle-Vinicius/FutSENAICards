@@ -1,10 +1,13 @@
 import { supabase } from '../supabase';
 import type { Achievement } from '../../types';
 
-export async function getAchievements(userId: string): Promise<Achievement[]> {
-  if (!supabase) return [];
+export async function getAchievements(userId: string): Promise<Achievement[] | null> {
+  if (!supabase) return null;
   const { data, error } = await supabase.from('achievements').select('*').eq('user_id', userId);
-  if (error) return [];
+  if (error) {
+    console.error('[achievements] load failed', error);
+    return null;
+  }
   return (data || []).map((a: any) => ({
     id: a.achievement_id,
     title: a.title,

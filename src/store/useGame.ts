@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
-import type { GameState, PlayerCard, Position, Squad, SavedSquad, Listing } from '../types';
+import type { Achievement, GameState, Mission, PlayerCard, Position, Squad, SavedSquad, Listing } from '../types';
 import { RARITY_META, SPECIAL_META } from '../types';
 import type { UpgradeAttr } from '../types';
 import { toast } from './toast';
@@ -10,8 +10,8 @@ import { supabase } from '../lib/supabase';
 import { getCards, addCard, updateCard } from '../lib/services/cards';
 import { addMatch } from '../lib/services/matches';
 import { saveSquad as saveSquadService, getSavedSquads, getSquad as getPrimarySquadService, upsertPrimarySquad } from '../lib/services/squads';
-import { getMissions, upsertMissions } from '../lib/services/missions';
-import { getAchievements, upsertAchievements } from '../lib/services/achievements';
+import { getMissions } from '../lib/services/missions';
+import { getAchievements } from '../lib/services/achievements';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { updateCollectorRanking } from '../lib/services/leaderboard';
 import { getListings, toGameListing, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
@@ -26,6 +26,12 @@ let squadSavePending = false; // true enquanto há alteração local ainda não 
 let squadSaveVersion = 0;
 let squadSaveChain: Promise<void> = Promise.resolve();
 let syncChain: Promise<void> = Promise.resolve();
+let progressSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let progressSaveChain: Promise<void> = Promise.resolve();
+let progressBaselineUserId: string | null = null;
+let progressMissionSnapshot = new Map<string, string>();
+let progressAchievementSnapshot = new Map<string, string>();
+let progressPreferencesSnapshot = '';
 let dailyClaimPending = false;
 let duplicateConversionPending = false;
 const sbcCompletionsPending = new Set<string>();
@@ -218,6 +224,182 @@ interface Actions {
   recordTransfer: (cardName: string, price: number, type: 'buy' | 'sell') => void;
 }
 
+const GAME_PROGRESS_DEBOUNCE_MS = 3000;
+
+function missionPayload(mission: Mission) {
+  return {
+    mission_id: mission.id,
+    title: mission.title,
+    description: mission.description,
+    target: mission.target,
+    progress: mission.progress,
+    reward: mission.reward,
+    reward_xp: mission.rewardXp,
+    type: mission.type,
+    completed: mission.completed,
+    claimed: mission.claimed,
+  };
+}
+
+function achievementPayload(achievement: Achievement) {
+  return {
+    achievement_id: achievement.id,
+    title: achievement.title,
+    description: achievement.description,
+    unlocked: achievement.unlocked,
+    unlocked_at: achievement.unlockedAt
+      ? new Date(achievement.unlockedAt).toISOString()
+      : null,
+  };
+}
+
+function missionSignature(mission: Mission): string {
+  return JSON.stringify(missionPayload(mission));
+}
+
+function achievementSignature(achievement: Achievement): string {
+  return JSON.stringify(achievementPayload(achievement));
+}
+
+function progressPreferences(state: GameState) {
+  return {
+    events: state.events,
+    eventHistory: state.eventHistory,
+    newCardUids: state.newCardUids,
+    unlockedPacks: state.packConfigs.filter(pack => pack.unlocked).map(pack => pack.id),
+  };
+}
+
+function mergeProgressRows<T extends { id: string }>(
+  defaults: T[],
+  local: T[],
+  remote: T[],
+): T[] {
+  const rows = new Map(defaults.map(row => [row.id, row]));
+  for (const row of local) rows.set(row.id, row);
+  for (const row of remote) {
+    const existing = rows.get(row.id);
+    rows.set(row.id, existing ? { ...existing, ...row } : row);
+  }
+  return [...rows.values()];
+}
+
+function setProgressBaseline(
+  userId: string,
+  remoteMissions: Mission[],
+  remoteAchievements: Achievement[],
+  preferences: Record<string, any>,
+  state: GameState,
+) {
+  progressBaselineUserId = userId;
+  progressMissionSnapshot = new Map(DEFAULT_MISSIONS.map(mission => [
+    mission.id,
+    missionSignature(mission),
+  ]));
+  for (const mission of remoteMissions) {
+    progressMissionSnapshot.set(mission.id, missionSignature(mission));
+  }
+
+  progressAchievementSnapshot = new Map(DEFAULT_ACHIEVEMENTS.map(achievement => [
+    achievement.id,
+    achievementSignature(achievement),
+  ]));
+  for (const achievement of remoteAchievements) {
+    progressAchievementSnapshot.set(achievement.id, achievementSignature(achievement));
+  }
+
+  const currentPreferences = progressPreferences(state);
+  progressPreferencesSnapshot = JSON.stringify({
+    events: preferences.events ?? currentPreferences.events,
+    eventHistory: preferences.eventHistory ?? currentPreferences.eventHistory,
+    newCardUids: preferences.newCardUids ?? currentPreferences.newCardUids,
+    unlockedPacks: Array.isArray(preferences.unlockedPacks)
+      ? preferences.unlockedPacks
+      : currentPreferences.unlockedPacks,
+  });
+}
+
+function hasPendingProgressChanges(state: GameState): boolean {
+  return state.missions.some(mission =>
+    progressMissionSnapshot.get(mission.id) !== missionSignature(mission),
+  ) || state.achievements.some(achievement =>
+    progressAchievementSnapshot.get(achievement.id) !== achievementSignature(achievement),
+  ) || JSON.stringify(progressPreferences(state)) !== progressPreferencesSnapshot;
+}
+
+async function persistChangedProgress(getState: () => GameState & Actions): Promise<boolean> {
+  if (progressSaveTimer) {
+    clearTimeout(progressSaveTimer);
+    progressSaveTimer = null;
+  }
+  if (!supabase) return true;
+
+  const previousSave = progressSaveChain;
+  let releaseSave!: () => void;
+  progressSaveChain = new Promise<void>(resolve => { releaseSave = resolve; });
+  await previousSave;
+
+  try {
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    const userId = data.session?.user?.id;
+    if (!userId) return true;
+    if (progressBaselineUserId !== userId) return false;
+
+    const state = getState();
+    const changedMissions = state.missions.filter(mission =>
+      progressMissionSnapshot.get(mission.id) !== missionSignature(mission),
+    );
+    const changedAchievements = state.achievements.filter(achievement =>
+      progressAchievementSnapshot.get(achievement.id) !== achievementSignature(achievement),
+    );
+    const preferences = progressPreferences(state);
+    const preferencesSignature = JSON.stringify(preferences);
+    const preferencesChanged = preferencesSignature !== progressPreferencesSnapshot;
+
+    if (changedMissions.length === 0 && changedAchievements.length === 0 && !preferencesChanged) {
+      return true;
+    }
+
+    const { error: saveError } = await supabase.rpc('sync_game_progress', {
+      p_missions: changedMissions.map(missionPayload),
+      p_achievements: changedAchievements.map(achievementPayload),
+      p_preferences: preferencesChanged ? preferences : {},
+    });
+    if (saveError) throw saveError;
+
+    for (const mission of changedMissions) {
+      progressMissionSnapshot.set(mission.id, missionSignature(mission));
+    }
+    for (const achievement of changedAchievements) {
+      progressAchievementSnapshot.set(achievement.id, achievementSignature(achievement));
+    }
+    if (preferencesChanged) progressPreferencesSnapshot = preferencesSignature;
+    return true;
+  } catch (error) {
+    console.error('[game-progress] sync failed:', error);
+    return false;
+  } finally {
+    releaseSave();
+  }
+}
+
+function scheduleProgressSave(getState: () => GameState & Actions) {
+  if (!supabase || !progressBaselineUserId || !hasPendingProgressChanges(getState())) {
+    if (progressSaveTimer) {
+      clearTimeout(progressSaveTimer);
+      progressSaveTimer = null;
+    }
+    return;
+  }
+
+  if (progressSaveTimer) clearTimeout(progressSaveTimer);
+  progressSaveTimer = setTimeout(() => {
+    progressSaveTimer = null;
+    void persistChangedProgress(getState);
+  }, GAME_PROGRESS_DEBOUNCE_MS);
+}
+
 const seedCards = (): PlayerCard[] => {
   const out: PlayerCard[] = [];
   const rarities: any[] = ['common','common','uncommon','rare','uncommon'];
@@ -315,7 +497,6 @@ export const useGame = create<GameState & Actions>()(
             ],
           });
         }
-        get().updateMissionProgress();
         if (supabase) {
           supabase.auth.getSession().then(async ({ data }: { data: any }) => {
             const uid = data.session?.user?.id;
@@ -330,6 +511,13 @@ export const useGame = create<GameState & Actions>()(
         syncChain = new Promise<void>(r => { releaseSync = r; });
         await prevSync;
         try {
+        if (progressBaselineUserId !== userId) {
+          progressBaselineUserId = null;
+          if (progressSaveTimer) {
+            clearTimeout(progressSaveTimer);
+            progressSaveTimer = null;
+          }
+        }
         const remoteCards = await getCards(userId);
         const squads = await getSavedSquads(userId);
         const hasSaved = squads.length > 0;
@@ -378,10 +566,17 @@ export const useGame = create<GameState & Actions>()(
           }));
         }
         const remoteMissions = await getMissions(userId);
-        if (remoteMissions.length > 0) set({ missions: remoteMissions });
-        else await upsertMissions(userId, get().missions);
+        if (remoteMissions !== null) {
+          set(st => ({
+            missions: mergeProgressRows(DEFAULT_MISSIONS, st.missions, remoteMissions),
+          }));
+        }
         const remoteAchievements = await getAchievements(userId);
-        if (remoteAchievements.length > 0) set({ achievements: remoteAchievements });
+        if (remoteAchievements !== null) {
+          set(st => ({
+            achievements: mergeProgressRows(DEFAULT_ACHIEVEMENTS, st.achievements, remoteAchievements),
+          }));
+        }
         const remoteSettings = await getSettings(userId);
         if (remoteSettings) set({ settings: remoteSettings });
         const { data: prof, error: profileError } = await supabase!.from('profiles')
@@ -408,6 +603,16 @@ export const useGame = create<GameState & Actions>()(
             packConfigs: prefs.unlockedPacks ? st.packConfigs.map(p => prefs.unlockedPacks.includes(p.id) ? { ...p, unlocked: true } : p) : st.packConfigs,
           }));
         }
+        if (remoteMissions !== null && remoteAchievements !== null && !profileError) {
+          setProgressBaseline(
+            userId,
+            remoteMissions,
+            remoteAchievements,
+            prof?.preferences ?? {},
+            get(),
+          );
+        }
+        get().updateMissionProgress();
         return remoteCards !== null;
         } finally { releaseSync(); }
       },
@@ -619,6 +824,7 @@ export const useGame = create<GameState & Actions>()(
               missions: st.missions.map(m => m.id === 'm9' ? { ...m, progress: 1, completed: true } : m),
             }));
           }
+          get().updateMissionProgress();
           return { ok: true, amount, streak, bonus };
         } catch (error) {
           const message = error instanceof Error ? error.message : 'erro desconhecido';
@@ -688,19 +894,6 @@ export const useGame = create<GameState & Actions>()(
           const packs = st.packConfigs.map(p => p.id === 'legendary' ? { ...p, unlocked: completedCount >= 3 || p.unlocked } : p);
           return { missions, packConfigs: packs };
         });
-        // sync events, newCardUids, unlockedPacks to Supabase
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) {
-              const { data: prof } = await supabase!.from('profiles').select('preferences').eq('id', uid).single();
-              const prefs = prof?.preferences || {};
-              const unlockedPacks = get().packConfigs.filter(p => p.unlocked).map(p => p.id);
-              await supabase!.from('profiles').update({ preferences: { ...prefs, events: get().events, eventHistory: get().eventHistory, newCardUids: get().newCardUids, unlockedPacks } }).eq('id', uid);
-            }
-          });
-        }
-        // achievements coins
         const st2 = get();
         if (st2.coins >= 10000) {
           const a = st2.achievements.find(x => x.id === 'a3');
@@ -711,26 +904,16 @@ export const useGame = create<GameState & Actions>()(
           const a = st2.achievements.find(x => x.id === 'a4');
           if (a && !a.unlocked) set(st => ({ achievements: st.achievements.map(x => x.id === 'a4' ? { ...x, unlocked: true, unlockedAt: Date.now() } : x) }));
         }
-        // sync achievements to Supabase
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) await upsertAchievements(uid, get().achievements);
-          });
-        }
-        // sync missions to Supabase
-        if (supabase) {
-          supabase.auth.getSession().then(async ({ data }: { data: any }) => {
-            const uid = data.session?.user?.id;
-            if (uid) await upsertMissions(uid, get().missions);
-          });
-        }
+        scheduleProgressSave(get);
       },
       claimMission: async (id) => {
         const mission = get().missions.find(m => m.id === id);
         if (!mission || !mission.completed) return false;
         if (supabase) {
           try {
+            if (!await persistChangedProgress(get)) {
+              throw new Error('Não foi possível sincronizar o progresso antes do resgate.');
+            }
             const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
             if (sessionError) throw sessionError;
             if (!sessionData.session?.user?.id) throw new Error('Entre na sua conta para resgatar a missão.');
@@ -744,6 +927,7 @@ export const useGame = create<GameState & Actions>()(
               missions: st.missions.map(m => m.id === id ? { ...m, claimed: true } : m),
               transactions: [{ id: nanoid(8), type: 'earn' as const, amount: mission.reward, reason: `Missão: ${mission.title}`, at: Date.now() }, ...st.transactions].slice(0, 50),
             }));
+            progressMissionSnapshot.set(id, missionSignature({ ...mission, claimed: true }));
             return true;
           } catch (error) {
             console.error('[missions] claim failed:', error);

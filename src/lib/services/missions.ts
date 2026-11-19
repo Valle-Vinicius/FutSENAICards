@@ -1,10 +1,13 @@
 import { supabase } from '../supabase';
 import type { Mission } from '../../types';
 
-export async function getMissions(userId: string): Promise<Mission[]> {
-  if (!supabase) return [];
+export async function getMissions(userId: string): Promise<Mission[] | null> {
+  if (!supabase) return null;
   const { data, error } = await supabase.from('missions').select('*').eq('user_id', userId);
-  if (error) return [];
+  if (error) {
+    console.error('[missions] load failed', error);
+    return null;
+  }
   return (data || []).map((m: any) => ({
     id: m.mission_id,
     title: m.title,
