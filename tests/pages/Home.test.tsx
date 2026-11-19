@@ -92,7 +92,8 @@ describe('Home page', () => {
     renderHome();
 
     expect(screen.getByRole('heading', { name: 'O seu jogo. O seu clube.' })).toBeInTheDocument();
-    expect(screen.getByText('Sua coleção começa aqui.')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Mateus, jogador em destaque' })).toBeInTheDocument();
+    expect(screen.getByText(/Sua coleção ainda está vazia/)).toBeInTheDocument();
     expect(screen.getByText('Bora, Jogador Teste. O campo está esperando por você.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /entrar em campo/i })).toHaveAttribute('href', '/match');
     expect(screen.getAllByRole('link', { name: /abrir pacote bronze/i }).every(link => link.getAttribute('href') === '/open/bronze')).toBe(true);
@@ -120,7 +121,7 @@ describe('Home page', () => {
     expect(document.querySelector('.home-pending__list')).not.toBeInTheDocument();
   });
 
-  it('features the highest-overall owned card, breaking ties by rarity', () => {
+  it('keeps the Mateus hero image and sorts collection cards by overall and rarity', () => {
     renderHome({
       cards: [
         makeCard('common-100', 100, 'common'),
@@ -130,7 +131,12 @@ describe('Home page', () => {
       newCardUids: ['new-card'],
     });
 
-    expect(screen.getByRole('link', { name: 'Ver carta de Jogador rare-100' })).toHaveAttribute('href', '/card/rare-100');
+    expect(screen.getByRole('img', { name: 'Mateus, jogador em destaque' })).toBeInTheDocument();
+    expect([...document.querySelectorAll('.home-collection__cards a')].map(link => link.getAttribute('href'))).toEqual([
+      '/card/rare-100',
+      '/card/common-100',
+      '/card/icon-99',
+    ]);
     expect(screen.getByText('Bora, Jogador Teste. Tem 1 carta nova esperando.')).toBeInTheDocument();
   });
 
@@ -138,7 +144,7 @@ describe('Home page', () => {
     renderHome({ cards: [makeCard('', 100, 'rare')] });
 
     expect(document.querySelectorAll('a[href^="/card/"]')).toHaveLength(0);
-    expect(document.querySelectorAll('.home-hero__featured-card--static')).toHaveLength(1);
+    expect(screen.getByRole('img', { name: 'Mateus, jogador em destaque' })).toBeInTheDocument();
     expect(document.querySelectorAll('.home-collection__card--static')).toHaveLength(1);
   });
 

@@ -26,6 +26,7 @@ import { toast } from '../store/toast';
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
 import Skeleton from '../components/Skeleton';
+import mateusHomePage from '../imagens/MATEUSHOMEPAGE.png';
 import { RARITY_ORDER } from '../types';
 
 export default function Home() {
@@ -50,7 +51,6 @@ export default function Home() {
   const topCards = [...cards]
     .sort((a, b) => b.overall - a.overall || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity))
     .slice(0, 5);
-  const featuredCard = topCards[0];
   const animatedCoins = useCountUp(coins);
   const animatedLevel = useCountUp(level);
   const greetingName = userName?.trim() || 'craque';
@@ -154,30 +154,13 @@ export default function Home() {
 
           <div className="home-hero__player">
             <div className="home-hero__circle" />
-            <div className="home-hero__card-stage">
-              {featuredCard ? (
-                featuredCard.uid ? (
-                  <Link
-                    to={`/card/${featuredCard.uid}`}
-                    className="home-hero__featured-card"
-                    aria-label={`Ver carta de ${featuredCard.name}`}
-                  >
-                    <Card card={featuredCard} size="lg" animateHover={false} />
-                  </Link>
-                ) : (
-                  <div className="home-hero__featured-card home-hero__featured-card--static">
-                    <Card card={featuredCard} size="lg" animateHover={false} />
-                  </div>
-                )
-              ) : (
-                <div className="home-hero__empty">
-                  <Sparkles aria-hidden="true" />
-                  <strong>Sua coleção começa aqui.</strong>
-                  <Link to={openPackHref} className="home-button home-button--primary">
-                    {openPackLabel} <ArrowRight aria-hidden="true" />
-                  </Link>
-                </div>
-              )}
+            <div className="home-hero__mascot-stage">
+              <img
+                className="home-hero__mascot"
+                src={mateusHomePage}
+                alt="Mateus, jogador em destaque"
+                draggable={false}
+              />
             </div>
           </div>
 
