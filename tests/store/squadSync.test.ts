@@ -229,11 +229,11 @@ describe('primary squad sync', () => {
 
     expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(mockRpc).toHaveBeenCalledWith('sync_game_progress', {
-      p_missions: expect.arrayContaining([
-        expect.objectContaining({ mission_id: 'm1', progress: 1, completed: true }),
-        expect.objectContaining({ mission_id: 'm3', progress: 1 }),
-        expect.objectContaining({ mission_id: 'm10', progress: 1 }),
-      ]),
+      p_missions: [
+        { mission_id: 'm1' },
+        { mission_id: 'm3' },
+        { mission_id: 'm10' },
+      ],
       p_achievements: [
         expect.objectContaining({ achievement_id: 'a3', unlocked: true }),
       ],
@@ -245,5 +245,35 @@ describe('primary squad sync', () => {
       .toEqual(['a3']);
     expect(mockUpsertMissions).not.toHaveBeenCalled();
     expect(mockUpsertAchievements).not.toHaveBeenCalled();
+  });
+
+  it('flushes pending progress immediately and cancels the debounce timer', async () => {
+    jest.useFakeTimers();
+    useGame.setState({
+      cards: [],
+      packsOpened: 0,
+      coins: 0,
+      missions: DEFAULT_MISSIONS.map(mission => ({ ...mission })),
+      achievements: DEFAULT_ACHIEVEMENTS.map(achievement => ({ ...achievement })),
+      squads: {
+        futsal: {
+          sport: 'futsal',
+          formation: '1-2-1',
+          starters: [],
+          bench: [],
+        },
+      },
+    });
+    await useGame.getState().syncUserData('user-1');
+    mockRpc.mockClear();
+
+    useGame.setState({ packsOpened: 1 });
+    useGame.getState().updateMissionProgress();
+
+    await expect(useGame.getState().flushGameProgress()).resolves.toBe(true);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(3000);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
   });
 });

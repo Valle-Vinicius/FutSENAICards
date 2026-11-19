@@ -188,6 +188,7 @@ interface Actions {
   toggleFavorite: (uid: string) => void;
   markSeen: (uids: string[]) => void;
   updateMissionProgress: () => void;
+  flushGameProgress: () => Promise<boolean>;
   claimMission: (id: string) => Promise<boolean>;
   setSquadSport: (sport: 'futsal') => void;
   flushSquadSave: (sport: 'futsal') => Promise<boolean>;
@@ -238,6 +239,12 @@ function missionPayload(mission: Mission) {
     type: mission.type,
     completed: mission.completed,
     claimed: mission.claimed,
+  };
+}
+
+function missionProgressPayload(mission: Mission) {
+  return {
+    mission_id: mission.id,
   };
 }
 
@@ -362,7 +369,7 @@ async function persistChangedProgress(getState: () => GameState & Actions): Prom
     }
 
     const { error: saveError } = await supabase.rpc('sync_game_progress', {
-      p_missions: changedMissions.map(missionPayload),
+      p_missions: changedMissions.map(missionProgressPayload),
       p_achievements: changedAchievements.map(achievementPayload),
       p_preferences: preferencesChanged ? preferences : {},
     });
@@ -906,6 +913,7 @@ export const useGame = create<GameState & Actions>()(
         }
         scheduleProgressSave(get);
       },
+      flushGameProgress: () => persistChangedProgress(get),
       claimMission: async (id) => {
         const mission = get().missions.find(m => m.id === id);
         if (!mission || !mission.completed) return false;

@@ -120,6 +120,22 @@ export default function App() {
   }, [currentUserId]);
   useEffect(() => {
     if (!currentUserId) return;
+    const flushProgress = () => {
+      void useGame.getState().flushGameProgress();
+    };
+    const flushWhenHidden = () => {
+      if (document.visibilityState === 'hidden') flushProgress();
+    };
+
+    document.addEventListener('visibilitychange', flushWhenHidden);
+    window.addEventListener('pagehide', flushProgress);
+    return () => {
+      document.removeEventListener('visibilitychange', flushWhenHidden);
+      window.removeEventListener('pagehide', flushProgress);
+    };
+  }, [currentUserId]);
+  useEffect(() => {
+    if (!currentUserId) return;
     return subscribeUserPresence(currentUserId);
   }, [currentUserId]);
   return (
