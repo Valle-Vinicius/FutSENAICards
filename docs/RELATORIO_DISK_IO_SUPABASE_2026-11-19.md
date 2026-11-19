@@ -3,7 +3,7 @@
 **Data da coleta:** 19/11/2026, aproximadamente 11:27 BRT  
 **Projeto:** `fut-senai-cards` (`ejtgdnrmnnqjwowfhezc`)  
 **Escopo:** inspeções da CLI e consultas SQL somente leitura ao banco remoto, mais inspeção do código local.  
-**Banco durante a coleta inicial:** nenhuma migration, DDL, índice ou dado foi alterado. As otimizações preparadas depois foram commitadas no repositório, mas não aplicadas ao banco remoto.
+**Banco durante a coleta inicial:** nenhuma migration, DDL, índice ou dado foi alterado. Depois da coleta, as migrations foram revisadas, corrigidas e aplicadas em produção; o estado final está documentado abaixo.
 
 ## Conclusão executiva
 
@@ -223,7 +223,7 @@ Essas dependências têm suporte de índices. Várias policies usam `auth.uid()`
 
 ### 10. `SELECT *`, limites e paginação
 
-- Na versão observada durante a coleta, [cards.ts](../src/lib/services/cards.ts) fazia `select('*')` por usuário, ordenava por `created_at DESC, id ASC` e paginava com `range` dentro de um `while`. Depois, isso foi substituído por keyset pagination e projeção explícita; o índice proposto ainda está pendente no banco.
+- Na versão observada durante a coleta, [cards.ts](../src/lib/services/cards.ts) fazia `select('*')` por usuário, ordenava por `created_at DESC, id ASC` e paginava com `range` dentro de um `while`. O código usa agora keyset pagination e projeção explícita; o índice compatível foi aplicado e validado no banco.
 - Na versão observada durante a coleta, [Match.tsx](../src/pages/Match.tsx) carregava o inventário completo do adversário. O código commitado agora busca apenas os IDs do elenco titular e os campos necessários.
 - [FriendProfile.tsx](../src/pages/FriendProfile.tsx) carrega `profiles.*` para uma única linha; deve selecionar só os campos mostrados.
 - [marketplace.ts](../src/lib/services/marketplace.ts) lista todas as listagens ativas sem paginação. O volume atual é baixo (58 linhas na amostra), portanto é prevenção de crescimento, não o principal culpado atual.
@@ -237,7 +237,7 @@ O maior sinal de escritas repetidas está no progresso do jogo:
 - `profiles`: 384.568 updates para 44 linhas; esse total também inclui o heartbeat `last_seen`, não apenas preferências.
 - O `pg_stat_statements` registrou 59.065 chamadas de upsert de missões, 59.065 de conquistas e 61.795 updates de `profiles.preferences`.
 
-Na versão observada durante a coleta, [useGame.ts](../src/store/useGame.ts) sincronizava preferências e fazia upsert do conjunto completo de conquistas e missões durante `updateMissionProgress()` e no `init()`. A alteração commitada agora compara snapshots, envia somente as linhas alteradas em uma RPC com debounce de 3 s e não grava defaults durante a inicialização. A RPC permanece pendente de aplicação remota; portanto, ainda não há métrica pós-deploy.
+Na versão observada durante a coleta, [useGame.ts](../src/store/useGame.ts) sincronizava preferências e fazia upsert do conjunto completo de conquistas e missões durante `updateMissionProgress()` e no `init()`. A versão atual compara snapshots, envia somente as linhas alteradas em uma RPC com debounce de 3 s e não grava defaults durante a inicialização. A RPC foi aplicada; ainda não há métrica pós-deploy porque o frontend não foi implantado.
 
 ### 12. Cron e Edge Functions
 
@@ -251,45 +251,45 @@ O frontend usa Supabase JS/PostgREST, não uma string PostgreSQL direta; não h�
 
 ### 15. Escritas pequenas que podem ser agregadas
 
-Sim: o candidato mais claro era a sincronização completa de progresso em cada chamada de `updateMissionProgress()`, agora reduzida no código e aguardando aplicação da RPC. O heartbeat de [App.tsx](../src/App.tsx) foi alterado de 1 para 5 minutos e só grava com a aba visível; o indicador baseado em `last_seen` agora usa janela de 10 minutos.
+Sim: o candidato mais claro era a sincronização completa de progresso em cada chamada de `updateMissionProgress()`. O código agora persiste somente mudanças, e a RPC está aplicada. O heartbeat de [App.tsx](../src/App.tsx) foi alterado de 1 para 5 minutos e só grava com a aba visível; o indicador baseado em `last_seen` agora usa janela de 10 minutos.
 
-## Principais culpados e correções propostas
+## Principais culpados e status das correções
 
-As correções abaixo são **propostas para aprovação**. Nenhum SQL foi executado.
+As correções dos nove itens de otimização foram implementadas no código e as migrations correspondentes foram aplicadas; as métricas posteriores ao deploy do frontend ainda estão pendentes. A proposta de retenção de `transactions` abaixo continua dependendo de decisão de produto.
 
 ### P0 — Sort/paginação de `cards` com spill para temporários
 
 **Impacto estimado:** muito alto e confirmado pelos contadores acumulados e pelo `EXPLAIN ANALYZE` de `OFFSET 8000`. O índice existente é `(user_id,name)`, mas a consulta filtra por `user_id` e ordena por `created_at DESC,id ASC`. A primeira página isolada não derramou; páginas profundas sim.
 
-**SQL candidato:**
+**SQL aplicada em produção:**
 
 ```sql
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cards_user_created_id
 ON public.cards (user_id, created_at DESC, id ASC);
 ```
 
-Antes de produção, comparar `EXPLAIN (ANALYZE, BUFFERS)` em staging. Em seguida, considerar trocar a paginação `OFFSET/range` por cursor `(created_at,id)` e selecionar apenas as colunas necessárias. O índice tende a remover o sort incompatível; keyset pagination reduz trabalho ao percorrer páginas profundas.
+O índice foi aplicado com `CREATE INDEX CONCURRENTLY` e `indisvalid=true`. A paginação por cursor já está no código. Um `EXPLAIN (ANALYZE, BUFFERS)` da página profunda keyset usou `idx_cards_user_created_id` em dois Bitmap Index Scans, retornou 1.000 linhas em 14,700 ms, com 481 shared hits e sem blocos temporários. O plano ainda fez quicksort em memória (745 kB); portanto, a evidência confirma a eliminação do spill, não a eliminação total do sort.
 
 ### P1 — Upserts integrais repetidos de missão/conquista/preferências
 
 **Impacto estimado:** alto para WAL e escrita de heap/índices. A evidência são ~59 mil upserts em cada tabela e ~62 mil updates de preferências, além dos contadores de centenas de milhares de row updates.
 
-**Correção preparada no código:** persistir só quando os valores mudarem; escrever apenas as missões/conquistas alteradas em uma RPC transacional, com debounce de 3 s, e evitar sincronizar defaults durante o `init()`. A migration da RPC ainda depende de aprovação e aplicação em produção; recompensas continuam autorizadas no servidor.
+**Correção aplicada:** o frontend envia apenas IDs de missões alteradas; a RPC deriva progresso e conclusão de `profiles`, `cards` e do elenco persistido, usa recompensas canônicas do servidor e mantém debounce de 3 s com flush ao ocultar/fechar a página. `claim_mission` valida novamente a condição antes de creditar e não confia em recompensas da linha. A tabela `missions` agora aceita leitura própria, mas não escrita direta pelo cliente. O código do frontend ainda precisa ser implantado.
 
 ### P1 — Escritas de `realtime.messages` e tráfego de broadcast
 
 **Impacto estimado:** médio. A amostra de `realtime.messages` encontrou 113.122 broadcasts `user-updated` em 24 h, com trigger de `profiles` que inclui `last_seen`; ainda não é possível determinar qual proporção veio do heartbeat. A mira do Pool não apareceu nessa amostra.
 
-**Correção preparada:** heartbeat menos frequente e somente com aba visível; Pool mantém polling apenas como fallback do canal Realtime e limita alterações de mira a 10/s, com heartbeat a cada segundo. Essas alterações estão commitadas, mas ainda não implantadas. Confirmar a redução de `user-updated` e queries de Pool com novos snapshots após o deploy.
+**Correção preparada no frontend:** heartbeat menos frequente e somente com aba visível; Pool mantém polling apenas como fallback do canal Realtime e limita alterações de mira a 10/s, com heartbeat a cada segundo. O frontend ainda não foi implantado; confirmar a redução de `user-updated` e queries de Pool com novos snapshots após o deploy.
 
-**Candidato de redução de publication**, somente após aprovação e confirmação de dependências externas:
+**Redução aplicada à publication**, após confirmar que não havia listeners Postgres Changes correspondentes no repositório:
 
 ```sql
 ALTER PUBLICATION supabase_realtime DROP TABLE public.squads;
 ALTER PUBLICATION supabase_realtime DROP TABLE public.saved_squads;
 ```
 
-Essas duas tabelas estão publicadas, mas não há listener de Postgres Changes correspondente no repositório. Não remover `challenges`, `friendships`, `pool_matches`, `pool_shots`, `marketplace_transactions` ou `changelog_entries` sem validar seus fluxos. Não adicionar `listings` à publication nesta fase: primeiro corrigir a necessidade e medir o custo.
+As duas tabelas foram removidas da publication; a consulta posterior confirmou zero membros restantes com esses nomes. Consultas REST continuam funcionando. Consumidores externos futuros não podem ser descartados por inspeção local. Não remover `challenges`, `friendships`, `pool_matches`, `pool_shots`, `marketplace_transactions` ou `changelog_entries` sem validar seus fluxos.
 
 ### P2 — Crescimento e churn de `transactions`/`cards`
 
@@ -309,7 +309,7 @@ Há ações prováveis **sem upgrade**: corrigir o índice/ordenação da pagina
 
 ## Como monitorar depois
 
-1. Os snapshots pré-mudança registrados abaixo foram coletados desde `pg_stat_statements_info.stats_reset = 2026-10-25 17:17:15 UTC`. Após cada deploy/migration aprovada, comparar deltas na mesma janela de 1 h/24 h e com tráfego semelhante; não comparar contadores acumulados sem considerar `stats_reset`.
+1. Os snapshots pré-mudança registrados abaixo foram coletados desde `pg_stat_statements_info.stats_reset = 2026-10-25 17:17:15 UTC`. Após o deploy do frontend, comparar deltas na mesma janela de 1 h/24 h e com tráfego semelhante; não comparar contadores acumulados sem considerar `stats_reset`.
 3. Confirmar no plano que a paginação usa o índice novo e não cria sort com spill; observar `temp_blks_read/written` do fingerprint de cartas.
 4. Acompanhar `missions`, `achievements`, `profiles` e WAL: reduzir updates por ação sem perder recompensas nem estado.
 5. No Dashboard Supabase, acompanhar Disk I/O Budget, CPU, memória, WAL e Realtime messages por pelo menos 24–48 h após a alteração.
@@ -317,27 +317,25 @@ Há ações prováveis **sem upgrade**: corrigir o índice/ordenação da pagina
 
 ## Estado das nove otimizações
 
-Os commits são separados, em sequência, na branch `main`. As alterações de código estão no repositório, mas não houve deploy. O comando `supabase db push --linked --dry-run --skip-vault` listou as cinco migrations abaixo como pendentes e confirmou que nenhuma foi aplicada:
+As migrations foram aplicadas em produção por lotes, respeitando a ordem de implantação. O dry-run final informou que o banco está atualizado e não há migrations pendentes. **O frontend está commitado na branch `main`, mas ainda não foi implantado.** Como a migration agora bloqueia escrita direta em `missions`, implante o frontend atualizado para evitar falhas de sincronização no cliente antigo.
 
-1. `20261119115300_cards_user_created_id_index.sql`
-2. `20261119120000_sync_game_progress.sql`
-3. `20261119123000_home_pending_counts.sql`
-4. `20261119130000_remove_squads_realtime.sql`
-5. `20261119133000_rls_auth_uid_initplans.sql`
+| Item | Commit(s) | Alteração e evidência posterior |
+|---:|---|---|
+| 1 | `e148759` | `20261119115300_cards_user_created_id_index.sql` aplicada. `indisvalid=true`, `indisready=true`. Antes, `OFFSET 8000`: external merge, 3.432 kB em disco, `temp read=427/written=431`, 108,816 ms. Depois, página keyset profunda: Bitmap Index Scans no novo índice, 1.000 linhas, 14,700 ms, 481 shared hits, sem temporários; quicksort em memória de 745 kB. |
+| 2 | `e77f88c` | Keyset pagination e projeção explícita; o plano pós-índice usa o novo índice. O sort continua em memória, sem spill. |
+| 3 | `de66d16` | Match carrega apenas IDs/campos das cartas titulares. Plano representativo anterior usou `cards_pkey`; não é benchmark controlado contra a consulta antiga. |
+| 4 | `7ebda97`, `bfe3c01` | Diff de progresso, RPC única/debounce 3 s, sem defaults no `init()`, flush em `visibilitychange` e `pagehide`. RPC usa definições/recompensas canônicas e deriva progresso do banco. `claim_mission` valida elegibilidade no servidor. Escrita direta em `missions` foi revogada. |
+| 5 | `0d5b6ae` | Heartbeat de 5 min e somente aba visível; fingerprint prévio: 14.697 calls, 240.543,5 ms, 608.006 hits, zero reads físicos. Sem snapshot pós-deploy. |
+| 6 | `a4f3b03` | Polling de Home/Layout/Match pausa em aba oculta e Home usa RPC. Baseline: 123.676 consultas de desafios, 96.687 de pool, 3.201 de pedidos e 729 de listagens vendidas. Plano representativo: 17,269 ms, 62 shared hits, zero reads. |
+| 7 | `b9dfed3` | Pool usa polling como fallback do Realtime e limita mira a 10/s. Baseline de `pool_shots`: fingerprints com 20.016 e 6.470 calls, zero reads físicos. Sem snapshot pós-deploy. |
+| 8 | `bdd869d` | `20261119130000_remove_squads_realtime.sql` aplicada; consulta posterior confirmou zero membros `squads`/`saved_squads` na publication. |
+| 9 | `a90273f` | `20261119133000_rls_auth_uid_initplans.sql` aplicada. Antes: 43 policies públicas, 35 contendo `auth.uid()` e nenhuma já embrulhada. Depois: as mesmas 43 policies e o mesmo hash estrutural (`6fb9ecf034cc44d4b6754848434ef9ce`), 35 com initplan e zero chamadas diretas. A alteração intencional da policy/grants de `missions` ocorreu separadamente no item 4. |
 
-| Item | Commit | Alteração e evidência prévia | Verificação posterior disponível |
-|---:|---|---|---|
-| 1 | `e148759` | Migration do índice concorrente, ainda pendente. `EXPLAIN` anterior da página `OFFSET 8000`: external merge, 3.432 kB em disco, `temp read=427/written=431`, 108,816 ms. | Nenhum plano pós-índice: DDL não aplicada. |
-| 2 | `e77f88c` | Keyset pagination e projeção explícita. | EXPLAIN da consulta keyset sem blocos temporários; ainda usou o índice antigo e filtrou 8.000 linhas. Testes, build e lint passaram. |
-| 3 | `de66d16` | Match carrega apenas IDs/campos das cartas titulares. | Plano representativo com busca por cinco IDs usou `cards_pkey`; não é benchmark controlado contra a consulta antiga. Testes, build e lint passaram. |
-| 4 | `7ebda97` | Diff de missões/conquistas, RPC única, debounce de 3 s, sem sincronização de defaults no `init()`. | Baseline: ~61,8 mil updates de preferências e ~59,1 mil upserts em cada tabela. Teste focado 4/4, build e lint passaram; migration pendente. |
-| 5 | `0d5b6ae` | Heartbeat de 5 min, apenas aba visível; janela de presença de 10 min. | Fingerprint prévio de `last_seen`: 14.697 calls, 240.543,5 ms totais, média 16,367 ms, 0 blocos físicos lidos e 608.006 hits. Testes de presença 5/5 e build passaram; sem snapshot pós-deploy. |
-| 6 | `a4f3b03` | Pausa polling de Layout/Match em background e RPC reúne as quatro contagens da Home. | Baseline de fingerprints: 123.676 consultas de desafios, 96.687 de pool, 3.201 de pedidos de amizade e 729 de listagens vendidas. EXPLAIN da consulta equivalente: 17,269 ms, 62 shared hits, 0 reads; teste da RPC 2/2 e Match 3/3. Migration pendente. |
-| 7 | `b9dfed3` | Pool consulta a cada segundo somente como fallback do canal; mira limitada a 10/s, heartbeat a 1 s. | Baseline de `pool_shots`: fingerprints com 20.016 e 6.470 calls, 0 reads físicos. Em 24 h, `aim_update` não apareceu entre mensagens Realtime. Testes focados 22/22 e build passaram; sem snapshot pós-deploy. |
-| 8 | `bdd869d` | Migration remove `squads` e `saved_squads` da publication. A publication remota contém ambas; `realtime.subscription` não tinha linhas ativas para elas e não há listener Postgres Changes no código. | REST/queries dessas tabelas permanecem intactos. Migration pendente; consumidores externos futuros não podem ser descartados por inspeção local. |
-| 9 | `a90273f` | Migration envolve `auth.uid()` em subselects nas policies RLS de `public`. | Snapshot remoto: 35 policies de `public` com chamadas diretas; 5 policies `realtime` já usavam subselect. A transformação foi conferida com SELECT, sem alterar policies. Migration pendente. |
+### Correção adicional descoberta na validação de RLS
 
-As validações de código executadas incluem testes direcionados, `npm run build` e lint focado. O build passou; continua exibindo o aviso preexistente de chunk acima de 500 kB. O lint focado passou com avisos de `react(set-state-in-effect)` já presentes em `App.tsx` e `Layout.tsx`. `supabase db lint --local` não pôde conectar porque não havia PostgreSQL local em `127.0.0.1:54322` nem Docker instalado. **Não foi executado `db push` sem `--dry-run`, nenhum SQL de escrita e nenhum DDL em produção.**
+O teste inicial revelou que `public.missions` tinha RLS desativado, apesar da policy existir: um usuário autenticado conseguia contar 430 linhas. A migration adicional `20261119140000_enable_missions_rls.sql` (commit `be7969c`) habilitou RLS. Repetidos os testes com dois usuários existentes: cada um viu suas 10 linhas e zero linhas do outro. Após a correção, `authenticated` mantém `SELECT`, mas `INSERT`, `UPDATE`, `DELETE` e `TRUNCATE` estão revogados. `sync_game_progress` e `claim_mission` são `SECURITY DEFINER`, têm `search_path` vazio e só são executáveis por `authenticated`; `get_home_pending_counts` é `SECURITY INVOKER`.
+
+Validação final de código: `npm test -- --runInBand` passou com 41 suítes/191 testes; `npm run build` passou. O build mantém o aviso de chunk acima de 500 kB; o lint focado manteve um aviso preexistente `react(set-state-in-effect)` em `App.tsx`. `supabase db lint --local` continua indisponível sem PostgreSQL/Docker local. As métricas de Disk I/O após o deploy do frontend ainda precisam ser coletadas por 24–48 h; não há alegação de redução confirmada dos contadores de produção além do plano keyset medido.
 
 **Limite da comparação:** os planos e snapshots posteriores são validações locais ou de consultas equivalentes, não medições da aplicação após deploy. Para comparar efeito real no Disk I/O Budget, primeiro revisar os diffs e aprovar explicitamente as migrations; depois medir os mesmos fingerprints e janelas por 24–48 h.
 
