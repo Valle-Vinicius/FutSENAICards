@@ -46,6 +46,7 @@ export default function Home() {
   const [now, setNow] = useState<number | null>(null);
   const pending = useHomePendingCounts();
   const journal = useJournalNews();
+  const homePageRef = useRef<HTMLDivElement>(null);
   const topCards = [...cards]
     .sort((a, b) => b.overall - a.overall || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity))
     .slice(0, 5);
@@ -90,6 +91,29 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const root = homePageRef.current;
+    if (!root || typeof window.IntersectionObserver !== 'function') return;
+    const reduceMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+
+    const observer = new window.IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('home-reveal--visible');
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -24px 0px' });
+    root.querySelectorAll<HTMLElement>('[data-home-reveal]').forEach((section, index) => {
+      section.style.setProperty('--home-reveal-delay', `${Math.min(index * 45, 180)}ms`);
+      section.classList.add('home-reveal');
+      observer.observe(section);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   const handleDaily = async () => {
     if (claimingDaily || !dailyAvailable) return;
     setClaimingDaily(true);
@@ -107,9 +131,9 @@ export default function Home() {
   };
 
   return (
-    <div className="home-page">
+    <div className="home-page" ref={homePageRef}>
       <div className="home-container home-page__inner">
-        <section className="home-hero" aria-labelledby="home-hero-title">
+        <section className="home-hero" aria-labelledby="home-hero-title" data-home-reveal>
           <div className="home-hero__editorial">
             <p className="home-eyebrow"><span /> FUTSENAI <i>/</i> FUTEBOL ENTRE AMIGOS</p>
             <h1 id="home-hero-title">O seu jogo.<br /><span>O seu clube.</span></h1>
@@ -132,13 +156,19 @@ export default function Home() {
             <div className="home-hero__circle" />
             <div className="home-hero__card-stage">
               {featuredCard ? (
-                <Link
-                  to={`/card/${featuredCard.uid}`}
-                  className="home-hero__featured-card"
-                  aria-label={`Ver carta de ${featuredCard.name}`}
-                >
-                  <Card card={featuredCard} size="lg" animateHover={false} />
-                </Link>
+                featuredCard.uid ? (
+                  <Link
+                    to={`/card/${featuredCard.uid}`}
+                    className="home-hero__featured-card"
+                    aria-label={`Ver carta de ${featuredCard.name}`}
+                  >
+                    <Card card={featuredCard} size="lg" animateHover={false} />
+                  </Link>
+                ) : (
+                  <div className="home-hero__featured-card home-hero__featured-card--static">
+                    <Card card={featuredCard} size="lg" animateHover={false} />
+                  </div>
+                )
               ) : (
                 <div className="home-hero__empty">
                   <Sparkles aria-hidden="true" />
@@ -197,7 +227,7 @@ export default function Home() {
           </aside>
         </section>
 
-        <section className="home-club-grid" aria-label="Coleção e missões do clube">
+        <section className="home-club-grid" aria-label="Coleção e missões do clube" data-home-reveal>
           <div className="home-collection">
             <div className="home-section-heading">
               <div>
@@ -208,15 +238,21 @@ export default function Home() {
             </div>
             <div className={`home-collection__viewport${topCards.length > 1 ? ' home-collection__viewport--scrollable' : ''}`}>
               <div className="home-collection__cards" role="region" aria-label="Cartas em destaque" tabIndex={0}>
-                {topCards.map(card => (
-                  <Link
-                    key={card.uid}
-                    to={`/card/${card.uid}`}
-                    className={`home-collection__card${card.rarity === 'legendary' || card.rarity === 'icon' ? ' home-collection__card--premium' : ''}`}
-                  >
-                    <Card card={card} size="lg" animateHover={false} />
-                  </Link>
-                ))}
+                {topCards.map((card, index) => {
+                  const key = card.uid || `${card.playerId}-${card.name}-${index}`;
+                  const cardClass = `home-collection__card${card.rarity === 'legendary' || card.rarity === 'icon' ? ' home-collection__card--premium' : ''}`;
+                  const cardContent = <Card card={card} size="lg" animateHover={false} />;
+
+                  return card.uid ? (
+                    <Link key={key} to={`/card/${card.uid}`} className={cardClass}>
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <div key={key} className={`${cardClass} home-collection__card--static`}>
+                      {cardContent}
+                    </div>
+                  );
+                })}
                 {topCards.length === 0 && <p className="home-empty">Sua coleção ainda está vazia. <Link to="/packs">Abra seu primeiro pacote.</Link></p>}
               </div>
               {topCards.length > 3 && (
@@ -274,7 +310,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="home-pending" aria-labelledby="home-pending-title">
+        <section className="home-pending" aria-labelledby="home-pending-title" data-home-reveal>
           <div className="home-section-heading">
             <div>
               <p className="home-eyebrow">NO SEU RADAR</p>
@@ -301,7 +337,7 @@ export default function Home() {
           )}
         </section>
 
-        <section className="home-editorial-grid" aria-label="Notícias e atalhos">
+        <section className="home-editorial-grid" aria-label="Notícias e atalhos" data-home-reveal>
           <div className="home-news">
             <div className="home-section-heading">
               <div>
@@ -372,7 +408,7 @@ export default function Home() {
           </aside>
         </section>
 
-        <nav className="home-shortcuts" aria-label="Atalhos do clube">
+        <nav className="home-shortcuts" aria-label="Atalhos do clube" data-home-reveal>
           <Link to="/squad"><span className="home-shortcut__number">01</span><span className="home-shortcut__icon"><Shirt aria-hidden="true" /></span><strong>Montar elenco</strong><ArrowRight aria-hidden="true" /></Link>
           <Link to="/collection"><span className="home-shortcut__number">02</span><span className="home-shortcut__icon"><Layers3 aria-hidden="true" /></span><strong>Minhas cartas</strong><ArrowRight aria-hidden="true" /></Link>
           <Link to="/market"><span className="home-shortcut__number">03</span><span className="home-shortcut__icon"><Store aria-hidden="true" /></span><strong>Mercado</strong><ArrowRight aria-hidden="true" /></Link>
@@ -414,8 +450,10 @@ function useCountUp(value: number) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const reducedMotion = typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const motionQuery = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
+    const reducedMotion = motionQuery?.matches ?? false;
     if (reducedMotion || typeof window.requestAnimationFrame !== 'function') {
       const timeoutId = window.setTimeout(() => {
         previousValue.current = value;
@@ -428,6 +466,12 @@ function useCountUp(value: number) {
     const startTime = window.performance.now();
     const duration = 420;
     let frameId = 0;
+    const onMotionChange = (event: MediaQueryListEvent) => {
+      if (!event.matches) return;
+      window.cancelAnimationFrame(frameId);
+      previousValue.current = value;
+      setDisplayValue(value);
+    };
     const animate = (time: number) => {
       const progress = Math.min(1, (time - startTime) / duration);
       const easedProgress = 1 - (1 - progress) ** 3;
@@ -438,7 +482,11 @@ function useCountUp(value: number) {
     };
 
     frameId = window.requestAnimationFrame(animate);
-    return () => window.cancelAnimationFrame(frameId);
+    motionQuery?.addEventListener('change', onMotionChange);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      motionQuery?.removeEventListener('change', onMotionChange);
+    };
   }, [value]);
 
   return displayValue;

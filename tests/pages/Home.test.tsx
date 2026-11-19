@@ -134,6 +134,14 @@ describe('Home page', () => {
     expect(screen.getByText('Bora, Jogador Teste. Tem 1 carta nova esperando.')).toBeInTheDocument();
   });
 
+  it('does not create broken card links when a legacy card has no uid', () => {
+    renderHome({ cards: [makeCard('', 100, 'rare')] });
+
+    expect(document.querySelectorAll('a[href^="/card/"]')).toHaveLength(0);
+    expect(document.querySelectorAll('.home-hero__featured-card--static')).toHaveLength(1);
+    expect(document.querySelectorAll('.home-collection__card--static')).toHaveLength(1);
+  });
+
   it('keeps the full summaries and images for secondary journal stories', () => {
     renderHome({}, [
       {
