@@ -1,0 +1,1 @@
+ALTER TABLE public.missions ENABLE ROW LEVEL SECURITY;
