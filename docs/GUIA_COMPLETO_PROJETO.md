@@ -85,7 +85,7 @@ O projeto não tem `supabase/config.toml` na raiz de `supabase/`. Não assuma qu
 4. Com Supabase, `App` carrega a sessão com `auth.getSession()` e acompanha `onAuthStateChange`. Em `SIGNED_IN`, dispara `syncUserData(userId)`.
 5. Sem sessão, a rota coringa redireciona para `/auth`. A tela de autenticação oferece login, cadastro, Google e recuperação de senha.
 6. Com usuário autenticado, `ProtectedRoute` e `Layout` envolvem as páginas de jogo.
-7. Enquanto autenticado, o app atualiza `profiles.last_seen` imediatamente, ao voltar a aba visível e a cada 60 segundos; também assina presença privada de amigos.
+7. Enquanto autenticado, o app atualiza `profiles.last_seen` imediatamente, ao voltar a aba visível e a cada 5 minutos, somente com a aba visível; o indicador baseado em `last_seen` usa janela de 10 minutos e a presença de amigos também acompanha o canal privado.
 
 Auth e proteção de rotas ficam em `src/lib/services/auth.ts`, `src/components/ProtectedRoute.tsx`, `src/pages/Auth.tsx` e `src/App.tsx`. A sessão do SDK Supabase é distinta da persistência do Zustand.
 

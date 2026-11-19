@@ -5,6 +5,7 @@ import React, { Suspense, lazy } from 'react';
 import ToastContainer from './components/ToastContainer';
 import { useGame } from './store/useGame';
 import { supabase } from './lib/supabase';
+import { PRESENCE_HEARTBEAT_MS } from './lib/presence';
 import { subscribeUserPresence } from './lib/services/friends';
 import Layout from './components/Layout';
 import Tutorial from './components/Tutorial';
@@ -91,17 +92,25 @@ export default function App() {
   useEffect(() => {
     if (!supabase || !currentUserId) return;
     let active = true;
+    let heartbeatInFlight = false;
     const markActive = async () => {
-      if (document.visibilityState === 'hidden') return;
-      const { error } = await supabase!
-        .from('profiles')
-        .update({ last_seen: new Date().toISOString() })
-        .eq('id', currentUserId);
-      if (error && active) console.error('[presence] failed to update last_seen:', error);
+      if (!active || document.visibilityState !== 'visible' || heartbeatInFlight) return;
+      heartbeatInFlight = true;
+      try {
+        const { error } = await supabase!
+          .from('profiles')
+          .update({ last_seen: new Date().toISOString() })
+          .eq('id', currentUserId);
+        if (error && active) console.error('[presence] failed to update last_seen:', error);
+      } catch (error) {
+        if (active) console.error('[presence] failed to update last_seen:', error);
+      } finally {
+        heartbeatInFlight = false;
+      }
     };
 
     void markActive();
-    const interval = window.setInterval(() => void markActive(), 60_000);
+    const interval = window.setInterval(() => void markActive(), PRESENCE_HEARTBEAT_MS);
     document.addEventListener('visibilitychange', markActive);
     return () => {
       active = false;

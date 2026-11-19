@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { PRESENCE_ONLINE_WINDOW_MS } from '../presence';
 
 export interface FriendUser {
   id: string;
@@ -19,7 +20,7 @@ export interface Friendship {
 function isOnline(lastSeen?: string): boolean {
   if (!lastSeen) return false;
   const diff = Date.now() - new Date(lastSeen).getTime();
-  return diff < 2 * 60 * 1000;
+  return diff < PRESENCE_ONLINE_WINDOW_MS;
 }
 
 async function getVisibleProfiles(): Promise<FriendUser[]> {

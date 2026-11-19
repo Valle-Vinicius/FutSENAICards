@@ -1,4 +1,4 @@
-import { countActiveAdminUsers, sortAdminUsers, type AdminUserSummary } from '../../src/lib/adminUsers';
+import { countActiveAdminUsers, isAdminUserOnline, sortAdminUsers, type AdminUserSummary } from '../../src/lib/adminUsers';
 
 function makeUser(userId: string, name: string, lastSeen: string | null): AdminUserSummary {
   return {
@@ -40,5 +40,10 @@ describe('admin user ordering', () => {
 
     expect(countActiveAdminUsers(users, now)).toBe(0);
     expect(sortAdminUsers(users, now).map(user => user.name)).toEqual(['Ana', 'Zeca']);
+  });
+
+  it('keeps the online window longer than the five-minute heartbeat', () => {
+    expect(isAdminUserOnline('2026-11-16T11:53:00.000Z', now)).toBe(true);
+    expect(isAdminUserOnline('2026-11-16T11:49:00.000Z', now)).toBe(false);
   });
 });

@@ -1,3 +1,5 @@
+import { PRESENCE_ONLINE_WINDOW_MS } from './presence';
+
 export type AdminUserSummary = {
   user_id: string;
   name: string | null;
@@ -14,7 +16,7 @@ export type AdminUserSummary = {
   pool_wins: number;
 };
 
-export const ADMIN_ONLINE_WINDOW_MS = 2 * 60 * 1000;
+export const ADMIN_ONLINE_WINDOW_MS = PRESENCE_ONLINE_WINDOW_MS;
 
 export function isAdminUserOnline(lastSeen: string | null, now = Date.now()): boolean {
   if (!lastSeen) return false;
