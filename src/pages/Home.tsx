@@ -9,6 +9,9 @@ import {
   ExternalLink,
   Flame,
   Gift,
+  Layers3,
+  Shirt,
+  ShoppingBag,
   Sparkles,
   Store,
   Swords,
@@ -71,6 +74,14 @@ export default function Home() {
   const openPackLabel = affordablePack ? `Abrir ${affordablePack.name}` : 'Ver pacotes';
   const activeMissions = missions.filter(mission => !mission.claimed).slice(0, 3);
   const readyMissionCount = missions.filter(mission => mission.completed && !mission.claimed).length;
+  const noPendingItems = !pending.loading
+    && !pending.error
+    && pending.counts !== null
+    && pending.counts.challenges === 0
+    && pending.counts.friendRequests === 0
+    && pending.counts.soldListings === 0
+    && readyMissionCount === 0
+    && newCardUids.length === 0;
 
   useEffect(() => {
     const tick = () => setNow(Date.now());
@@ -254,8 +265,8 @@ export default function Home() {
               <div className="home-missions__empty">
                 <ClipboardList aria-hidden="true" />
                 <div>
-                  <strong>{missions.length > 0 ? 'Missões concluídas' : 'Nenhuma missão disponível'}</strong>
-                  <span>{missions.length > 0 ? 'Você resgatou todas as recompensas por enquanto.' : 'Novos objetivos aparecerão aqui quando estiverem disponíveis.'}</span>
+                  <strong>{missions.length > 0 ? 'Tudo resgatado.' : 'O apito ainda não tocou.'}</strong>
+                  <span>{missions.length > 0 ? 'Próximas missões em breve.' : 'Assim que uma missão pintar, ela aparece aqui.'}</span>
                 </div>
                 <Link to="/missions" aria-label="Ver missões"><ArrowRight aria-hidden="true" /></Link>
               </div>
@@ -277,13 +288,17 @@ export default function Home() {
               <button type="button" onClick={pending.retry}>Tentar novamente</button>
             </div>
           )}
-          <div className="home-pending__list">
-            <PendingItem to="/match" label="Desafios recebidos" count={pending.counts?.challenges ?? null} loading={pending.loading} icon={Swords} />
-            <PendingItem to="/friends" label="Pedidos de amizade" count={pending.counts?.friendRequests ?? null} loading={pending.loading} icon={UserPlus} />
-            <PendingItem to="/missions" label="Missões prontas" count={readyMissionCount} loading={false} icon={ClipboardList} />
-            <PendingItem to="/market" label="Anúncios vendidos" count={pending.counts?.soldListings ?? null} loading={pending.loading} icon={Store} />
-            <PendingItem to="/collection" label="Cartas novas" count={newCardUids.length} loading={false} icon={Sparkles} />
-          </div>
+          {noPendingItems ? (
+            <p className="home-pending__empty">Nada pendente. Campo livre.</p>
+          ) : (
+            <div className="home-pending__list">
+              <PendingItem to="/match" label="Desafios recebidos" count={pending.counts?.challenges ?? null} loading={pending.loading} icon={Swords} />
+              <PendingItem to="/friends" label="Pedidos de amizade" count={pending.counts?.friendRequests ?? null} loading={pending.loading} icon={UserPlus} />
+              <PendingItem to="/missions" label="Missões prontas" count={readyMissionCount} loading={false} icon={ClipboardList} />
+              <PendingItem to="/market" label="Anúncios vendidos" count={pending.counts?.soldListings ?? null} loading={pending.loading} icon={Store} />
+              <PendingItem to="/collection" label="Cartas novas" count={newCardUids.length} loading={false} icon={Sparkles} />
+            </div>
+          )}
         </section>
 
         <section className="home-editorial-grid" aria-label="Notícias e atalhos">
@@ -355,10 +370,10 @@ export default function Home() {
         </section>
 
         <nav className="home-shortcuts" aria-label="Atalhos do clube">
-          <Link to="/squad"><span>01</span> Montar elenco <ArrowRight aria-hidden="true" /></Link>
-          <Link to="/collection"><span>02</span> Minhas cartas <ArrowRight aria-hidden="true" /></Link>
-          <Link to="/market"><span>03</span> Mercado <ArrowRight aria-hidden="true" /></Link>
-          <Link to="/shop"><span>04</span> Loja <ArrowRight aria-hidden="true" /></Link>
+          <Link to="/squad"><span className="home-shortcut__number">01</span><span className="home-shortcut__icon"><Shirt aria-hidden="true" /></span><strong>Montar elenco</strong><ArrowRight aria-hidden="true" /></Link>
+          <Link to="/collection"><span className="home-shortcut__number">02</span><span className="home-shortcut__icon"><Layers3 aria-hidden="true" /></span><strong>Minhas cartas</strong><ArrowRight aria-hidden="true" /></Link>
+          <Link to="/market"><span className="home-shortcut__number">03</span><span className="home-shortcut__icon"><Store aria-hidden="true" /></span><strong>Mercado</strong><ArrowRight aria-hidden="true" /></Link>
+          <Link to="/shop"><span className="home-shortcut__number">04</span><span className="home-shortcut__icon"><ShoppingBag aria-hidden="true" /></span><strong>Loja</strong><ArrowRight aria-hidden="true" /></Link>
         </nav>
 
       </div>
@@ -385,7 +400,7 @@ function PendingItem({
       <span>{label}</span>
       {count === null && loading
         ? <Skeleton className="h-6 w-7" />
-        : <strong>{count ?? '—'}</strong>}
+        : <strong className={count === 0 ? 'home-pending-item__count--zero' : count !== null && count > 0 ? 'home-pending-item__count--active' : ''}>{count ?? '—'}</strong>}
     </Link>
   );
 }

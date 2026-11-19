@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { useGame } from '../../src/store/useGame';
 import { toast } from '../../src/store/toast';
+import { useHomePendingCounts } from '../../src/hooks/useHomePendingCounts';
 import { useJournalNews } from '../../src/hooks/useJournalNews';
 import type { NewsItem } from '../../src/data/news';
 import type { PlayerCard } from '../../src/types';
@@ -13,19 +14,13 @@ jest.mock('../../src/lib/supabase', () => ({ supabase: null }));
 jest.mock('../../src/lib/profile', () => ({ getProfile: jest.fn() }));
 jest.mock('../../src/components/Card', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../src/store/toast', () => ({ toast: { success: jest.fn(), info: jest.fn(), error: jest.fn() } }));
-jest.mock('../../src/hooks/useHomePendingCounts', () => ({
-  useHomePendingCounts: () => ({
-    counts: { challenges: 2, friendRequests: 1, soldListings: 0 },
-    loading: false,
-    error: null,
-    retry: jest.fn(),
-  }),
-}));
+jest.mock('../../src/hooks/useHomePendingCounts', () => ({ useHomePendingCounts: jest.fn() }));
 jest.mock('../../src/hooks/useJournalNews', () => ({
   useJournalNews: jest.fn(),
 }));
 
 const mockedUseGame = jest.mocked(useGame);
+const mockedUseHomePendingCounts = jest.mocked(useHomePendingCounts);
 const mockedUseJournalNews = jest.mocked(useJournalNews);
 
 function renderHome(overrides: Record<string, unknown> = {}, news: NewsItem[] = []) {
@@ -85,6 +80,12 @@ function makeCard(uid: string, overall: number, rarity: PlayerCard['rarity']): P
 describe('Home page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedUseHomePendingCounts.mockReturnValue({
+      counts: { challenges: 2, friendRequests: 1, soldListings: 0 },
+      loading: false,
+      error: null,
+      retry: jest.fn(),
+    });
   });
 
   it('shows the editorial hero and preserves the main gameplay actions', () => {
@@ -98,11 +99,25 @@ describe('Home page', () => {
     expect(screen.getByRole('link', { name: 'Ver eventos' })).toHaveAttribute('href', '/shop');
     expect(screen.getByRole('heading', { name: 'Pendências' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /desafios recebidos/i })).toHaveTextContent('2');
+    expect(screen.getByRole('link', { name: /desafios recebidos/i }).querySelector('strong')).toHaveClass('home-pending-item__count--active');
     expect(screen.getByRole('link', { name: /pedidos de amizade/i })).toHaveTextContent('1');
     expect(screen.getByRole('heading', { name: 'Cartas em destaque' })).toBeInTheDocument();
     const sectionHeadings = [...document.querySelectorAll('h2')].map(heading => heading.textContent);
     expect(sectionHeadings.indexOf('Cartas em destaque')).toBeLessThan(sectionHeadings.indexOf('Pendências'));
-    expect(screen.getByText('Nenhuma missão disponível')).toBeInTheDocument();
+    expect(screen.getByText('O apito ainda não tocou.')).toBeInTheDocument();
+  });
+
+  it('shows a single clear status when every pending count is zero', () => {
+    mockedUseHomePendingCounts.mockReturnValue({
+      counts: { challenges: 0, friendRequests: 0, soldListings: 0 },
+      loading: false,
+      error: null,
+      retry: jest.fn(),
+    });
+    renderHome();
+
+    expect(screen.getByText('Nada pendente. Campo livre.')).toBeInTheDocument();
+    expect(document.querySelector('.home-pending__list')).not.toBeInTheDocument();
   });
 
   it('features the highest-overall owned card, breaking ties by rarity', () => {

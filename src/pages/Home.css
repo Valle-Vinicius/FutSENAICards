@@ -847,11 +847,29 @@
   color: #171717;
   font-size: 18px;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-pending-item > .home-pending-item__count--zero {
+  color: #b7b7c0;
+}
+
+.home-pending-item > .home-pending-item__count--active {
+  color: #e30613;
+  animation: home-count-pulse 2200ms ease-in-out infinite;
+  transform-origin: center;
 }
 
 .home-pending-item:hover > span,
-.home-pending-item:hover > strong {
+.home-pending-item:hover > strong:not(.home-pending-item__count--zero) {
   color: #e30613;
+}
+
+.home-pending__empty {
+  margin: 20px 0 0;
+  color: #777783;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .home-error {
@@ -1191,66 +1209,73 @@
 .home-shortcuts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 6px;
-  border-top: 1px solid #dcdce2;
-  border-bottom: 1px solid #dcdce2;
+  gap: 12px;
+  margin-top: var(--home-section-gap);
 }
 
 .home-shortcuts a {
-  position: relative;
-  display: flex;
-  min-height: 70px;
+  display: grid;
+  min-height: 142px;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr auto;
   align-items: center;
-  gap: 11px;
-  padding: 0 16px;
-  border-right: 1px solid #dcdce2;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e8e8ed;
+  background: #fff;
   color: #171717;
-  font-size: 11px;
-  font-weight: 800;
   text-decoration: none;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 
-.home-shortcuts a:first-child {
-  padding-left: 0;
-}
-
-.home-shortcuts a:last-child {
-  border-right: 0;
-}
-
-.home-shortcuts a span {
+.home-shortcut__number {
   color: #e30613;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-family: 'Arial Narrow', Impact, 'Poppins', sans-serif;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.06em;
 }
 
-.home-shortcuts a svg {
+.home-shortcut__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  background: #fbe4e6;
+  color: #b90016;
+}
+
+.home-shortcut__icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.home-shortcuts a strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.home-shortcuts a > svg {
   width: 14px;
   height: 14px;
-  margin-left: auto;
   color: #777783;
+  transition: color 140ms ease, transform 140ms ease;
 }
 
 .home-shortcuts a:hover {
+  border-color: #e30613;
+  background: #fff7f7;
+  transform: translateY(-2px);
+}
+
+.home-shortcuts a:hover > svg {
   color: #e30613;
+  transform: translateX(3px);
 }
 
-.home-shortcuts a::after {
-  position: absolute;
-  right: 16px;
-  bottom: -1px;
-  left: 16px;
-  height: 2px;
-  background: #e30613;
-  content: '';
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 140ms ease;
-}
-
-.home-shortcuts a:hover::after,
-.home-shortcuts a:focus-visible::after {
-  transform: scaleX(1);
+.home-shortcuts a:focus-visible {
+  outline: 3px solid #e30613;
+  outline-offset: 3px;
 }
 
 .home-club-grid {
@@ -1356,6 +1381,8 @@
 
 .home-missions {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
   align-self: stretch;
   padding-left: 28px;
   border-left: 1px solid rgb(255 255 255 / 16%);
@@ -1466,6 +1493,7 @@
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) 30px;
   align-items: center;
+  flex: 1;
   gap: 12px;
   margin-top: 17px;
   padding: 15px 0;
@@ -1525,6 +1553,19 @@
 .home-empty a {
   color: #e30613;
   font-weight: 700;
+}
+
+@keyframes home-count-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.78;
+    transform: scale(1.06);
+  }
 }
 
 @media (max-width: 1120px) {
@@ -1809,23 +1850,8 @@
   }
 
   .home-shortcuts a {
-    min-height: 54px;
-    padding: 0 10px;
-    border-bottom: 1px solid #dcdce2;
-    font-size: 10px;
-  }
-
-  .home-shortcuts a:first-child {
-    padding-left: 10px;
-  }
-
-  .home-shortcuts a:nth-child(2) {
-    border-right: 0;
-  }
-
-  .home-shortcuts a:nth-child(3),
-  .home-shortcuts a:nth-child(4) {
-    border-bottom: 0;
+    min-height: 128px;
+    padding: 13px;
   }
 
   .home-club-grid {
@@ -1879,8 +1905,18 @@
   .home-progress span,
   .home-topbar__group > summary svg,
   .home-hero__featured-card,
-  .home-collection__card .fc-card {
+  .home-collection__card .fc-card,
+  .home-shortcuts a,
+  .home-shortcuts a > svg {
     transition: none;
+  }
+
+  .home-pending-item__count--active {
+    animation: none;
+  }
+
+  .home-shortcuts a:hover {
+    transform: none;
   }
 
   .home-collection__card:hover .fc-card,
