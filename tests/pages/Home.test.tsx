@@ -100,6 +100,8 @@ describe('Home page', () => {
     expect(screen.getByRole('link', { name: /desafios recebidos/i })).toHaveTextContent('2');
     expect(screen.getByRole('link', { name: /pedidos de amizade/i })).toHaveTextContent('1');
     expect(screen.getByRole('heading', { name: 'Cartas em destaque' })).toBeInTheDocument();
+    const sectionHeadings = [...document.querySelectorAll('h2')].map(heading => heading.textContent);
+    expect(sectionHeadings.indexOf('Cartas em destaque')).toBeLessThan(sectionHeadings.indexOf('Pendências'));
     expect(screen.getByText('Nenhuma missão disponível')).toBeInTheDocument();
   });
 

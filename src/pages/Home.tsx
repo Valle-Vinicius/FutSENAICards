@@ -186,6 +186,83 @@ export default function Home() {
           </aside>
         </section>
 
+        <section className="home-club-grid" aria-label="Coleção e missões do clube">
+          <div className="home-collection">
+            <div className="home-section-heading">
+              <div>
+                <p className="home-eyebrow">SEU ACERVO</p>
+                <h2>Cartas em destaque</h2>
+              </div>
+              <Link to="/collection" className="home-section-link">Ver coleção <ArrowRight aria-hidden="true" /></Link>
+            </div>
+            <div className={`home-collection__viewport${topCards.length > 1 ? ' home-collection__viewport--scrollable' : ''}`}>
+              <div className="home-collection__cards" role="region" aria-label="Cartas em destaque" tabIndex={0}>
+                {topCards.map(card => (
+                  <Link
+                    key={card.uid}
+                    to={`/card/${card.uid}`}
+                    className={`home-collection__card${card.rarity === 'legendary' || card.rarity === 'icon' ? ' home-collection__card--premium' : ''}`}
+                  >
+                    <Card card={card} size="lg" animateHover={false} />
+                  </Link>
+                ))}
+                {topCards.length === 0 && <p className="home-empty">Sua coleção ainda está vazia. <Link to="/packs">Abra seu primeiro pacote.</Link></p>}
+              </div>
+              {topCards.length > 3 && (
+                <span className="home-collection__scroll-hint"><ArrowRight aria-hidden="true" /> Deslize para ver mais</span>
+              )}
+            </div>
+          </div>
+
+          <div className="home-missions">
+            {event && (
+              <div className="home-event">
+                <div className="home-event__heading">
+                  <Calendar aria-hidden="true" />
+                  <div><p className="home-eyebrow">PRÓXIMO EVENTO</p><h3>{event.name}</h3></div>
+                </div>
+                <div className="home-event__details">
+                  <span>Recompensa: {event.reward}</span>
+                  <strong>{countdown}</strong>
+                </div>
+                <Link to="/shop">Ver eventos <ArrowRight aria-hidden="true" /></Link>
+              </div>
+            )}
+            <div className="home-missions__heading">
+              <div>
+                <p className="home-eyebrow">SEU PRÓXIMO OBJETIVO</p>
+                <h2>Missões em andamento</h2>
+              </div>
+              <Link to="/missions" className="home-section-link">Todas <ArrowRight aria-hidden="true" /></Link>
+            </div>
+            {activeMissions.length > 0 ? (
+              <div className="home-missions__list">
+                {activeMissions.map(mission => (
+                  <div key={mission.id} className="home-mission">
+                    <div className="home-mission__progress">
+                      {mission.completed ? <Check aria-label="Concluída" /> : `${Math.round((mission.progress / mission.target) * 100)}%`}
+                    </div>
+                    <div className="home-mission__body">
+                      <strong>{mission.title}</strong>
+                      <div className="home-progress"><span style={{ width: `${Math.min(100, (mission.progress / mission.target) * 100)}%` }} /></div>
+                      <span>{mission.progress}/{mission.target}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="home-missions__empty">
+                <ClipboardList aria-hidden="true" />
+                <div>
+                  <strong>{missions.length > 0 ? 'Missões concluídas' : 'Nenhuma missão disponível'}</strong>
+                  <span>{missions.length > 0 ? 'Você resgatou todas as recompensas por enquanto.' : 'Novos objetivos aparecerão aqui quando estiverem disponíveis.'}</span>
+                </div>
+                <Link to="/missions" aria-label="Ver missões"><ArrowRight aria-hidden="true" /></Link>
+              </div>
+            )}
+          </div>
+        </section>
+
         <section className="home-pending" aria-labelledby="home-pending-title">
           <div className="home-section-heading">
             <div>
@@ -283,74 +360,6 @@ export default function Home() {
           <Link to="/market"><span>03</span> Mercado <ArrowRight aria-hidden="true" /></Link>
           <Link to="/shop"><span>04</span> Loja <ArrowRight aria-hidden="true" /></Link>
         </nav>
-
-        <section className="home-club-grid">
-          <div className="home-collection">
-            <div className="home-section-heading">
-              <div>
-                <p className="home-eyebrow">SEU ACERVO</p>
-                <h2>Cartas em destaque</h2>
-              </div>
-              <Link to="/collection" className="home-section-link">Ver coleção <ArrowRight aria-hidden="true" /></Link>
-            </div>
-            <div className="home-collection__cards">
-              {topCards.map(card => (
-                <Link key={card.uid} to={`/card/${card.uid}`} className="home-collection__card">
-                  <Card card={card} size="md" />
-                </Link>
-              ))}
-              {topCards.length === 0 && <p className="home-empty">Sua coleção ainda está vazia. <Link to="/packs">Abra seu primeiro pacote.</Link></p>}
-            </div>
-          </div>
-
-          <div className="home-missions">
-            {event && (
-              <div className="home-event">
-                <div className="home-event__heading">
-                  <Calendar aria-hidden="true" />
-                  <div><p className="home-eyebrow">PRÓXIMO EVENTO</p><h3>{event.name}</h3></div>
-                </div>
-                <div className="home-event__details">
-                  <span>Recompensa: {event.reward}</span>
-                  <strong>{countdown}</strong>
-                </div>
-                <Link to="/shop">Ver eventos <ArrowRight aria-hidden="true" /></Link>
-              </div>
-            )}
-            <div className="home-missions__heading">
-              <div>
-                <p className="home-eyebrow">SEU PRÓXIMO OBJETIVO</p>
-                <h2>Missões em andamento</h2>
-              </div>
-              <Link to="/missions" className="home-section-link">Todas <ArrowRight aria-hidden="true" /></Link>
-            </div>
-            {activeMissions.length > 0 ? (
-              <div className="home-missions__list">
-                {activeMissions.map(mission => (
-                  <div key={mission.id} className="home-mission">
-                    <div className="home-mission__progress">
-                      {mission.completed ? <Check aria-label="Concluída" /> : `${Math.round((mission.progress / mission.target) * 100)}%`}
-                    </div>
-                    <div className="home-mission__body">
-                      <strong>{mission.title}</strong>
-                      <div className="home-progress"><span style={{ width: `${Math.min(100, (mission.progress / mission.target) * 100)}%` }} /></div>
-                      <span>{mission.progress}/{mission.target}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="home-missions__empty">
-                <ClipboardList aria-hidden="true" />
-                <div>
-                  <strong>{missions.length > 0 ? 'Missões concluídas' : 'Nenhuma missão disponível'}</strong>
-                  <span>{missions.length > 0 ? 'Você resgatou todas as recompensas por enquanto.' : 'Novos objetivos aparecerão aqui quando estiverem disponíveis.'}</span>
-                </div>
-                <Link to="/missions" aria-label="Ver missões"><ArrowRight aria-hidden="true" /></Link>
-              </div>
-            )}
-          </div>
-        </section>
 
       </div>
     </div>
