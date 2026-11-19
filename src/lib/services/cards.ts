@@ -2,13 +2,36 @@ import { supabase } from '../supabase';
 import type { PlayerCard } from '../../types';
 import { allTemplates, getPlayerImage, applyTemplateToCard } from '../../data/players';
 
+const CARD_PAGE_SIZE = 1000;
+const CARD_COLUMNS =
+  'id,player_id,name,position,sport,nationality,age,club,rarity,edition,special,overall,pace,shooting,passing,dribbling,defending,physical,reflexes,positioning,handling,extra_stats,xp,evo_points,upgrades,evolution_log,season_stats,image,favorite,is_new,obtained_at,schema_version,created_at';
+
 export async function getCards(userId: string): Promise<PlayerCard[] | null> {
   if (!supabase) return null;
   const all: any[] = [];
-  const pageSize = 1000;
-  let from = 0;
+  let cursor: { createdAt: string | null; id: string } | null = null;
+  let pastNullTimestamps = false;
+
   while (true) {
-    const { data, error } = await supabase.from('cards').select('*').eq('user_id', userId).order('created_at', { ascending: false }).order('id', { ascending: true }).range(from, from + pageSize - 1);
+    let query = supabase
+      .from('cards')
+      .select(CARD_COLUMNS)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false, nullsFirst: true })
+      .order('id', { ascending: true })
+      .limit(CARD_PAGE_SIZE);
+
+    if (cursor?.createdAt === null) {
+      query = query.is('created_at', null).gt('id', cursor.id);
+    } else if (cursor) {
+      query = query.or(
+        `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.gt.${cursor.id})`,
+      );
+    } else if (pastNullTimestamps) {
+      query = query.not('created_at', 'is', null);
+    }
+
+    const { data, error } = await query;
     // erro no meio da paginação: devolve null (e não uma lista parcial como se fosse completa)
     if (error) {
       console.error('[cards] getCards failed', error);
@@ -16,9 +39,18 @@ export async function getCards(userId: string): Promise<PlayerCard[] | null> {
     }
     const batch = data || [];
     all.push(...batch);
-    if (batch.length < pageSize) break;
-    from += pageSize;
+
+    if (cursor?.createdAt === null && batch.length < CARD_PAGE_SIZE) {
+      cursor = null;
+      pastNullTimestamps = true;
+      continue;
+    }
+
+    if (batch.length < CARD_PAGE_SIZE) break;
+    const lastCard = batch[batch.length - 1];
+    cursor = { createdAt: lastCard.created_at, id: lastCard.id };
   }
+
   return all.map((c: any) => {
     const card: PlayerCard = {
       uid: c.id,
