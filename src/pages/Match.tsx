@@ -533,10 +533,19 @@ function MatchInner() {
         const formation = sq?.formation || '1-2-1';
         setOpponentFormation(formation);
         const starterUids: (string | null)[] = Array.isArray(sq?.starters) ? sq.starters : [];
-        const { data: cs, error: cardsError } = await supabase.from('cards').select('*').eq('user_id', opponentId);
-        if (cardsError) throw cardsError;
+        const starterCardIds = [...new Set(starterUids.filter((uid): uid is string => !!uid))];
+        let cs: any[] = [];
+        if (starterCardIds.length > 0) {
+          const { data, error: cardsError } = await supabase
+            .from('cards')
+            .select('id,name,position,overall,pace,shooting,passing,dribbling,defending,physical,reflexes,positioning,handling,pack_group')
+            .in('id', starterCardIds)
+            .eq('user_id', opponentId);
+          if (cardsError) throw cardsError;
+          cs = data || [];
+        }
         if (cancelled) return;
-        const cardMap = new Map((cs || []).map((c: any) => [c.id, c]));
+        const cardMap = new Map(cs.map((c: any) => [c.id, c]));
         const starterCards = starterUids.map(uid => uid ? cardMap.get(uid) : null).filter((c: any) => c && c.position) as any[];
         if (starterCards.some(card => card.pack_group === 'off_sale')) {
           setOpponentError(OFF_SALE_PVP_MESSAGE);
