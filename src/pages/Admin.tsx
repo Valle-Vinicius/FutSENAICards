@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { ChevronDown, History, Trash2, Users } from 'lucide-react';
+import { ChevronDown, History, Megaphone, Trash2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -13,6 +13,7 @@ import SecretCardOddsTable from '../components/SecretCardOddsTable';
 import { useGame } from '../store/useGame';
 import AdminUsersPanel from '../components/AdminUsersPanel';
 import AdminChangelogPanel from '../components/AdminChangelogPanel';
+import AdminBroadcastPanel from '../components/AdminBroadcastPanel';
 
 const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 const DEFAULT_EDITION = '2025/26';
@@ -74,7 +75,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const syncUserData = useGame(s => s.syncUserData);
   const [userId, setUserId] = useState<string | null>(null);
-  const [adminTab, setAdminTab] = useState<'cards' | 'users' | 'changelog'>('cards');
+  const [adminTab, setAdminTab] = useState<'cards' | 'users' | 'changelog' | 'broadcast'>('cards');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
@@ -108,6 +109,7 @@ export default function Admin() {
       handling: 0,
       imageUrl: '',
       calcOverall: false,
+      allowOverallOverride: false,
       destination: 'inventory' as 'inventory' | 'packs' | 'off_sale' | 'secret',
     };
   });
@@ -290,6 +292,7 @@ export default function Admin() {
       handling: template.gkAttributes?.handling ?? 0,
       imageUrl: template.image || '',
       calcOverall: autoCalculateOverall,
+      allowOverallOverride: false,
       destination: template.packGroup === 'secret' ? 'secret' : template.packGroup === 'off_sale' ? 'off_sale' : 'packs',
     });
     if (supply) {
@@ -312,6 +315,7 @@ export default function Admin() {
       baseRarity: prev.baseRarity === 'secret' ? 'uncommon' : prev.baseRarity,
       destination: 'inventory',
       calcOverall: false,
+      allowOverallOverride: false,
     }));
   };
 
@@ -367,8 +371,10 @@ export default function Admin() {
     try {
       const rarityForVal = isInventory ? rarityToUse : form.baseRarity;
       const ovrForVal = calcMode ? calculatedOverall : (isInventory ? form.overall : form.baseOverall);
-      if (!Number.isInteger(ovrForVal) || ovrForVal < 0 || ovrForVal > 99) {
-        toast.error('O OVR deve ser um número inteiro entre 0 e 99.');
+      const allowOverallOverride = isInventory && form.allowOverallOverride && !calcMode;
+      const maxOverall = allowOverallOverride ? 999 : 99;
+      if (!Number.isInteger(ovrForVal) || ovrForVal < 0 || ovrForVal > maxOverall) {
+        toast.error(`O OVR deve ser um número inteiro entre 0 e ${maxOverall}.`);
         return;
       }
       if (!validateRarityOverall(rarityForVal as Rarity, ovrForVal)) {
@@ -468,6 +474,7 @@ export default function Admin() {
           p_nationality: form.nationality.trim(),
           p_age: Number(form.age),
           p_club: club,
+          p_allow_overall_over_99: allowOverallOverride,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
         toast.success('Carta criada no inventário!');
@@ -540,7 +547,7 @@ export default function Admin() {
         toast.success(isOffSale ? 'Carta adicionada ao Pacote Off-Sale!' : 'Carta adicionada aos pacotes!');
       }
       if (isOffSale) setExtraStats([]);
-      setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams) }));
+      setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams), allowOverallOverride: false }));
     } catch (e: any) {
       toast.error('Erro: ' + (e?.message || 'desconhecido'));
     } finally {
@@ -596,9 +603,18 @@ export default function Admin() {
           >
             <History className="size-4" /> Changelog
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={adminTab === 'broadcast'}
+            onClick={() => setAdminTab('broadcast')}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'broadcast' ? 'bg-[var(--red)] text-white' : 'bg-white text-[#555B68] hover:bg-[var(--bg)]'}`}
+          >
+            <Megaphone className="size-4" /> Mensagem global
+          </button>
         </div>
 
-        {adminTab === 'users' ? <AdminUsersPanel /> : adminTab === 'changelog' ? <AdminChangelogPanel /> : (
+        {adminTab === 'users' ? <AdminUsersPanel /> : adminTab === 'changelog' ? <AdminChangelogPanel /> : adminTab === 'broadcast' ? <AdminBroadcastPanel /> : (
           <>
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
           <div id="card-template-form" className="min-w-0 card-surface p-4 md:p-5 space-y-5">
@@ -760,6 +776,7 @@ export default function Admin() {
                       setForm({
                         ...form,
                         destination,
+                        allowOverallOverride: false,
                         rarity: destination === 'secret' ? 'secret' : form.rarity === 'secret' ? 'uncommon' : form.rarity,
                         baseRarity: destination === 'secret' ? 'secret' : form.baseRarity === 'secret' ? 'uncommon' : form.baseRarity,
                       });
@@ -779,10 +796,25 @@ export default function Admin() {
                     const val = Number(e.target.value);
                     if (!isInventory) setForm({ ...form, baseOverall: val });
                     else setForm({ ...form, overall: val });
-                  }} className={`${inputCls} text-center text-lg font-bold tabular-nums`} min={0} max={99} disabled={calcMode} />
+                  }} className={`${inputCls} text-center text-lg font-bold tabular-nums`} min={0} max={isInventory && form.allowOverallOverride ? 999 : 99} disabled={calcMode} />
                   {isInventory && !calcMode && <div className="mt-1 text-[10px] text-[var(--muted)]">O OVR digitado será salvo como informado; confira a faixa típica da raridade.</div>}
                 </div>
               </div>
+              {isInventory && (
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[#FAFAFB] p-3.5">
+                  <input
+                    type="checkbox"
+                    checked={form.allowOverallOverride}
+                    disabled={calcMode}
+                    onChange={event => setForm(prev => ({ ...prev, allowOverallOverride: event.target.checked }))}
+                    className="size-4 accent-[var(--red)]"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-[var(--text)]">Permitir OVR acima de 99</span>
+                    <span className="block text-xs text-[var(--muted)]">Na carta criada diretamente no inventário, permite OVR manual de até 999. Os atributos continuam limitados a 99.</span>
+                  </span>
+                </label>
+              )}
               <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[#FAFAFB] p-3.5">
                 <input
                   type="checkbox"
@@ -792,6 +824,7 @@ export default function Admin() {
                     setForm(prev => ({
                       ...prev,
                       calcOverall,
+                      ...(calcOverall ? { allowOverallOverride: false } : {}),
                       ...(calcOverall && !isSecret ? { rarity: 'uncommon', baseRarity: 'uncommon' } : {}),
                     }));
                   }}

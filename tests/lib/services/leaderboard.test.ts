@@ -11,6 +11,7 @@ import {
   getCompetitiveLeaderboard,
   getCompetitiveProfile,
   getCompetitiveRatingHistory,
+  refreshCollectorRanking,
   searchCompetitiveHeadToHeadOpponents,
 } from '../../../src/lib/services/leaderboard';
 
@@ -171,6 +172,19 @@ describe('competitive leaderboard service', () => {
   it('does not make a head-to-head opponent search for fewer than two characters', async () => {
     await expect(searchCompetitiveHeadToHeadOpponents('player-1', ' A ')).resolves.toEqual([]);
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('refreshes collector ranking without accepting client-supplied values', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await expect(refreshCollectorRanking()).resolves.toBeUndefined();
+    expect(mockRpc).toHaveBeenCalledWith('refresh_collector_ranking');
+  });
+
+  it('propagates collector ranking refresh errors', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('RPC denied') });
+
+    await expect(refreshCollectorRanking()).rejects.toThrow('RPC denied');
   });
 
   it('rejects a head-to-head response without the historical PvP scope marker', async () => {

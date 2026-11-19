@@ -45,6 +45,71 @@ describe('fluid collection card', () => {
   });
 });
 
+describe('custom card presentation', () => {
+  it('keeps the existing default position and attributes when no overrides are supplied', () => {
+    render(<Card card={card} />);
+
+    expect(screen.getByText('Ala · Leões')).toBeInTheDocument();
+    expect(screen.getByText('2025/26')).toBeInTheDocument();
+    for (const label of ['VEL', 'CHU', 'PAS', 'DRI', 'DEF', 'FIS']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+
+  it('renders a custom position and all supplied developer attributes', () => {
+    render(
+      <Card
+        card={card}
+        size="fluid"
+        positionLabel="Developer"
+        attributes={[
+          { l: 'FRO', v: 92 },
+          { l: 'BAC', v: 84 },
+          { l: 'BD', v: 80 },
+          { l: 'SEG', v: 74 },
+          { l: 'UX', v: 90 },
+          { l: 'LOG', v: 86 },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Developer · Leões')).toBeInTheDocument();
+    expect(screen.getByText('2025/26')).toBeInTheDocument();
+    for (const label of ['FRO', 'BAC', 'BD', 'SEG', 'UX', 'LOG']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.queryByText('VEL')).not.toBeInTheDocument();
+  });
+
+  it('uses the compact credit-only presentation without changing the default card', () => {
+    const { container } = render(
+      <Card
+        card={card}
+        size="fluid"
+        variant="credit"
+        positionLabel="Developer"
+        attributes={[
+          { l: 'FRO', v: 92 },
+          { l: 'BAC', v: 84 },
+          { l: 'BD', v: 80 },
+          { l: 'SEG', v: 74 },
+          { l: 'UX', v: 90 },
+          { l: 'LOG', v: 86 },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('DEVELOPER')).toBeInTheDocument();
+    expect(screen.getByText('Developer · Leões')).toBeInTheDocument();
+    const attributeBand = container.querySelector('.fc-attr--credit');
+    expect(attributeBand).toHaveClass('grid-cols-6', 'bg-black/40');
+    expect(attributeBand?.children).toHaveLength(6);
+    for (const label of ['FRO', 'BAC', 'BD', 'SEG', 'UX', 'LOG']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+});
+
 describe.each([
   ['sm', 'w-36'],
   ['md', 'w-48'],

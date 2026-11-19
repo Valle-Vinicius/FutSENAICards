@@ -317,7 +317,7 @@ Há ações prováveis **sem upgrade**: corrigir o índice/ordenação da pagina
 
 ## Estado das nove otimizações
 
-As migrations foram aplicadas em produção por lotes, respeitando a ordem de implantação. O dry-run final informou que o banco está atualizado e não há migrations pendentes. **O frontend está commitado na branch `main`, mas ainda não foi implantado.** Como a migration agora bloqueia escrita direta em `missions`, implante o frontend atualizado para evitar falhas de sincronização no cliente antigo.
+As migrations das otimizações foram aplicadas em produção por lotes, respeitando a ordem de implantação; o dry-run imediatamente após esse lote informou que o banco estava atualizado. Depois do `fetch` de novos commits em `origin/main`, foram encontrados seis migrations locais anteriores a 19/11 sem registro remoto. O dry-run atual falha com `DbPushMissingRemoteError`; consultas somente leitura confirmaram que os objetos correspondentes já existem no banco (índices, RPCs, trigger e changelog). Não reapliquei esses migrations nem alterei o histórico com `migration repair`. Reconcilie o histórico antes do próximo `db push`. **O frontend ainda não foi implantado.** Como `missions` agora bloqueia escrita direta, publique o frontend atualizado para evitar falhas no cliente antigo.
 
 | Item | Commit(s) | Alteração e evidência posterior |
 |---:|---|---|

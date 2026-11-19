@@ -1,7 +1,7 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History } from 'lucide-react';
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History, Heart } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -44,9 +44,10 @@ const TITLES: Record<string, string> = {
   '/settings': 'Configurações',
   '/friends': 'Amizades',
   '/leaderboard': 'Leaderboard',
+  '/about': 'Sobre',
 };
 
-export default function Layout() {
+export default function Layout({ children }: { children?: ReactNode }) {
   const avatarUrl = useGame(s => s.avatarUrl);
   const coins = useGame(s => s.coins);
   const xp = useGame(s => s.xp);
@@ -85,6 +86,7 @@ export default function Layout() {
     const titleElement = document.querySelector('title');
     if (!titleElement) return;
     const observer = new MutationObserver(() => {
+      if (!document.title.includes(' | ')) return;
       const currentTitle = document.title.split(' | ')[0];
       if (currentTitle) setTitle(currentTitle);
     });
@@ -104,7 +106,9 @@ export default function Layout() {
   const [pendingChallengesCount, setPendingChallengesCount] = useState(0);
   const [pendingPoolCount, setPendingPoolCount] = useState(0);
   const cards = useGame(s => s.cards);
-  const NAV_WITH_ADMIN = isAdmin ? [...NAV, { to: '/admin', label: 'Administrador', icon: Shield }] : NAV;
+  const NAV_WITH_ADMIN = [
+    ...(isAdmin ? [...NAV, { to: '/admin', label: 'Administrador', icon: Shield }] : NAV),
+  ];
   const normalizedPaletteQuery = paletteQuery.trim().toLocaleLowerCase();
   const filteredPages = NAV_WITH_ADMIN.filter(page => !normalizedPaletteQuery
     || page.label.toLocaleLowerCase().includes(normalizedPaletteQuery));
@@ -221,6 +225,25 @@ export default function Layout() {
       if (interval) window.clearInterval(interval);
     };
   }, []);
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !currentUserId) return;
+    const channel = client
+      .channel('global-announcements', { config: { private: true } })
+      .on('broadcast', { event: 'global-message' }, ({ payload }) => {
+        if (typeof payload?.message !== 'string' || !payload.message.trim()) return;
+        toast.info(`Aviso da administração: ${payload.message}`);
+      })
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[global announcements] subscription failed:', status);
+        }
+      });
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [currentUserId]);
 
   return (
     <div className="h-[100dvh] flex flex-col md:flex-row bg-[var(--bg)]">
@@ -231,7 +254,7 @@ export default function Layout() {
           </div>
           <div className="text-[10px] text-[var(--muted)] tracking-widest mt-0.5">FUTEBOL ENTRE AMIGOS</div>
         </div>
-        <nav className="flex flex-col gap-1.5">
+        <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
           {NAV_WITH_ADMIN.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
             const params = new URLSearchParams(window.location.search);
@@ -262,7 +285,11 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto card-surface p-4">
+        <Link to="/about?aba=creditos" className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--text)]">
+          <Heart className="h-5 w-5 shrink-0" />
+          Créditos
+        </Link>
+        <div className="mt-3 card-surface p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs text-[var(--muted)]">Nível {level}</div>
             <div className="text-xs text-[var(--muted)]">{xp} / {nextXp} XP</div>
@@ -298,7 +325,7 @@ export default function Layout() {
               <Search className="h-4 w-4" /> Buscar… <kbd className="ml-auto text-[10px]">Ctrl K</kbd>
             </button>
             <ChangelogPopover />
-            <div className="relative">
+            <div className="relative flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-[var(--soft)] overflow-hidden flex items-center justify-center text-[var(--red)] font-bold text-sm">
                 {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <User className="w-4 h-4" />}
               </div>
@@ -316,7 +343,6 @@ export default function Layout() {
               )}
             </div>
             <span>Nível {level}</span>
-            <span className="w-8 h-8 rounded-full bg-[var(--soft)] flex items-center justify-center text-[var(--red)] font-bold">{level}</span>
           </div>
         </div>
 
@@ -348,7 +374,7 @@ export default function Layout() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <Outlet />
+              {children ?? <Outlet />}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -356,7 +382,7 @@ export default function Layout() {
 
       {drawerOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/40" onClick={() => setDrawerOpen(false)}>
-          <div className="w-64 h-full bg-white p-4" onClick={e => e.stopPropagation()}>
+          <div className="w-64 h-full overflow-y-auto bg-white p-4" onClick={e => e.stopPropagation()}>
             <div className="text-xl font-bold mb-4"><span className="text-[var(--red)]">FUT</span>SENAI</div>
             {NAV_WITH_ADMIN.map(n => (
               <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async () => { setDrawerOpen(false); const params = new URLSearchParams(window.location.search); const challengeId = params.get('challenge'); if (challengeId && window.location.pathname.includes('match') && n.to !== '/match') { await challengesService.abandonChallenge(challengeId); } const poolMatchId = window.location.pathname.match(/\/pool\/([a-f0-9-]+)/)?.[1]; if (poolMatchId && n.to !== '/pool') { await poolService.abandonPoolMatch(poolMatchId); } }}
@@ -367,6 +393,10 @@ export default function Layout() {
                  {(badges[n.to] ?? 0) > 0 && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--red)] px-1 text-xs text-white">{badges[n.to]}</span>}
                </NavLink>
             ))}
+            <Link to="/about?aba=creditos" onClick={() => setDrawerOpen(false)} className="mt-2 flex items-center gap-3 rounded-xl border-t border-[var(--border)] px-3 py-3 text-sm font-medium text-[var(--muted)]">
+              <Heart className="h-5 w-5 shrink-0" />
+              Créditos
+            </Link>
           </div>
         </div>
       )}

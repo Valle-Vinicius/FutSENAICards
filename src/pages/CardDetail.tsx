@@ -63,7 +63,7 @@ export default function CardDetail() {
 
   return (
     <div className="p-4 md:p-8 flex flex-col md:flex-row gap-8 items-start">
-      <div className="flex w-full justify-center md:w-auto">
+      <div className="flex w-full justify-center md:w-60 md:shrink-0">
         <div className="w-full max-w-[15rem]">
           <Card card={card} size="fluid" />
         </div>

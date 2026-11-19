@@ -246,6 +246,19 @@ body {
 .fc-name--compact { font-size: 14px; font-size: max(10px, 9.5cqw); }
 .fc-attr { font-size: 11px; font-size: max(8px, 5.7cqw); }
 .fc-attr--compact { font-size: 11px; font-size: max(8px, 7.6cqw); }
+.fc-ovr--credit { font-size: 18px; font-size: max(10.5px, 9.3cqw); }
+.fc-name--credit { font-size: 13px; font-size: max(9px, 6.8cqw); }
+.fc-attr--credit { font-size: 8px; font-size: max(6px, 3.9cqw); }
+
+.credit-card-glow {
+  border-radius: 1rem;
+  padding: 2px;
+  pointer-events: none;
+  background: radial-gradient(140px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(255,255,255,0.95), rgba(245,197,66,0.45) 35%, transparent 75%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
 
 @media (max-width: 767px) {
   input, select, textarea { font-size: 16px; }

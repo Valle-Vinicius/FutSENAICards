@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Volume2, VolumeX } from 'lucide-react';
 import loginBg from '../imagens/login/Background.png';
@@ -288,6 +288,11 @@ export default function Auth() {
                 {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
               </button>
             )}
+            <div className="border-t border-[var(--border)] pt-3 text-center">
+              <Link to="/about?aba=creditos" className="text-xs font-medium text-[var(--muted)] hover:text-[var(--red)]">
+                Créditos
+              </Link>
+            </div>
           </motion.div>
         </div>
       </div>

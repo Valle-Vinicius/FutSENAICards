@@ -139,4 +139,54 @@ describe('authoritative card economy client safeguards', () => {
     await expect(useGame.getState().completeSBC(sbcId, cards.map(card => card.uid))).resolves.toBe(true);
     expect(useGame.getState().coins).toBe(expectedReward);
   });
+
+  it('keeps inline images for custom cards without a local fallback and omits replaceable images', () => {
+    useGame.setState({
+      cards: [
+        makeCard('inline-image', 'common', {
+          image: 'data:image/png;base64,custom-card',
+          photo: 'data:image/png;base64,photo',
+        }),
+        makeCard('replaceable-image', 'common', {
+          name: 'Pietro Guedes',
+          image: 'data:image/png;base64,replaceable-card',
+        }),
+      ],
+      listings: [{
+        id: 'listing',
+        cardUid: 'inline-image',
+        seller: 'user',
+        sellerName: 'Jogador',
+        price: 10,
+        buyNow: 10,
+        createdAt: 0,
+        expiresAt: 1,
+        status: 'active',
+        cardImage: 'data:image/png;base64,listing',
+      }],
+    });
+
+    const persisted = JSON.parse(localStorage.getItem('futsenai-cards-v3') ?? '{}');
+    expect(persisted.state.cards[0].image).toBe('data:image/png;base64,custom-card');
+    expect(persisted.state.cards[0]).not.toHaveProperty('photo');
+    expect(persisted.state.cards[1]).not.toHaveProperty('image');
+    expect(persisted.state.listings[0]).not.toHaveProperty('cardImage');
+  });
+
+  it('does not throw when local storage is full', () => {
+    const quotaError = new Error('Storage quota exceeded');
+    quotaError.name = 'QuotaExceededError';
+    const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw quotaError;
+    });
+    const logError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      expect(() => useGame.setState({ coins: 123 })).not.toThrow();
+      expect(useGame.getState().coins).toBe(123);
+    } finally {
+      setItem.mockRestore();
+      logError.mockRestore();
+    }
+  });
 });
