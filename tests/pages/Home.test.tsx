@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { useGame } from '../../src/store/useGame';
 import { toast } from '../../src/store/toast';
+import { useJournalNews } from '../../src/hooks/useJournalNews';
+import type { NewsItem } from '../../src/data/news';
 import Home from '../../src/pages/Home';
 
 jest.mock('../../src/store/useGame', () => ({ useGame: jest.fn() }));
@@ -19,12 +21,13 @@ jest.mock('../../src/hooks/useHomePendingCounts', () => ({
   }),
 }));
 jest.mock('../../src/hooks/useJournalNews', () => ({
-  useJournalNews: () => ({ news: [], loading: false, error: null, refresh: jest.fn() }),
+  useJournalNews: jest.fn(),
 }));
 
 const mockedUseGame = jest.mocked(useGame);
+const mockedUseJournalNews = jest.mocked(useJournalNews);
 
-function renderHome(overrides: Record<string, unknown> = {}) {
+function renderHome(overrides: Record<string, unknown> = {}, news: NewsItem[] = []) {
   const state = {
     coins: 1200,
     xp: 100,
@@ -42,11 +45,20 @@ function renderHome(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
   mockedUseGame.mockImplementation(selector => selector(state as never));
+  mockedUseJournalNews.mockReturnValue({
+    news,
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+    retry: jest.fn(),
+  });
   return { ...render(<MemoryRouter><Home /></MemoryRouter>), state };
 }
 
 describe('Home page', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it('shows the editorial hero and preserves the main gameplay actions', () => {
     renderHome();
@@ -60,6 +72,37 @@ describe('Home page', () => {
     expect(screen.getByRole('link', { name: /desafios recebidos/i })).toHaveTextContent('2');
     expect(screen.getByRole('link', { name: /pedidos de amizade/i })).toHaveTextContent('1');
     expect(screen.getByRole('heading', { name: 'Cartas em destaque' })).toBeInTheDocument();
+    expect(screen.getByText('Nenhuma missão disponível')).toBeInTheDocument();
+  });
+
+  it('keeps the full summaries and images for secondary journal stories', () => {
+    renderHome({}, [
+      {
+        id: 'lead',
+        title: 'Manchete principal',
+        category: 'Esportes',
+        player: '',
+        date: 'Hoje',
+        summary: 'Resumo completo da notícia principal.',
+        image: 'https://example.test/lead.jpg',
+        url: 'https://example.test/lead',
+      },
+      {
+        id: 'secondary',
+        title: 'Manchete secundária',
+        category: 'Escola',
+        player: '',
+        date: 'Ontem',
+        summary: 'Resumo completo da notícia secundária.',
+        image: 'https://example.test/secondary.jpg',
+        url: 'https://example.test/secondary',
+      },
+    ]);
+
+    expect(screen.getByText('Resumo completo da notícia principal.')).toBeInTheDocument();
+    expect(screen.getByText('Resumo completo da notícia secundária.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /manchete secundária/i })).toHaveAttribute('href', 'https://example.test/secondary');
+    expect(screen.getByRole('link', { name: /manchete secundária/i }).querySelector('img')).toHaveAttribute('src', 'https://example.test/secondary.jpg');
   });
 
   it('offers the daily reward only when it has not been claimed today', async () => {

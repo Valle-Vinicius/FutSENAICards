@@ -11,7 +11,6 @@ import {
   Sparkles,
   Store,
   Swords,
-  Trophy,
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
@@ -107,14 +106,11 @@ export default function Home() {
                 {openPackLabel} <ArrowRight aria-hidden="true" />
               </Link>
             </div>
-            <div className="home-hero__edition">FUTEBOL <span>•</span> CARTAS <span>•</span> COMUNIDADE</div>
           </div>
 
           <div className="home-hero__player">
             <div className="home-hero__circle" />
-            <div className="home-hero__player-mark" aria-hidden="true">F</div>
             <img src={MateusHome} alt="Jogador vestindo uniforme vermelho do FUTSENAI" />
-            <span className="home-hero__player-caption">PAIXÃO PELO JOGO</span>
           </div>
 
           <aside className="home-account" aria-label="Resumo da sua conta">
@@ -216,12 +212,18 @@ export default function Home() {
                     href={news.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={index === 0 ? 'home-story home-story--lead' : 'home-story'}
+                    className={index === 0 ? 'home-story home-story--lead' : 'home-story home-story--secondary'}
                   >
-                    {news.image && <img src={news.image} alt="" loading="lazy" />}
-                    <span className="home-story__meta">{news.category} <i>·</i> {news.date}</span>
+                    {news.image
+                      ? <img src={news.image} alt="" loading="lazy" />
+                      : <span className="home-story__image-placeholder" aria-hidden="true"><Calendar /></span>}
+                    <span className="home-story__meta">
+                      <span className="home-story__category">{news.category}</span>
+                      <i>·</i>
+                      <span>{news.date}</span>
+                    </span>
                     <strong>{news.title}</strong>
-                    {index === 0 && <span className="home-story__summary">{news.summary}</span>}
+                    <span className="home-story__summary">{news.summary}</span>
                     <span className="home-story__read">Ler notícia <ArrowRight aria-hidden="true" /></span>
                   </a>
                 ))}
@@ -234,14 +236,16 @@ export default function Home() {
           <aside className="home-match-promo">
             <div className="home-match-promo__top">
               <p className="home-eyebrow">A PRÓXIMA JOGADA É SUA</p>
-              <Trophy aria-hidden="true" />
+              <div className="home-match-promo__pitch" aria-hidden="true"><span /></div>
             </div>
             <h2>O campo<br />está aberto.</h2>
             <p>Monte seu time e dispute uma partida ou desafie um amigo.</p>
-            <Link to="/match" className="home-button home-button--light">
-              Jogar partida <ArrowRight aria-hidden="true" />
-            </Link>
-            <Link to="/friends" className="home-match-promo__secondary">Desafiar amigo</Link>
+            <div className="home-match-promo__actions">
+              <Link to="/match" className="home-button home-button--light">
+                Jogar partida <ArrowRight aria-hidden="true" />
+              </Link>
+              <Link to="/friends" className="home-match-promo__secondary">Desafiar amigo</Link>
+            </div>
           </aside>
         </section>
 
@@ -264,7 +268,7 @@ export default function Home() {
             <div className="home-collection__cards">
               {topCards.map(card => (
                 <Link key={card.uid} to={`/card/${card.uid}`} className="home-collection__card">
-                  <Card card={card} size="sm" />
+                  <Card card={card} size="md" />
                 </Link>
               ))}
               {topCards.length === 0 && <p className="home-empty">Sua coleção ainda está vazia. <Link to="/packs">Abra seu primeiro pacote.</Link></p>}
@@ -308,7 +312,14 @@ export default function Home() {
                 ))}
               </div>
             ) : (
-              <p className="home-empty">Todas as missões foram resgatadas.</p>
+              <div className="home-missions__empty">
+                <ClipboardList aria-hidden="true" />
+                <div>
+                  <strong>{missions.length > 0 ? 'Missões concluídas' : 'Nenhuma missão disponível'}</strong>
+                  <span>{missions.length > 0 ? 'Você resgatou todas as recompensas por enquanto.' : 'Novos objetivos aparecerão aqui quando estiverem disponíveis.'}</span>
+                </div>
+                <Link to="/missions" aria-label="Ver missões"><ArrowRight aria-hidden="true" /></Link>
+              </div>
             )}
           </div>
         </section>
