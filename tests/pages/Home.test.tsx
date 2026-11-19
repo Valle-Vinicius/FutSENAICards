@@ -158,6 +158,7 @@ describe('Home page', () => {
       },
     ]);
 
+    expect(screen.getByText('NOVIDADE')).toBeInTheDocument();
     expect(screen.getByText('Resumo completo da notícia principal.')).toBeInTheDocument();
     expect(screen.getByText('Resumo completo da notícia secundária.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /manchete secundária/i })).toHaveAttribute('href', 'https://example.test/secondary');

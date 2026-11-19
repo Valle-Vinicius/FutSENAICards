@@ -337,6 +337,7 @@ export default function Home() {
                     {news.image
                       ? <img src={news.image} alt="" loading="lazy" />
                       : <span className="home-story__image-placeholder" aria-hidden="true"><Calendar /></span>}
+                    {index === 0 && <span className="home-story__badge">NOVIDADE</span>}
                     <span className="home-story__meta">
                       <span className="home-story__category">{news.category}</span>
                       <i>·</i>
@@ -358,8 +359,10 @@ export default function Home() {
               <p className="home-eyebrow">A PRÓXIMA JOGADA É SUA</p>
               <div className="home-match-promo__pitch" aria-hidden="true"><span /></div>
             </div>
-            <h2>O campo<br />está aberto.</h2>
-            <p>Monte seu time e dispute uma partida ou desafie um amigo.</p>
+            <div className="home-match-promo__copy">
+              <h2>O campo<br />está aberto.</h2>
+              <p>Monte seu time e dispute uma partida ou desafie um amigo.</p>
+            </div>
             <div className="home-match-promo__actions">
               <Link to="/match" className="home-button home-button--light">
                 Jogar partida <ArrowRight aria-hidden="true" />

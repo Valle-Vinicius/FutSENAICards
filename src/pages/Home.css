@@ -924,12 +924,13 @@
 }
 
 .home-story {
+  position: relative;
   display: flex;
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
   padding: 13px 0;
-  border-top: 1px solid rgb(255 255 255 / 16%);
+  border-top: 1px solid #e8e8ed;
   color: inherit;
   text-decoration: none;
 }
@@ -944,7 +945,7 @@
 .home-story__image-placeholder {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 10;
   margin-bottom: 12px;
   object-fit: cover;
   background: #e8e8ed;
@@ -954,6 +955,19 @@
   display: grid;
   place-items: center;
   color: #777783;
+}
+
+.home-story__badge {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  left: 12px;
+  padding: 5px 8px;
+  background: #e30613;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
 }
 
 .home-story__image-placeholder svg {
@@ -999,7 +1013,7 @@
 
 .home-story--secondary {
   display: grid;
-  grid-template-columns: minmax(96px, 0.72fr) minmax(0, 1.28fr);
+  grid-template-columns: minmax(112px, 0.78fr) minmax(0, 1.22fr);
   grid-template-rows: auto auto 1fr auto;
   align-items: start;
   column-gap: 13px;
@@ -1012,6 +1026,7 @@
   grid-column: 1;
   grid-row: 1 / 5;
   align-self: center;
+  aspect-ratio: 4 / 3;
   margin: 0;
 }
 
@@ -1092,15 +1107,29 @@
 .home-match-promo {
   position: relative;
   display: flex;
-  min-height: 255px;
+  min-height: 270px;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: flex-start;
-  align-self: start;
+  justify-content: space-between;
+  align-self: stretch;
   overflow: hidden;
+  height: 100%;
   padding: 25px;
   background: linear-gradient(145deg, #e30613 0%, #c40019 100%);
   color: #fff;
+}
+
+.home-match-promo::before {
+  position: absolute;
+  right: -112px;
+  bottom: -132px;
+  width: 310px;
+  aspect-ratio: 1;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 50%;
+  box-shadow: 0 0 0 22px rgb(255 255 255 / 5%), 0 0 0 46px rgb(255 255 255 / 4%);
+  content: '';
+  pointer-events: none;
 }
 
 .home-match-promo__top {
@@ -1154,9 +1183,14 @@
   border-left: 0;
 }
 
+.home-match-promo__copy {
+  z-index: 1;
+  margin: 20px 0;
+}
+
 .home-match-promo h2 {
   z-index: 1;
-  margin: 19px 0 7px;
+  margin: 0 0 8px;
   font-family: 'Arial Narrow', Impact, 'Poppins', sans-serif;
   font-size: clamp(34px, 3vw, 40px);
   font-weight: 900;
@@ -1164,8 +1198,7 @@
   line-height: 0.92;
 }
 
-.home-match-promo > p {
-  z-index: 1;
+.home-match-promo__copy > p {
   max-width: 250px;
   margin: 0;
   color: rgb(255 255 255 / 82%);
