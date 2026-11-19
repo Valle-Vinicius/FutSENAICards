@@ -6,32 +6,33 @@ export interface HomePendingCounts {
   soldListings: number;
 }
 
-export async function getHomePendingCounts(userId: string): Promise<HomePendingCounts> {
+function parseCount(value: unknown): number {
+  const count = typeof value === 'string' ? Number(value) : value;
+  if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) {
+    throw new Error('A RPC de pendências retornou uma contagem inválida.');
+  }
+  return count;
+}
+
+function isHomePendingCountsRow(
+  value: unknown,
+): value is { challenges: unknown; friend_requests: unknown; sold_listings: unknown } {
+  return typeof value === 'object'
+    && value !== null
+    && 'challenges' in value
+    && 'friend_requests' in value
+    && 'sold_listings' in value;
+}
+
+export async function getHomePendingCounts(): Promise<HomePendingCounts> {
   if (!supabase) throw new Error('Supabase não está configurado.');
 
-  const [challenges, poolMatches, friendRequests, soldListings] = await Promise.all([
-    supabase.from('challenges').select('id', { count: 'exact', head: true }).eq('challenged_id', userId).eq('status', 'pending'),
-    supabase.from('pool_matches').select('id', { count: 'exact', head: true }).eq('player2_id', userId).eq('status', 'pending'),
-    supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('addressee_id', userId).eq('status', 'pending'),
-    supabase.from('listings').select('id', { count: 'exact', head: true }).eq('seller_id', userId).eq('status', 'sold'),
-  ]);
-  const results = [
-    ['challenges', challenges],
-    ['pool matches', poolMatches],
-    ['friend requests', friendRequests],
-    ['sold listings', soldListings],
-  ] as const;
-  const failed = results.filter(([, result]) => result.error);
-  if (failed.length > 0) {
-    for (const [source, result] of failed) {
-      if (result.error) console.error(`[Home] failed to load ${source} count:`, result.error);
-    }
-    throw new Error('Não foi possível carregar todas as pendências da conta.');
-  }
-
+  const { data, error } = await supabase.rpc('get_home_pending_counts').single();
+  if (error) throw error;
+  if (!isHomePendingCountsRow(data)) throw new Error('A RPC de pendências retornou um formato inválido.');
   return {
-    challenges: (challenges.count ?? 0) + (poolMatches.count ?? 0),
-    friendRequests: friendRequests.count ?? 0,
-    soldListings: soldListings.count ?? 0,
+    challenges: parseCount(data.challenges),
+    friendRequests: parseCount(data.friend_requests),
+    soldListings: parseCount(data.sold_listings),
   };
 }

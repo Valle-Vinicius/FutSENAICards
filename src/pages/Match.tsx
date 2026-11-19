@@ -642,15 +642,26 @@ function MatchInner() {
     const st = challenge?.status;
     const playbackFinished = (playbackState?.status === 'finished');
     if ((st !== 'pending' && st !== 'accepted' && st !== 'completed') || (st === 'completed' && playbackFinished)) return;
-    const t = setInterval(async () => {
+    let active = true;
+    const pollChallenge = async () => {
+      if (!active || document.visibilityState === 'hidden') return;
       try {
         const ch = await challengesService.getChallenge(challengeId);
-        if (ch) applyChallengeRow(ch);
+        if (active && ch) applyChallengeRow(ch);
       } catch (e) {
         console.error('polling failed', e);
       }
-    }, 4000);
-    return () => clearInterval(t);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'hidden') void pollChallenge();
+    };
+    const t = window.setInterval(() => void pollChallenge(), 4000);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      active = false;
+      window.clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId, challenge?.status, playbackState?.status, result]);
 

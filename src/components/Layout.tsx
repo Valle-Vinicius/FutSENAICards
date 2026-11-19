@@ -161,26 +161,35 @@ export default function Layout() {
   }, []);
   useEffect(() => {
     if (!supabase) return;
+    let active = true;
     let channel: any;
     let interval: any;
+    let uid: string | null = null;
+    const checkPending = async () => {
+      if (!active || !uid || document.visibilityState === 'hidden') return;
+      const [{ data: pendings, error: challengeError }, { data: poolPendings, error: poolError }] = await Promise.all([
+        supabase!.from('challenges').select('id').eq('challenged_id', uid).eq('status', 'pending'),
+        supabase!.from('pool_matches').select('id').eq('player2_id', uid).eq('status', 'pending'),
+      ]);
+      if (challengeError) console.error('[navigation] failed to load pending challenges:', challengeError);
+      if (poolError) console.error('[navigation] failed to load pending pool matches:', poolError);
+      if (!active) return;
+      setPendingChallengesCount(pendings?.length ?? 0);
+      setPendingPoolCount(poolPendings?.length ?? 0);
+      setPendingChallengeId(pendings?.[0]?.id ?? null);
+      setPendingPoolMatchId(poolPendings?.[0]?.id ?? null);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'hidden') void checkPending();
+    };
     (async () => {
       const { data } = await supabase.auth.getSession();
-      const uid = data.session?.user?.id;
-      if (!uid) return;
-      const checkPending = async () => {
-        const [{ data: pendings, error: challengeError }, { data: poolPendings, error: poolError }] = await Promise.all([
-          supabase!.from('challenges').select('id').eq('challenged_id', uid).eq('status', 'pending'),
-          supabase!.from('pool_matches').select('id').eq('player2_id', uid).eq('status', 'pending'),
-        ]);
-        if (challengeError) console.error('[navigation] failed to load pending challenges:', challengeError);
-        if (poolError) console.error('[navigation] failed to load pending pool matches:', poolError);
-        setPendingChallengesCount(pendings?.length ?? 0);
-        setPendingPoolCount(poolPendings?.length ?? 0);
-        setPendingChallengeId(pendings?.[0]?.id ?? null);
-        setPendingPoolMatchId(poolPendings?.[0]?.id ?? null);
-      };
+      uid = data.session?.user?.id ?? null;
+      if (!active || !uid) return;
+      document.addEventListener('visibilitychange', onVisibilityChange);
       await checkPending();
-      interval = setInterval(checkPending, 30000);
+      if (!active) return;
+      interval = window.setInterval(() => void checkPending(), 30000);
       channel = supabase
         .channel(`challenges-notify-${uid}-${Math.random().toString(36).slice(2)}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges', filter: `challenged_id=eq.${uid}` }, (payload: any) => {
@@ -205,7 +214,12 @@ export default function Layout() {
         })
         .subscribe();
     })();
-    return () => { if (channel && supabase) supabase.removeChannel(channel); if (interval) clearInterval(interval); };
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (channel && supabase) void supabase.removeChannel(channel);
+      if (interval) window.clearInterval(interval);
+    };
   }, []);
 
   return (

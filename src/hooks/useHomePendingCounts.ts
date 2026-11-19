@@ -20,7 +20,7 @@ export function useHomePendingCounts() {
       if (sessionError) throw sessionError;
       const userId = data.session?.user?.id;
       if (!userId) throw new Error('Entre na sua conta para consultar suas pendências.');
-      const nextCounts = await getHomePendingCounts(userId);
+      const nextCounts = await getHomePendingCounts();
       setCounts(nextCounts);
       setError(null);
     } catch (loadError) {

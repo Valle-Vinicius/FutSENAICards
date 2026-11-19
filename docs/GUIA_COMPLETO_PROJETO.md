@@ -61,6 +61,7 @@ O workflow [.github/workflows/deploy.yml](../.github/workflows/deploy.yml) dispa
 | `src/store/toast.ts` | Estado e API de notificações toast. |
 | `src/lib/supabase.ts` | Inicialização do cliente Supabase no navegador. |
 | `src/lib/services/` | Serviços de domínio que consultam tabelas, RPCs, Auth, Realtime e Edge Functions. |
+| `src/hooks/useHomePendingCounts.ts` | Atualiza contagens da Home por uma RPC e pausa as consultas com a aba oculta. |
 | `src/lib/game.ts` | Defaults e regras compartilhadas de progressão, formação, raridade e cartas. |
 | `src/data/` | Templates de jogadores, poses, dados estáticos e economia. |
 | `src/engine/match.ts` | Simulação determinística de partidas; não depende de React/DOM. |
@@ -266,7 +267,8 @@ Funções Deno ficam em `supabase/functions/<nome>/index.ts`; algumas importam e
 Realtime está implementado por partes. O código atual usa:
 
 - `friends.ts`: Postgres Changes para `friendships` e Presence privada `friends-presence:<userId>`.
-- `Layout.tsx`/`Match.tsx`: mudanças de `challenges`; Layout também consulta convites pendentes periodicamente.
+- `Layout.tsx`/`Match.tsx`: mudanças de `challenges`; os fallbacks de consulta de convites pendentes pausam com a aba oculta.
+- `get_home_pending_counts`: reúne em uma chamada as contagens de desafios, sinuca pendente, pedidos de amizade e anúncios vendidos da Home.
 - `Pool.tsx`: Broadcast de mira, alterações de `pool_matches` e `pool_shots`, além de polling de reconciliação.
 - `Marketplace.tsx`: escuta `listings` e novos `marketplace_transactions`, depois recarrega dados de mercado.
 - `AdminUsersPanel.tsx`: Broadcast privado de invalidação `user-updated` no tópico `admin-users`.
@@ -276,7 +278,7 @@ Pontos críticos:
 1. `postgres_changes` só funciona quando a tabela está na publication `supabase_realtime` e a policy permite ao usuário observar a linha.
 2. A migration do histórico adiciona `marketplace_transactions` à publication se ela existir. O diagnóstico remoto anterior encontrou `listings` fora da publication, apesar do listener da tela. Confirme se essa publicação foi alterada separadamente; não confunda o evento do ledger com evento de anúncio.
 3. Eventos de DELETE podem não conter as colunas antigas completas se `REPLICA IDENTITY` estiver em `DEFAULT`. Prefira invalidar e refazer query, não derivar o estado do registro apagado.
-4. Reconnect, status de canal e atualização após retorno de foco variam por tela; Pool trata status/reconciliação com mais robustez que os outros fluxos.
+4. Reconnect, status de canal e atualização após retorno de foco variam por tela; Layout e Match retomam consultas ao voltar à aba visível, e Pool trata status/reconciliação com mais robustez que os outros fluxos.
 5. Presence é estado transitório; `last_seen` é heartbeat persistido. A definição de “online” da UI depende dos limites usados nos serviços, não apenas da conexão do navegador.
 
 Consulte [DIAGNOSTICO_REALTIME_E_CONCORRENCIA.md](./DIAGNOSTICO_REALTIME_E_CONCORRENCIA.md) para a análise detalhada e datada de canais, polling, RLS e drift. O relatório precede algumas migrations mais recentes, então confirme os pontos alterados.
