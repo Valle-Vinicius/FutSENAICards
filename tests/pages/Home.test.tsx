@@ -121,6 +121,12 @@ describe('Home page', () => {
     expect(document.querySelector('.home-pending__list')).not.toBeInTheDocument();
   });
 
+  it('reserves extra width for large coin balances', () => {
+    renderHome({ coins: 943237019 });
+
+    expect(document.querySelector('.home-account__numbers')).toHaveClass('home-account__numbers--long-balance');
+  });
+
   it('keeps the Mateus hero image and sorts collection cards by overall and rarity', () => {
     renderHome({
       cards: [

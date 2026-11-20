@@ -184,7 +184,7 @@ export default function Home() {
               <div><span>Progresso do nível</span><strong>{currentLevelXp} <small>/ {levelXpGoal} XP</small></strong></div>
               <div className="home-progress"><span style={{ width: `${pct}%` }} /></div>
             </div>
-            <dl className="home-account__numbers">
+            <dl className={`home-account__numbers${coins >= 10_000_000 ? ' home-account__numbers--long-balance' : ''}`}>
               <div><dt><Coins aria-hidden="true" /> Moedas</dt><dd>{animatedCoins.toLocaleString('pt-BR')}</dd></div>
               <div><dt>Nível</dt><dd>{animatedLevel}</dd></div>
               <div><dt>Cartas</dt><dd>{cards.length}</dd></div>
