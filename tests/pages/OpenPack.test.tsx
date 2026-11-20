@@ -159,6 +159,7 @@ describe('OpenPack loading and animation timing', () => {
   it('shows the selected pack art, price, balance and exact rarity chances', async () => {
     renderOpenPack();
 
+    expect(document.querySelector('.open-pack-page')).toHaveClass('open-pack-page--idle');
     expect(screen.getByRole('img', { name: 'Arte original do Pacote Bronze' })).toHaveAttribute('src', 'test-file-stub');
     expect(screen.getByText('Pacote de teste')).toBeInTheDocument();
     expect(screen.getByText('500', { selector: 'strong' })).toBeInTheDocument();
@@ -190,6 +191,7 @@ describe('OpenPack loading and animation timing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ABRIR PACOTE' }));
 
     expect(screen.getByRole('status')).toHaveTextContent('Abrindo pacote…');
+    expect(document.querySelector('.open-pack-page')).not.toHaveClass('open-pack-page--idle');
     expect(screen.queryByText('ABRINDO...')).not.toBeInTheDocument();
 
     await act(async () => { request.resolve({ cards: [card] }); });

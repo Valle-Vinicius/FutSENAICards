@@ -414,7 +414,7 @@ export default function OpenPack() {
 
   return (
     <div
-      className={`open-pack-page${isDarkPhase ? ' open-pack-page--dark' : ''}`}
+      className={`open-pack-page${phase === 'idle' ? ' open-pack-page--idle' : ''}${isDarkPhase ? ' open-pack-page--dark' : ''}`}
       style={{ '--pack-accent': packColor } as CSSProperties}
     >
       <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
