@@ -41,7 +41,7 @@ function renderLayout(path: string) {
 describe('Layout navigation', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('uses the grouped topbar only on the overview page', () => {
+  it('uses the grouped topbar on the overview page', () => {
     renderLayout('/');
 
     expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
@@ -52,11 +52,12 @@ describe('Layout navigation', () => {
     expect(screen.getAllByRole('link', { name: 'Leaderboard' }).some(link => link.getAttribute('href') === '/leaderboard')).toBe(true);
   });
 
-  it('keeps the existing page navigation on other routes', () => {
+  it('uses the Home topbar and hides the sidebar on the collection route', () => {
     renderLayout('/collection');
 
-    expect(screen.queryByRole('navigation', { name: 'Navegação principal' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Minhas cartas' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(document.querySelector('aside')).not.toBeInTheDocument();
+    expect(document.querySelector('.home-layout')).toBeInTheDocument();
     expect(screen.getByText('Conteúdo das cartas')).toBeInTheDocument();
   });
 
