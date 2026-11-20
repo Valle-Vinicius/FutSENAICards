@@ -1,6 +1,6 @@
 import { Fragment, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowLeftRight, ArrowUp, Lock } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, BookOpen, Lock, Search } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
@@ -114,6 +114,9 @@ export default function Collection() {
     }
     return best;
   }, [cards]);
+  const templates = allTemplates();
+  const albumOwnedCount = templates.filter(template => bestByName.has(template.name)).length;
+  const albumProgress = templates.length > 0 ? Math.round(albumOwnedCount / templates.length * 100) : 0;
 
   const groups = useMemo<CardGroup[]>(() => {
     if (!groupDuplicates) return filtered.map(card => ({ key: card.uid, cards: [card] }));
@@ -230,7 +233,6 @@ export default function Collection() {
     }
   };
 
-  const selectClass = 'bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text)]';
   const conversionMessage = conversionRewardsError
     ? 'Não foi possível carregar os valores atuais. A prévia está indisponível; o servidor continua validando o total pago.'
     : !conversionRewards
@@ -240,16 +242,56 @@ export default function Collection() {
     : 'Nenhuma duplicata parece elegível no inventário atual. Cartas favoritas, em elencos, anúncios, partidas e apostas são preservadas. O servidor revalida tudo antes de converter.';
 
   return (
-    <div className="min-h-[100dvh] space-y-4 bg-[var(--bg)] p-4 md:p-8">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Minhas cartas</h1>
-        <p className="text-xs text-[var(--muted)]">
-          {cards.length} cartas · {unique} únicas · {cards.length - unique} duplicadas
-        </p>
+    <div className="collection-page">
+      <header className="collection-hero">
+        <div className="collection-hero__copy">
+          <p className="collection-eyebrow"><span aria-hidden="true" /> ACERVO OFICIAL · FUTSENAI</p>
+          <h1>Minhas <span>cartas</span></h1>
+          <p className="collection-hero__description">Cada carta tem uma história. Seu próximo craque já está no elenco?</p>
+          {templates.length > 0 && (
+            <div className="collection-progress">
+              <div className="collection-progress__label">
+                <span>Progresso do álbum</span>
+                <strong>{albumOwnedCount} <span>/ {templates.length}</span></strong>
+              </div>
+              <div
+                className="collection-progress__track"
+                role="progressbar"
+                aria-label="Progresso do álbum"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={albumProgress}
+                aria-valuetext={`${albumOwnedCount} de ${templates.length} jogadores`}
+              >
+                <span style={{ width: `${albumProgress}%` }} />
+              </div>
+              <span className="collection-progress__caption">{albumProgress}% completo</span>
+            </div>
+          )}
+        </div>
+
+        <div className="collection-stats" aria-label="Resumo da coleção">
+          <div className="collection-stat collection-stat--total">
+            <span>Total no acervo</span>
+            <strong>{cards.length}</strong>
+            <small>CARTAS</small>
+          </div>
+          <div className="collection-stat">
+            <span>Jogadores únicos</span>
+            <strong>{unique}</strong>
+            <small>NO ÁLBUM</small>
+          </div>
+          <div className="collection-stat">
+            <span>Duplicadas</span>
+            <strong>{cards.length - unique}</strong>
+            <small>PARA TROCAR</small>
+          </div>
+        </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button onClick={() => setAlbum(value => !value)} className={`btn btn-sm ${album ? 'btn-primary' : 'btn-secondary'}`}>
+      <div className="collection-actions" aria-label="Ações da coleção">
+        <button onClick={() => setAlbum(value => !value)} className={`btn btn-sm collection-action ${album ? 'collection-action--active' : ''}`}>
+          <BookOpen aria-hidden="true" className="h-4 w-4" />
           {album ? 'Ver coleção' : 'Ver álbum'}
         </button>
         {!album && (
@@ -257,115 +299,158 @@ export default function Collection() {
             type="button"
             aria-pressed={groupDuplicates}
             onClick={() => { setGroupDuplicates(value => !value); setPage(1); }}
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary btn-sm collection-action"
           >
             Agrupar repetidas: {groupDuplicates ? 'ligado' : 'desligado'}
           </button>
         )}
-        <button onClick={() => setConfirmConversion(true)} className="btn btn-danger btn-sm">
+        <button onClick={() => setConfirmConversion(true)} className="btn btn-danger btn-sm collection-action collection-action--convert">
           Converter duplicatas
         </button>
       </div>
 
-      <div className="card-surface space-y-3 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <input value={q} onChange={event => { setQ(event.target.value); setPage(1); }} placeholder="Buscar por nome..." className={`min-w-[160px] flex-1 ${selectClass}`} />
-          <select value={pos} onChange={event => { setPos(event.target.value); setPage(1); }} className={selectClass} aria-label="Filtrar por posição">
-            <option value="">Posição</option>
+      <section className="collection-filters" aria-label="Filtros da coleção">
+        <div className="collection-filters__heading">
+          <div>
+            <p className="collection-eyebrow">BUSCA DE JOGADORES</p>
+            <h2>Encontre sua carta</h2>
+          </div>
+          <span className="collection-results-count">
+            {album ? `${albumOwnedCount} de ${templates.length} no álbum` : `${filtered.length} cartas encontradas`}
+          </span>
+        </div>
+
+        <div className="collection-filter-fields">
+          <label className="collection-search">
+            <Search aria-hidden="true" />
+            <input
+              aria-label="Buscar por nome"
+              value={q}
+              onChange={event => { setQ(event.target.value); setPage(1); }}
+              placeholder="Buscar por nome..."
+            />
+          </label>
+          <select value={pos} onChange={event => { setPos(event.target.value); setPage(1); }} className="collection-select" aria-label="Filtrar por posição">
+            <option value="">Todas as posições</option>
             {['GK', 'Fixo', 'Ala', 'Pivo'].map(position => <option key={position} value={position}>{position}</option>)}
           </select>
-          <select value={club} onChange={event => { setClub(event.target.value); setPage(1); }} className={selectClass} aria-label="Filtrar por clube">
-            <option value="">Clube</option>
+          <select value={club} onChange={event => { setClub(event.target.value); setPage(1); }} className="collection-select" aria-label="Filtrar por clube">
+            <option value="">Todos os clubes</option>
             {clubs.map(name => <option key={name} value={name}>{name}</option>)}
           </select>
-          {hasActiveFilters && <button onClick={clearFilters} className="btn btn-secondary btn-sm">Limpar filtros</button>}
+          {hasActiveFilters && <button onClick={clearFilters} className="btn btn-secondary btn-sm collection-clear">Limpar filtros</button>}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2" aria-label="Filtrar por raridade">
-          {RARITY_ORDER.map(rarity => {
-            const selected = rar === rarity;
-            return (
-              <button
-                key={rarity}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => { setRar(current => current === rarity ? '' : rarity); setPage(1); }}
-                className={`btn btn-sm ${selected ? 'border-2' : 'btn-secondary'}`}
-                style={selected ? {
-                  backgroundColor: `${RARITY_META[rarity].color}22`,
-                  borderColor: RARITY_META[rarity].color,
-                  color: 'var(--text)',
-                } : { borderColor: `${RARITY_META[rarity].color}88` }}
-              >
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: RARITY_META[rarity].color }} />
-                {RARITY_META[rarity].label}
-              </button>
-            );
-          })}
-        </div>
+        <div className="collection-filter-footer">
+          <div className="collection-rarities" role="group" aria-label="Filtrar por raridade">
+            {RARITY_ORDER.map(rarity => {
+              const selected = rar === rarity;
+              return (
+                <button
+                  key={rarity}
+                  type="button"
+                  aria-pressed={selected}
+                  data-rarity={rarity}
+                  onClick={() => { setRar(current => current === rarity ? '' : rarity); setPage(1); }}
+                  className={`btn btn-sm collection-rarity-chip ${selected ? 'collection-rarity-chip--active' : ''}`}
+                  style={selected ? {
+                    backgroundColor: `${RARITY_META[rarity].color}22`,
+                    borderColor: RARITY_META[rarity].color,
+                    color: rarity === 'secret' ? '#fff' : 'var(--text)',
+                  } : { borderColor: `${RARITY_META[rarity].color}88` }}
+                >
+                  <span className="collection-rarity-chip__dot" style={{ backgroundColor: RARITY_META[rarity].color }} />
+                  {RARITY_META[rarity].label}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
-          <label htmlFor="collection-sort">Ordenar por</label>
-          <select id="collection-sort" value={sort} onChange={event => chooseSort(event.target.value)} className={selectClass}>
-            <option value="overall">Overall</option>
-            <option value="rarity">Raridade</option>
-            <option value="name">Nome</option>
-            <option value="date">Data</option>
-          </select>
-          <button
-            type="button"
-            aria-label={sortDirection === 'asc' ? 'Ordenação crescente' : 'Ordenação decrescente'}
-            onClick={() => { setSortDirection(direction => direction === 'asc' ? 'desc' : 'asc'); setPage(1); }}
-            className="btn btn-secondary btn-sm"
-          >
-            {sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-          </button>
+          <div className="collection-sort">
+            <label htmlFor="collection-sort">Ordenar por</label>
+            <select id="collection-sort" value={sort} onChange={event => chooseSort(event.target.value)} className="collection-select">
+              <option value="overall">Overall</option>
+              <option value="rarity">Raridade</option>
+              <option value="name">Nome</option>
+              <option value="date">Data</option>
+            </select>
+            <button
+              type="button"
+              aria-label={sortDirection === 'asc' ? 'Ordenação crescente' : 'Ordenação decrescente'}
+              onClick={() => { setSortDirection(direction => direction === 'asc' ? 'desc' : 'asc'); setPage(1); }}
+              className="btn btn-secondary btn-sm collection-sort__direction"
+            >
+              {sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
       {album ? (
-        <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] grid gap-4">
-          {allTemplates().map(template => {
-            const owned = bestByName.get(template.name);
-            return owned ? (
-              <div key={template.name} className="min-w-0 space-y-2">
-                <Card card={owned} size="fluid" onClick={() => openCard(owned)} />
-                <button
-                  type="button"
-                  onClick={() => navigate(`/compare?a=${encodeURIComponent(owned.uid)}`)}
-                  className="btn btn-secondary btn-sm w-full justify-center"
-                >
-                  <ArrowLeftRight className="h-4 w-4" /> Comparar
-                </button>
-              </div>
-            ) : (
-              <div key={template.name} className="flex aspect-[7/10] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] bg-white/60 text-xs text-[var(--muted)]">
-                <Lock className="h-6 w-6 opacity-30" />
-                <div className="mt-1 px-2 text-center">{template.name}</div>
-              </div>
-            );
-          })}
-        </div>
+        <section className="collection-results" aria-labelledby="collection-album-heading">
+          <div className="collection-results__heading">
+            <div>
+              <p className="collection-eyebrow">FIGURINHAS OFICIAIS</p>
+              <h2 id="collection-album-heading">Álbum de jogadores</h2>
+            </div>
+            <span>{albumOwnedCount} de {templates.length} encontrados</span>
+          </div>
+          <div className="collection-grid">
+            {templates.map(template => {
+              const owned = bestByName.get(template.name);
+              return owned ? (
+                <div key={template.name} className="collection-card" data-rarity={owned.rarity}>
+                  <div className="collection-card__stage">
+                    <Card card={owned} size="fluid" onClick={() => openCard(owned)} positionLabel={owned.club ? owned.position : undefined} animateHover={false} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/compare?a=${encodeURIComponent(owned.uid)}`)}
+                    className="btn btn-secondary btn-sm collection-card__compare"
+                  >
+                    <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
+                  </button>
+                </div>
+              ) : (
+                <div key={template.name} className="collection-album-empty">
+                  <div className="collection-album-empty__slot"><Lock aria-hidden="true" /></div>
+                  <span>{template.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       ) : groups.length === 0 ? (
-        <div className="py-12 text-center text-[var(--muted)]">Nenhuma carta encontrada.</div>
+        <div className="collection-empty">
+          <Search aria-hidden="true" />
+          <h2>Nenhuma carta encontrada</h2>
+          <p>Ajuste os filtros ou tente buscar outro nome.</p>
+        </div>
       ) : (
-        <>
-          <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] grid gap-4">
+        <section className="collection-results" aria-labelledby="collection-results-heading">
+          <div className="collection-results__heading">
+            <div>
+              <p className="collection-eyebrow">SEU ACERVO</p>
+              <h2 id="collection-results-heading">Cartas do elenco</h2>
+            </div>
+            <span>{filtered.length} cartas · {groups.length} grupos</span>
+          </div>
+          <div className="collection-grid">
             {pageGroups.map(group => {
               const card = group.cards[0];
               const expanded = expandedGroups.has(group.key);
               return (
                 <Fragment key={group.key}>
-                  <div className="min-w-0 space-y-2">
-                    <div className="relative">
-                      <Card card={card} size="fluid" onClick={() => openCard(card)} isNew={card.isNew} />
+                  <div className="collection-card" data-rarity={card.rarity}>
+                    <div className="collection-card__stage">
+                      <Card card={card} size="fluid" onClick={() => openCard(card)} isNew={card.isNew} positionLabel={card.club ? card.position : undefined} animateHover={false} />
                       {groupDuplicates && group.cards.length > 1 && (
                         <button
                           type="button"
                           aria-expanded={expanded}
                           aria-label={`${expanded ? 'Ocultar' : 'Mostrar'} ${group.cards.length - 1} ${group.cards.length === 2 ? 'cópia' : 'cópias'} de ${card.name}`}
                           onClick={() => toggleGroup(group.key)}
-                          className="absolute right-2 top-20 z-30 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[var(--text)] shadow"
+                          className="collection-card__copies"
                         >
                           ×{group.cards.length}
                         </button>
@@ -374,22 +459,24 @@ export default function Collection() {
                     <button
                       type="button"
                       onClick={() => navigate(`/compare?a=${encodeURIComponent(card.uid)}`)}
-                      className="btn btn-secondary btn-sm w-full justify-center"
+                      className="btn btn-secondary btn-sm collection-card__compare"
                     >
-                      <ArrowLeftRight className="h-4 w-4" /> Comparar
+                      <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
                     </button>
                   </div>
                   {expanded && group.cards.length > 1 && (
-                    <div className="[grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr))] col-span-full grid gap-4 rounded-xl border border-dashed border-[var(--border)] bg-white/50 p-3">
+                    <div className="collection-expanded">
                       {group.cards.slice(1).map(copy => (
-                        <div key={copy.uid} className="min-w-0 space-y-2">
-                          <Card card={copy} size="fluid" onClick={() => openCard(copy)} isNew={copy.isNew} />
+                        <div key={copy.uid} className="collection-card" data-rarity={copy.rarity}>
+                          <div className="collection-card__stage">
+                            <Card card={copy} size="fluid" onClick={() => openCard(copy)} isNew={copy.isNew} positionLabel={copy.club ? copy.position : undefined} animateHover={false} />
+                          </div>
                           <button
                             type="button"
                             onClick={() => navigate(`/compare?a=${encodeURIComponent(copy.uid)}`)}
-                            className="btn btn-secondary btn-sm w-full justify-center"
+                            className="btn btn-secondary btn-sm collection-card__compare"
                           >
-                            <ArrowLeftRight className="h-4 w-4" /> Comparar
+                            <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
                           </button>
                         </div>
                       ))}
@@ -400,7 +487,7 @@ export default function Collection() {
             })}
           </div>
           {totalPages > 1 && (
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-1">
+            <nav className="collection-pagination" aria-label="Paginação da coleção">
               <button onClick={() => setPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className="btn btn-secondary btn-sm" aria-label="Página anterior">‹</button>
               {(() => {
                 const pages: (number | string)[] = [];
@@ -422,12 +509,12 @@ export default function Collection() {
                   >
                     {item}
                   </button>
-                ) : <span key={index} className="px-1 text-[var(--muted)]">…</span>);
+                ) : <span key={index} className="collection-pagination__ellipsis">…</span>);
               })()}
               <button onClick={() => setPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage >= totalPages} className="btn btn-secondary btn-sm" aria-label="Próxima página">›</button>
-            </div>
+            </nav>
           )}
-        </>
+        </section>
       )}
 
       <ConfirmModal

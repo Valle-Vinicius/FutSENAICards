@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { PlayerCard } from '../../src/types';
 import { useGame } from '../../src/store/useGame';
@@ -13,7 +13,9 @@ jest.mock('../../src/components/Card', () => ({
   ),
 }));
 jest.mock('../../src/lib/supabase', () => ({ supabase: null }));
-jest.mock('../../src/data/players', () => ({ allTemplates: () => [] }));
+jest.mock('../../src/data/players', () => ({
+  allTemplates: () => [{ name: 'Thiago Tavares' }, { name: 'Jogador não obtido' }],
+}));
 jest.mock('../../src/store/useGame', () => ({
   useGame: jest.fn(),
 }));
@@ -23,11 +25,16 @@ jest.mock('../../src/store/toast', () => ({
 
 const mockedUseGame = jest.mocked(useGame);
 
-function makeCard(uid: string, rarity: PlayerCard['rarity'] = 'rare', isNew = false): PlayerCard {
+function makeCard(
+  uid: string,
+  rarity: PlayerCard['rarity'] = 'rare',
+  isNew = false,
+  name = 'Thiago Tavares',
+): PlayerCard {
   return {
     uid,
-    playerId: 'player-thiago',
-    name: 'Thiago Tavares',
+    playerId: `player-${name}`,
+    name,
     position: 'Ala',
     sport: 'futsal',
     nationality: 'Brasil',
@@ -92,6 +99,20 @@ describe('Collection page', () => {
     expect(screen.getAllByRole('button', { name: 'Thiago Tavares' })).toHaveLength(3);
   });
 
+  it('shows inventory totals and album progress from the existing templates', () => {
+    renderCollection([makeCard('rare-1'), makeCard('rare-2'), makeCard('common-1', 'common')]);
+
+    const summary = within(screen.getByLabelText('Resumo da coleção'));
+    expect(summary.getByText('Total no acervo').parentElement).toHaveTextContent('3');
+    expect(summary.getByText('Jogadores únicos').parentElement).toHaveTextContent('1');
+    expect(summary.getByText('Duplicadas').parentElement).toHaveTextContent('2');
+    expect(screen.getByRole('progressbar', { name: 'Progresso do álbum' })).toHaveAttribute('aria-valuenow', '50');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver álbum' }));
+    expect(screen.getByRole('heading', { name: 'Álbum de jogadores' })).toBeInTheDocument();
+    expect(screen.getByText('Jogador não obtido')).toBeInTheDocument();
+  });
+
   it('shows rarity filters as chips and only offers clearing when a filter is active', () => {
     renderCollection([makeCard('rare-1')]);
 
@@ -100,6 +121,19 @@ describe('Collection page', () => {
     expect(screen.getByRole('button', { name: 'Limpar filtros' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
     expect(screen.queryByRole('button', { name: 'Limpar filtros' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the existing pagination controls for larger collections', () => {
+    const cards = Array.from({ length: 25 }, (_, index) =>
+      makeCard(`card-${index}`, 'rare', false, `Jogador ${index}`),
+    );
+    renderCollection(cards);
+
+    expect(screen.getByRole('button', { name: 'Jogador 0' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
+    expect(screen.queryByRole('button', { name: 'Jogador 0' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '2' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Página anterior' })).toBeEnabled();
   });
 
   it('marks visible new cards as seen after the page stays visible for three seconds', () => {
