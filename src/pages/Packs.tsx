@@ -1,138 +1,222 @@
 import type { CSSProperties } from 'react';
+import { ArrowUpRight, Coins, LockKeyhole, PackageOpen, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { PackageOpen } from 'lucide-react';
-import { useGame } from '../store/useGame';
+import bronzeArt from '../imagens/pacotes/bronze.png';
+import silverArt from '../imagens/pacotes/prata.png';
+import goldArt from '../imagens/pacotes/ouro.png';
+import premiumArt from '../imagens/pacotes/premium.png';
+import rarePlayersArt from '../imagens/pacotes/jogadoresraros.png';
+import legendsArt from '../imagens/pacotes/lendas.png';
+import goalkeepersArt from '../imagens/pacotes/goleiros.png';
+import choiceArt from '../imagens/pacotes/escolhaespecial.png';
+import offSaleArt from '../imagens/pacotes/offsale.png';
 import { PACK_RARITY_ORDER, RARITY_META, type PackDef } from '../types';
+import { useGame } from '../store/useGame';
 
 const PACK_SECTIONS = [
-  { title: 'Clássicos', ids: ['bronze', 'silver', 'gold', 'premium'] },
-  { title: 'Especiais', ids: ['rareplayers', 'legends', 'position_gk', 'choice'] },
-  { title: 'Eventos', ids: ['off_sale'] },
+  {
+    title: 'Clássicos',
+    eyebrow: 'A base do seu elenco',
+    description: 'Do primeiro reforço àquele upgrade que faltava.',
+    ids: ['bronze', 'silver', 'gold', 'premium'],
+    accent: '#e30613',
+  },
+  {
+    title: 'Especiais',
+    eyebrow: 'Cartas fora de série',
+    description: 'Pacotes para quem está caçando raridades.',
+    ids: ['rareplayers', 'legends', 'position_gk', 'choice'],
+    accent: '#8f5a1d',
+  },
+  {
+    title: 'Eventos',
+    eyebrow: 'Edições de ocasião',
+    description: 'Oportunidades especiais que entram em campo.',
+    ids: ['off_sale'],
+    accent: '#7e22ce',
+  },
 ];
 
-const PACK_BUTTON_STYLES: Record<string, { background: string; foreground: string }> = {
-  '#cd7f32': { background: '#cd7f32', foreground: 'var(--text)' },
-  '#c0c0c0': { background: '#c0c0c0', foreground: 'var(--text)' },
-  '#f5c542': { background: '#f5c542', foreground: 'var(--text)' },
-  '#e30613': { background: 'var(--red)', foreground: 'var(--white)' },
-  '#a855f7': { background: '#7e22ce', foreground: 'var(--white)' },
-  '#3b82f6': { background: '#1d4ed8', foreground: 'var(--white)' },
-  '#b6ff3b': { background: '#b6ff3b', foreground: 'var(--text)' },
+const PACK_ART: Record<string, string> = {
+  bronze: bronzeArt,
+  silver: silverArt,
+  gold: goldArt,
+  premium: premiumArt,
+  rareplayers: rarePlayersArt,
+  legends: legendsArt,
+  position_gk: goalkeepersArt,
+  choice: choiceArt,
+  off_sale: offSaleArt,
 };
 
-const PACK_ICON_COLORS: Record<string, string> = {
-  '#cd7f32': 'var(--text)',
-  '#c0c0c0': 'var(--text)',
-  '#f5c542': 'var(--text)',
-  '#e30613': 'var(--red)',
-  '#a855f7': '#7e22ce',
-  '#3b82f6': '#1d4ed8',
-  '#b6ff3b': 'var(--text)',
-};
+function formatProbability(chance: number) {
+  return `${(chance * 100).toLocaleString('pt-BR', { maximumFractionDigits: 12 })}%`;
+}
 
 function renderPack(pack: PackDef, coins: number) {
-  const color = pack.color || 'var(--muted)';
+  const color = pack.color || '#6b7280';
+  const canAfford = coins >= pack.price;
   const normalizedColor = color.toLowerCase();
-  const buttonStyle = PACK_BUTTON_STYLES[normalizedColor] ?? (
-    pack.color
-      ? { background: color, foreground: 'var(--text)' }
-      : { background: '#6B7280', foreground: 'var(--white)' }
-  );
-  const iconColor = PACK_ICON_COLORS[normalizedColor] ?? 'var(--text)';
-  const hasBalance = coins >= pack.price;
-  const style = {
-    borderTopColor: color,
-    '--pack-glow': `${color}44`,
-  } as CSSProperties;
+  const darkButtonText = ['#cd7f32', '#c0c0c0', '#f5c542', '#b6ff3b'].includes(normalizedColor);
+  const buttonColor = normalizedColor === '#3b82f6'
+    ? '#1d4ed8'
+    : normalizedColor === '#a855f7'
+      ? '#7e22ce'
+      : color;
+  const isFeatured = pack.id === 'premium';
+  const isLegendary = pack.id === 'legends';
   const rarityEntries = PACK_RARITY_ORDER.map(rarity => [rarity, pack.probabilities[rarity]] as const);
   const ariaProbabilities = rarityEntries
-    .map(([rarity, chance]) => `${RARITY_META[rarity].label} ${(chance * 100).toFixed(1)}%`)
+    .map(([rarity, chance]) => `${RARITY_META[rarity].label} ${formatProbability(chance)}`)
     .join(', ');
+  const style = {
+    '--pack-color': color,
+    borderColor: isFeatured ? color : 'rgb(226 228 232)',
+  } as CSSProperties;
 
   return (
     <article
       key={pack.id}
-      className="card-surface aspect-square w-full min-w-0 flex flex-col justify-between gap-3 overflow-hidden border-t-4 p-3 transition-shadow hover:shadow-[0_0_18px_var(--pack-glow)] motion-reduce:transition-none sm:p-4 xl:gap-2 xl:p-3 2xl:gap-4 2xl:p-5"
+      className={`group relative flex min-h-[31rem] min-w-0 flex-col overflow-hidden rounded-2xl border bg-white shadow-[0_8px_24px_rgba(24,27,34,0.06)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_16px_34px_rgba(24,27,34,0.14)] motion-reduce:transform-none motion-reduce:transition-none ${
+        isFeatured ? 'ring-1 ring-[#e30613]/20' : ''
+      }`}
       style={style}
     >
-      <header className="flex min-h-16 items-center gap-3 xl:min-h-14 xl:gap-2 2xl:min-h-20 2xl:gap-4">
+      <div
+        className="relative isolate flex h-52 shrink-0 items-center justify-center overflow-hidden border-b border-black/5 sm:h-56"
+        style={{
+          background: 'linear-gradient(145deg, color-mix(in srgb, var(--pack-color) 20%, white), #f1f2f4 72%)',
+        }}
+      >
         <div
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl xl:h-14 xl:w-14 2xl:h-20 2xl:w-20"
-          style={{ backgroundColor: `${color}22`, color: iconColor }}
           aria-hidden="true"
-        >
-          <PackageOpen className="h-8 w-8 xl:h-7 xl:w-7 2xl:h-10 2xl:w-10" strokeWidth={1.8} />
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-base font-bold leading-5 tracking-wide text-[var(--text)] xl:text-sm xl:leading-4 2xl:text-lg 2xl:leading-6">{pack.name.toLocaleUpperCase('pt-BR')}</h3>
-          <p className="mt-1 text-xs leading-4 text-[#626879] 2xl:text-sm 2xl:leading-5">{pack.description}</p>
-        </div>
-      </header>
-
-      <div className="flex items-center justify-between gap-2 border-y border-[var(--border)] py-2 text-xs xl:py-1 2xl:py-2 2xl:text-sm">
-        <div className="flex items-center gap-1">
-          <span className="text-[#626879]">Cartas</span>
-          <span className="font-semibold text-[var(--text)]">{pack.cards}</span>
-        </div>
-        <div className="flex min-w-0 items-center gap-1">
-          <span className="text-[#626879]">Preço</span>
-          <span
-            className="whitespace-nowrap rounded-md px-1.5 py-0.5 text-right font-bold text-[var(--text)]"
-            style={{ backgroundColor: `${color}22` }}
-          >
-            {pack.price === 0 ? 'Evento' : `${pack.price.toLocaleString('pt-BR')} moedas`}
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-2 xl:space-y-1 2xl:space-y-2">
-        <h4 className="text-sm font-semibold text-[#424858] xl:text-xs 2xl:text-base">Probabilidades</h4>
+          className="pointer-events-none absolute inset-0 opacity-35"
+          style={{
+            backgroundImage:
+              'linear-gradient(90deg, transparent 49.8%, rgba(35,38,44,.12) 50%, transparent 50.2%), radial-gradient(circle at center, transparent 0 42%, rgba(35,38,44,.13) 42.2% 42.6%, transparent 42.8%), linear-gradient(0deg, transparent 49.8%, rgba(35,38,44,.08) 50%, transparent 50.2%)',
+          }}
+        />
         <div
-          role="img"
-          aria-label={`Probabilidades: ${ariaProbabilities}`}
-          className="flex h-3 overflow-hidden rounded-full bg-[var(--border)] xl:h-2 2xl:h-3"
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-14 h-40 w-40 rounded-full opacity-20 blur-3xl"
+          style={{ backgroundColor: color }}
+        />
+        <span
+          className="absolute left-4 top-4 z-10 inline-flex min-h-7 items-center gap-1.5 border px-2.5 text-[9px] font-black uppercase tracking-[0.13em] backdrop-blur-sm"
+          style={{ borderColor: `${color}66`, backgroundColor: 'rgba(255,255,255,.82)', color }}
         >
-          {rarityEntries.map(([rarity, chance]) => chance > 0 && (
-            <span
-              key={rarity}
-              className="h-full"
-              style={{ width: `${chance * 100}%`, backgroundColor: RARITY_META[rarity].color }}
-            />
-          ))}
+          {isFeatured ? <Sparkles aria-hidden="true" className="h-3 w-3" /> : <PackageOpen aria-hidden="true" className="h-3 w-3" />}
+          {isFeatured ? 'Destaque da loja' : isLegendary ? 'Raridade máxima' : pack.price === 0 ? 'Evento' : 'Pacote FUTSENAI'}
+        </span>
+        {PACK_ART[pack.id] ? (
+          <img
+            src={PACK_ART[pack.id]}
+            alt={`Embalagem original do ${pack.name}`}
+            loading={isFeatured ? 'eager' : 'lazy'}
+            decoding="async"
+            draggable={false}
+            className={`relative z-[1] h-[94%] w-[70%] object-contain drop-shadow-[0_14px_12px_rgba(0,0,0,0.22)] transition-transform duration-300 group-hover:scale-[1.035] motion-reduce:transition-none ${
+              isFeatured ? 'sm:h-[102%]' : ''
+            }`}
+          />
+        ) : (
+          <PackageOpen aria-hidden="true" className="relative z-[1] h-20 w-20 text-[#3d4149]" strokeWidth={1.2} />
+        )}
+        <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2 rounded-full border border-white/70 bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[#24262b] shadow-sm">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+          {pack.cards} {pack.cards === 1 ? 'carta' : 'cartas'}
         </div>
-        <ul className="grid grid-cols-2 gap-x-3 text-xs leading-4 text-[#424858] 2xl:text-sm 2xl:leading-5">
-          {rarityEntries.map(([rarity, chance]) => (
-            <li key={rarity} className="flex min-w-0 items-center justify-between gap-1">
-              <span className="flex min-w-0 items-center gap-1">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: RARITY_META[rarity].color }} aria-hidden="true" />
-                <span className="truncate">{RARITY_META[rarity].label}</span>
-              </span>
-              <span className="shrink-0 tabular-nums">{(chance * 100).toFixed(1)}%</span>
-            </li>
-          ))}
-        </ul>
       </div>
 
-      <div>
-        {!pack.unlocked ? (
-          <div className="flex min-h-11 items-center justify-center text-center text-xs text-[#626879]">
-            Bloqueado (complete missões)
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        <div className="min-h-[74px]">
+          <h3 className="font-[Arial_Narrow,Impact,sans-serif] text-lg font-black leading-5 tracking-tight text-[#17191d]">
+            {pack.name.toLocaleUpperCase('pt-BR')}
+          </h3>
+          <p className="mt-1.5 line-clamp-2 text-xs leading-[1.45rem] text-[#626879]">{pack.description}</p>
+        </div>
+
+        <div className="mt-3 flex items-end justify-between gap-2 border-y border-[#eceef1] py-3">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#777d87]">Conteúdo</p>
+            <p className="mt-0.5 text-sm font-extrabold tabular-nums text-[#22252a]">{pack.cards} cartas</p>
           </div>
-        ) : (
-          <Link
-            to={`/open/${pack.id}`}
-            aria-disabled={!hasBalance}
-            tabIndex={hasBalance ? undefined : -1}
-            className={`flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text)] 2xl:min-h-14 2xl:text-base ${
-              hasBalance
-                ? 'text-white transition-[filter] hover:brightness-110 motion-reduce:transition-none'
-                : 'pointer-events-none cursor-not-allowed bg-[#D5D8E0] text-[#424858]'
-            }`}
-            style={hasBalance ? { backgroundColor: buttonStyle.background, color: buttonStyle.foreground } : undefined}
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#777d87]">Preço</p>
+            <p className="mt-0.5 flex items-center justify-end gap-1 text-sm font-extrabold tabular-nums text-[#22252a]">
+              {pack.price === 0 ? 'Evento' : pack.price.toLocaleString('pt-BR')}
+              {pack.price > 0 && <Coins aria-hidden="true" className="h-3.5 w-3.5 text-[#e30613]" />}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#555b65]">Chances por raridade</h4>
+            <span className="text-[9px] font-medium text-[#9297a0]">reais</span>
+          </div>
+          <div
+            role="img"
+            aria-label={`Probabilidades: ${ariaProbabilities}`}
+            className="flex h-2 overflow-hidden rounded-full bg-[#eceef1]"
           >
-            {hasBalance ? 'ABRIR' : 'Saldo insuficiente'}
-          </Link>
-        )}
+            {rarityEntries.map(([rarity, chance]) => chance > 0 && (
+              <span
+                key={rarity}
+                className="h-full"
+                style={{ width: `${chance * 100}%`, backgroundColor: RARITY_META[rarity].color }}
+              />
+            ))}
+          </div>
+          <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+            {rarityEntries.filter(([, chance]) => chance > 0).map(([rarity, chance]) => (
+              <li key={rarity} className="flex min-w-0 items-center justify-between gap-1 text-[10px] leading-4">
+                <span className="flex min-w-0 items-center gap-1.5 text-[#656b75]">
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: RARITY_META[rarity].color }}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{RARITY_META[rarity].label}</span>
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums text-[#30343a]">{formatProbability(chance)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-auto pt-4">
+          {!pack.unlocked ? (
+            <div className="flex min-h-11 items-center justify-center gap-2 border border-dashed border-[#d6d8dd] bg-[#f7f7f8] px-3 text-center text-xs font-semibold text-[#626879]">
+              <LockKeyhole aria-hidden="true" className="h-4 w-4" />
+              Bloqueado · complete missões
+            </div>
+          ) : (
+            <Link
+              to={`/open/${pack.id}`}
+              aria-disabled={!canAfford}
+              tabIndex={canAfford ? undefined : -1}
+              className={`flex min-h-11 w-full items-center justify-center gap-2 px-4 text-center text-xs font-black uppercase tracking-[0.12em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#17191d] ${
+                canAfford
+                  ? 'text-white transition-[filter,transform] hover:brightness-110 active:scale-[0.99] motion-reduce:transition-none'
+                  : 'pointer-events-none cursor-not-allowed bg-[#e6e7ea] text-[#686d76]'
+              }`}
+              style={canAfford ? { backgroundColor: buttonColor, color: darkButtonText ? '#17191d' : '#fff' } : undefined}
+            >
+              {canAfford ? (
+                <>
+                  ABRIR
+                  <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  <LockKeyhole aria-hidden="true" className="h-3.5 w-3.5" />
+                  Saldo insuficiente
+                </>
+              )}
+            </Link>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -143,23 +227,89 @@ export default function Packs() {
   const coins = useGame(s => s.coins);
   const knownIds = new Set(PACK_SECTIONS.flatMap(section => section.ids));
   const sections = PACK_SECTIONS.map(section => ({
-    title: section.title,
+    ...section,
     packs: packs.filter(pack => section.ids.includes(pack.id)),
   })).filter(section => section.packs.length > 0);
   const otherPacks = packs.filter(pack => !knownIds.has(pack.id));
-  if (otherPacks.length > 0) sections.push({ title: 'Outros', packs: otherPacks });
+  if (otherPacks.length > 0) {
+    sections.push({
+      title: 'Outros',
+      eyebrow: 'Mais opções',
+      description: 'Outros pacotes disponíveis no clube.',
+      ids: [],
+      accent: '#626879',
+      packs: otherPacks,
+    });
+  }
 
   return (
-    <div className="space-y-6 p-4 pb-12 md:p-8">
-      <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Loja de pacotes</h1>
-      {sections.map(section => (
-        <section key={section.title} className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-[#424858]">{section.title}</h2>
-          <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {section.packs.map(pack => renderPack(pack, coins))}
+    <div className="min-h-full overflow-x-hidden bg-[linear-gradient(180deg,#fff_0%,#f4f5f7_44%,#fff_100%)] px-4 pb-10 pt-5 text-[#17191d] overscroll-y-none sm:px-6 sm:pt-7 lg:px-9">
+      <div className="mx-auto w-full max-w-[1440px]">
+        <header className="relative mb-8 overflow-hidden border-b border-[#e6e7ea] pb-6 sm:mb-10 sm:pb-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-14 -top-20 h-56 w-56 rounded-full bg-[#e30613]/[0.07] blur-3xl"
+          />
+          <div className="relative flex flex-wrap items-end justify-between gap-5">
+            <div className="max-w-3xl">
+              <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.17em] text-[#777d87]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#e30613]" />
+                Central de pacotes <span className="text-[#e30613]">/</span> FUTSENAI
+              </p>
+              <h1 className="font-[Arial_Narrow,Impact,sans-serif] text-4xl font-black uppercase leading-[0.94] tracking-[-0.055em] text-[#17191d] sm:text-5xl lg:text-6xl">
+                A próxima carta
+                <span className="block text-[#e30613]">pode ser sua.</span>
+              </h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-[#626879] sm:text-base">
+                Escolha seu pacote, confira as chances e prepare o elenco para a próxima rodada.
+              </p>
+            </div>
+
+            <div className="flex min-h-14 min-w-[164px] items-center gap-3 border-l-2 border-[#e30613] bg-white/80 px-4 py-2 shadow-[0_6px_20px_rgba(24,27,34,0.06)]">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff0f1] text-[#e30613]">
+                <Coins aria-hidden="true" className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-[9px] font-bold uppercase tracking-[0.13em] text-[#777d87]">Seu saldo</span>
+                <strong className="mt-0.5 block text-lg font-black tabular-nums leading-5 text-[#17191d]">
+                  {coins.toLocaleString('pt-BR')}
+                  <span className="ml-1 text-xs font-semibold text-[#626879]">moedas</span>
+                </strong>
+              </span>
+            </div>
           </div>
-        </section>
-      ))}
+        </header>
+
+        <div className="space-y-9 sm:space-y-12">
+          {sections.map((section, index) => (
+            <section
+              key={section.title}
+              aria-labelledby={`pack-section-${index}`}
+              className={`relative isolate overflow-hidden border-t-2 border-[#dedfe3] pt-5 sm:pt-6 ${
+                section.title === 'Especiais' ? 'border-t-[#d7c6a9]' : section.title === 'Eventos' ? 'border-t-[#d6c3e8]' : ''
+              }`}
+            >
+              <div className="relative mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2 sm:mb-5">
+                <div>
+                  <p className="mb-1 text-[9px] font-black uppercase tracking-[0.17em]" style={{ color: section.accent }}>
+                    {section.eyebrow}
+                  </p>
+                  <h2
+                    id={`pack-section-${index}`}
+                    className="font-[Arial_Narrow,Impact,sans-serif] text-2xl font-black uppercase leading-none tracking-tight text-[#202329] sm:text-3xl"
+                  >
+                    {section.title}
+                  </h2>
+                </div>
+                <p className="text-xs leading-5 text-[#777d87] sm:text-sm">{section.description}</p>
+              </div>
+              <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
+                {section.packs.map(pack => renderPack(pack, coins))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

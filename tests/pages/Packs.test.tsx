@@ -24,15 +24,17 @@ describe('Packs page layout', () => {
       'Eventos',
     ]);
     expect(screen.getAllByRole('article')).toHaveLength(9);
-    expect(screen.getAllByRole('article').every(card => card.classList.contains('aspect-square'))).toBe(true);
     expect(screen.getAllByRole('heading', { level: 3 }).map(heading => heading.textContent)).toEqual(
       DEFAULT_PACKS.map(pack => pack.name.toLocaleUpperCase('pt-BR')),
     );
     expect(screen.getByRole('heading', { name: 'PACOTE OFF-SALE' })).toBeInTheDocument();
     expect(screen.getAllByRole('img', { name: /Probabilidades:/ })).toHaveLength(9);
+    expect(screen.getAllByRole('img', { name: /Embalagem original do/ })).toHaveLength(9);
     expect(screen.getAllByRole('img', {
-      name: /Comum 62\.0%, Incomum 25\.0%, Rara 10\.0%, Épica 2\.5%, Lendária 0\.4%, Ícone 0\.1%/,
+      name: /Comum 62%, Incomum 25%, Rara 10%, Épica 2,5%, Lendária 0,4%, Ícone 0,1%/,
     })).toHaveLength(2);
+    expect(screen.getAllByText('62%')).toHaveLength(2);
+    expect(screen.getAllByText('2,5%')).toHaveLength(3);
   });
 
   it('keeps the existing open link and insufficient-balance state', () => {

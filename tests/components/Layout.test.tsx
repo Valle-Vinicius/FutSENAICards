@@ -29,6 +29,7 @@ function renderLayout(path: string) {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<div>Conteúdo da visão geral</div>} />
+          <Route path="/packs" element={<div>Conteúdo da loja de pacotes</div>} />
           <Route path="/open/:packId" element={<div>Conteúdo da abertura</div>} />
           <Route path="/collection" element={<div>Conteúdo das cartas</div>} />
         </Route>
@@ -65,5 +66,13 @@ describe('Layout navigation', () => {
     expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
     expect(screen.queryByText('Futsenai')).not.toBeInTheDocument();
     expect(screen.getByText('Conteúdo da abertura')).toBeInTheDocument();
+  });
+
+  it('uses the Home topbar on the pack store route', () => {
+    renderLayout('/packs');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(screen.queryByText('Futsenai')).not.toBeInTheDocument();
+    expect(screen.getByText('Conteúdo da loja de pacotes')).toBeInTheDocument();
   });
 });

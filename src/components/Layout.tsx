@@ -65,8 +65,9 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const listings = useGame(s => s.listings);
   const location = useLocation();
   const isHomeRoute = location.pathname === '/';
+  const isPacksRoute = location.pathname === '/packs';
   const isOpenPackRoute = location.pathname.startsWith('/open/');
-  const usesHomeTopbar = isHomeRoute || isOpenPackRoute;
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isOpenPackRoute;
   const isMatchRoute = location.pathname === '/match';
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
