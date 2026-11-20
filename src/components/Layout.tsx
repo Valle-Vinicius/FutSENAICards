@@ -65,6 +65,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const listings = useGame(s => s.listings);
   const location = useLocation();
   const isHomeRoute = location.pathname === '/';
+  const isOpenPackRoute = location.pathname.startsWith('/open/');
+  const usesHomeTopbar = isHomeRoute || isOpenPackRoute;
   const isMatchRoute = location.pathname === '/match';
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
@@ -254,8 +256,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
   }, [currentUserId]);
 
   return (
-    <div className={isHomeRoute ? 'home-layout' : 'h-[100dvh] flex flex-col md:flex-row bg-[var(--bg)]'}>
-      {!isHomeRoute && <aside className="hidden md:flex w-64 flex-col p-4 bg-white border-r border-[var(--border)]">
+    <div className={usesHomeTopbar ? 'home-layout' : 'h-[100dvh] flex flex-col md:flex-row bg-[var(--bg)]'}>
+      {!usesHomeTopbar && <aside className="hidden md:flex w-64 flex-col p-4 bg-white border-r border-[var(--border)]">
         <div className="mb-6 px-2">
           <div className="text-xl font-bold tracking-tight text-[var(--text)]">
             <span className="text-[var(--red)]">FUT</span>SENAI
@@ -313,7 +315,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
         </div>
       </aside>}
 
-      {isHomeRoute && (
+      {usesHomeTopbar && (
         <header className="home-topbar">
           <div className="home-container home-topbar__inner">
             <Link to="/" className="home-topbar__brand" aria-label="FUTSENAI, início">
@@ -409,7 +411,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
         </header>
       )}
 
-      {!isHomeRoute && <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-[var(--border)]">
+      {!usesHomeTopbar && <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-[var(--border)]">
         <button onClick={() => setDrawerOpen(true)} className="text-2xl text-[var(--text)]" aria-label="Menu"><Menu className="w-5 h-5" /></button>
         <div className="text-lg font-bold"><span className="text-[var(--red)]">FUT</span>SENAI</div>
         <div className="flex items-center gap-3 text-sm">
@@ -419,8 +421,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
         </div>
       </header>}
 
-      <div className={isHomeRoute ? 'home-layout__content' : 'flex-1 flex flex-col min-w-0 min-h-0'}>
-        {!isHomeRoute && <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-[var(--border)]">
+      <div className={usesHomeTopbar ? 'home-layout__content' : 'flex-1 flex flex-col min-w-0 min-h-0'}>
+        {!usesHomeTopbar && <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-[var(--border)]">
           <div className="text-sm text-[var(--muted)]">
             Futsenai <span className="mx-1">/</span> <span className="text-[var(--text)] font-medium">{title}</span>
           </div>
@@ -450,7 +452,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
           </div>
         </div>}
 
-        <main className={`${isHomeRoute ? 'home-layout__main' : 'flex-1 min-w-0 min-h-0 overflow-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0'} ${isMatchRoute ? 'match-route-main' : ''}`}>
+        <main className={`${usesHomeTopbar ? 'home-layout__main' : 'flex-1 min-w-0 min-h-0 overflow-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0'} ${isMatchRoute ? 'match-route-main' : ''}`}>
           {pendingChallengeId && (
             <div className={isHomeRoute ? 'home-container home-pending-alert' : 'm-4 card-surface p-3 flex items-center justify-between gap-3'}>
               <div className="text-sm text-[var(--text)]">Você foi desafiado para um X1!</div>
@@ -484,7 +486,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
         </main>
       </div>
 
-      {!isHomeRoute && drawerOpen && (
+      {!usesHomeTopbar && drawerOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/40" onClick={() => setDrawerOpen(false)}>
           <div className="w-64 h-full overflow-y-auto bg-white p-4" onClick={e => e.stopPropagation()}>
             <div className="text-xl font-bold mb-4"><span className="text-[var(--red)]">FUT</span>SENAI</div>
@@ -505,7 +507,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
         </div>
       )}
 
-      {!isHomeRoute && <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-stretch border-t border-[var(--border)] bg-white z-40 pb-[env(safe-area-inset-bottom)]">
+      {!usesHomeTopbar && <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-stretch border-t border-[var(--border)] bg-white z-40 pb-[env(safe-area-inset-bottom)]">
         {[...NAV_WITH_ADMIN.slice(0, 5), NAV_WITH_ADMIN.find(n => n.to === '/leaderboard')!].map(n => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={async (e) => {
             const params = new URLSearchParams(window.location.search);

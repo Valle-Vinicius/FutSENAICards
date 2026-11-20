@@ -1,20 +1,29 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import type { CSSProperties } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { playBurst, playCharge, playFlip, playRareReveal } from '../lib/sound';
 import Card from '../components/Card';
 import type { PlayerCard, Rarity } from '../types';
-import { RARITY_META } from '../types';
-import { Coins, Trophy, Copy, LoaderCircle } from 'lucide-react';
-import bgWhite from '../imagens/background/backgroundbranco.png';
+import { PACK_RARITY_ORDER, RARITY_META } from '../types';
+import { ArrowLeft, Coins, Trophy, Copy, LoaderCircle, PackageOpen, Sparkles } from 'lucide-react';
 import cardBackCommon from '../imagens/cartas/comum.png';
 import cardBackUncommon from '../imagens/cartas/incomum.png';
 import cardBackRare from '../imagens/cartas/raro.png';
 import cardBackEpic from '../imagens/cartas/epico.png';
 import cardBackLegendary from '../imagens/cartas/lendario.png';
 import cardBackIcon from '../imagens/cartas/icone.png';
+import packBronze from '../imagens/pacotes/bronze.png';
+import packSilver from '../imagens/pacotes/prata.png';
+import packGold from '../imagens/pacotes/ouro.png';
+import packPremium from '../imagens/pacotes/premium.png';
+import packRarePlayers from '../imagens/pacotes/jogadoresraros.png';
+import packLegends from '../imagens/pacotes/lendas.png';
+import packGoalkeepers from '../imagens/pacotes/goleiros.png';
+import packChoice from '../imagens/pacotes/escolhaespecial.png';
+import packOffsale from '../imagens/pacotes/offsale.png';
 
 const CARD_BACKS: Record<string, string> = {
   common: cardBackCommon,
@@ -29,6 +38,17 @@ const CARD_BACKS: Record<string, string> = {
 const RARITY_RANK: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, icon: 5, secret: 6 };
 const RARITY_VALUE: Record<Rarity, number> = { common: 100, uncommon: 250, rare: 600, epic: 1500, legendary: 4000, icon: 10000, secret: 20000 };
 const BULK_PACK_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
+const PACK_ART: Record<string, string> = {
+  bronze: packBronze,
+  silver: packSilver,
+  gold: packGold,
+  premium: packPremium,
+  rareplayers: packRarePlayers,
+  legends: packLegends,
+  position_gk: packGoalkeepers,
+  choice: packChoice,
+  off_sale: packOffsale,
+};
 
 function ParticleBurst({ fire, color, count }: { fire: boolean; color: string; count: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -232,10 +252,13 @@ export default function OpenPack() {
 
   if (!pack) return <div className="p-8">Pacote não encontrado.</div>;
 
+  const packArt = PACK_ART[pack.id];
   const isChoice = !!pack.choice;
   const openingQuantity = canBulkOpen && !isChoice ? bulkCount : 1;
   const totalPrice = pack.price * openingQuantity;
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const insufficientBalance = coins < totalPrice;
+  const canOpenPack = pack.unlocked && !insufficientBalance && phase === 'idle';
 
   const sortCards = (list: PlayerCard[]) => [...list].sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity] || b.overall - a.overall);
 
@@ -387,18 +410,12 @@ export default function OpenPack() {
   const particleCount = [40, 55, 70, 85, 105, 130, 170][maxRank];
   const estimatedValue = cards.reduce((s, c) => s + RARITY_VALUE[c.rarity], 0);
   const summaryCards = openedPackCount > 1 ? cards.slice(0, 12) : cards;
+  const formatProbability = (probability: number) => `${(probability * 100).toLocaleString('pt-BR', { maximumFractionDigits: 12 })}%`;
 
   return (
     <div
-      className="min-h-[100dvh] flex flex-col items-center justify-center p-4 pb-24 md:pb-8 relative overflow-x-hidden rounded-2xl"
-      style={{
-        backgroundImage: isDarkPhase
-          ? 'linear-gradient(to bottom, #05060a, #0a0d14, #05060a)'
-          : `url(${bgWhite})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
+      className={`open-pack-page${isDarkPhase ? ' open-pack-page--dark' : ''}`}
+      style={{ '--pack-accent': packColor } as CSSProperties}
     >
       <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
 
@@ -431,64 +448,173 @@ export default function OpenPack() {
         )}
       </AnimatePresence>
 
+      <div className="open-pack-page__content">
       <AnimatePresence mode="wait">
         {phase === 'idle' && (
-          <motion.div key="idle" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="flex flex-col items-center gap-6 relative z-10">
-            <motion.div
-              animate={{ y: [0, -10, 0], rotate: [0, -2, 2, 0] }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="text-[clamp(4rem,22vw,8rem)] drop-shadow-2xl"
-            >
-              📦
-            </motion.div>
-            <div className="text-2xl font-black" style={{ color: packColor }}>{pack.name}</div>
-            <div className="text-[var(--muted)] text-sm">
-              {pack.cards * openingQuantity} cartas · {totalPrice === 0 ? 'Evento' : `${totalPrice.toLocaleString('pt-BR')} moedas`}
-            </div>
-            {canBulkOpen && !isChoice && (
-              <div className="flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Quantidade de pacotes">
-                <span className="w-full text-center text-xs text-[var(--muted)]">Quantidade</span>
-                {[1, 5, 10, 100].map(quantity => (
-                  <button
-                    key={quantity}
-                    type="button"
-                    aria-pressed={bulkCount === quantity}
-                    onClick={() => setBulkCount(quantity)}
-                    className={`min-h-10 rounded-lg border px-3 text-sm font-bold transition-colors ${
-                      bulkCount === quantity
-                        ? 'border-[var(--red)] bg-[var(--red)] text-white'
-                        : 'border-[var(--border)] bg-white/80 text-[var(--text)] hover:bg-white'
-                    }`}
-                  >
-                    {quantity}
-                  </button>
-                ))}
+          <motion.section
+            key="idle"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.28 }}
+            className="open-pack-idle"
+            aria-labelledby="open-pack-title"
+          >
+            <div className="open-pack-idle__topline">
+              <div>
+                <p className="open-pack-eyebrow"><span /> CENTRAL DE PACOTES <i>/</i> FUTSENAI</p>
+                <Link to="/packs" className="open-pack-back"><ArrowLeft aria-hidden="true" /> Todos os pacotes</Link>
               </div>
-            )}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={startOpen}
-              disabled={canBulkOpen && coins < totalPrice}
-              className="px-10 py-4 rounded-2xl text-white font-black text-lg shadow-lg"
-              style={{
-                background: `linear-gradient(135deg, ${packColor}, #000)`,
-                opacity: canBulkOpen && coins < totalPrice ? 0.55 : 1,
-              }}
-            >
-              {openingQuantity === 1 ? 'ABRIR PACOTE' : `ABRIR ${openingQuantity} PACOTES`}
-            </motion.button>
-            <div className="flex items-center gap-4 text-xs text-[var(--muted)]">
-              <label className="flex min-h-11 items-center gap-2">
-                <input className="h-5 w-5" type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} />
-                Pular animação
-              </label>
-              <label className="flex min-h-11 items-center gap-2">
-                <input className="h-5 w-5" type="checkbox" checked={fast} onChange={e => setFast(e.target.checked)} />
-                Modo rápido
-              </label>
+              <div className="open-pack-balance">
+                <Coins aria-hidden="true" />
+                <div><span>Seu saldo</span><strong>{coins.toLocaleString('pt-BR')}</strong></div>
+                <small>moedas</small>
+              </div>
             </div>
-          </motion.div>
+
+            <div className="open-pack-idle__grid">
+              <section className="open-pack-intro">
+                <span className="open-pack-tag" style={{ color: packColor, borderColor: `${packColor}55` }}>
+                  PACOTE SELECIONADO
+                </span>
+                <h1 id="open-pack-title">{pack.name}</h1>
+                <p className="open-pack-intro__description">{pack.description}</p>
+                <div className="open-pack-facts">
+                  <div><span>Cartas no pacote</span><strong>{pack.cards}</strong></div>
+                  <div><span>Conteúdo total</span><strong>{pack.cards * openingQuantity}</strong></div>
+                  {pack.position && <div><span>Posição</span><strong>{pack.position}</strong></div>}
+                </div>
+                <p className="open-pack-intro__note">
+                  <Sparkles aria-hidden="true" />
+                  Cada abertura revela cartas reais da sua coleção.
+                </p>
+              </section>
+
+              <figure className={`open-pack-art${shake ? ' open-pack-art--shaking' : ''}`}>
+                <span className="open-pack-art__halo" style={{ backgroundColor: `${packColor}24` }} />
+                {packArt ? (
+                  <motion.img
+                    src={packArt}
+                    alt={`Arte original do ${pack.name}`}
+                    className="open-pack-art__image"
+                    draggable={false}
+                    animate={animationsOn && !reduceMotion && phase === 'idle'
+                      ? { y: [0, -8, 0], rotate: [0, -1.2, 1.2, 0] }
+                      : undefined}
+                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                ) : (
+                  <div className="open-pack-art__missing">
+                    <PackageOpen aria-hidden="true" />
+                    <span>Arte do pacote indisponível</span>
+                  </div>
+                )}
+              </figure>
+
+              <aside className="open-pack-purchase" aria-label="Detalhes e abertura do pacote">
+                <p className="open-pack-eyebrow">PRONTO PARA A REVELAÇÃO?</p>
+                <div className="open-pack-purchase__price">
+                  <span>{totalPrice === 0 ? 'Pacote de evento' : 'Preço total'}</span>
+                  <strong>{totalPrice === 0 ? 'Grátis' : totalPrice.toLocaleString('pt-BR')}</strong>
+                  {totalPrice > 0 && <small><Coins aria-hidden="true" /> moedas</small>}
+                </div>
+                <div className="open-pack-purchase__balance">
+                  <span>Seu saldo</span>
+                  <strong>{coins.toLocaleString('pt-BR')} moedas</strong>
+                </div>
+
+                {canBulkOpen && !isChoice && (
+                  <div className="open-pack-quantity" role="group" aria-label="Quantidade de pacotes">
+                    <span>Quantidade de pacotes</span>
+                    <div>
+                      {[1, 5, 10, 100].map(quantity => (
+                        <button
+                          key={quantity}
+                          type="button"
+                          aria-pressed={bulkCount === quantity}
+                          onClick={() => setBulkCount(quantity)}
+                          className={bulkCount === quantity ? 'open-pack-quantity__option open-pack-quantity__option--active' : 'open-pack-quantity__option'}
+                        >
+                          {quantity}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!pack.unlocked ? (
+                  <p className="open-pack-purchase__warning" role="status">Pacote bloqueado. Complete missões para desbloquear.</p>
+                ) : insufficientBalance ? (
+                  <p className="open-pack-purchase__warning" role="status">
+                    Saldo insuficiente. Faltam {(totalPrice - coins).toLocaleString('pt-BR')} moedas.
+                  </p>
+                ) : null}
+
+                <motion.button
+                  type="button"
+                  whileHover={canOpenPack && animationsOn && !reduceMotion ? { y: -2 } : undefined}
+                  whileTap={canOpenPack && animationsOn && !reduceMotion ? { scale: 0.98 } : undefined}
+                  onClick={startOpen}
+                  disabled={!canOpenPack}
+                  aria-busy={phase !== 'idle'}
+                  className="open-pack-button"
+                  style={{ backgroundColor: packColor }}
+                >
+                  {openingQuantity === 1 ? 'ABRIR PACOTE' : `ABRIR ${openingQuantity} PACOTES`}
+                  <PackageOpen aria-hidden="true" />
+                </motion.button>
+
+                <div className="open-pack-options">
+                  <label>
+                    <input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} />
+                    Pular animação
+                  </label>
+                  <label>
+                    <input type="checkbox" checked={fast} onChange={e => setFast(e.target.checked)} />
+                    Modo rápido
+                  </label>
+                </div>
+                <p className="open-pack-purchase__safe">A compra só é concluída após confirmação do servidor.</p>
+              </aside>
+            </div>
+
+            <section className="open-pack-probabilities" aria-labelledby="open-pack-probabilities-title">
+              <div className="open-pack-probabilities__heading">
+                <div>
+                  <p className="open-pack-eyebrow">CHANCES DO PACOTE</p>
+                  <h2 id="open-pack-probabilities-title">O que pode vir</h2>
+                </div>
+                <span>Probabilidades reais</span>
+              </div>
+              <div
+                className="open-pack-probabilities__bar"
+                role="img"
+                aria-label={`Probabilidades: ${PACK_RARITY_ORDER.map(rarity => `${RARITY_META[rarity].label} ${formatProbability(pack.probabilities[rarity])}`).join(', ')}`}
+              >
+                {PACK_RARITY_ORDER.map(rarity => {
+                  const probability = pack.probabilities[rarity];
+                  if (probability <= 0) return null;
+                  return (
+                    <span
+                      key={rarity}
+                      style={{ width: `${probability * 100}%`, backgroundColor: RARITY_META[rarity].color }}
+                    />
+                  );
+                })}
+              </div>
+              <ul className="open-pack-probabilities__legend">
+                {PACK_RARITY_ORDER.map(rarity => (
+                  <li key={rarity}>
+                    <span className="open-pack-probabilities__name">
+                      <i style={{ backgroundColor: RARITY_META[rarity].color }} />
+                      {RARITY_META[rarity].label}
+                    </span>
+                    <strong>{formatProbability(pack.probabilities[rarity])}</strong>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </motion.section>
         )}
 
         {phase === 'waiting' && (
@@ -513,9 +639,11 @@ export default function OpenPack() {
             <motion.div
               animate={shake ? { x: [0,-12,12,-10,10,-6,6,-3,3,0], y: [0,6,-6,4,-4,2,-2,0], rotate: [0,-6,6,-4,4,-2,2,0], scale: [1,1.1,1.05,1.12,1] } : {}}
               transition={{ duration: 1.1 }}
-              className="text-[clamp(4rem,22vw,8rem)]"
+              className="open-pack-opening-pack"
             >
-              📦
+              {packArt
+                ? <img src={packArt} alt={`Arte original do ${pack.name}`} />
+                : <PackageOpen aria-hidden="true" />}
             </motion.div>
             {chargeTimedOut ? (
               <div role="status" className="inline-flex items-center gap-2 text-sm font-semibold text-white/75">
@@ -552,9 +680,11 @@ export default function OpenPack() {
               initial={{ scale: 0.2, opacity: 0, rotate: -180 }}
               animate={{ scale: [0.2, 1.8, 1], opacity: [0, 1, 1], rotate: [ -180, 0, 0] }}
               transition={{ duration: fast ? 0.5 : 0.9, ease: 'backOut' }}
-              className="text-[clamp(4rem,22vw,8rem)]"
+              className="open-pack-burst__art"
             >
-              💥
+              {packArt
+                ? <img src={packArt} alt={`Arte original do ${pack.name}`} />
+                : <PackageOpen aria-hidden="true" />}
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -569,11 +699,15 @@ export default function OpenPack() {
         )}
 
         {phase === 'choice' && (
-          <motion.div key="choice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex w-full flex-col items-center gap-6 relative z-10">
-            <div className="text-2xl sm:text-3xl font-black text-[var(--red)]">ESCOLHA SUA CARTA</div>
+          <motion.div key="choice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="open-pack-result open-pack-result--choice">
+            <div className="open-pack-result__heading">
+              <p className="open-pack-eyebrow"><span /> ESCOLHA ESPECIAL</p>
+              <h1>Escolha sua carta</h1>
+              <p>As opções abaixo foram geradas pelo pacote. Escolha uma para adicionar à sua coleção.</p>
+            </div>
             <div className="grid w-full max-w-[25rem] grid-cols-2 gap-3 sm:max-w-none sm:grid-cols-3 sm:gap-5">
               {choiceCards.map(c => (
-                <motion.div key={c.uid} whileHover={{ scale: 1.05 }} onClick={() => {
+                <motion.div key={c.uid} whileHover={animationsOn && !reduceMotion ? { scale: 1.03, y: -4 } : undefined} onClick={() => {
                   if (!choiceId || claimingChoice) return;
                   setClaimingChoice(true);
                   const prevOwned = new Set(useGame.getState().cards.map(x => x.playerId));
@@ -587,11 +721,12 @@ export default function OpenPack() {
                       setClaimingChoice(false);
                     }
                   }).catch(() => setClaimingChoice(false));
-                }} className="mx-auto w-full max-w-48 min-w-0 cursor-pointer">
+                }} className="open-pack-choice-card mx-auto w-full max-w-48 min-w-0 cursor-pointer">
                   <Card card={c} size="fluid" />
                 </motion.div>
               ))}
             </div>
+            {claimingChoice && <div role="status" className="open-pack-status"><LoaderCircle aria-hidden="true" /> Confirmando sua escolha…</div>}
           </motion.div>
         )}
 
@@ -602,9 +737,12 @@ export default function OpenPack() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex w-full flex-col items-center gap-6 relative z-10"
+            className="open-pack-result open-pack-result--dark"
           >
-            <div className="text-lg font-bold text-white/80">Clique nas cartas para revelar</div>
+            <div className="open-pack-result__heading">
+              <p className="open-pack-eyebrow"><span /> REVELAÇÃO</p>
+              <h1>Clique nas cartas para revelar</h1>
+            </div>
             <div className="grid w-full max-w-md grid-cols-2 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-5">
               {cards.map((c, i) => (
                 <div key={c.uid} className="min-w-0">
@@ -612,8 +750,8 @@ export default function OpenPack() {
                 </div>
               ))}
             </div>
-            <div className="sticky bottom-20 z-20 flex w-full flex-wrap justify-center gap-3 py-2 md:bottom-4">
-              <button onClick={revealAll} className="px-4 py-2 rounded-xl bg-white/10 text-white font-bold hover:bg-white/20 backdrop-blur">
+            <div className="open-pack-result__actions">
+              <button onClick={revealAll} className="open-pack-secondary-button">
                 Revelar todas
               </button>
               {allRevealed && (
@@ -621,7 +759,7 @@ export default function OpenPack() {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   onClick={goToSummary}
-                  className="px-4 py-2 rounded-xl font-bold text-black"
+                  className="open-pack-primary-button"
                   style={{ background: packColor }}
                 >
                   Ver resumo
@@ -632,8 +770,11 @@ export default function OpenPack() {
         )}
 
         {phase === 'summary' && (
-          <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex w-full flex-col items-center gap-6 relative z-10">
-            <div className="text-2xl sm:text-3xl font-black text-[var(--red)]">PACOTE ABERTO COM SUCESSO!</div>
+          <motion.div key="summary" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="open-pack-result open-pack-summary">
+            <div className="open-pack-result__heading">
+              <p className="open-pack-eyebrow"><span /> PACOTE ABERTO</p>
+              <h1>Suas novas cartas chegaram</h1>
+            </div>
             {openedPackCount > 1 && (
               <div className="text-center text-sm text-[var(--muted)]">
                 Mostrando {summaryCards.length} de {cards.length} {cards.length === 1 ? 'carta' : 'cartas'}; todas foram adicionadas à coleção.
@@ -649,9 +790,9 @@ export default function OpenPack() {
                   className={i === 0 ? 'col-span-2 flex flex-col items-center sm:col-auto' : 'min-w-0 w-full sm:w-48'}
                 >
                   {i === 0 && <div className="mb-1 text-center text-xs font-black" style={{ color: RARITY_META[c.rarity].color }}>MELHOR CARTA</div>}
-                  <div className={i === 0 ? 'w-[min(60vw,15rem)]' : 'w-full'}>
+                  <Link to={`/card/${c.uid}`} className={i === 0 ? 'open-pack-summary__card open-pack-summary__card--best' : 'open-pack-summary__card'}>
                     <Card card={c} size="fluid" />
-                  </div>
+                  </Link>
                 </motion.div>
               ))}
             </div>
@@ -672,17 +813,18 @@ export default function OpenPack() {
                 <div className="text-[10px] text-[var(--muted)]">Duplicatas</div>
               </div>
             </div>
-            <div className="sticky bottom-20 z-20 flex w-full flex-wrap justify-center gap-3 py-2 md:bottom-4">
-              <button onClick={() => navigate('/collection')} className="px-6 py-3 rounded-xl font-black text-white" style={{ background: 'var(--red)' }}>
+            <div className="open-pack-result__actions">
+              <button onClick={() => navigate('/collection')} className="open-pack-primary-button">
                 VER COLEÇÃO
               </button>
-              <button onClick={() => { openingRef.current = false; setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setShake(false); setChargeTimedOut(false); setDuplicateCount(0); }} className="px-6 py-3 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] font-black hover:bg-[var(--bg)]">
+              <button onClick={() => { openingRef.current = false; setPhase('idle'); setCards([]); setRevealed([]); setBurstFire(false); setShake(false); setChargeTimedOut(false); setDuplicateCount(0); }} className="open-pack-secondary-button">
                 ABRIR OUTRO PACOTE
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

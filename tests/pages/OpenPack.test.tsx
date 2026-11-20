@@ -13,12 +13,12 @@ const mockGameState = {
     id: 'bronze',
     name: 'Pacote Bronze',
     price: 500,
-    cards: 1,
+    cards: 3,
     unlocked: true,
     sport: 'futsal',
     color: '#cd7f32',
     description: 'Pacote de teste',
-    probabilities: { common: 1 },
+    probabilities: { common: 0.62, uncommon: 0.25, rare: 0.10, epic: 0.025, legendary: 0.004, icon: 0.001 },
   }],
   settings: { audio: false, animations: true },
   cards: [] as PlayerCard[],
@@ -130,6 +130,7 @@ describe('OpenPack loading and animation timing', () => {
     mockOpenPack.mockReset();
     mockPreviewPack.mockReset();
     mockClaimPreviewedCard.mockReset();
+    mockGameState.coins = 1000000;
     mockGameState.cards = [];
     mockGameState.settings = { audio: false, animations: true };
     Object.defineProperty(window, 'matchMedia', {
@@ -155,6 +156,31 @@ describe('OpenPack loading and animation timing', () => {
     jest.useRealTimers();
   });
 
+  it('shows the selected pack art, price, balance and exact rarity chances', async () => {
+    renderOpenPack();
+
+    expect(screen.getByRole('img', { name: 'Arte original do Pacote Bronze' })).toHaveAttribute('src', 'test-file-stub');
+    expect(screen.getByText('Pacote de teste')).toBeInTheDocument();
+    expect(screen.getByText('500', { selector: 'strong' })).toBeInTheDocument();
+    expect(screen.getByText('1.000.000 moedas')).toBeInTheDocument();
+    expect(screen.getByText('62%')).toBeInTheDocument();
+    expect(screen.getByText('25%')).toBeInTheDocument();
+    expect(screen.getByText('10%')).toBeInTheDocument();
+    expect(screen.getByText('2,5%')).toBeInTheDocument();
+    expect(screen.getByText('0,4%')).toBeInTheDocument();
+    expect(screen.getByText('0,1%')).toBeInTheDocument();
+    expect(await screen.findByRole('group', { name: 'Quantidade de pacotes' })).toBeInTheDocument();
+  });
+
+  it('disables the opening button and explains an insufficient balance', () => {
+    mockGameState.coins = 250;
+    renderOpenPack();
+
+    expect(screen.getByRole('button', { name: 'ABRIR PACOTE' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Saldo insuficiente. Faltam 250 moedas.');
+    expect(mockOpenPack).not.toHaveBeenCalled();
+  });
+
   it('uses a discreet loading state for skipped animation while the server is pending', async () => {
     const request = deferred<{ cards: PlayerCard[] } | null>();
     mockOpenPack.mockReturnValue(request.promise);
@@ -167,7 +193,7 @@ describe('OpenPack loading and animation timing', () => {
     expect(screen.queryByText('ABRINDO...')).not.toBeInTheDocument();
 
     await act(async () => { request.resolve({ cards: [card] }); });
-    expect(await screen.findByText('PACOTE ABERTO COM SUCESSO!')).toBeInTheDocument();
+    expect(await screen.findByText('Suas novas cartas chegaram')).toBeInTheDocument();
   });
 
   it('goes directly to card reveal in fast mode after the RPC returns', async () => {
@@ -197,11 +223,12 @@ describe('OpenPack loading and animation timing', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '5' }));
     expect(screen.getByRole('button', { name: 'ABRIR 5 PACOTES' })).toBeInTheDocument();
-    expect(screen.getByText('5 cartas · 2.500 moedas')).toBeInTheDocument();
+    expect(screen.getByText('15', { selector: 'strong' })).toBeInTheDocument();
+    expect(screen.getByText('2.500', { selector: 'strong' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'ABRIR 5 PACOTES' }));
 
     expect(mockOpenPack).toHaveBeenCalledWith('bronze', 5);
-    expect(await screen.findByText('PACOTE ABERTO COM SUCESSO!')).toBeInTheDocument();
+    expect(await screen.findByText('Suas novas cartas chegaram')).toBeInTheDocument();
     expect(screen.getByText('Mostrando 12 de 15 cartas; todas foram adicionadas à coleção.')).toBeInTheDocument();
   });
 

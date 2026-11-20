@@ -29,6 +29,7 @@ function renderLayout(path: string) {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<div>Conteúdo da visão geral</div>} />
+          <Route path="/open/:packId" element={<div>Conteúdo da abertura</div>} />
           <Route path="/collection" element={<div>Conteúdo das cartas</div>} />
         </Route>
       </Routes>
@@ -56,5 +57,13 @@ describe('Layout navigation', () => {
     expect(screen.queryByRole('navigation', { name: 'Navegação principal' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Minhas cartas' }).length).toBeGreaterThan(0);
     expect(screen.getByText('Conteúdo das cartas')).toBeInTheDocument();
+  });
+
+  it('uses the Home topbar and hides the sidebar on the pack opening route', () => {
+    renderLayout('/open/bronze');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(screen.queryByText('Futsenai')).not.toBeInTheDocument();
+    expect(screen.getByText('Conteúdo da abertura')).toBeInTheDocument();
   });
 });
