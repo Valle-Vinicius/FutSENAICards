@@ -33,6 +33,22 @@
   background: #f5f5f7;
 }
 
+.home-layout--packs {
+  height: 100dvh;
+  min-height: 0;
+}
+
+.home-layout__content--packs {
+  min-height: 0;
+}
+
+.home-layout__main--packs {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .home-pending-alert {
   display: flex;
   align-items: center;

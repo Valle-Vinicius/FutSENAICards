@@ -257,7 +257,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
   }, [currentUserId]);
 
   return (
-    <div className={usesHomeTopbar ? 'home-layout' : 'h-[100dvh] flex flex-col md:flex-row bg-[var(--bg)]'}>
+    <div className={`${usesHomeTopbar ? 'home-layout' : 'h-[100dvh] flex flex-col md:flex-row bg-[var(--bg)]'}${isPacksRoute ? ' home-layout--packs' : ''}`}>
       {!usesHomeTopbar && <aside className="hidden md:flex w-64 flex-col p-4 bg-white border-r border-[var(--border)]">
         <div className="mb-6 px-2">
           <div className="text-xl font-bold tracking-tight text-[var(--text)]">
@@ -422,7 +422,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
         </div>
       </header>}
 
-      <div className={usesHomeTopbar ? 'home-layout__content' : 'flex-1 flex flex-col min-w-0 min-h-0'}>
+      <div className={`${usesHomeTopbar ? 'home-layout__content' : 'flex-1 flex flex-col min-w-0 min-h-0'}${isPacksRoute ? ' home-layout__content--packs' : ''}`}>
         {!usesHomeTopbar && <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-[var(--border)]">
           <div className="text-sm text-[var(--muted)]">
             Futsenai <span className="mx-1">/</span> <span className="text-[var(--text)] font-medium">{title}</span>
@@ -453,7 +453,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
           </div>
         </div>}
 
-        <main className={`${usesHomeTopbar ? 'home-layout__main' : 'flex-1 min-w-0 min-h-0 overflow-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0'} ${isMatchRoute ? 'match-route-main' : ''}`}>
+        <main className={`${usesHomeTopbar ? 'home-layout__main' : 'flex-1 min-w-0 min-h-0 overflow-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0'}${isPacksRoute ? ' home-layout__main--packs' : ''} ${isMatchRoute ? 'match-route-main' : ''}`}>
           {pendingChallengeId && (
             <div className={isHomeRoute ? 'home-container home-pending-alert' : 'm-4 card-surface p-3 flex items-center justify-between gap-3'}>
               <div className="text-sm text-[var(--text)]">Você foi desafiado para um X1!</div>

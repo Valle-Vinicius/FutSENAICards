@@ -243,7 +243,7 @@ export default function Packs() {
   }
 
   return (
-    <div className="min-h-full overflow-x-hidden bg-[linear-gradient(180deg,#fff_0%,#f4f5f7_44%,#fff_100%)] px-4 pb-10 pt-5 text-[#17191d] overscroll-y-none sm:px-6 sm:pt-7 lg:px-9">
+    <div className="min-h-full bg-[linear-gradient(180deg,#fff_0%,#f4f5f7_44%,#fff_100%)] px-4 pb-10 pt-5 text-[#17191d] sm:px-6 sm:pt-7 lg:px-9">
       <div className="mx-auto w-full max-w-[1440px]">
         <header className="relative mb-8 overflow-hidden border-b border-[#e6e7ea] pb-6 sm:mb-10 sm:pb-8">
           <div

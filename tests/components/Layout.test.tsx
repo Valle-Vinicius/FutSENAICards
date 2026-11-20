@@ -66,6 +66,8 @@ describe('Layout navigation', () => {
     expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
     expect(screen.queryByText('Futsenai')).not.toBeInTheDocument();
     expect(screen.getByText('Conteúdo da abertura')).toBeInTheDocument();
+    expect(document.querySelector('.home-layout')).not.toHaveClass('home-layout--packs');
+    expect(screen.getByText('Conteúdo da abertura').closest('main')).not.toHaveClass('home-layout__main--packs');
   });
 
   it('uses the Home topbar on the pack store route', () => {
@@ -74,5 +76,7 @@ describe('Layout navigation', () => {
     expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
     expect(screen.queryByText('Futsenai')).not.toBeInTheDocument();
     expect(screen.getByText('Conteúdo da loja de pacotes')).toBeInTheDocument();
+    expect(document.querySelector('.home-layout')).toHaveClass('home-layout--packs');
+    expect(screen.getByText('Conteúdo da loja de pacotes').closest('main')).toHaveClass('home-layout__main--packs');
   });
 });
