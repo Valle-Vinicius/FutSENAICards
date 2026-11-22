@@ -664,6 +664,35 @@
   background: #fff;
 }
 
+.compare-picker__pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 8px 4px;
+  color: #777d87;
+  font-size: 10px;
+}
+
+.compare-picker__pagination button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  background: #e30613;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: background 140ms ease;
+}
+
+.compare-picker__pagination button:hover {
+  background: #bd0010;
+}
+
 .compare-page :focus-visible {
   outline: 2px solid #e30613;
   outline-offset: 3px;

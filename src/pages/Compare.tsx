@@ -33,6 +33,7 @@ type AttributeKey = typeof LINE_ATTRIBUTES[number]['key']
   | typeof GOALKEEPER_ATTRIBUTES[number]['key'];
 type ComparisonAttribute = { key: AttributeKey; label: string; a: number; b: number };
 type CompareSide = 'a' | 'b';
+const PICKER_PAGE_SIZE = 30;
 
 function CardName({ card, showRarity }: { card: PlayerCard; showRarity: boolean }) {
   const rarity = RARITY_META[card.rarity];
@@ -115,6 +116,7 @@ export default function Compare() {
   const [pos, setPos] = useState('');
   const [rar, setRar] = useState('');
   const [sort, setSort] = useState<'overall' | 'name'>('overall');
+  const [visiblePickerCardCount, setVisiblePickerCardCount] = useState(PICKER_PAGE_SIZE);
   const aPickerButton = useRef<HTMLButtonElement>(null);
   const bPickerButton = useRef<HTMLButtonElement>(null);
   const pickerTrigger = useRef<HTMLButtonElement | null>(null);
@@ -125,6 +127,7 @@ export default function Compare() {
     setQ('');
     setPos('');
     setRar('');
+    setVisiblePickerCardCount(PICKER_PAGE_SIZE);
     window.setTimeout(() => pickerTrigger.current?.focus(), 0);
   }, []);
 
@@ -162,6 +165,7 @@ export default function Compare() {
   }, [a, b, addHistory]);
 
   const filtered = useMemo(() => {
+    if (!pickerFor) return [];
     const query = normalizeSearch(q.trim());
     return cards.filter(card => {
       if (pos && card.position !== pos) return false;
@@ -172,7 +176,8 @@ export default function Compare() {
     }).sort((left, right) => sort === 'name'
       ? left.name.localeCompare(right.name)
       : right.overall - left.overall);
-  }, [cards, q, pos, rar, sort]);
+  }, [cards, pickerFor, q, pos, rar, sort]);
+  const visiblePickerCards = filtered.slice(0, visiblePickerCardCount);
 
   const visibleHistory = compareHistory.flatMap(entry => {
     const left = cards.find(card => card.uid === entry.aUid);
@@ -185,6 +190,7 @@ export default function Compare() {
     setQ('');
     setPos('');
     setRar('');
+    setVisiblePickerCardCount(PICKER_PAGE_SIZE);
     setPickerFor(side);
   };
 
@@ -437,30 +443,42 @@ export default function Compare() {
                 ref={pickerSearch}
                 type="search"
                 value={q}
-                onChange={event => setQ(event.target.value)}
+                onChange={event => {
+                  setVisiblePickerCardCount(PICKER_PAGE_SIZE);
+                  setQ(event.target.value);
+                }}
                 placeholder="Buscar por nome ou clube..."
                 aria-label="Buscar jogador"
                 className="min-w-[160px] flex-1 rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"
               />
-              <select value={pos} onChange={event => setPos(event.target.value)} aria-label="Filtrar posição" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
+              <select value={pos} onChange={event => {
+                setVisiblePickerCardCount(PICKER_PAGE_SIZE);
+                setPos(event.target.value);
+              }} aria-label="Filtrar posição" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
                 <option value="">Todas as posições</option>
                 {[...new Set(cards.map(card => card.position))].map(position => (
                   <option key={position} value={position}>{position}</option>
                 ))}
               </select>
-              <select value={rar} onChange={event => setRar(event.target.value)} aria-label="Filtrar raridade" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
+              <select value={rar} onChange={event => {
+                setVisiblePickerCardCount(PICKER_PAGE_SIZE);
+                setRar(event.target.value);
+              }} aria-label="Filtrar raridade" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
                 <option value="">Todas as raridades</option>
                 {RARITY_ORDER.map(rarity => (
                   <option key={rarity} value={rarity}>{RARITY_META[rarity].label}</option>
                 ))}
               </select>
-              <select value={sort} onChange={event => setSort(event.target.value as typeof sort)} aria-label="Ordenar cartas" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
+              <select value={sort} onChange={event => {
+                setVisiblePickerCardCount(PICKER_PAGE_SIZE);
+                setSort(event.target.value as typeof sort);
+              }} aria-label="Ordenar cartas" className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm">
                 <option value="overall">Overall</option>
                 <option value="name">Nome</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {filtered.map(card => {
+              {visiblePickerCards.map(card => {
                 const disabled = card.uid === (pickerFor === 'a' ? bUid : aUid);
                 return (
                   <button
@@ -477,6 +495,19 @@ export default function Compare() {
               })}
             </div>
             {filtered.length === 0 && <div className="py-6 text-center text-[var(--muted)]">Nenhuma carta encontrada.</div>}
+            {filtered.length > 0 && (
+              <div className="compare-picker__pagination">
+                <span>Exibindo {visiblePickerCards.length} de {filtered.length} cartas</span>
+                {visiblePickerCards.length < filtered.length && (
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePickerCardCount(count => Math.min(count + PICKER_PAGE_SIZE, filtered.length))}
+                  >
+                    Carregar mais cartas
+                  </button>
+                )}
+              </div>
+            )}
           </section>
         </div>
       )}

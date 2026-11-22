@@ -175,6 +175,27 @@ describe('Compare page', () => {
     await waitFor(() => expect(openButton).toHaveFocus());
   });
 
+  it('renders a limited page of cards and searches the complete collection', async () => {
+    const largeCollection = Array.from({ length: 65 }, (_, index) =>
+      makeCard(`athlete-${index + 1}`, `Atleta ${index + 1}`, 'Ala', { overall: 99 - index }));
+    renderCompare('/compare', [], largeCollection);
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Selecionar jogador' }))[0]);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getAllByRole('button', { name: /^Selecionar Atleta/ })).toHaveLength(30);
+    expect(within(dialog).getByText('Exibindo 30 de 65 cartas')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Carregar mais cartas' }));
+    expect(within(dialog).getAllByRole('button', { name: /^Selecionar Atleta/ })).toHaveLength(60);
+
+    fireEvent.change(within(dialog).getByRole('searchbox', { name: 'Buscar jogador' }), {
+      target: { value: 'Atleta 65' },
+    });
+    expect(within(dialog).getByRole('button', { name: 'Selecionar Atleta 65' })).toBeInTheDocument();
+    expect(within(dialog).getByText('Exibindo 1 de 1 cartas')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Carregar mais cartas' })).not.toBeInTheDocument();
+  });
+
   it('restores a recent comparison from its shortcut', async () => {
     renderCompare('/compare', [{ aUid: 'gk', bUid: 'line', at: 1 }]);
 
