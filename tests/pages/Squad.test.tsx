@@ -94,6 +94,30 @@ describe('squad builder inventory', () => {
     ]);
   });
 
+  it('shows the tactical page and filters the athlete bank by position', () => {
+    render(<Squad />);
+
+    expect(screen.getByRole('heading', { name: 'Montar elenco' })).toBeTruthy();
+    expect(screen.getByText('Monte sua equipe e escolha os melhores atletas para cada posição.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Todos' }).getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'GOL' }));
+    expect(screen.queryAllByTestId('inventory-card')).toHaveLength(0);
+    expect(screen.getByText('Nenhuma carta disponível com esses filtros.')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Todos' }));
+    expect(screen.getAllByTestId('inventory-card')).toHaveLength(36);
+  });
+
+  it('highlights matching court positions when an inventory card is selected', () => {
+    render(<Squad />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jogador 0, overall 99, Ala' }));
+
+    expect(screen.getAllByTestId('inventory-card')[0].getAttribute('data-selected')).toBe('true');
+    expect(document.querySelectorAll('.squad-starter-slot--match')).toHaveLength(2);
+  });
+
   it('waits for the generated squad to be saved before showing success', async () => {
     let finishSave!: (saved: boolean) => void;
     mockFlushSquadSave.mockImplementation(() => new Promise(resolve => { finishSave = resolve; }));

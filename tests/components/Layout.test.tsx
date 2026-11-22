@@ -32,6 +32,7 @@ function renderLayout(path: string) {
           <Route path="/packs" element={<div>Conteúdo da loja de pacotes</div>} />
           <Route path="/open/:packId" element={<div>Conteúdo da abertura</div>} />
           <Route path="/collection" element={<div>Conteúdo das cartas</div>} />
+          <Route path="/squad" element={<div>Conteúdo do elenco</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -59,6 +60,18 @@ describe('Layout navigation', () => {
     expect(document.querySelector('aside')).not.toBeInTheDocument();
     expect(document.querySelector('.home-layout')).toBeInTheDocument();
     expect(screen.getByText('Conteúdo das cartas')).toBeInTheDocument();
+  });
+
+  it('uses the Home topbar and hides the sidebar on the squad route', () => {
+    renderLayout('/squad');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(document.querySelector('aside')).not.toBeInTheDocument();
+    expect(document.querySelector('.home-layout')).toBeInTheDocument();
+    expect(screen.getByText('Conteúdo do elenco')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+    expect(screen.getAllByRole('link', { name: 'Montar elenco' }).some(link => link.getAttribute('href') === '/squad')).toBe(true);
   });
 
   it('uses the Home topbar and hides the sidebar on the pack opening route', () => {

@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo, useState, type DragEvent as ReactDragEvent } from 'react';
-import { AlertTriangle, Plus, Search, Star, X } from 'lucide-react';
+import { AlertTriangle, Plus, Search, Sparkles, Star, X } from 'lucide-react';
 import Card from '../components/Card';
 import ConfirmModal from '../components/ConfirmModal';
 import { useGame, squadOverall } from '../store/useGame';
@@ -99,6 +99,12 @@ export default function Squad() {
   }, [available, deferredSearch, positionFilter]);
   const visibleCards = filteredAvailable.slice(0, visibleCardCount);
   const mySaved = savedSquads.filter(saved => saved.sport === sport);
+  const activeSavedSquad = mySaved.find(saved =>
+    normalizeFutsalFormation(saved.formation) === formation
+    && saved.starters.length === squad.starters.length
+    && saved.starters.every((uid, index) => uid === squad.starters[index]?.uid)
+    && saved.bench.filter(Boolean).join('|') === squad.bench.filter(Boolean).join('|'),
+  );
   const overall = squadOverall(squad, cards);
   const filledCount = squad.starters.filter(slot => slot.uid).length;
   const outOfPositionNames = squad.starters.flatMap(slot => {
@@ -111,6 +117,7 @@ export default function Squad() {
     if (source.type === 'starter') return squad.starters[source.index]?.uid ?? null;
     return squad.bench[source.index] ?? null;
   };
+  const selectedCard = selectedSource ? cardsByUid.get(getSourceUid(selectedSource) ?? '') : null;
 
   const handleSlotClick = (index: number, bench: boolean, benchIndex?: number, allowOutOfPosition = false) => {
     if (bench && benchIndex === undefined) return;
@@ -249,262 +256,279 @@ export default function Squad() {
   };
 
   return (
-    <div className="space-y-4 p-4 md:p-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Montar elenco</h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">{formation} · arraste ou toque para escalar</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={saveName}
-            onChange={event => setSaveName(event.target.value)}
-            onKeyDown={event => { if (event.key === 'Enter') handleSave(); }}
-            placeholder="Nome da escalação"
-            aria-label="Nome da escalação"
-            className="min-w-[170px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"
-          />
-          <button onClick={handleSave} className="btn btn-primary btn-sm">Salvar</button>
-          <button onClick={() => setSavedOpen(value => !value)} aria-expanded={savedOpen} className="btn btn-secondary btn-sm">
-            Escalações salvas ({mySaved.length})
-          </button>
-        </div>
-      </header>
-
-      {savedOpen && (
-        <section className="card-surface space-y-3 p-4">
-          <h2 className="font-semibold text-[var(--text)]">Escalações salvas</h2>
-          {mySaved.length === 0 && <p className="text-sm text-[var(--muted)]">Nenhuma escalação salva.</p>}
-          <div className="space-y-2">
-            {mySaved.map(saved => (
-              <div key={saved.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] p-2">
-                <div className="text-sm text-[var(--text)]">
-                  {saved.isPrimary && <Star className="mr-1 inline h-3 w-3 text-[var(--red)]" />}
-                  {saved.name} <span className="text-xs text-[var(--muted)]">({normalizeFutsalFormation(saved.formation)})</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={() => handleLoad(saved)} className="btn btn-secondary btn-sm">Carregar</button>
-                  <button onClick={() => void handleDuplicate(saved)} disabled={duplicatingId !== null} className="btn btn-secondary btn-sm">
-                    {duplicatingId === saved.id ? 'Duplicando...' : 'Duplicar'}
-                  </button>
-                  <button onClick={() => { setPrimary(saved.id); toast.success(`"${saved.name}" definida como principal.`); }} className="btn btn-secondary btn-sm">Principal</button>
-                  <button onClick={() => setPendingDelete(saved)} className="btn btn-danger btn-sm">Excluir</button>
-                </div>
-              </div>
-            ))}
+    <div className="squad-page">
+      <div className="squad-page__inner">
+        <header className="squad-masthead">
+          <div className="squad-masthead__copy">
+            <p className="squad-eyebrow"><span aria-hidden="true" /> FUTSENAI · CENTRO TÁTICO</p>
+            <h1>Montar elenco</h1>
+            <p>Monte sua equipe e escolha os melhores atletas para cada posição.</p>
           </div>
-        </section>
-      )}
+          <div className="squad-save">
+            <label htmlFor="squad-save-name">Salvar escalação</label>
+            <div className="squad-save__controls">
+              <input
+                id="squad-save-name"
+                value={saveName}
+                onChange={event => setSaveName(event.target.value)}
+                onKeyDown={event => { if (event.key === 'Enter') handleSave(); }}
+                placeholder="Nome do elenco"
+                aria-label="Nome da escalação"
+                className="squad-control"
+              />
+              <button onClick={handleSave} className="squad-save__button"><span>Salvar time</span></button>
+              <button type="button" onClick={() => setSavedOpen(value => !value)} aria-expanded={savedOpen} className="squad-saved-toggle">
+                <Star aria-hidden="true" /> Escalações <span>{mySaved.length}</span>
+              </button>
+            </div>
+          </div>
+        </header>
 
-      <section className="card-surface flex flex-wrap items-center gap-4 p-4">
-        <div className="min-w-[130px]">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Overall do elenco</div>
-          <div className="text-4xl font-bold leading-tight text-[var(--red)]">{overall}</div>
-        </div>
-        <div className="rounded-xl bg-[var(--bg)] px-4 py-3 text-sm font-semibold text-[var(--text)]">
-          {filledCount}/{squad.starters.length} titulares
-        </div>
+        {savedOpen && (
+          <section className="squad-saved-list" aria-labelledby="squad-saved-title">
+            <div className="squad-section-heading">
+              <div><p className="squad-eyebrow">SEUS TIMES</p><h2 id="squad-saved-title">Escalações salvas</h2></div>
+              <span>{mySaved.length} salvas</span>
+            </div>
+            {mySaved.length === 0 && <p className="squad-empty-message">Nenhuma escalação salva.</p>}
+            <div className="squad-saved-list__items">
+              {mySaved.map(saved => (
+                <div key={saved.id} className="squad-saved-item">
+                  <div className="squad-saved-item__name">
+                    {saved.isPrimary && <Star aria-label="Escalação principal" />}
+                    <strong>{saved.name}</strong>
+                    <span>{normalizeFutsalFormation(saved.formation)}</span>
+                  </div>
+                  <div className="squad-saved-item__actions">
+                    <button onClick={() => handleLoad(saved)} className="btn btn-secondary btn-sm">Carregar</button>
+                    <button onClick={() => void handleDuplicate(saved)} disabled={duplicatingId !== null} className="btn btn-secondary btn-sm">
+                      {duplicatingId === saved.id ? 'Duplicando...' : 'Duplicar'}
+                    </button>
+                    <button onClick={() => { setPrimary(saved.id); toast.success(`"${saved.name}" definida como principal.`); }} className="btn btn-secondary btn-sm">Principal</button>
+                    <button onClick={() => setPendingDelete(saved)} className="btn btn-danger btn-sm">Excluir</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="squad-command" aria-label="Controles táticos">
+          <div className="squad-command__team">
+            <span className="squad-command__crest" aria-hidden="true">F</span>
+            <div>
+              <span className="squad-command__label">ELENCO EM CAMPO</span>
+              <strong>{activeSavedSquad?.name ?? 'Elenco atual'}</strong>
+            </div>
+          </div>
+          <div className="squad-tactics">
+            <label className="squad-tactic">
+              <span>Formação</span>
+              <select aria-label="Formação:" value={formation} onChange={event => handleFormation(event.target.value)} className="squad-control squad-control--select">
+                {formations.map(value => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+            <label className="squad-tactic">
+              <span>Critério</span>
+              <select aria-label="Critério:" value={criteria} onChange={event => setCriteria(event.target.value as typeof criteria)} className="squad-control squad-control--select">
+                <option value="overall">Maior overall</option>
+                <option value="balance">Melhor equilíbrio</option>
+                <option value="position">Melhor adequação</option>
+              </select>
+            </label>
+            <div className="squad-tactic__metric"><span>Overall</span><strong>{overall}</strong></div>
+            <div className="squad-tactic__metric"><span>Titulares</span><strong>{filledCount}<small>/{squad.starters.length}</small></strong></div>
+          </div>
+          <button onClick={() => void autoBuild()} disabled={autoBuildSaving} className="squad-auto-build">
+            <Sparkles aria-hidden="true" className="squad-auto-build__icon" />
+            {autoBuildSaving ? 'Salvando elenco...' : 'Montar melhor time'}
+          </button>
+        </section>
+
         {outOfPositionNames.length > 0 && (
-          <div role="status" className="flex min-w-0 flex-1 items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div role="status" className="squad-position-warning">
+            <AlertTriangle aria-hidden="true" />
             <span><strong>{outOfPositionNames.length} fora de posição:</strong> {outOfPositionNames.join(', ')}</span>
           </div>
         )}
-      </section>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
-          Formação:
-          <select value={formation} onChange={event => handleFormation(event.target.value)} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text)]">
-            {formations.map(value => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
-          Critério:
-          <select value={criteria} onChange={event => setCriteria(event.target.value as typeof criteria)} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text)]">
-            <option value="overall">Maior overall</option>
-            <option value="balance">Melhor equilíbrio</option>
-            <option value="position">Melhor adequação</option>
-          </select>
-        </label>
-        <button onClick={() => void autoBuild()} disabled={autoBuildSaving} className="btn btn-primary btn-sm">
-          {autoBuildSaving ? 'Salvando elenco...' : 'Montar melhor time'}
-        </button>
-      </div>
-
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <section className="card-surface space-y-3 p-3 md:p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-[var(--text)]">Quadra</h2>
-            <span className="text-xs text-[var(--muted)]">Toque em um titular e depois em outro para trocar</span>
-          </div>
-          <div className="relative mx-auto aspect-[4/5] w-full max-w-[620px] overflow-hidden rounded-2xl border-4 border-emerald-800/70 bg-gradient-to-b from-emerald-500 to-emerald-700 shadow-inner">
-            <div className="pointer-events-none absolute inset-3 rounded-xl border-2 border-white/55" />
-            <div className="pointer-events-none absolute left-3 right-3 top-1/2 border-t-2 border-white/55" />
-            <div className="pointer-events-none absolute left-1/2 top-1/2 aspect-square w-[28%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/55" />
-            <div className="pointer-events-none absolute left-[30%] right-[30%] top-3 h-[10%] rounded-b-xl border-2 border-t-0 border-white/55" />
-            <div className="pointer-events-none absolute bottom-3 left-[30%] right-[30%] h-[10%] rounded-t-xl border-2 border-b-0 border-white/55" />
-            <div className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 text-[9px] font-bold tracking-[0.3em] text-white/55">FUTSAL</div>
-            {squad.starters.map((slot, index) => {
-              const card = slot.uid ? cardsByUid.get(slot.uid) : null;
-              const selected = selectedSource?.type === 'starter' && selectedSource.index === index;
-              const point = coordinates[index] ?? { x: 50, y: 50 };
-              return (
-                <div
-                  key={`${slot.position}-${index}`}
-                  className="absolute z-10 w-[19%] sm:w-[17%]"
-                  style={{ left: `${point.x}%`, top: `${point.y}%`, transform: 'translate(-50%, -50%)' }}
-                  onDragOver={event => event.preventDefault()}
-                  onDrop={event => handleDrop(event, index, false)}
-                >
-                  {card ? (
-                    <>
-                      <div
-                        draggable
-                        onDragStart={event => handleDragStart({ type: 'starter', index }, event)}
-                        className={`relative rounded-2xl ${selected ? 'ring-2 ring-[var(--red)] ring-offset-2' : ''}`}
-                      >
-                        <Card card={card} size="fluid" onClick={() => handleSlotClick(index, false)} />
+        <div className="squad-workspace">
+          <section className="squad-field-panel" aria-labelledby="squad-court-title">
+            <div className="squad-section-heading">
+              <div><p className="squad-eyebrow">TITULARES · {formation}</p><h2 id="squad-court-title">Quadra</h2></div>
+              <span>Toque para selecionar · arraste para trocar</span>
+            </div>
+            <div className="squad-court-shell">
+              <div className={`squad-court${selectedSource ? ' squad-court--targeting' : ''}`} role="group" aria-label={`Quadra tática, formação ${formation}`}>
+                <div className="squad-court__boundary" aria-hidden="true" />
+                <div className="squad-court__halfway" aria-hidden="true" />
+                <div className="squad-court__circle" aria-hidden="true" />
+                <div className="squad-court__spot" aria-hidden="true" />
+                <div className="squad-court__goal squad-court__goal--top" aria-hidden="true" />
+                <div className="squad-court__goal squad-court__goal--bottom" aria-hidden="true" />
+                <div className="squad-court__stamp" aria-hidden="true">FUTSENAI · FUTSAL</div>
+                {squad.starters.map((slot, index) => {
+                  const card = slot.uid ? cardsByUid.get(slot.uid) : null;
+                  const selected = selectedSource?.type === 'starter' && selectedSource.index === index;
+                  const point = coordinates[index] ?? { x: 50, y: 50 };
+                  const isDropTarget = Boolean(selectedSource && !selected);
+                  const positionMatches = Boolean(selectedCard && selectedCard.position === slot.position);
+                  return (
+                    <div
+                      key={`${slot.position}-${index}`}
+                      className={`squad-starter-slot${selected ? ' squad-starter-slot--selected' : ''}${isDropTarget ? ' squad-starter-slot--target' : ''}${isDropTarget && positionMatches ? ' squad-starter-slot--match' : ''}`}
+                      data-position={POSITION_LABELS[slot.position]}
+                      data-filled={Boolean(card)}
+                      style={{ left: `${point.x}%`, top: `${point.y}%` }}
+                      onDragOver={event => event.preventDefault()}
+                      onDrop={event => handleDrop(event, index, false)}
+                    >
+                      {card ? (
+                        <div
+                          key={card.uid}
+                          draggable
+                          onDragStart={event => handleDragStart({ type: 'starter', index }, event)}
+                          className="squad-starter-card"
+                        >
+                          <Card card={card} size="fluid" animateHover={false} onClick={() => handleSlotClick(index, false)} />
+                          <button
+                            type="button"
+                            aria-label={`Remover ${card.name} da escalação titular`}
+                            onClick={event => { event.stopPropagation(); removeStarter(index); }}
+                            className="squad-starter-card__remove"
+                          >
+                            <X aria-hidden="true" />
+                          </button>
+                        </div>
+                      ) : (
                         <button
                           type="button"
-                          aria-label={`Remover ${card.name} da escalação titular`}
-                          onClick={event => { event.stopPropagation(); removeStarter(index); }}
-                          className="absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow"
+                          aria-label={`Slot ${POSITION_LABELS[slot.position]} vazio`}
+                          onClick={() => handleSlotClick(index, false)}
+                          className="squad-starter-empty"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <Plus aria-hidden="true" /><span>{POSITION_LABELS[slot.position]}</span>
                         </button>
-                      </div>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      aria-label={`Slot ${POSITION_LABELS[slot.position]} vazio`}
-                      onClick={() => handleSlotClick(index, false)}
-                      className={`flex aspect-[1.65/1] w-full items-center justify-center gap-1 rounded-xl border-2 border-dashed bg-white/80 text-xs font-bold text-emerald-950 shadow-sm ${selectedSource ? 'border-white' : 'border-white/60'}`}
-                    >
-                      <Plus className="h-4 w-4" /> {POSITION_LABELS[slot.position]}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[var(--text)]">Reservas</h3>
-              <span className="text-xs text-[var(--muted)]">Toque para selecionar ou arraste uma carta</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {squad.bench.map((uid, index) => {
-                const card = uid ? cardsByUid.get(uid) : null;
-                const selected = selectedSource?.type === 'bench' && selectedSource.index === index;
-                return (
-                  <div
-                    key={`bench-${index}`}
-                    className="relative min-w-0"
-                    onDragOver={event => event.preventDefault()}
-                    onDrop={event => handleDrop(event, 0, true, index)}
-                  >
-                    {card ? (
-                      <>
+
+            <section className="squad-bench" aria-labelledby="squad-bench-title">
+              <div className="squad-section-heading squad-section-heading--small">
+                <div><p className="squad-eyebrow">OPÇÕES DE JOGO</p><h3 id="squad-bench-title">Banco de reservas</h3></div>
+                <span>Toque para selecionar ou arraste</span>
+              </div>
+              <div className="squad-bench__grid">
+                {squad.bench.map((uid, index) => {
+                  const card = uid ? cardsByUid.get(uid) : null;
+                  const selected = selectedSource?.type === 'bench' && selectedSource.index === index;
+                  return (
+                    <div
+                      key={`bench-${index}`}
+                      className={`squad-bench-slot${selected ? ' squad-bench-slot--selected' : ''}${selectedSource && !selected ? ' squad-bench-slot--target' : ''}`}
+                      onDragOver={event => event.preventDefault()}
+                      onDrop={event => handleDrop(event, 0, true, index)}
+                    >
+                      {card ? (
                         <div
                           draggable
                           onDragStart={event => handleDragStart({ type: 'bench', index }, event)}
-                          className={`relative rounded-2xl ${selected ? 'ring-2 ring-[var(--red)] ring-offset-2' : ''}`}
+                          className="squad-bench-card"
                         >
-                          <Card card={card} size="fluid" onClick={() => handleSlotClick(0, true, index)} />
+                          <Card card={card} size="fluid" animateHover={false} onClick={() => handleSlotClick(0, true, index)} />
                           <button
                             type="button"
                             aria-label={`Remover ${card.name} das reservas`}
                             onClick={event => { event.stopPropagation(); removeBench(index); }}
-                            className="absolute -right-1.5 -top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                            className="squad-starter-card__remove"
+                          ><X aria-hidden="true" /></button>
                         </div>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        aria-label={`Reserva ${index + 1} vazia`}
-                        onClick={() => handleSlotClick(0, true, index)}
-                        className="flex aspect-[1.65/1] w-full items-center justify-center rounded-xl border-2 border-dashed border-[var(--border)] bg-white text-[var(--muted)]"
-                      >
-                        <Plus className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section className="card-surface flex h-[62dvh] min-h-[420px] flex-col p-3 md:p-4 lg:h-[calc(100dvh-285px)]">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-[var(--text)]">Inventário disponível ({available.length})</h2>
-            <span className="text-xs text-[var(--muted)]">{filteredAvailable.length} resultados</span>
-          </div>
-          <div className="relative mb-2">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
-            <input
-              type="search"
-              value={search}
-              onChange={event => { setSearch(event.target.value); setVisibleCardCount(36); }}
-              placeholder="Buscar por nome, clube ou raridade..."
-              aria-label="Buscar cartas do elenco"
-              className="w-full rounded-xl border border-[var(--border)] bg-white py-2 pl-9 pr-3 text-sm"
-            />
-          </div>
-          <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Filtrar cartas por posição">
-            {(['GK', 'Fixo', 'Ala', 'Pivo'] as Position[]).map(position => (
-              <button
-                key={position}
-                type="button"
-                aria-pressed={positionFilter === position}
-                onClick={() => { setPositionFilter(current => current === position ? null : position); setVisibleCardCount(36); }}
-                className={`btn btn-sm ${positionFilter === position ? 'btn-primary' : 'btn-secondary'}`}
-              >
-                {POSITION_LABELS[position]}
-              </button>
-            ))}
-            {positionFilter && <button onClick={() => setPositionFilter(null)} className="btn btn-ghost btn-sm">Limpar posição</button>}
-          </div>
-          {listings.some(listing => listing.status === 'active') && (
-            <p className="mb-2 text-xs text-amber-800">Cartas anunciadas no mercado ficam indisponíveis até o anúncio ser cancelado ou encerrado.</p>
-          )}
-          {selectedSource && (
-            <p className="mb-2 rounded-lg bg-[var(--soft)] px-2 py-1 text-xs text-[var(--text)]">
-              Carta selecionada. Toque em um slot para escalar; toque em outro titular para trocar.
-            </p>
-          )}
-          <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-auto sm:grid-cols-3">
-            {visibleCards.map(card => (
-              <div
-                key={card.uid}
-                data-testid="inventory-card"
-                draggable
-                onDragStart={event => handleDragStart({ type: 'inventory', uid: card.uid }, event)}
-                className={`min-w-0 rounded-2xl ${selectedSource?.type === 'inventory' && selectedSource.uid === card.uid ? 'ring-2 ring-[var(--red)] ring-offset-2' : ''}`}
-              >
-                <Card
-                  card={card}
-                  size="fluid"
-                  onClick={() => setSelectedSource(current =>
-                    current?.type === 'inventory' && current.uid === card.uid ? null : { type: 'inventory', uid: card.uid },
-                  )}
-                />
+                      ) : (
+                        <button type="button" aria-label={`Reserva ${index + 1} vazia`} onClick={() => handleSlotClick(0, true, index)} className="squad-bench-empty">
+                          <Plus aria-hidden="true" /><span>Reserva {index + 1}</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-          {filteredAvailable.length === 0 && <div className="pt-3 text-sm text-[var(--muted)]">Nenhuma carta disponível com esses filtros.</div>}
-          {visibleCards.length < filteredAvailable.length && (
-            <button type="button" onClick={() => setVisibleCardCount(count => count + 36)} className="btn btn-secondary btn-sm mt-2 w-full">
+            </section>
+          </section>
+
+          <section className="squad-inventory" aria-labelledby="squad-inventory-title">
+            <header className="squad-inventory__header">
+              <div>
+                <p className="squad-eyebrow">BANCO DE ATLETAS</p>
+                <h2 id="squad-inventory-title">Inventário disponível</h2>
+                <span className="squad-inventory__count">{available.length.toLocaleString('pt-BR')} atletas</span>
+              </div>
+              <span className="squad-inventory__results">{filteredAvailable.length.toLocaleString('pt-BR')} resultados</span>
+            </header>
+            <label className="squad-search">
+              <Search aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={event => { setSearch(event.target.value); setVisibleCardCount(36); }}
+                placeholder="Buscar jogador, clube ou raridade..."
+                aria-label="Buscar cartas do elenco"
+              />
+            </label>
+            <div className="squad-position-filters" role="group" aria-label="Filtrar cartas por posição">
+              <button type="button" aria-pressed={positionFilter === null} onClick={() => { setPositionFilter(null); setVisibleCardCount(36); }} className={positionFilter === null ? 'squad-filter squad-filter--active' : 'squad-filter'}>Todos</button>
+              {(['GK', 'Fixo', 'Ala', 'Pivo'] as Position[]).map(position => (
+                <button
+                  key={position}
+                  type="button"
+                  aria-pressed={positionFilter === position}
+                  onClick={() => { setPositionFilter(current => current === position ? null : position); setVisibleCardCount(36); }}
+                  className={positionFilter === position ? 'squad-filter squad-filter--active' : 'squad-filter'}
+                >
+                  {POSITION_LABELS[position]}
+                </button>
+              ))}
+            </div>
+            {listings.some(listing => listing.status === 'active') && (
+              <p className="squad-inventory__notice">Cartas anunciadas no mercado ficam indisponíveis até o anúncio ser cancelado ou encerrado.</p>
+            )}
+            {selectedSource && (
+              <div className="squad-selection-hint" role="status">
+                <span>{selectedCard ? `${selectedCard.name} selecionado` : 'Jogador selecionado'} · toque numa posição para escalar ou trocar.</span>
+                <button type="button" onClick={() => setSelectedSource(null)}>Cancelar</button>
+              </div>
+            )}
+            <div className="squad-inventory__cards" aria-live="polite">
+              {visibleCards.map(card => (
+                <div
+                  key={card.uid}
+                  data-testid="inventory-card"
+                  data-selected={selectedSource?.type === 'inventory' && selectedSource.uid === card.uid}
+                  draggable
+                  onDragStart={event => handleDragStart({ type: 'inventory', uid: card.uid }, event)}
+                  className="squad-inventory-card"
+                >
+                  <Card
+                    card={card}
+                    size="fluid"
+                    animateHover={false}
+                    onClick={() => setSelectedSource(current =>
+                      current?.type === 'inventory' && current.uid === card.uid ? null : { type: 'inventory', uid: card.uid },
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
+            {filteredAvailable.length === 0 &&             <div className="squad-empty-message">Nenhuma carta disponível com esses filtros.</div>}
+            {visibleCards.length < filteredAvailable.length && (
+              <button type="button" onClick={() => setVisibleCardCount(count => count + 36)} className="squad-load-more">
               Carregar mais cartas ({filteredAvailable.length - visibleCards.length} restantes)
-            </button>
-          )}
-        </section>
+              </button>
+            )}
+          </section>
+        </div>
       </div>
       <ConfirmModal
         open={pendingPositionSwap !== null}
