@@ -81,6 +81,17 @@ describe('Compare page', () => {
     jest.clearAllMocks();
   });
 
+  it('presents the comparison as a duel and summarizes attribute wins and draws', async () => {
+    renderCompare('/compare?a=gk&b=line');
+
+    expect(screen.getByRole('heading', { name: 'Comparar jogadores' })).toBeInTheDocument();
+    expect(screen.getByText('Compare atributos, desempenho e vantagens entre dois atletas.')).toBeInTheDocument();
+    expect(screen.getByLabelText('contra')).toHaveTextContent('VS');
+    expect(screen.getByRole('heading', { name: 'Análise da comparação' })).toBeInTheDocument();
+    expect(screen.getByLabelText('2 vitórias para jogador A, 1 vitórias para jogador B')).toBeInTheDocument();
+    expect(screen.getByText('EMPATES').nextElementSibling).toHaveTextContent('0');
+  });
+
   it('compares only shared attributes for a goalkeeper and a field player', async () => {
     renderCompare('/compare?a=gk&b=line');
 
@@ -138,7 +149,7 @@ describe('Compare page', () => {
     expect(summary).toHaveTextContent('Thiago Tavares (Ícone) vence em 5 de 6 atributos.');
     expect(summary).toHaveTextContent('Thiago Tavares (Ícone) tem o maior overall (95).');
 
-    const analysis = screen.getByRole('heading', { name: 'Análise' }).parentElement as HTMLElement;
+    const analysis = screen.getByRole('heading', { name: 'Análise da comparação' }).parentElement as HTMLElement;
     expect(analysis).toHaveTextContent('Thiago Tavares (Ícone)');
     expect(analysis).toHaveTextContent('Thiago Tavares (Lendária)');
     expect(within(analysis).getAllByText('Thiago Tavares (Ícone)')[0]).toHaveClass('rgb-text');
@@ -147,7 +158,7 @@ describe('Compare page', () => {
 
   it('disables selecting the other side, searches without accents and restores focus on Escape', async () => {
     renderCompare('/compare?a=gk');
-    const openButton = await screen.findByRole('button', { name: 'Selecionar' });
+    const openButton = await screen.findByRole('button', { name: 'Selecionar jogador' });
     fireEvent.click(openButton);
 
     const dialog = await screen.findByRole('dialog');

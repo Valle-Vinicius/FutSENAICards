@@ -70,25 +70,25 @@ function compareAttributes(a: PlayerCard, b: PlayerCard): ComparisonAttribute[] 
 
 function AttributeRows({ rows }: { rows: ComparisonAttribute[] }) {
   return (
-    <div className="space-y-3">
+    <div className="compare-attribute-rows">
       {rows.map(row => {
         const aWins = row.a > row.b;
         const bWins = row.b > row.a;
         const barWidthA = `${Math.min(100, Math.max(0, row.a)) / 99 * 100}%`;
         const barWidthB = `${Math.min(100, Math.max(0, row.b)) / 99 * 100}%`;
         return (
-          <div key={row.key} className="space-y-1">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              <span className={`text-lg font-bold ${aWins ? 'text-[var(--red)]' : 'text-[var(--text)]'}`}>{row.a}</span>
-              <span className="text-center text-xs font-medium text-[var(--muted)]">{row.label}</span>
-              <span className={`text-right text-lg font-bold ${bWins ? 'text-[var(--red)]' : 'text-[var(--text)]'}`}>{row.b}</span>
+          <div key={row.key} className={`compare-attribute${aWins || bWins ? '' : ' compare-attribute--draw'}`}>
+            <div className="compare-attribute__values">
+              <span className={aWins ? 'compare-attribute__value compare-attribute__value--winner' : 'compare-attribute__value'}>{row.a}</span>
+              <span className="compare-attribute__label">{row.label}</span>
+              <span className={bWins ? 'compare-attribute__value compare-attribute__value--winner compare-attribute__value--right' : 'compare-attribute__value compare-attribute__value--right'}>{row.b}</span>
             </div>
-            <div className="grid grid-cols-2 gap-3" aria-hidden="true">
-              <div className="flex h-2 justify-end overflow-hidden rounded-full bg-[var(--border)]">
-                <div className="h-full rounded-full" style={{ width: barWidthA, backgroundColor: aWins ? 'var(--red)' : 'var(--muted)' }} />
+            <div className="compare-attribute__bars" aria-hidden="true">
+              <div className="compare-attribute__track compare-attribute__track--left">
+                <span className={aWins ? 'compare-attribute__fill compare-attribute__fill--winner' : 'compare-attribute__fill'} style={{ width: barWidthA }} />
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
-                <div className="h-full rounded-full" style={{ width: barWidthB, backgroundColor: bWins ? 'var(--red)' : 'var(--muted)' }} />
+              <div className="compare-attribute__track">
+                <span className={bWins ? 'compare-attribute__fill compare-attribute__fill--winner' : 'compare-attribute__fill'} style={{ width: barWidthB }} />
               </div>
             </div>
           </div>
@@ -259,127 +259,169 @@ export default function Compare() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-5 p-4 md:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-[var(--text)] md:text-3xl">Comparar jogadores</h1>
-        {a && b && (
-          <button
-            type="button"
-            onClick={() => { setAUid(b.uid); setBUid(a.uid); }}
-            className="btn btn-secondary btn-sm"
-          >
-            <ArrowLeftRight className="h-4 w-4" /> Inverter
-          </button>
-        )}
-      </header>
+    <main className="compare-page">
+      <div className="compare-page__inner">
+        <header className="compare-header">
+          <div>
+            <p className="compare-eyebrow"><span aria-hidden="true" /> FUTSENAI · DUELO DE ATLETAS</p>
+            <h1>Comparar jogadores</h1>
+            <p className="compare-header__intro">Compare atributos, desempenho e vantagens entre dois atletas.</p>
+          </div>
+          {a && b && (
+            <button
+              type="button"
+              onClick={() => { setAUid(b.uid); setBUid(a.uid); }}
+              className="compare-swap"
+            >
+              <ArrowLeftRight aria-hidden="true" /> Inverter confronto
+            </button>
+          )}
+        </header>
 
-      <section className="grid grid-cols-2 items-start gap-3 md:grid-cols-[minmax(144px,1fr)_minmax(300px,2fr)_minmax(144px,1fr)]">
-        {(['a', 'b'] as const).map(side => {
-          const card = side === 'a' ? a : b;
-          const triggerRef = side === 'a' ? aPickerButton : bPickerButton;
-          return (
-            <div key={side} className={`flex min-w-0 flex-col items-center gap-2 ${side === 'a' ? 'md:col-start-1 md:row-start-1' : 'col-start-2 md:col-start-3 md:row-start-1'}`}>
-              <h2 className="text-sm font-semibold text-[var(--muted)]">Jogador {side.toUpperCase()}</h2>
-              <div className="relative min-w-0">
-                {card ? (
-                  <>
-                    <Card card={card} size="sm" />
-                    <button
-                      type="button"
-                      aria-label={`Remover ${card.name}`}
-                      onClick={() => clearSide(side)}
-                      className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white text-[var(--muted)] shadow hover:text-[var(--red)]"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex aspect-[7/10] w-36 max-w-full items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] text-sm text-[var(--muted)]">
-                    Nenhum jogador
+        <section className="compare-duel" aria-label="Confronto entre jogadores">
+          {(['a', 'b'] as const).map(side => {
+            const card = side === 'a' ? a : b;
+            const triggerRef = side === 'a' ? aPickerButton : bPickerButton;
+            return (
+              <article key={side} className={`compare-side compare-side--${side}`}>
+                <p className="compare-side__label">JOGADOR {side.toUpperCase()}</p>
+                <div className="compare-side__card">
+                  {card ? (
+                    <>
+                      <div className="compare-card-frame">
+                        <Card card={card} size="sm" />
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={`Remover ${card.name}`}
+                        onClick={() => clearSide(side)}
+                        className="compare-side__clear"
+                      >
+                        <X aria-hidden="true" />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="compare-side__empty">
+                      <span aria-hidden="true">{side.toUpperCase()}</span>
+                      <strong>Nenhum jogador</strong>
+                      <small>Escolha um atleta para o confronto</small>
+                    </div>
+                  )}
+                </div>
+                {card && (
+                  <div className="compare-side__identity">
+                    <strong>{card.name}</strong>
+                    <span>{card.position} <i aria-hidden="true">·</i> {card.overall} OVR <i aria-hidden="true">·</i> {RARITY_META[card.rarity].label}</span>
                   </div>
                 )}
-              </div>
-              <button
-                ref={triggerRef}
-                type="button"
-                onClick={() => openPicker(side)}
-                className="btn btn-secondary btn-sm w-36 justify-center"
-              >
-                {card ? 'Trocar' : 'Selecionar'}
-              </button>
-            </div>
-          );
-        })}
-
-        {a && b && (
-          <section className="card-surface col-span-2 space-y-3 p-4 md:col-span-1 md:col-start-2 md:row-start-1">
-            <h2 className="text-center text-base font-semibold text-[var(--text)]">Atributos em comparação</h2>
-            {mixedGoalkeeperMatch && (
-              <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
-                Goleiros e jogadores de linha só têm 3 atributos em comum.
-              </p>
-            )}
-            <AttributeRows rows={attributes} />
-          </section>
-        )}
-      </section>
-
-      {a && b && (
-        <>
-          <section role="status" className="card-surface p-4 text-center">
-            <p className="font-semibold text-[var(--text)]">
-              {aWins === bWins
-                ? aWins === 0
-                  ? `Empate: os ${attributes.length} atributos estão iguais.`
-                  : <>Empate em atributos: <CardName card={a} showRarity={showRarity} /> e <CardName card={b} showRarity={showRarity} /> vencem em {aWins} de {attributes.length} cada.</>
-                : <><CardName card={aWins > bWins ? a : b} showRarity={showRarity} /> vence em {Math.max(aWins, bWins)} de {attributes.length} atributos.</>}
-            </p>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {higherOverall
-                ? <><CardName card={higherOverall} showRarity={showRarity} /> tem o maior overall ({higherOverall.overall}).</>
-                : `Os dois têm o mesmo overall (${a.overall}).`}
-            </p>
-          </section>
-          <section className="card-surface mx-auto max-w-prose p-4">
-            <h2 className="mb-2 font-semibold text-[var(--text)]">Análise</h2>
-            <ul className="space-y-1 text-sm text-[var(--text)]">
-              {analysis.map((sentence, index) => <li key={index}>{sentence}</li>)}
-            </ul>
-          </section>
-        </>
-      )}
-
-      {visibleHistory.length > 0 && (
-        <section className="card-surface p-4">
-          <h2 className="mb-2 font-semibold text-[var(--text)]">Comparações recentes</h2>
-          <div className="flex flex-wrap gap-2">
-            {visibleHistory.map(entry => (
-              <button
-                key={`${entry.aUid}:${entry.bUid}:${entry.at}`}
-                type="button"
-                onClick={() => restoreHistory(entry.aUid, entry.bUid)}
-                className="btn btn-secondary btn-sm"
-              >
-                {entry.left.name} × {entry.right.name}
-              </button>
-            ))}
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  onClick={() => openPicker(side)}
+                  className="compare-side__select"
+                >
+                  {card ? 'Trocar jogador' : 'Selecionar jogador'}
+                </button>
+              </article>
+            );
+          })}
+          <div className="compare-duel__versus" aria-label="contra">
+            <span>VS</span>
           </div>
         </section>
-      )}
 
-      {!a && !b && (
-        <div className="text-center text-sm text-[var(--muted)]">
-          Selecione dois jogadores para comparar seus atributos.
-        </div>
-      )}
+        {a && b && (
+          <>
+            <section className="compare-attributes" aria-labelledby="compare-attributes-title">
+              <p className="compare-eyebrow">DISPUTA ESTATÍSTICA</p>
+              <h2 id="compare-attributes-title">Atributos em comparação</h2>
+              {mixedGoalkeeperMatch && (
+                <p role="status" className="compare-attributes__notice">
+                  Goleiros e jogadores de linha só têm 3 atributos em comum.
+                </p>
+              )}
+              <AttributeRows rows={attributes} />
+            </section>
 
-      {pickerFor && (
+            <section role="status" className="compare-result">
+              <div className="compare-result__lead">
+                <p className="compare-eyebrow">VANTAGEM</p>
+                <strong>
+                  {aWins === bWins
+                    ? 'Confronto equilibrado'
+                    : <CardName card={aWins > bWins ? a : b} showRarity={showRarity} />}
+                </strong>
+                <p className="compare-result__sentence">
+                  {aWins === bWins
+                    ? aWins === 0
+                      ? `Empate: os ${attributes.length} atributos estão iguais.`
+                      : <>Empate em atributos: <CardName card={a} showRarity={showRarity} /> e <CardName card={b} showRarity={showRarity} /> vencem em {aWins} de {attributes.length} cada.</>
+                    : <><CardName card={aWins > bWins ? a : b} showRarity={showRarity} /> vence em {Math.max(aWins, bWins)} de {attributes.length} atributos.</>}
+                </p>
+                <p className="compare-result__overall">
+                  {higherOverall
+                    ? <><CardName card={higherOverall} showRarity={showRarity} /> tem o maior overall ({higherOverall.overall}).</>
+                    : `Os dois têm o mesmo overall (${a.overall}).`}
+                </p>
+              </div>
+              <div className="compare-result__score" aria-label={`${aWins} vitórias para jogador A, ${bWins} vitórias para jogador B`}>
+                <div className={aWins > bWins ? 'compare-result__score-side compare-result__score-side--winner' : 'compare-result__score-side'}>
+                  <span>JOGADOR A</span><strong>{aWins}</strong><small>{aWins === 1 ? 'atributo' : 'atributos'}</small>
+                </div>
+                <div className="compare-result__draws">
+                  <span>EMPATES</span><strong>{attributes.length - aWins - bWins}</strong>
+                </div>
+                <div className={bWins > aWins ? 'compare-result__score-side compare-result__score-side--winner' : 'compare-result__score-side'}>
+                  <span>JOGADOR B</span><strong>{bWins}</strong><small>{bWins === 1 ? 'atributo' : 'atributos'}</small>
+                </div>
+              </div>
+            </section>
+
+            <section className="compare-analysis" aria-labelledby="compare-analysis-title">
+              <p className="compare-eyebrow">LEITURA DO CONFRONTO</p>
+              <h2 id="compare-analysis-title">Análise da comparação</h2>
+              <ul>
+                {analysis.map((sentence, index) => <li key={index}>{sentence}</li>)}
+              </ul>
+            </section>
+          </>
+        )}
+
+        {visibleHistory.length > 0 && (
+          <section className="compare-history" aria-labelledby="compare-history-title">
+            <div className="compare-history__heading">
+              <div><p className="compare-eyebrow">ÚLTIMOS DUELOS</p><h2 id="compare-history-title">Comparações recentes</h2></div>
+              <span>{visibleHistory.length} recentes</span>
+            </div>
+            <div className="compare-history__list">
+              {visibleHistory.map(entry => (
+                <button
+                  key={`${entry.aUid}:${entry.bUid}:${entry.at}`}
+                  type="button"
+                  onClick={() => restoreHistory(entry.aUid, entry.bUid)}
+                  className="compare-history__item"
+                >
+                  <span>{entry.left.name}</span><b>×</b><span>{entry.right.name}</span>
+                  <ArrowLeftRight aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!a && !b && (
+          <p className="compare-empty-prompt">
+            Selecione dois jogadores para comparar seus atributos.
+          </p>
+        )}
+
+        {pickerFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closePicker}>
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="compare-picker-title"
-            className="card-surface max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto p-4"
+              className="compare-picker card-surface max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto p-4"
             onClick={event => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -438,6 +480,7 @@ export default function Compare() {
           </section>
         </div>
       )}
+      </div>
     </main>
   );
 }

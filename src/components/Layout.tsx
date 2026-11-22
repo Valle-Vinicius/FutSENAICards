@@ -68,8 +68,9 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isPacksRoute = location.pathname === '/packs';
   const isCollectionRoute = location.pathname === '/collection';
   const isSquadRoute = location.pathname === '/squad';
+  const isCompareRoute = location.pathname === '/compare';
   const isOpenPackRoute = location.pathname.startsWith('/open/');
-  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isOpenPackRoute;
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute;
   const isMatchRoute = location.pathname === '/match';
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
