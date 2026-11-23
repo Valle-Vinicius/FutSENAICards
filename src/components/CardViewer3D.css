@@ -134,6 +134,11 @@
   border-radius: 17px;
 }
 
+.card-viewer-face--front .fc-card > img {
+  object-fit: contain;
+  object-position: center;
+}
+
 .card-viewer-face--back {
   display: grid;
   overflow: hidden;
