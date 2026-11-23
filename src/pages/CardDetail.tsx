@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftRight, Award, Star, Zap } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
+import CardViewer3D from '../components/CardViewer3D';
 import { RARITY_META } from '../types';
 import type { UpgradeAttr } from '../types';
 import assuncaoPhoto from '../imagens/fotosdetalhedascarta/assuncao.png';
@@ -55,7 +56,9 @@ export default function CardDetail() {
   const markSeen = useGame(s => s.markSeen);
   const toggleFav = useGame(s => s.toggleFavorite);
   const upgradePlayer = useGame(s => s.upgradePlayer);
+  const [cardViewerOpen, setCardViewerOpen] = useState(false);
   const card = cards.find(c => c.uid === uid);
+  const closeCardViewer = useCallback(() => setCardViewerOpen(false), []);
 
   useEffect(() => {
     document.title = `${card?.name ?? 'Carta'} | FutSENAI Cards`;
@@ -272,11 +275,25 @@ export default function CardDetail() {
 
           <section className="card-detail-panel card-detail-collection" aria-labelledby="card-detail-collection-title">
             <SectionHeading kicker="COLEÇÃO" title="Carta do atleta" id="card-detail-collection-title" />
-            <div className="card-detail-collection__card">
+            <div
+              className="card-detail-collection__card"
+              role="button"
+              tabIndex={0}
+              aria-label={`Abrir visualização 3D da carta de ${card.name}`}
+              onClick={() => setCardViewerOpen(true)}
+              onKeyDown={event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setCardViewerOpen(true);
+                }
+              }}
+            >
               <Card card={card} size="sm" animateHover={false} />
             </div>
+            <p className="card-detail-collection__hint">Clique na carta para explorar em 3D.</p>
           </section>
         </div>
+        {cardViewerOpen && <CardViewer3D card={card} attributes={attrs.slice(0, 6)} onClose={closeCardViewer} />}
       </div>
     </div>
   );

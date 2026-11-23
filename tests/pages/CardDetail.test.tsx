@@ -64,6 +64,11 @@ describe('Card detail', () => {
     expect(container.querySelector('.rgb-stat')).toBeInTheDocument();
     expect(container.querySelector('.card-detail-overall strong')).toHaveTextContent('80');
     expect(state.markSeen).toHaveBeenCalledWith(['card-1']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir visualização 3D da carta de Jogador Zoeira' }));
+    expect(screen.getByRole('dialog', { name: 'Visualizador 3D' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar visualização' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('opens the comparison page with this card selected', () => {
