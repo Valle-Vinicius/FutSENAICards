@@ -4,6 +4,7 @@ import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
 import ConfirmModal from '../components/ConfirmModal';
+import { useCardViewer } from '../hooks/useCardViewer';
 import { supabase } from '../lib/supabase';
 import { UUID_RE } from '../lib/game';
 import { getSBCCompletionHistory, type SBCCompletionRecord } from '../lib/services/sbc';
@@ -130,6 +131,7 @@ export default function SBC() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [completedNotice, setCompletedNotice] = useState<string | null>(null);
   const [todayUtc, setTodayUtc] = useState(INITIAL_TODAY_UTC);
+  const { openCard: openCardViewer, viewer: cardViewer } = useCardViewer();
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -514,7 +516,7 @@ export default function SBC() {
                   </div>
                   {card ? (
                     <>
-                      <div className="sbc-slot__art"><Card card={card} size="fluid" animateHover={false} /></div>
+                      <div className="sbc-slot__art"><Card card={card} size="fluid" onClick={() => openCardViewer(card)} /></div>
                       <div className="sbc-slot__details">
                         <strong>{card.name}</strong>
                         <span>OVR {card.overall} · {RARITY_META[card.rarity]?.label ?? card.rarity}</span>
@@ -728,7 +730,7 @@ export default function SBC() {
                   disabled={!isSelected && !!restriction}
                   onClick={() => activeSbc && toggle(activeSbc, card.uid)}
                 >
-                  <Card card={card} size="fluid" animateHover={false} />
+                  <Card card={card} size="fluid" />
                   {isSelected && <span className="sbc-inventory-card__selected"><CheckCircle2 aria-hidden="true" /> NA SELEÇÃO</span>}
                   {!isSelected && restriction && <span className="sbc-inventory-card__lock">INDISPONÍVEL</span>}
                   {!isSelected && !restriction && <span className="sbc-inventory-card__add">ADICIONAR</span>}
@@ -788,6 +790,7 @@ export default function SBC() {
         confirmVariant="danger"
         confirmDisabled={completingSbcId !== null}
       />
+      {cardViewer}
     </div>
   );
 }

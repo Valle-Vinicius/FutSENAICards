@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { PlayerCard } from '../types';
 import { RARITY_META, SPECIAL_META } from '../types';
 import { getPlayerImage } from '../data/players';
@@ -30,8 +30,26 @@ export default function Card({ card, size = 'md', onClick, isNew, attributes, po
   const compact = size === 'sm' || size === 'fluid';
   const canHover = typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
-    && window.matchMedia('(hover: hover)').matches;
+    && window.matchMedia('(hover: hover)').matches
+    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const dims = size === 'fluid' ? 'w-full' : size === 'sm' ? 'w-36' : size === 'lg' ? 'w-60' : 'w-48';
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!animateHover || !canHover || event.pointerType === 'touch') return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const x = (event.clientX - bounds.left) / bounds.width;
+    const y = (event.clientY - bounds.top) / bounds.height;
+    event.currentTarget.style.setProperty('--card-tilt-x', `${(0.5 - y) * 7}deg`);
+    event.currentTarget.style.setProperty('--card-tilt-y', `${(x - 0.5) * 9}deg`);
+    event.currentTarget.style.setProperty('--card-shine-x', `${x * 100}%`);
+    event.currentTarget.style.setProperty('--card-shine-y', `${y * 100}%`);
+  };
+  const resetPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.currentTarget.style.setProperty('--card-tilt-x', '0deg');
+    event.currentTarget.style.setProperty('--card-tilt-y', '0deg');
+    event.currentTarget.style.setProperty('--card-shine-x', '50%');
+    event.currentTarget.style.setProperty('--card-shine-y', '40%');
+  };
 
   const attrs = attributes ?? (isGK
     ? [{l:'REF',v:card.reflexes ?? 0},{l:'POS',v:card.positioning ?? 0},{l:'HAN',v:card.handling ?? 0},{l:'VEL',v:card.pace},{l:'DEF',v:card.defending},{l:'FIS',v:card.physical}]
@@ -39,20 +57,27 @@ export default function Card({ card, size = 'md', onClick, isNew, attributes, po
   const visibleAttrs = attributes ? attrs : compact ? [...attrs].sort((a, b) => b.v - a.v).slice(0, 3) : attrs;
 
   return (
-    <motion.div
-      whileHover={canHover && animateHover ? { y: -4 } : undefined}
+    <div
       onClick={onClick}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={resetPointer}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       aria-label={`${card.name}, overall ${card.overall}, ${card.position}`}
-      className={`${dims} aspect-[7/10] h-auto shrink-0 fc-card relative cursor-pointer select-none rounded-2xl overflow-hidden max-w-full ${card.rarity === 'icon' ? 'rgb-card' : ''} ${isSecret ? 'bg-[#08090D]' : ''}`}
+      data-rarity={card.rarity}
+      className={`${dims} aspect-[7/10] h-auto shrink-0 fc-card relative cursor-pointer select-none rounded-2xl overflow-hidden max-w-full ${animateHover ? 'fc-card--interactive' : ''} ${card.rarity === 'icon' ? 'rgb-card' : ''} ${isSecret ? 'bg-[#08090D]' : ''}`}
       style={{
         border: card.rarity === 'icon' ? '4px solid #ff0040' : isSecret ? '3px solid #7B8492' : `2px solid ${meta.color}`,
+        '--card-rarity-color': meta.color,
+        '--card-tilt-x': '0deg',
+        '--card-tilt-y': '0deg',
+        '--card-shine-x': '50%',
+        '--card-shine-y': '40%',
         boxShadow: isSecret
           ? '0 0 0 1px rgba(255,255,255,0.12) inset, 0 0 28px rgba(8,9,13,0.7)'
           : '0 8px 24px rgba(37,39,51,0.15)',
-      }}
+      } as CSSProperties}
     >
       {isNew && <span className={`absolute z-20 bg-[var(--red)] text-white fc-badge font-bold px-2 py-0.5 rounded-full shadow`} style={{ top: compact ? '21cqw' : '33cqw', right: '4.2cqw' }}>NOVA</span>}
 
@@ -67,6 +92,7 @@ export default function Card({ card, size = 'md', onClick, isNew, attributes, po
       ) : (
         <div className={`absolute inset-0 ${isSecret ? 'bg-gradient-to-t from-[#050609]/95 via-[#08090D]/50 to-black/20' : 'bg-gradient-to-t from-black/80 via-black/35 to-transparent'}`} />
       )}
+      <div className="fc-card-hologram" aria-hidden="true" />
 
       <div className="absolute flex flex-col items-start gap-1 z-10 max-w-[60%]" style={{ top: '4.2cqw', left: '4.2cqw' }}>
         <span
@@ -114,6 +140,6 @@ export default function Card({ card, size = 'md', onClick, isNew, attributes, po
       </div>
 
       {card.favorite && <Star className="absolute bottom-2 right-2 text-[#f5c542] z-20" style={{ width: 'max(10px, 8cqw)', height: 'max(10px, 8cqw)' }} />}
-    </motion.div>
+    </div>
   );
 }

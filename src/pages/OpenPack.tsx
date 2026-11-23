@@ -8,7 +8,8 @@ import { playBurst, playCharge, playFlip, playRareReveal } from '../lib/sound';
 import Card from '../components/Card';
 import type { PlayerCard, Rarity } from '../types';
 import { PACK_RARITY_ORDER, RARITY_META } from '../types';
-import { ArrowLeft, Coins, Trophy, Copy, LoaderCircle, PackageOpen, Sparkles } from 'lucide-react';
+import { ArrowLeft, Coins, Eye, Trophy, Copy, LoaderCircle, PackageOpen, Sparkles } from 'lucide-react';
+import { useCardViewer } from '../hooks/useCardViewer';
 import cardBackCommon from '../imagens/cartas/comum.png';
 import cardBackUncommon from '../imagens/cartas/incomum.png';
 import cardBackRare from '../imagens/cartas/raro.png';
@@ -157,6 +158,7 @@ export default function OpenPack() {
   const [burstFire, setBurstFire] = useState(false);
   const [shake, setShake] = useState(false);
   const [chargeTimedOut, setChargeTimedOut] = useState(false);
+  const { openCard: openCardViewer, viewer: cardViewer } = useCardViewer();
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const openingRef = useRef(false);
@@ -721,8 +723,15 @@ export default function OpenPack() {
                       setClaimingChoice(false);
                     }
                   }).catch(() => setClaimingChoice(false));
-                }} className="open-pack-choice-card mx-auto w-full max-w-48 min-w-0 cursor-pointer">
+                }} className="open-pack-choice-card relative mx-auto w-full max-w-48 min-w-0 cursor-pointer">
                   <Card card={c} size="fluid" />
+                  <button
+                    type="button"
+                    aria-label={`Visualizar ${c.name} em 3D`}
+                    title="Visualizar carta"
+                    onClick={event => { event.stopPropagation(); openCardViewer(c); }}
+                    className="absolute right-2 top-2 z-20 grid h-8 w-8 place-items-center rounded-full border border-white/70 bg-black/70 text-white transition hover:bg-[var(--red)]"
+                  ><Eye aria-hidden="true" className="h-4 w-4" /></button>
                 </motion.div>
               ))}
             </div>
@@ -746,7 +755,7 @@ export default function OpenPack() {
             <div className="grid w-full max-w-md grid-cols-2 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-5">
               {cards.map((c, i) => (
                 <div key={c.uid} className="min-w-0">
-                  <FlipCard card={c} revealed={revealed[i]} onReveal={() => revealCard(i)} rarityColor={RARITY_META[c.rarity].color} />
+                  <FlipCard card={c} revealed={revealed[i]} onReveal={() => revealCard(i)} onViewCard={openCardViewer} rarityColor={RARITY_META[c.rarity].color} />
                 </div>
               ))}
             </div>
@@ -790,9 +799,12 @@ export default function OpenPack() {
                   className={i === 0 ? 'col-span-2 flex flex-col items-center sm:col-auto' : 'min-w-0 w-full sm:w-48'}
                 >
                   {i === 0 && <div className="mb-1 text-center text-xs font-black" style={{ color: RARITY_META[c.rarity].color }}>MELHOR CARTA</div>}
-                  <Link to={`/card/${c.uid}`} className={i === 0 ? 'open-pack-summary__card open-pack-summary__card--best' : 'open-pack-summary__card'}>
-                    <Card card={c} size="fluid" />
-                  </Link>
+                  <div className={i === 0 ? 'open-pack-summary__card open-pack-summary__card--best' : 'open-pack-summary__card'}>
+                    <Card card={c} size="fluid" onClick={() => openCardViewer(c)} />
+                    <Link to={`/card/${c.uid}`} className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--border)] bg-white/80 px-3 text-[9px] font-black uppercase tracking-wide text-[var(--text)] transition hover:border-[var(--red)] hover:text-[var(--red)]">
+                      Perfil do atleta
+                    </Link>
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -825,11 +837,12 @@ export default function OpenPack() {
         )}
       </AnimatePresence>
       </div>
+      {cardViewer}
     </div>
   );
 }
 
-function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard; revealed: boolean; onReveal: () => void; rarityColor: string }) {
+function FlipCard({ card, revealed, onReveal, onViewCard, rarityColor }: { card: PlayerCard; revealed: boolean; onReveal: () => void; onViewCard: (card: PlayerCard) => void; rarityColor: string }) {
   return (
     <div className="aspect-[7/10] w-full max-w-full cursor-pointer" style={{ width: 'min(44vw, 11rem)', perspective: 1000 }} onClick={() => !revealed && onReveal()}>
       <motion.div
@@ -854,6 +867,15 @@ function FlipCard({ card, revealed, onReveal, rarityColor }: { card: PlayerCard;
         </div>
         <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}>
           <Card card={card} size="fluid" />
+          {revealed && (
+            <button
+              type="button"
+              aria-label={`Visualizar ${card.name} em 3D`}
+              title="Visualizar carta"
+              onClick={event => { event.stopPropagation(); onViewCard(card); }}
+              className="absolute right-2 top-2 z-20 grid h-8 w-8 place-items-center rounded-full border border-white/70 bg-black/70 text-white transition hover:bg-[var(--red)]"
+            ><Eye aria-hidden="true" className="h-4 w-4" /></button>
+          )}
           {revealed && (
             <motion.div
               initial={{ opacity: 0 }}

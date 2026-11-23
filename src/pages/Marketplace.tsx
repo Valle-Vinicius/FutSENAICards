@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
+import { useCardViewer } from '../hooks/useCardViewer';
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BadgeCheck, CalendarDays, ChevronRight, CircleDollarSign, Clock3, Coins, PencilLine, Plus, RotateCcw, Search, Store, Tag, User, X } from 'lucide-react';
 import { getPlayerImage } from '../data/players';
 import { supabase } from '../lib/supabase';
@@ -136,6 +137,7 @@ export default function Marketplace() {
   const [buyingAnim, setBuyingAnim] = useState<string | null>(null);
   const [cancellingListingId, setCancellingListingId] = useState<string | null>(null);
   const [creatingListing, setCreatingListing] = useState(false);
+  const { openCard: openCardViewer, viewer: cardViewer } = useCardViewer();
   useEffect(() => {
     if (!sellDialogOpen && !confirmBuy && !editingPriceFor) return;
     const handleEscape = (event: KeyboardEvent) => {
@@ -492,9 +494,9 @@ export default function Marketplace() {
               const snapshotAttributes = l.cardAttributes ? undefined : [];
               return (
                 <article key={l.id} aria-busy={buyingAnim === l.id} className={`group flex min-w-0 flex-col rounded-2xl border border-[var(--border)] bg-white p-2.5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[var(--red)]/35 hover:shadow-[0_14px_32px_rgba(27,30,39,0.12)] motion-reduce:transform-none motion-reduce:transition-none sm:p-3 ${buyingAnim === l.id ? 'scale-95 opacity-60' : ''}`}>
-                  <button type="button" onClick={() => handleBuy(l.id)} className="flex w-full justify-center rounded-xl bg-[linear-gradient(145deg,#f3f4f6,#e8e9ed)] p-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--red)]" aria-label={`Ver oferta: ${card.name}, overall ${card.overall}, ${listingPrice(l).toLocaleString('pt-BR')} moedas`}>
+                  <button type="button" onClick={() => openCardViewer(card)} className="flex w-full justify-center rounded-xl bg-[linear-gradient(145deg,#f3f4f6,#e8e9ed)] p-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--red)]" aria-label={`Visualizar carta: ${card.name}, overall ${card.overall}`}>
                     <div className="w-full max-w-[190px] transition-transform duration-200 group-hover:scale-[1.015] motion-reduce:transform-none motion-reduce:transition-none">
-                      <Card card={card} size="fluid" attributes={snapshotAttributes} animateHover={false} />
+                      <Card card={card} size="fluid" attributes={snapshotAttributes} />
                     </div>
                   </button>
                   <div className="min-w-0 px-1 pt-3">
@@ -599,7 +601,7 @@ export default function Marketplace() {
                         onClick={() => setListUid(c.uid)}
                         className={`min-w-0 rounded-xl border p-2 text-left transition-all motion-reduce:transition-none ${selected ? 'border-[var(--red)] bg-[var(--soft)] shadow-sm' : 'border-[var(--border)] bg-white hover:-translate-y-0.5 hover:border-[var(--red)]/30 hover:shadow-sm'}`}
                       >
-                        <span className="mx-auto block w-full max-w-[112px]"><Card card={c} size="fluid" animateHover={false} /></span>
+                        <span className="mx-auto block w-full max-w-[112px]"><Card card={c} size="fluid" /></span>
                         <span className="mt-2 block truncate text-xs font-bold text-[var(--text)]" title={c.name}>{c.name}</span>
                         <span className="mt-1 flex items-center justify-between gap-1">
                           <span className="truncate text-[10px] font-semibold text-[var(--muted)]">{c.position} · OVR {c.overall}</span>
@@ -625,7 +627,7 @@ export default function Marketplace() {
                 <div className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-xl border border-[var(--border)] bg-white p-4">
                   {selectedSellCard ? (
                     <>
-                      <Card card={selectedSellCard} size="md" />
+                      <Card card={selectedSellCard} size="md" onClick={() => openCardViewer(selectedSellCard)} />
                       <div className="min-w-0 text-center">
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted)]">Carta selecionada</p>
                         <h4 className="mt-1 break-words text-lg font-black text-[var(--text)]">{selectedSellCard.name}</h4>
@@ -687,7 +689,7 @@ export default function Marketplace() {
                   return (
                     <article key={l.id} className="group flex min-w-0 flex-col rounded-2xl border border-[var(--border)] bg-white p-2.5 shadow-sm transition-all hover:-translate-y-1 hover:border-[var(--red)]/30 hover:shadow-md sm:p-3">
                       <div className="flex justify-center rounded-xl bg-[var(--bg)] p-2">
-                        <div className="w-full max-w-[174px]"><Card card={card} size="fluid" attributes={l.cardAttributes ? undefined : []} animateHover={false} /></div>
+                        <div className="w-full max-w-[174px]"><Card card={card} size="fluid" attributes={l.cardAttributes ? undefined : []} onClick={() => openCardViewer(card)} /></div>
                       </div>
                       <div className="min-w-0 px-1 pt-3">
                         <div className="flex items-center justify-between gap-2">
@@ -1058,6 +1060,7 @@ export default function Marketplace() {
           </section>
         </div>
       )}
+      {cardViewer}
     </div>
   );
 }

@@ -64,4 +64,11 @@ describe('CardViewer3D', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('derives the real player attributes when no override is supplied', () => {
+    render(<CardViewer3D card={card} onClose={jest.fn()} />);
+
+    expect(screen.getByText('Velocidade').parentElement).toHaveTextContent('97');
+    expect(screen.getByText('Chute').parentElement).toHaveTextContent('99');
+  });
 });

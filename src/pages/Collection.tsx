@@ -5,6 +5,7 @@ import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
 import ConfirmModal from '../components/ConfirmModal';
+import { useCardViewer } from '../hooks/useCardViewer';
 import type { PlayerCard, Rarity } from '../types';
 import { RARITY_META, RARITY_ORDER } from '../types';
 import { allTemplates } from '../data/players';
@@ -38,6 +39,7 @@ export default function Collection() {
   const [conversionRewards, setConversionRewards] = useState(() => supabase ? null : DUPLICATE_CONVERSION_REWARD);
   const [conversionRewardsError, setConversionRewardsError] = useState(false);
   const navigate = useNavigate();
+  const { openCard: openCardViewer, viewer: cardViewer } = useCardViewer();
 
   useEffect(() => {
     if (!supabase) return;
@@ -198,6 +200,10 @@ export default function Collection() {
   }, [cards, lockedUids, conversionRewards]);
 
   const openCard = (card: PlayerCard) => {
+    if (card.isNew) markSeen([card.uid]);
+    openCardViewer(card);
+  };
+  const openCardDetails = (card: PlayerCard) => {
     if (card.isNew) markSeen([card.uid]);
     navigate(`/card/${card.uid}`);
   };
@@ -401,15 +407,20 @@ export default function Collection() {
               return owned ? (
                 <div key={template.name} className="collection-card" data-rarity={owned.rarity}>
                   <div className="collection-card__stage">
-                    <Card card={owned} size="fluid" onClick={() => openCard(owned)} positionLabel={owned.club ? owned.position : undefined} animateHover={false} />
+                    <Card card={owned} size="fluid" onClick={() => openCard(owned)} positionLabel={owned.club ? owned.position : undefined} />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/compare?a=${encodeURIComponent(owned.uid)}`)}
-                    className="btn btn-secondary btn-sm collection-card__compare"
-                  >
-                    <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => openCardDetails(owned)} className="btn btn-secondary btn-sm collection-card__compare">
+                      Perfil
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/compare?a=${encodeURIComponent(owned.uid)}`)}
+                      className="btn btn-secondary btn-sm collection-card__compare"
+                    >
+                      <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div key={template.name} className="collection-album-empty">
@@ -443,7 +454,7 @@ export default function Collection() {
                 <Fragment key={group.key}>
                   <div className="collection-card" data-rarity={card.rarity}>
                     <div className="collection-card__stage">
-                      <Card card={card} size="fluid" onClick={() => openCard(card)} isNew={card.isNew} positionLabel={card.club ? card.position : undefined} animateHover={false} />
+                      <Card card={card} size="fluid" onClick={() => openCard(card)} isNew={card.isNew} positionLabel={card.club ? card.position : undefined} />
                       {groupDuplicates && group.cards.length > 1 && (
                         <button
                           type="button"
@@ -456,28 +467,38 @@ export default function Collection() {
                         </button>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/compare?a=${encodeURIComponent(card.uid)}`)}
-                      className="btn btn-secondary btn-sm collection-card__compare"
-                    >
-                      <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => openCardDetails(card)} className="btn btn-secondary btn-sm collection-card__compare">
+                        Perfil
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/compare?a=${encodeURIComponent(card.uid)}`)}
+                        className="btn btn-secondary btn-sm collection-card__compare"
+                      >
+                        <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
+                      </button>
+                    </div>
                   </div>
                   {expanded && group.cards.length > 1 && (
                     <div className="collection-expanded">
                       {group.cards.slice(1).map(copy => (
                         <div key={copy.uid} className="collection-card" data-rarity={copy.rarity}>
                           <div className="collection-card__stage">
-                            <Card card={copy} size="fluid" onClick={() => openCard(copy)} isNew={copy.isNew} positionLabel={copy.club ? copy.position : undefined} animateHover={false} />
+                            <Card card={copy} size="fluid" onClick={() => openCard(copy)} isNew={copy.isNew} positionLabel={copy.club ? copy.position : undefined} />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/compare?a=${encodeURIComponent(copy.uid)}`)}
-                            className="btn btn-secondary btn-sm collection-card__compare"
-                          >
-                            <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
-                          </button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button type="button" onClick={() => openCardDetails(copy)} className="btn btn-secondary btn-sm collection-card__compare">
+                              Perfil
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/compare?a=${encodeURIComponent(copy.uid)}`)}
+                              className="btn btn-secondary btn-sm collection-card__compare"
+                            >
+                              <ArrowLeftRight aria-hidden="true" className="h-4 w-4" /> Comparar
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -527,6 +548,7 @@ export default function Collection() {
         confirmVariant="danger"
         confirmDisabled={converting}
       />
+      {cardViewer}
     </div>
   );
 }

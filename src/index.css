@@ -235,7 +235,53 @@ body {
   100% { color: #ff0040; }
 }
 
-.fc-card { container-type: inline-size; }
+.fc-card {
+  container-type: inline-size;
+  transform: perspective(900px) rotateX(var(--card-tilt-x, 0deg)) rotateY(var(--card-tilt-y, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 180ms ease, filter 180ms ease;
+}
+.fc-card:focus-visible {
+  outline: 2px solid var(--card-rarity-color, var(--red));
+  outline-offset: 4px;
+}
+.fc-card-hologram {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse at var(--card-shine-x, 50%) var(--card-shine-y, 40%), rgba(255,255,255,.48), transparent 48%),
+    linear-gradient(125deg, transparent 31%, color-mix(in srgb, var(--card-rarity-color, #fff) 42%, transparent), transparent 65%);
+  mix-blend-mode: screen;
+  transition: opacity 180ms ease;
+}
+.fc-card[data-rarity='icon'] .fc-card-hologram {
+  background:
+    conic-gradient(from 25deg at var(--card-shine-x, 50%) var(--card-shine-y, 40%), rgba(255,55,55,.2), rgba(255,218,89,.35), rgba(74,222,209,.2), rgba(141,103,255,.3), rgba(255,55,55,.2)),
+    radial-gradient(ellipse at var(--card-shine-x, 50%) var(--card-shine-y, 40%), rgba(255,255,255,.5), transparent 48%);
+}
+.fc-card[data-rarity='secret'] .fc-card-hologram {
+  background:
+    radial-gradient(ellipse at var(--card-shine-x, 50%) var(--card-shine-y, 40%), rgba(225,230,240,.42), transparent 48%),
+    linear-gradient(125deg, transparent 31%, rgba(164,173,194,.24), transparent 65%);
+}
+@media (hover: hover) {
+  .fc-card--interactive:hover {
+    transform: perspective(900px) rotateX(var(--card-tilt-x, 0deg)) rotateY(var(--card-tilt-y, 0deg)) translateY(-4px);
+    filter: drop-shadow(0 14px 14px rgba(20,24,34,.2));
+  }
+  .fc-card--interactive:hover .fc-card-hologram {
+    opacity: .42;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-card,
+  .fc-card-hologram {
+    transition: none;
+  }
+}
 .fc-pad { padding: 10px; padding: 5.2cqw; }
 .fc-pos { font-size: 10px; font-size: max(7px, 5.2cqw); }
 .fc-badge { font-size: 10px; font-size: max(7px, 5.2cqw); }

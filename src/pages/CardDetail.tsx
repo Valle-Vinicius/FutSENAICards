@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftRight, Award, Star, Zap } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import { getPlayerDetailPhoto } from '../data/players';
 import Card from '../components/Card';
-import CardViewer3D from '../components/CardViewer3D';
+import { useCardViewer } from '../hooks/useCardViewer';
 import { RARITY_META } from '../types';
 import type { UpgradeAttr } from '../types';
 import assuncaoPhoto from '../imagens/fotosdetalhedascarta/assuncao.png';
@@ -58,9 +58,8 @@ export default function CardDetail() {
   const markSeen = useGame(s => s.markSeen);
   const toggleFav = useGame(s => s.toggleFavorite);
   const upgradePlayer = useGame(s => s.upgradePlayer);
-  const [cardViewerOpen, setCardViewerOpen] = useState(false);
   const card = cards.find(c => c.uid === uid);
-  const closeCardViewer = useCallback(() => setCardViewerOpen(false), []);
+  const { openCard: openCardViewer, viewer: cardViewer } = useCardViewer();
 
   useEffect(() => {
     document.title = `${card?.name ?? 'Carta'} | FutSENAI Cards`;
@@ -282,20 +281,20 @@ export default function CardDetail() {
               role="button"
               tabIndex={0}
               aria-label={`Abrir visualização 3D da carta de ${card.name}`}
-              onClick={() => setCardViewerOpen(true)}
+              onClick={() => openCardViewer(card)}
               onKeyDown={event => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
-                  setCardViewerOpen(true);
+                  openCardViewer(card);
                 }
               }}
             >
-              <Card card={card} size="sm" animateHover={false} />
+              <Card card={card} size="sm" />
             </div>
             <p className="card-detail-collection__hint">Clique na carta para explorar em 3D.</p>
           </section>
         </div>
-        {cardViewerOpen && <CardViewer3D card={card} attributes={attrs.slice(0, 6)} onClose={closeCardViewer} />}
+        {cardViewer}
       </div>
     </div>
   );

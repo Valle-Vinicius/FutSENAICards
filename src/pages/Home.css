@@ -1408,12 +1408,12 @@
 
 .home-collection__card:hover .fc-card {
   filter: drop-shadow(0 18px 22px rgb(0 0 0 / 45%));
-  transform: perspective(900px) rotateX(2deg) rotateY(-4deg) translateY(-4px);
+  transform: perspective(900px) rotateX(calc(2deg + var(--card-tilt-x, 0deg))) rotateY(calc(-4deg + var(--card-tilt-y, 0deg))) translateY(-4px);
 }
 
 .home-collection__card--premium:hover .fc-card {
   filter: drop-shadow(0 0 14px rgb(245 197 66 / 45%)) drop-shadow(0 20px 24px rgb(0 0 0 / 50%));
-  transform: perspective(900px) rotateX(3deg) rotateY(-6deg) translateY(-6px);
+  transform: perspective(900px) rotateX(calc(3deg + var(--card-tilt-x, 0deg))) rotateY(calc(-6deg + var(--card-tilt-y, 0deg))) translateY(-6px);
 }
 
 .home-collection__scroll-hint {

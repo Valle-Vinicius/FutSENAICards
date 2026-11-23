@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Award, Coins, LogOut, Package, Pencil, Shield, Target, Trash2, Users } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import Card from '../components/Card';
-import CardViewer3D from '../components/CardViewer3D';
 import ConfirmModal from '../components/ConfirmModal';
+import { useCardViewer } from '../hooks/useCardViewer';
 import { supabase } from '../lib/supabase';
 import { FORMATIONS_FUTSAL as FS, normalizeFutsalFormation } from '../lib/game';
 import { getProfile, updateProfile, type UserProfile } from '../lib/profile';
 import { updateEmail, updatePassword, signOut, updateMetadata } from '../lib/services/auth';
-import { RARITY_META, type ExtraStat, type PlayerCard } from '../types';
+import { RARITY_META } from '../types';
 
 const COURT_COORDINATES: Record<string, { x: number; y: number }[]> = {
   '1-2-1': [
@@ -29,27 +29,6 @@ const COURT_COORDINATES: Record<string, { x: number; y: number }[]> = {
 };
 
 const POSITION_LABELS: Record<string, string> = { GK: 'GOL', Fixo: 'FIXO', Ala: 'ALA', Pivo: 'PIVÔ' };
-
-function cardAttributes(card: PlayerCard): ExtraStat[] {
-  const attributes = card.position === 'GK'
-    ? [
-        { label: 'Reflexos', value: card.reflexes ?? 0 },
-        { label: 'Posicionamento', value: card.positioning ?? 0 },
-        { label: 'Manuseio', value: card.handling ?? 0 },
-        { label: 'Velocidade', value: card.pace },
-        { label: 'Defesa', value: card.defending },
-        { label: 'Físico', value: card.physical },
-      ]
-    : [
-        { label: 'Velocidade', value: card.pace },
-        { label: 'Chute', value: card.shooting },
-        { label: 'Passe', value: card.passing },
-        { label: 'Drible', value: card.dribbling },
-        { label: 'Defesa', value: card.defending },
-        { label: 'Físico', value: card.physical },
-      ];
-  return [...attributes, ...(card.extraStats ?? [])].slice(0, 6);
-}
 
 export default function Profile() {
   const coins = useGame(s => s.coins);
@@ -71,8 +50,7 @@ export default function Profile() {
   const [newPassword, setNewPassword] = useState('');
   const [accountMsg, setAccountMsg] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [viewingCard, setViewingCard] = useState<PlayerCard | null>(null);
-  const closeCardViewer = useCallback(() => setViewingCard(null), []);
+  const { openCard: openCardViewer, viewer: cardViewer } = useCardViewer();
 
   useEffect(() => {
     document.title = 'Meu perfil | FutSENAI Cards';
@@ -213,7 +191,7 @@ export default function Profile() {
             {featuredCard ? (
               <>
                 <div className="relative w-full max-w-[19rem] rounded-2xl border border-white/10 bg-[radial-gradient(ellipse_at_50%_42%,rgba(237,27,53,0.22),rgba(255,255,255,0.035)_52%,transparent_72%)] p-3 sm:p-4">
-                  <Card card={featuredCard} size="fluid" animateHover={false} onClick={() => setViewingCard(featuredCard)} />
+                  <Card card={featuredCard} size="fluid" onClick={() => openCardViewer(featuredCard)} />
                 </div>
                 <p className="mt-3 inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.13em] text-white/55">
                   <Activity className="h-3.5 w-3.5 text-[#ff8290]" /> Clique para visualizar em 3D
@@ -359,7 +337,7 @@ export default function Profile() {
                   <div key={`${slot.position}-${index}`} className="absolute z-10 w-[19%] max-w-[112px]" style={{ left: `${point.x}%`, top: `${point.y}%`, transform: 'translate(-50%, -50%)' }}>
                     <span className="mb-1 block rounded bg-[#202a23]/90 px-1 py-1 text-center text-[7px] font-black tracking-[0.08em] text-white shadow sm:text-[9px]">{positionLabel}</span>
                     {card ? (
-                      <Card card={card} size="fluid" animateHover={false} onClick={() => setViewingCard(card)} />
+                      <Card card={card} size="fluid" onClick={() => openCardViewer(card)} />
                     ) : (
                       <div className="flex aspect-[7/10] w-full flex-col items-center justify-center rounded-lg border border-dashed border-white/60 bg-white/[0.12] text-center text-white/80">
                         <span className="text-[8px] font-black uppercase tracking-wide sm:text-[10px]">{positionLabel}</span>
@@ -394,7 +372,7 @@ export default function Profile() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {cards.slice(0, 24).map(card => (
               <div key={card.uid} className="mx-auto w-full min-w-0 max-w-[12rem] rounded-2xl border border-[var(--border)] bg-white p-1.5 shadow-sm transition hover:-translate-y-1 hover:shadow-md motion-reduce:transform-none">
-                <Card card={card} size="fluid" animateHover={false} onClick={() => setViewingCard(card)} />
+                <Card card={card} size="fluid" onClick={() => openCardViewer(card)} />
               </div>
             ))}
           </div>
@@ -457,7 +435,7 @@ export default function Profile() {
         </div>
       </section>
 
-      {viewingCard && <CardViewer3D card={viewingCard} attributes={cardAttributes(viewingCard)} onClose={closeCardViewer} />}
+      {cardViewer}
       <ConfirmModal
         open={deleteConfirmOpen}
         title="Excluir conta"

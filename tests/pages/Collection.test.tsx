@@ -99,6 +99,17 @@ describe('Collection page', () => {
     expect(screen.getAllByRole('button', { name: 'Thiago Tavares' })).toHaveLength(3);
   });
 
+  it('opens the shared 3D viewer on card click and keeps athlete details available', () => {
+    renderCollection([makeCard('rare-1')]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thiago Tavares' }));
+    expect(screen.getByRole('dialog', { name: 'Visualizador 3D' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar visualização' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Perfil' }));
+    expect(screen.getByTestId('current-location')).toHaveTextContent('/card/rare-1');
+  });
+
   it('shows inventory totals and album progress from the existing templates', () => {
     renderCollection([makeCard('rare-1'), makeCard('rare-2'), makeCard('common-1', 'common')]);
 

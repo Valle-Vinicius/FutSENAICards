@@ -5,6 +5,7 @@ import { Award, RotateCcw, RotateCw, X } from 'lucide-react';
 import Card from './Card';
 import { RARITY_META, type PlayerCard } from '../types';
 import type { ExtraStat } from '../types';
+import { getCardAttributes } from '../lib/cardAttributes';
 import cardBackCommon from '../imagens/cartas/comum.png';
 import cardBackUncommon from '../imagens/cartas/incomum.png';
 import cardBackRare from '../imagens/cartas/raro.png';
@@ -24,11 +25,11 @@ const CARD_BACKS: Record<PlayerCard['rarity'], string> = {
 
 interface CardViewer3DProps {
   card: PlayerCard;
-  attributes: ExtraStat[];
+  attributes?: ExtraStat[];
   onClose: () => void;
 }
 
-export default function CardViewer3D({ card, attributes, onClose }: CardViewer3DProps) {
+export default function CardViewer3D({ card, attributes = getCardAttributes(card), onClose }: CardViewer3DProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0, lightX: 50, lightY: 40 });
   const closeButtonRef = useRef<HTMLButtonElement>(null);

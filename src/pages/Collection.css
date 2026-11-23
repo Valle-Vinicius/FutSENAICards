@@ -599,7 +599,7 @@
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .collection-card:hover .fc-card,
   .collection-card:focus-within .fc-card {
-    transform: translateY(-4px);
+    transform: perspective(900px) rotateX(var(--card-tilt-x, 0deg)) rotateY(var(--card-tilt-y, 0deg)) translateY(-4px);
   }
 }
 

@@ -1,7 +1,8 @@
 import { useDeferredValue, useMemo, useState, type DragEvent as ReactDragEvent } from 'react';
-import { AlertTriangle, Plus, Search, Sparkles, Star, X } from 'lucide-react';
+import { AlertTriangle, Eye, Plus, Search, Sparkles, Star, X } from 'lucide-react';
 import Card from '../components/Card';
 import ConfirmModal from '../components/ConfirmModal';
+import { useCardViewer } from '../hooks/useCardViewer';
 import { useGame, squadOverall } from '../store/useGame';
 import { toast } from '../store/toast';
 import { DEFAULT_FUTSAL_FORMATION, FORMATIONS_FUTSAL, normalizeFutsalFormation } from '../lib/game';
@@ -59,6 +60,7 @@ export default function Squad() {
   const [pendingPositionSwap, setPendingPositionSwap] = useState<{ index: number; bench: boolean; benchIndex?: number; message: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<SavedSquad | null>(null);
   const deferredSearch = useDeferredValue(search);
+  const { openCard: openCardViewer, viewer: cardViewer } = useCardViewer();
 
   const formations = Object.keys(FORMATIONS_FUTSAL);
   const squad = squads[sport];
@@ -390,7 +392,14 @@ export default function Squad() {
                           onDragStart={event => handleDragStart({ type: 'starter', index }, event)}
                           className="squad-starter-card"
                         >
-                          <Card card={card} size="fluid" animateHover={false} onClick={() => handleSlotClick(index, false)} />
+                          <Card card={card} size="fluid" onClick={() => handleSlotClick(index, false)} />
+                          <button
+                            type="button"
+                            aria-label={`Visualizar ${card.name} em 3D`}
+                            title="Visualizar carta"
+                            onClick={event => { event.stopPropagation(); openCardViewer(card); }}
+                            className="squad-card__view"
+                          ><Eye aria-hidden="true" /></button>
                           <button
                             type="button"
                             aria-label={`Remover ${card.name} da escalação titular`}
@@ -438,7 +447,14 @@ export default function Squad() {
                           onDragStart={event => handleDragStart({ type: 'bench', index }, event)}
                           className="squad-bench-card"
                         >
-                          <Card card={card} size="fluid" animateHover={false} onClick={() => handleSlotClick(0, true, index)} />
+                          <Card card={card} size="fluid" onClick={() => handleSlotClick(0, true, index)} />
+                          <button
+                            type="button"
+                            aria-label={`Visualizar ${card.name} em 3D`}
+                            title="Visualizar carta"
+                            onClick={event => { event.stopPropagation(); openCardViewer(card); }}
+                            className="squad-card__view"
+                          ><Eye aria-hidden="true" /></button>
                           <button
                             type="button"
                             aria-label={`Remover ${card.name} das reservas`}
@@ -513,11 +529,18 @@ export default function Squad() {
                   <Card
                     card={card}
                     size="fluid"
-                    animateHover={false}
+                    animateHover
                     onClick={() => setSelectedSource(current =>
                       current?.type === 'inventory' && current.uid === card.uid ? null : { type: 'inventory', uid: card.uid },
                     )}
                   />
+                  <button
+                    type="button"
+                    aria-label={`Visualizar ${card.name} em 3D`}
+                    title="Visualizar carta"
+                    onClick={event => { event.stopPropagation(); openCardViewer(card); }}
+                    className="squad-card__view"
+                  ><Eye aria-hidden="true" /></button>
                 </div>
               ))}
             </div>
@@ -557,6 +580,7 @@ export default function Squad() {
         confirmVariant="danger"
         confirmLabel="Excluir"
       />
+      {cardViewer}
     </div>
   );
 }
