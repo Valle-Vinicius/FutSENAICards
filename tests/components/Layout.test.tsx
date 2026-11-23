@@ -38,6 +38,7 @@ function renderLayout(path: string) {
           <Route path="/sbc" element={<div>Conteúdo dos desafios</div>} />
           <Route path="/missions" element={<div>Conteúdo das missões</div>} />
           <Route path="/friends" element={<div>Conteúdo das amizades</div>} />
+          <Route path="/profile/:userId" element={<div>Conteúdo do perfil do jogador</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -137,6 +138,14 @@ describe('Layout navigation', () => {
     expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
     expect(document.querySelector('aside')).not.toBeInTheDocument();
     expect(screen.getByText('Conteúdo das amizades')).toBeInTheDocument();
+  });
+
+  it('uses the global topbar and hides the sidebar on another player profile', () => {
+    renderLayout('/profile/player-1');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(document.querySelector('aside')).not.toBeInTheDocument();
+    expect(screen.getByText('Conteúdo do perfil do jogador')).toBeInTheDocument();
   });
 
   it('uses the Home topbar on the pack store route', () => {
