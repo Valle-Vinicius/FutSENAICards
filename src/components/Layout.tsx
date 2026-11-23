@@ -71,8 +71,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isCompareRoute = location.pathname === '/compare';
   const isOpenPackRoute = location.pathname.startsWith('/open/');
   const isCardDetailRoute = location.pathname.startsWith('/card/');
-  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute;
   const isMatchRoute = location.pathname === '/match';
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute;
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
     || (location.pathname.startsWith('/card/') ? 'Carta'
@@ -354,7 +354,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
                 <Search aria-hidden="true" />
               </button>
               <div className="home-topbar__changelog"><ChangelogPopover /></div>
-              {isCardDetailRoute && (
+              {(isCardDetailRoute || isMatchRoute) && (
                 <span className="card-detail-topbar-coins" aria-label={`${coins.toLocaleString('pt-BR')} moedas`}>
                   <Coins aria-hidden="true" /> {coins.toLocaleString('pt-BR')}
                 </span>

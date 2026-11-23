@@ -6,13 +6,13 @@ import { toast } from '../store/toast';
 import { simulateMatch, createPlayersFromCards, makeAwayTeam, MATCH_DURATION_MINUTES, AI_BASE_OVR } from '../engine/match';
 import type { MatchEvent, MatchResult, MatchPlayer, Tactic } from '../engine/match';
 import PvpResultScreen, { type SnapshotCardDetails } from '../components/PvpResultScreen';
-import TacticPreview from '../components/TacticPreview';
-import { ArrowRight, CircleDot, Scale, Shield, Zap, ChevronDown } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import MatchPreparation from '../components/MatchPreparation';
 import * as challengesService from '../lib/services/challenges';
 import type { MatchPlaybackState } from '../lib/services/challenges';
 import { nanoid } from 'nanoid';
 import { playTone, unlockSound } from '../lib/sound';
+import { FORMATIONS_FUTSAL } from '../lib/game';
+import type { Position, Squad } from '../types';
 
 type ChallengeSquads = {
   home: MatchPlayer[];
@@ -30,8 +30,6 @@ const OFF_SALE_PVP_MESSAGE = 'Cartas Off-Sale não podem ser usadas no X1. Troqu
 
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
 const TACTIC_LABEL: Record<Tactic, string> = { balanced: 'Equilibrado', possession: 'Posse de bola', highpress: 'Pressão alta', counter: 'Contra-ataque', compact: 'Defesa compacta' };
-const TACTIC_ICON: Record<Tactic, LucideIcon> = { balanced: Scale, possession: CircleDot, highpress: Zap, counter: ArrowRight, compact: Shield };
-const DIFFICULTY_LABEL = { easy: 'Fácil', normal: 'Normal', hard: 'Difícil' } as const;
 const TEAM_COLORS = { home: 'var(--red)', away: '#173B6B' } as const;
 
 function MatchInner() {
@@ -76,6 +74,7 @@ function MatchInner() {
   const opponentId = searchParams.get('opponent');
   const challengeId = searchParams.get('challenge');
   const [opponentName, setOpponentName] = useState<string>('IA');
+  const [opponentOverall, setOpponentOverall] = useState<number | null>(null);
   const [opponentPlayers, setOpponentPlayers] = useState<MatchPlayer[] | null>(null);
   const [opponentPlayersOwner, setOpponentPlayersOwner] = useState<string | null>(null);
   const [opponentError, setOpponentError] = useState<string | null>(null);
@@ -112,6 +111,24 @@ function MatchInner() {
   const startMatchRef = useRef<() => void>(() => {});
   const squad = squads[sport];
   const mySaved = savedSquads.filter(s => s.sport === sport);
+  const selectedSavedSquad = mySaved.find(saved => saved.id === selectedSquadId);
+  const lineupFormation = selectedSavedSquad?.formation ?? squad.formation;
+  const lineupPositions = FORMATIONS_FUTSAL[lineupFormation] ?? FORMATIONS_FUTSAL['1-2-1'];
+  const lineupBase: Squad = selectedSavedSquad
+    ? {
+      sport: 'futsal',
+      formation: lineupFormation,
+      starters: lineupPositions.map((position, index) => ({
+        position: position as Position,
+        uid: selectedSavedSquad.starters[index] ?? null,
+      })),
+      bench: [...selectedSavedSquad.bench],
+    }
+    : squad;
+  const lineupKey = selectedSquadId ?? '__active__';
+  const [lineupDraft, setLineupDraft] = useState<{ key: string; lineup: Squad } | null>(null);
+  const matchLineup = lineupDraft?.key === lineupKey ? lineupDraft.lineup : lineupBase;
+  const updateMatchLineup = (lineup: Squad) => setLineupDraft({ key: lineupKey, lineup });
 
   const showMatchNotice = useCallback((notice: 'Intervalo' | 'Fim de jogo', key: string, duration: number) => {
     if (lastNoticeKeyRef.current === key) return;
@@ -150,14 +167,12 @@ function MatchInner() {
     if (finishTimeoutRef.current !== null) window.clearTimeout(finishTimeoutRef.current);
   }, []);
 
-  const buildHomePlayers = (): { players: MatchPlayer[]; formation: string; cards: any[] } | null => {
-    let formation = squad.formation;
-    let starterUids = squad.starters.map(s => s.uid);
-    if (selectedSquadId) {
-      const ss = savedSquads.find(s => s.id === selectedSquadId);
-      if (ss) { formation = ss.formation; starterUids = ss.starters; }
-    }
-    const starterCards = starterUids.map(uid => uid ? cards.find(c => c.uid === uid) : null).filter(Boolean) as any[];
+  const buildHomePlayers = (): { players: MatchPlayer[]; formation: string; cards: typeof cards } | null => {
+    const formation = matchLineup.formation;
+    const starterUids = matchLineup.starters.map(slot => slot.uid);
+    const starterCards = starterUids
+      .map(uid => uid ? cards.find(card => card.uid === uid) : null)
+      .filter((card): card is (typeof cards)[number] => !!card);
     if (starterCards.length < 5) return null;
     const players = createPlayersFromCards(starterCards, 'home', formation, sport);
     return { players, formation, cards: starterCards };
@@ -520,6 +535,7 @@ function MatchInner() {
     let cancelled = false;
     setOpponentPlayers(null);
     setOpponentPlayersOwner(null);
+    setOpponentOverall(null);
     setOpponentError(null);
     setLoadingOpp(true);
     (async () => {
@@ -552,6 +568,10 @@ function MatchInner() {
           return;
         }
         if (starterCards.length >= 5) {
+          const ratings = starterCards.map((card: any) => Number(card.overall));
+          if (ratings.every((rating: number) => Number.isFinite(rating))) {
+            setOpponentOverall(Math.round(ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length));
+          }
           const mapped = starterCards.map((c: any) => ({
             uid: c.id, name: c.name, position: c.position, overall: c.overall,
             pace: c.pace, shooting: c.shooting, passing: c.passing, dribbling: c.dribbling, defending: c.defending, physical: c.physical,
@@ -902,63 +922,108 @@ function MatchInner() {
     const myReady = isChallenger ? challengerReady : challengedReady;
     const oppReady = isChallenger ? challengedReady : challengerReady;
     const homeAverage = challengeSquads
-      ? Math.round(challengeSquads.homeCards.reduce((sum, player) => sum + Number(player.overall ?? 0), 0) / challengeSquads.homeCards.length)
+      ? challengeSquads.homeCards.length
+        ? Math.round(challengeSquads.homeCards.reduce((sum, player) => sum + Number(player.overall ?? 0), 0) / challengeSquads.homeCards.length)
+        : null
       : null;
     const awayAverage = challengeSquads
-      ? Math.round(challengeSquads.awayCards.reduce((sum, player) => sum + Number(player.overall ?? 0), 0) / challengeSquads.awayCards.length)
+      ? challengeSquads.awayCards.length
+        ? Math.round(challengeSquads.awayCards.reduce((sum, player) => sum + Number(player.overall ?? 0), 0) / challengeSquads.awayCards.length)
+        : null
       : null;
+    const ownTeamName = challengeSquads
+      ? isChallenger ? challengeSquads.homeName : challengeSquads.awayName
+      : 'SEU TIME';
+    const opposingTeamName = challengeSquads
+      ? isChallenger ? challengeSquads.awayName : challengeSquads.homeName
+      : 'ADVERSÁRIO';
+    const ownFormation = challengeSquads
+      ? isChallenger ? challengeSquads.homeFormation : challengeSquads.awayFormation
+      : '1-2-1';
+    const ownSnapshotCards = challengeSquads
+      ? isChallenger ? challengeSquads.homeCards : challengeSquads.awayCards
+      : [];
+    const opposingSnapshotCards = challengeSquads
+      ? isChallenger ? challengeSquads.awayCards : challengeSquads.homeCards
+      : [];
+    const toPreparationCards = (players: any[]) => {
+      const goalkeeper = players.find(player => player.position === 'GK');
+      const orderedPlayers = goalkeeper
+        ? [goalkeeper, ...players.filter(player => player !== goalkeeper)]
+        : players;
+      return orderedPlayers.map(player => ({
+        uid: player.uid,
+        name: player.name,
+        position: player.position as Position,
+        overall: Number(player.overall),
+      }));
+    };
+    const ownCards = toPreparationCards(ownSnapshotCards);
+    const opposingCards = toPreparationCards(opposingSnapshotCards);
+    const ownPositions = FORMATIONS_FUTSAL[ownFormation]
+      ?? (ownCards.length === MIN_STARTERS ? ownCards.map(card => card.position) : FORMATIONS_FUTSAL['1-2-1']);
+    const challengerTactic = TACTIC_LABEL[challenge?.challenger_tactic as Tactic] ?? TACTIC_LABEL.balanced;
+    const challengedTactic = TACTIC_LABEL[challenge?.challenged_tactic as Tactic] ?? TACTIC_LABEL.balanced;
+    const challengeLineup: Squad = {
+      sport: 'futsal',
+      formation: ownFormation,
+      starters: ownPositions.map((position, index) => ({
+        position: position as Position,
+        uid: ownCards[index]?.uid ?? null,
+      })),
+      bench: [],
+    };
     return (
-      <div className="p-4 md:p-8 space-y-6">
-        {fade && <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center text-white text-2xl font-bold">Preparando partida...</div>}
-        <h1 className="text-2xl md:text-3xl font-semibold text-[var(--text)]">Pré-jogo (PvP)</h1>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="card-surface p-4">
-            <div className="text-sm font-medium text-[var(--muted)] mb-2">Seu time</div>
-            <div className="text-sm text-[var(--text)]">{challengeSquads ? `${isChallenger ? challengeSquads.homeName : challengeSquads.awayName} · ${isChallenger ? challengeSquads.homeFormation : challengeSquads.awayFormation} · OVR ${isChallenger ? homeAverage : awayAverage}` : 'Carregando elenco...'}</div>
-            {challengeSquads && (isChallenger ? challengeSquads.homeCards : challengeSquads.awayCards).map(player => (
-              <div key={player.uid} className="text-xs text-[var(--muted)] mt-1">{player.name} · {player.position} · {player.overall}</div>
-            ))}
-          </div>
-          <div className="card-surface p-4">
-            <div className="text-sm font-medium text-[var(--muted)] mb-2">Adversário</div>
-            <div className="text-sm text-[var(--text)]">{challengeSquads ? `${isChallenger ? challengeSquads.awayName : challengeSquads.homeName} · ${isChallenger ? challengeSquads.awayFormation : challengeSquads.homeFormation} · OVR ${isChallenger ? awayAverage : homeAverage}` : 'Carregando elenco...'}</div>
-            {challengeSquads && (isChallenger ? challengeSquads.awayCards : challengeSquads.homeCards).map(player => (
-              <div key={player.uid} className="text-xs text-[var(--muted)] mt-1">{player.name} · {player.position} · {player.overall}</div>
-            ))}
-          </div>
-        </div>
-        {challengeError && (
-          <div className="card-surface p-4 text-sm text-red-600 space-y-2">
-            <div>{challengeError}</div>
-            <button onClick={() => setChallengeError(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] text-xs font-medium">Tentar novamente</button>
-          </div>
-        )}
-        <div className="text-sm text-[var(--muted)]">
-          Você: {myReady ? 'Pronto ✓' : 'Aguardando...'} · Adversário: {oppReady ? 'Pronto ✓' : 'Aguardando...'}
-        </div>
-        <div className="grid md:grid-cols-2 gap-3 text-xs text-[var(--muted)]">
-          <div>{challengeSquads?.homeName}: {TACTIC_LABEL[TACTICS.find(tactic => tactic === challenge?.challenger_tactic) ?? 'balanced']}</div>
-          <div>{challengeSquads?.awayName}: {TACTIC_LABEL[TACTICS.find(tactic => tactic === challenge?.challenged_tactic) ?? 'balanced']}</div>
-        </div>
-        <div>
-          <label className="text-sm text-[var(--muted)]">Sua tática</label>
-          <select
-            value={challengeTactic}
-            onChange={event => setChallengeTactic(event.target.value as Tactic)}
-            disabled={myReady}
-            className="w-full mt-1 bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm disabled:opacity-50"
-          >
-            {TACTICS.map(tactic => <option key={tactic} value={tactic}>{TACTIC_LABEL[tactic]}</option>)}
-          </select>
-        </div>
-        {startError && (
-          <div className="card-surface p-4 text-sm text-red-600 space-y-2">
-            <div>{startError}</div>
-            <button onClick={() => setStartError(null)} className="px-3 py-1.5 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] text-xs font-medium">Tentar novamente</button>
-          </div>
-        )}
-        <button
-          onClick={async () => {
+      <>
+        {fade && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-2xl font-bold text-white">Preparando partida...</div>}
+        <MatchPreparation
+          title="Pré-jogo PvP"
+          lineup={challengeLineup}
+          cards={ownCards}
+          savedSquads={[]}
+          selectedSquadId={null}
+          onSelectSquad={() => {}}
+          onLineupChange={() => {}}
+          difficulty={difficulty}
+          onDifficultyChange={setDifficulty}
+          tactic={challengeTactic}
+          onTacticChange={setChallengeTactic}
+          homeOverall={isChallenger ? homeAverage : awayAverage}
+          homeTeamName={ownTeamName}
+          opponentName={opposingTeamName}
+          opponentOverall={isChallenger ? awayAverage : homeAverage}
+          showDifficulty={false}
+          canStart={!!challengeSquads && !myReady && !readyLoading}
+          opponentError={[challengeError, startError].filter(Boolean).join(' · ') || null}
+          errorAction={challengeError
+            ? { label: 'Tentar novamente', onClick: () => setChallengeError(null) }
+            : startError
+              ? { label: 'Tentar novamente', onClick: () => setStartError(null) }
+              : undefined}
+          editable={false}
+          showSquadSelector={false}
+          tacticDisabled={myReady}
+          actionLabel={readyLoading ? 'Enviando...' : myReady ? 'Aguardando adversário...' : 'Estou pronto'}
+          statusMessage={challengeSquads
+            ? `Você: ${myReady ? 'Pronto ✓' : 'Aguardando...'} · Adversário: ${oppReady ? 'Pronto ✓' : 'Aguardando...'} · ${challengeSquads.homeName}: ${challengerTactic} · ${challengeSquads.awayName}: ${challengedTactic}`
+            : 'Carregando elencos do desafio...'}
+          emptyReservesMessage="Reservas não incluídas neste desafio."
+          opposingPlayers={opposingCards}
+          opposingTeamName={opposingTeamName}
+          secondaryAction={{
+            label: challengerReady && challengedReady ? 'Partida confirmada' : 'Cancelar desafio',
+            disabled: challengerReady && challengedReady,
+            onClick: async () => {
+              const ok = await challengesService.rejectChallenge(challengeId!);
+              if (!ok) {
+                toast.error('Não é possível cancelar depois que os dois jogadores confirmaram presença.');
+                return;
+              }
+              cancelledByMeRef.current = true;
+              navigate('/friends');
+            },
+          }}
+          onStart={async () => {
             if (!challengeId || readyLoading) return;
             setReadyLoading(true);
             try {
@@ -973,147 +1038,37 @@ function MatchInner() {
               setReadyLoading(false);
             }
           }}
-          disabled={myReady || !challengeSquads || readyLoading}
-          className="w-full px-4 py-3 rounded-xl bg-[var(--red)] text-white font-bold disabled:opacity-40"
-        >
-          {readyLoading ? 'Enviando...' : myReady ? 'Aguardando adversário...' : 'Estou pronto'}
-        </button>
-        <button
-          onClick={async () => {
-            const ok = await challengesService.rejectChallenge(challengeId!);
-            if (!ok) {
-              toast.error('Não é possível cancelar depois que os dois jogadores confirmaram presença.');
-              return;
-            }
-            cancelledByMeRef.current = true;
-            navigate('/friends');
-          }}
-          disabled={challengerReady && challengedReady}
-          className="w-full px-4 py-2 rounded-xl bg-white border border-[var(--border)] text-sm font-medium text-[var(--text)]"
-        >
-          {challengerReady && challengedReady ? 'Partida confirmada' : 'Cancelar desafio'}
-        </button>
-      </div>
+        />
+      </>
     );
   }
 
   if (step === 'setup') {
     const activeOpponentPlayers = opponentPlayersOwner === opponentId ? opponentPlayers : null;
-    const showTacticPreview = !opponentId && !challengeId;
-    if (showTacticPreview) {
-      const savedSquad = mySaved.find(saved => saved.id === selectedSquadId);
+    if (!challengeId) {
       const homeOverall = homeInfo
         ? Math.round(homeInfo.cards.reduce((sum: number, card: any) => sum + (card.overall ?? 0), 0) / homeInfo.cards.length)
         : null;
       return (
-        <div className="match-setup-screen h-full min-h-0 overflow-hidden overscroll-none flex flex-col gap-4 p-4 md:p-6">
-          <header className="match-setup-header shrink-0 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-xl md:text-2xl font-semibold text-[var(--text)]">Partida simulada</h1>
-            <div className="flex items-center gap-2 text-xs md:text-sm text-[var(--muted)]" aria-label="Confronto">
-              <span className="rounded-full bg-white px-3 py-1.5">
-                Seu time · OVR <strong className="text-[var(--text)]">{homeOverall ?? '—'}</strong>
-              </span>
-              <span aria-hidden="true">×</span>
-              <span className="rounded-full bg-white px-3 py-1.5">
-                IA {DIFFICULTY_LABEL[difficulty]} · OVR <strong className="text-[var(--text)]">{AI_BASE_OVR[difficulty]}</strong>
-              </span>
-            </div>
-          </header>
-
-          <div className="match-setup-screen__body mx-auto grid w-full min-h-0 max-w-6xl gap-4 md:grid-cols-[320px_minmax(0,1fr)] md:gap-6 md:grid-rows-[minmax(0,1fr)]">
-            <section className="match-setup-screen__left card-surface flex h-full min-h-0 flex-col gap-4 p-4">
-              <div className="shrink-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="text-sm font-semibold text-[var(--text)]">Escalação</h2>
-                    <div className="mt-1 truncate text-sm font-medium text-[var(--text)]">
-                      {savedSquad?.name ?? 'Escalação atual'}
-                    </div>
-                    <div className="text-xs text-[var(--muted)]">
-                      {homeInfo?.formation ?? squad.formation} · OVR {homeOverall ?? '—'}
-                    </div>
-                  </div>
-                  <details className="relative shrink-0">
-                    <summary className="flex h-9 cursor-pointer list-none items-center gap-1 rounded-lg border border-[var(--border)] bg-white px-2.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg)] focus-visible:outline-2 focus-visible:outline-[var(--red)]">
-                      Trocar <ChevronDown size={14} aria-hidden="true" />
-                    </summary>
-                    <div className="absolute right-0 top-full z-30 mt-2 w-64 card-surface p-3">
-                      <label htmlFor="match-squad-select" className="mb-1 block text-xs text-[var(--muted)]">Escolher escalação</label>
-                      <select
-                        id="match-squad-select"
-                        value={selectedSquadId ?? ''}
-                        onChange={event => {
-                          setSelectedSquadId(event.target.value || null);
-                          event.currentTarget.closest('details')?.removeAttribute('open');
-                        }}
-                        className="w-full bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-sm"
-                      >
-                        <option value="">Escalação atual</option>
-                        {mySaved.map(saved => <option key={saved.id} value={saved.id}>{saved.name} ({saved.formation})</option>)}
-                      </select>
-                    </div>
-                  </details>
-                </div>
-                {!homeInfo && <div className="mt-1 text-xs text-red-600">Escalação incompleta.</div>}
-                {opponentError && <div className="mt-2 text-xs text-red-600">{opponentError}</div>}
-              </div>
-
-              <fieldset className="shrink-0">
-                <legend className="mb-2 text-sm font-semibold text-[var(--text)]">Dificuldade</legend>
-                <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F0F1F4] p-1" role="group" aria-label="Dificuldade da IA">
-                  {(['easy', 'normal', 'hard'] as const).map(level => (
-                    <button
-                      key={level}
-                      type="button"
-                      aria-pressed={difficulty === level}
-                      onClick={() => setDifficulty(level)}
-                      className={`rounded-lg px-1.5 py-2 text-xs font-medium transition-colors ${difficulty === level ? 'bg-white text-[var(--red)] shadow-sm' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
-                    >
-                      {DIFFICULTY_LABEL[level]}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-
-              <fieldset className="min-h-0">
-                <legend className="mb-2 text-sm font-semibold text-[var(--text)]">Tática</legend>
-                <div className="grid gap-1" role="radiogroup" aria-label="Tática">
-                  {TACTICS.map(tactic => {
-                    const Icon = TACTIC_ICON[tactic];
-                    return (
-                      <label
-                        key={tactic}
-                        className={`tactic-radio-option flex h-11 min-w-0 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors focus-within:ring-2 focus-within:ring-[var(--red)] ${homeTactic === tactic ? 'border-[var(--red)] bg-[var(--soft)] text-[var(--red)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:bg-white'}`}
-                      >
-                        <input
-                          type="radio"
-                          name="home-tactic"
-                          value={tactic}
-                          checked={homeTactic === tactic}
-                          onChange={() => setHomeTactic(tactic)}
-                          className="sr-only"
-                        />
-                        <Icon size={16} aria-hidden="true" />
-                        <span className="truncate">{TACTIC_LABEL[tactic]}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
-
-              <button
-                onClick={startMatch}
-                disabled={!homeInfo}
-                className="mt-auto w-full shrink-0 rounded-xl bg-[var(--red)] px-4 py-3 font-bold text-white disabled:opacity-40"
-              >
-                Iniciar partida
-              </button>
-            </section>
-            <div className="match-setup-screen__preview min-h-0 min-w-0">
-              <TacticPreview tactic={homeTactic} formation={homeInfo?.formation ?? squad.formation} reduceMotion={reduceMotion} />
-            </div>
-          </div>
-        </div>
+        <MatchPreparation
+          lineup={matchLineup}
+          cards={cards}
+          savedSquads={mySaved}
+          selectedSquadId={selectedSquadId}
+          onSelectSquad={setSelectedSquadId}
+          onLineupChange={updateMatchLineup}
+          difficulty={difficulty}
+          onDifficultyChange={setDifficulty}
+          tactic={homeTactic}
+          onTacticChange={setHomeTactic}
+          homeOverall={homeOverall}
+          opponentName={opponentId ? opponentName : `IA (${difficulty})`}
+          opponentOverall={opponentId ? opponentOverall : AI_BASE_OVR[difficulty]}
+          showDifficulty={!opponentId}
+          canStart={!!homeInfo && (!opponentId || !!activeOpponentPlayers)}
+          opponentError={opponentError}
+          onStart={startMatch}
+        />
       );
     }
 

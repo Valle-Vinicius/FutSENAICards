@@ -157,7 +157,7 @@ describe('match playback', () => {
     expect(mockCardsIn).toHaveBeenCalledWith('id', starterIds);
   });
 
-  it('shows an AI tactic preview that updates with the selected tactic', () => {
+  it('shows the match preparation screen and updates difficulty and tactics', () => {
     render(
       <MemoryRouter initialEntries={['/match']}>
         <Routes>
@@ -166,21 +166,57 @@ describe('match playback', () => {
       </MemoryRouter>,
     );
 
-    const preview = screen.getByRole('img', { name: /Prévia equilibrada/ });
-    expect(preview.getAttribute('viewBox')).toBe('0 0 50 100');
-    expect(preview.querySelectorAll('[data-team="home"]')).toHaveLength(5);
-    expect(preview.querySelectorAll('[data-team="away"]')).toHaveLength(5);
+    const court = screen.getByRole('group', { name: 'Quadra de futsal com os titulares' });
+    expect(court.querySelectorAll('.match-prep-player-marker')).toHaveLength(5);
+    expect(screen.getByText('Quadra tática')).toBeTruthy();
     expect(screen.getByText('Pressão e linha defensiva não mudam no motor atual.')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Difícil' }));
-    expect(screen.getByLabelText('Confronto').textContent).toContain('IA Difícil');
-    expect(screen.getByLabelText('Confronto').textContent).toContain('OVR 99');
+    expect(screen.getByLabelText('Confronto').textContent).toContain('IA (hard)');
+    expect(screen.getByLabelText('Confronto').textContent).toContain('99OVERALL');
 
     fireEvent.click(screen.getByRole('radio', { name: 'Contra-ataque' }));
 
-    expect(screen.getByRole('img', { name: /Prévia de contra-ataque/ })).toBeTruthy();
     expect(screen.getByText('Tenta o chute com mais frequência.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Iniciar partida' }).closest('.card-surface')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /INICIAR PARTIDA/ }).className).toContain('match-prep-start');
+  });
+
+  it('swaps a starter with a reserve and simulates with the updated lineup', () => {
+    const reserveCard: PlayerCard = {
+      ...cards[3],
+      uid: 'reserve-card',
+      name: 'Reserva Ala',
+      overall: 90,
+    };
+    const state = useGame.getState();
+    useGame.setState({
+      cards: [...cards, reserveCard],
+      squads: {
+        ...state.squads,
+        futsal: { ...state.squads.futsal, bench: [reserveCard.uid] },
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/match']}>
+        <Routes>
+          <Route path="/match" element={<Match />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const roster = screen.getByRole('region', { name: 'Seu elenco' });
+    fireEvent.click(within(roster).getByRole('button', { name: 'Titular Ala: Jogador 2, OVR 80' }));
+    fireEvent.click(within(roster).getByRole('button', { name: 'Reserva: Reserva Ala, OVR 90' }));
+
+    expect(within(roster).getByRole('button', { name: 'Titular Ala: Reserva Ala, OVR 90' })).toBeTruthy();
+    expect(within(roster).getByRole('button', { name: 'Reserva: Jogador 2, OVR 80' })).toBeTruthy();
+    expect(screen.getByLabelText('Confronto').textContent).toContain('82');
+
+    fireEvent.click(screen.getByRole('button', { name: /INICIAR PARTIDA/ }));
+    const calls = jest.mocked(simulateMatch).mock.calls;
+    const simulatedHomePlayers = calls[calls.length - 1]?.[0].homePlayers ?? [];
+    expect(simulatedHomePlayers.some(player => player.id === 'reserve-card_home')).toBe(true);
   });
 
   it('shows only events up to the current frame and records solo rewards when playback starts', () => {
@@ -192,7 +228,7 @@ describe('match playback', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Iniciar partida' }));
+    fireEvent.click(screen.getByRole('button', { name: /INICIAR PARTIDA/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
 
     expect(screen.getAllByText('Futsenai FC')).toHaveLength(2);
