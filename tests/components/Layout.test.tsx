@@ -37,6 +37,7 @@ function renderLayout(path: string) {
           <Route path="/match" element={<div>Conteúdo da partida</div>} />
           <Route path="/sbc" element={<div>Conteúdo dos desafios</div>} />
           <Route path="/missions" element={<div>Conteúdo das missões</div>} />
+          <Route path="/friends" element={<div>Conteúdo das amizades</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -128,6 +129,14 @@ describe('Layout navigation', () => {
     expect(screen.getByLabelText('1.200 moedas')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument();
     expect(screen.getByText('Conteúdo das missões')).toBeInTheDocument();
+  });
+
+  it('uses the global topbar and hides the sidebar on the friends route', () => {
+    renderLayout('/friends');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(document.querySelector('aside')).not.toBeInTheDocument();
+    expect(screen.getByText('Conteúdo das amizades')).toBeInTheDocument();
   });
 
   it('uses the Home topbar on the pack store route', () => {
