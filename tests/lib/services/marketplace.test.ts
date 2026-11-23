@@ -37,7 +37,7 @@ jest.mock('../../../src/data/players', () => ({
 }));
 
 import { getListings } from '../../../src/lib/services/marketplace';
-import { getMarketplaceTransactions, getMarketplaceTransactionSummary } from '../../../src/lib/services/marketplace';
+import { getMarketplaceTransactions, getMarketplaceTransactionSummary, updateListingPrice } from '../../../src/lib/services/marketplace';
 
 describe('marketplace service', () => {
   beforeEach(() => {
@@ -135,6 +135,23 @@ describe('marketplace service', () => {
       net: -200,
     });
     expect(mockRpc).toHaveBeenCalledWith('marketplace_transaction_summary');
+  });
+
+  it('updates an active listing through the price-edit RPC', async () => {
+    mockRpc.mockResolvedValue({ data: true, error: null });
+
+    await expect(updateListingPrice('listing-1', 1400)).resolves.toBe(true);
+
+    expect(mockRpc).toHaveBeenCalledWith('update_listing_price', {
+      p_listing_id: 'listing-1',
+      p_price: 1400,
+    });
+  });
+
+  it('surfaces errors from the listing price-edit RPC', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('update failed') });
+
+    await expect(updateListingPrice('listing-1', 1400)).rejects.toThrow('update failed');
   });
 
   it('does not hide errors when loading transaction history', async () => {

@@ -15,7 +15,7 @@ import { getAchievements } from '../lib/services/achievements';
 import { getSettings, updateSettings as updateSettingsService } from '../lib/services/settings';
 import { refreshCollectorRanking } from '../lib/services/leaderboard';
 import { convertDuplicateBatches } from '../lib/services/duplicateConversion';
-import { getListings, toGameListing, createListing, cancelListing as cancelListingService } from '../lib/services/marketplace';
+import { getListings, toGameListing, createListing, cancelListing as cancelListingService, updateListingPrice as updateListingPriceService } from '../lib/services/marketplace';
 import { persistComparePair } from '../lib/services/compare';
 import { generatePlayerCard, randomTemplate, allTemplates, applyTemplateToCard, getPlayerImage, overallFromAttributes } from '../data/players';
 import { DUPLICATE_CONVERSION_REWARD } from '../data/economy';
@@ -238,6 +238,7 @@ interface Actions {
   recordEvolution: (uid: string, attr: string) => void;
   listCard: (cardUid: string, price: number, hours: number) => Promise<string | null>;
   cancelListing: (id: string) => Promise<boolean>;
+  updateListingPrice: (id: string, price: number) => Promise<boolean>;
   buyListing: (id: string) => Promise<boolean>;
   previewPack: (packId: string) => Promise<{ cards: PlayerCard[]; choiceId: string } | null>;
   claimPreviewedCard: (card: PlayerCard, choiceId: string) => Promise<PlayerCard | null>;
@@ -1473,6 +1474,20 @@ export const useGame = create<GameState & Actions>()(
           }
         }
         set(st => ({ listings: st.listings.map(l => l.id === id && l.status === 'active' ? { ...l, status: 'cancelled' } : l) }));
+        return true;
+      },
+      updateListingPrice: async (id, price) => {
+        const listing = get().listings.find(item => item.id === id);
+        if (!listing || listing.status !== 'active' || !Number.isInteger(price) || price <= 0) return false;
+        if (supabase && listing.sellerId) {
+          const updated = await updateListingPriceService(id, price);
+          if (!updated) return false;
+        }
+        set(st => ({
+          listings: st.listings.map(item => item.id === id && item.status === 'active'
+            ? { ...item, price, buyNow: price }
+            : item),
+        }));
         return true;
       },
       buyListing: async (id) => {

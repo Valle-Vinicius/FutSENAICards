@@ -74,7 +74,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isMatchRoute = location.pathname === '/match';
   const isSbcRoute = location.pathname === '/sbc';
   const isMissionsRoute = location.pathname === '/missions';
-  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute;
+  const isMarketplaceRoute = location.pathname === '/market';
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute || isMarketplaceRoute;
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
     || (location.pathname.startsWith('/card/') ? 'Carta'

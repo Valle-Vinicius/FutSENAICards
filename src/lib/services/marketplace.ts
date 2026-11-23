@@ -157,6 +157,16 @@ export async function cancelListing(id: string): Promise<boolean> {
   return !error && data === true;
 }
 
+export async function updateListingPrice(id: string, price: number): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('update_listing_price', {
+    p_listing_id: id,
+    p_price: price,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
 export async function buyListing(id: string): Promise<boolean> {
   if (!supabase) return false;
   const { error } = await supabase.from('listings').update({ status: 'sold' }).eq('id', id).eq('status', 'active');
