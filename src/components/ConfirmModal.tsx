@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 
 export default function ConfirmModal({ open, title, message, onConfirm, onCancel, confirmLabel = 'Confirmar', confirmVariant = 'primary', confirmDisabled = false }: {
   open: boolean;
@@ -10,6 +10,7 @@ export default function ConfirmModal({ open, title, message, onConfirm, onCancel
   confirmVariant?: 'primary' | 'danger';
   confirmDisabled?: boolean;
 }) {
+  const titleId = useId();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
@@ -19,8 +20,14 @@ export default function ConfirmModal({ open, title, message, onConfirm, onCancel
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[150] bg-black/40 flex items-center justify-center p-4" onClick={onCancel}>
-      <div className="card-surface max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-[var(--text)] mb-2">{title}</h3>
+      <div
+        className="card-surface max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 id={titleId} className="font-semibold text-[var(--text)] mb-2">{title}</h3>
         <p className="text-sm text-[var(--muted)] mb-4">{message}</p>
         <div className="flex gap-2 justify-end">
           <button onClick={onCancel} className="btn btn-secondary btn-sm">Cancelar</button>

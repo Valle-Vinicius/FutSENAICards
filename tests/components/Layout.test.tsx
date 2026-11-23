@@ -35,6 +35,7 @@ function renderLayout(path: string) {
           <Route path="/squad" element={<div>Conteúdo do elenco</div>} />
           <Route path="/compare" element={<div>Conteúdo da comparação</div>} />
           <Route path="/match" element={<div>Conteúdo da partida</div>} />
+          <Route path="/sbc" element={<div>Conteúdo dos desafios</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -106,6 +107,16 @@ describe('Layout navigation', () => {
     expect(document.querySelector('.home-layout')).toBeInTheDocument();
     expect(screen.getByLabelText('1.200 moedas')).toBeInTheDocument();
     expect(screen.getByText('Conteúdo da partida')).toBeInTheDocument();
+  });
+
+  it('uses the global topbar with coins and no sidebar on the SBC route', () => {
+    renderLayout('/sbc');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(document.querySelector('aside')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('1.200 moedas')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument();
+    expect(screen.getByText('Conteúdo dos desafios')).toBeInTheDocument();
   });
 
   it('uses the Home topbar on the pack store route', () => {
