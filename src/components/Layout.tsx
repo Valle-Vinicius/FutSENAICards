@@ -73,7 +73,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isCardDetailRoute = location.pathname.startsWith('/card/');
   const isMatchRoute = location.pathname === '/match';
   const isSbcRoute = location.pathname === '/sbc';
-  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute;
+  const isMissionsRoute = location.pathname === '/missions';
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute;
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
     || (location.pathname.startsWith('/card/') ? 'Carta'
@@ -355,7 +356,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
                 <Search aria-hidden="true" />
               </button>
               <div className="home-topbar__changelog"><ChangelogPopover /></div>
-              {(isCardDetailRoute || isMatchRoute || isSbcRoute) && (
+              {(isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute) && (
                 <span className="card-detail-topbar-coins" aria-label={`${coins.toLocaleString('pt-BR')} moedas`}>
                   <Coins aria-hidden="true" /> {coins.toLocaleString('pt-BR')}
                 </span>

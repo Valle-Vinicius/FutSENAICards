@@ -1,0 +1,1954 @@
+.missions-page {
+  --journey-red: #e30613;
+  --journey-ink: #1d1f25;
+  --journey-muted: #727783;
+  --journey-line: #e4e6eb;
+  display: flex;
+  width: min(100%, 1640px);
+  min-height: 100%;
+  flex-direction: column;
+  gap: clamp(18px, 2.2vw, 30px);
+  margin-inline: auto;
+  padding: clamp(16px, 2.3vw, 36px);
+  background:
+    radial-gradient(ellipse at 91% 0%, rgb(227 6 19 / 5%), transparent 25%),
+    #f6f6f8;
+  color: var(--journey-ink);
+}
+
+.missions-page button {
+  font: inherit;
+}
+
+.missions-page__header {
+  position: relative;
+  display: flex;
+  min-height: 148px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  overflow: hidden;
+  padding: clamp(22px, 3vw, 40px);
+  border: 1px solid #e6e1e2;
+  border-left: 5px solid var(--journey-red);
+  background:
+    linear-gradient(110deg, #fff 0%, #fff 65%, #fff2f3 100%);
+  box-shadow: 0 12px 32px rgb(24 27 34 / 5%);
+}
+
+.missions-page__header::before,
+.missions-page__header::after {
+  position: absolute;
+  z-index: 0;
+  right: 4%;
+  width: min(34vw, 430px);
+  height: 190%;
+  content: '';
+  pointer-events: none;
+  transform: skewX(-26deg);
+}
+
+.missions-page__header::before {
+  top: -50%;
+  background: linear-gradient(90deg, transparent, rgb(227 6 19 / 5%));
+}
+
+.missions-page__header::after {
+  top: -44%;
+  right: 14%;
+  border-right: 1px solid rgb(227 6 19 / 11%);
+  border-left: 1px solid rgb(23 25 32 / 5%);
+}
+
+.missions-page__header > div:first-child {
+  position: relative;
+  z-index: 1;
+}
+
+.missions-page__header > div:first-child > span,
+.missions-section-kicker {
+  color: #777d87;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.17em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.missions-page__header h1 {
+  margin: 8px 0 4px;
+  color: var(--journey-ink);
+  font-size: clamp(26px, 4vw, 45px);
+  font-weight: 950;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.missions-page__header h1 i {
+  color: var(--journey-red);
+  font-style: normal;
+}
+
+.missions-page__header p {
+  margin: 8px 0 0;
+  color: var(--journey-muted);
+  font-size: clamp(11px, 1.3vw, 14px);
+}
+
+.missions-page__header-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: clamp(82px, 9vw, 112px);
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(227 6 19 / 20%);
+  background:
+    linear-gradient(145deg, #fff 0 48%, #fff1f2 48% 100%);
+  color: var(--journey-red);
+  transform: rotate(45deg);
+}
+
+.missions-page__header-mark svg,
+.missions-page__header-mark span {
+  grid-area: 1 / 1;
+}
+
+.missions-page__header-mark svg {
+  width: 43%;
+  height: 43%;
+  margin-top: -13px;
+  stroke-width: 1.45;
+}
+
+.missions-page__header-mark span {
+  margin-top: 37px;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 0.13em;
+}
+
+.missions-section-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.missions-section-kicker > span {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  padding-inline: 4px;
+  background: var(--journey-red);
+  color: #fff;
+  font-size: 9px;
+  letter-spacing: 0;
+}
+
+.journey-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: clamp(20px, 3vw, 38px);
+  overflow: hidden;
+  border: 1px solid #292a31;
+  background:
+    radial-gradient(ellipse at 91% 5%, rgb(227 6 19 / 24%), transparent 32%),
+    linear-gradient(116deg, #202127 0%, #292a31 55%, #1d1e24 100%);
+  color: #fff;
+  box-shadow: 0 16px 38px rgb(25 27 32 / 14%);
+}
+
+.journey-panel::before,
+.journey-panel::after {
+  position: absolute;
+  z-index: 0;
+  inset: -35% auto auto 62%;
+  width: 1px;
+  height: 180%;
+  background: rgb(255 255 255 / 7%);
+  content: '';
+  pointer-events: none;
+  transform: rotate(28deg);
+}
+
+.journey-panel::after {
+  left: 67%;
+  background: rgb(227 6 19 / 30%);
+}
+
+.journey-panel__topline,
+.journey-panel__main,
+.journey-stats {
+  position: relative;
+  z-index: 1;
+}
+
+.journey-panel__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.journey-panel__eyebrow,
+.journey-panel__season {
+  color: #c7c8ce;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.15em;
+}
+
+.journey-panel__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.journey-panel__eyebrow > span {
+  width: 7px;
+  height: 7px;
+  background: #e30613;
+  box-shadow: 0 0 12px rgb(227 6 19 / 70%);
+  transform: rotate(45deg);
+}
+
+.journey-panel__season {
+  color: #ff858b;
+}
+
+.journey-panel__main {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(280px, 1.1fr);
+  align-items: center;
+  gap: clamp(20px, 5vw, 75px);
+}
+
+.journey-level {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: clamp(17px, 3vw, 32px);
+}
+
+.journey-level__seal {
+  position: relative;
+  display: flex;
+  width: clamp(102px, 12vw, 144px);
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(245 197 66 / 70%);
+  background:
+    radial-gradient(circle, rgb(245 197 66 / 14%) 0 40%, transparent 42%),
+    linear-gradient(145deg, rgb(245 197 66 / 8%), rgb(245 197 66 / 2%));
+  box-shadow: 0 0 0 5px rgb(245 197 66 / 6%), 0 0 35px rgb(245 197 66 / 9%);
+  clip-path: polygon(50% 0, 91% 16%, 100% 54%, 80% 89%, 50% 100%, 20% 89%, 0 54%, 9% 16%);
+}
+
+.journey-level__seal::after {
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgb(245 197 66 / 32%);
+  content: '';
+  clip-path: polygon(50% 0, 91% 16%, 100% 54%, 80% 89%, 50% 100%, 20% 89%, 0 54%, 9% 16%);
+}
+
+.journey-level__seal > span {
+  color: #f5d477;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.journey-level__seal > strong {
+  margin-top: 2px;
+  color: #fff;
+  font-size: clamp(40px, 6vw, 66px);
+  font-weight: 950;
+  letter-spacing: -0.08em;
+  line-height: 0.98;
+  text-shadow: 0 3px 20px rgb(245 197 66 / 30%);
+}
+
+.journey-level__copy > span {
+  color: #aaaeb7;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.journey-level__copy h2 {
+  margin: 7px 0 5px;
+  color: #fff;
+  font-size: clamp(20px, 2.6vw, 31px);
+  font-weight: 950;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+}
+
+.journey-level__copy p {
+  margin: 0;
+  color: #c4c6cc;
+  font-size: 11px;
+}
+
+.journey-xp {
+  min-width: 0;
+}
+
+.journey-xp__labels,
+.journey-xp__foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.journey-xp__labels > span {
+  color: #d7d8dd;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+}
+
+.journey-xp__labels > strong {
+  flex: 0 0 auto;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.journey-xp__labels small {
+  color: #b6b8bf;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.journey-xp__track {
+  height: 10px;
+  margin-top: 11px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 9%);
+  background: rgb(255 255 255 / 12%);
+  transform: skewX(-12deg);
+}
+
+.journey-xp__track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #b80a14, #f01d2a 64%, #ff888d);
+  box-shadow: 0 0 16px rgb(227 6 19 / 48%);
+  transition: width 350ms ease;
+}
+
+.journey-xp__foot {
+  margin-top: 8px;
+  color: #9da1aa;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.journey-xp__foot span:nth-child(2) {
+  color: #d5bd79;
+  letter-spacing: 0;
+}
+
+.journey-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgb(255 255 255 / 13%);
+}
+
+.journey-stat {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  padding: 17px clamp(8px, 2vw, 24px) 0;
+  border-right: 1px solid rgb(255 255 255 / 11%);
+}
+
+.journey-stat:first-child {
+  padding-left: 0;
+}
+
+.journey-stat:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.journey-stat__icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 15%);
+  background: rgb(255 255 255 / 5%);
+  color: #d4d6db;
+}
+
+.journey-stat--coins .journey-stat__icon {
+  border-color: rgb(245 197 66 / 33%);
+  color: #f5c542;
+}
+
+.journey-stat__icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.journey-stat > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 5px;
+}
+
+.journey-stat small {
+  width: 100%;
+  overflow: hidden;
+  color: #aeb1b9;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-stat strong {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+}
+
+.journey-stat strong em {
+  color: #b6b8bf;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.journey-stat em {
+  color: #d5bd79;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.journey-highlights {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 12px;
+}
+
+.journey-highlight {
+  display: flex;
+  min-width: 0;
+  min-height: 88px;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 17px;
+  border: 1px solid var(--journey-line);
+  background: #fff;
+  color: var(--journey-ink);
+  text-align: left;
+}
+
+button.journey-highlight {
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+button.journey-highlight:hover {
+  box-shadow: 0 8px 20px rgb(25 27 32 / 7%);
+  transform: translateY(-2px);
+}
+
+.journey-highlight--claim {
+  border-color: rgb(227 6 19 / 29%);
+  border-left: 4px solid var(--journey-red);
+  background:
+    linear-gradient(100deg, #fff 0%, #fff 72%, #fff4f4 100%);
+}
+
+.journey-highlight--achievement {
+  border-left: 3px solid #d5b65d;
+  background: linear-gradient(110deg, #fff 0%, #fffdf6 100%);
+}
+
+.journey-highlight--quiet {
+  background: linear-gradient(110deg, #fff 0%, #f9f9fa 100%);
+}
+
+.journey-highlight__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(227 6 19 / 15%);
+  background: #fff2f3;
+  color: var(--journey-red);
+}
+
+.journey-highlight--achievement > .achievement-emblem {
+  flex: 0 0 auto;
+}
+
+.journey-highlight__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.journey-highlight__copy > span {
+  color: #888d96;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+
+.journey-highlight--claim .journey-highlight__copy > span {
+  color: var(--journey-red);
+}
+
+.journey-highlight--achievement .journey-highlight__copy > span {
+  color: #947323;
+}
+
+.journey-highlight__copy strong {
+  overflow: hidden;
+  color: #25272d;
+  font-size: 12px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-highlight__copy small {
+  overflow: hidden;
+  color: #777c86;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-highlight--claim > button {
+  display: inline-flex;
+  min-height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  border: 0;
+  background: var(--journey-red);
+  color: #fff;
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  transition: background 150ms ease;
+}
+
+.journey-highlight--claim > button:hover:not(:disabled) {
+  background: #c9000c;
+}
+
+.journey-highlight--claim > button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.journey-highlight--claim > button svg,
+.journey-highlight--achievement > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.journey-highlight--achievement > svg {
+  flex: 0 0 auto;
+  color: #947323;
+}
+
+.missions-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.missions-section-heading h2,
+.achievements-section__header h2 {
+  margin: 8px 0 0;
+  color: var(--journey-ink);
+  font-size: clamp(21px, 2.6vw, 29px);
+  font-weight: 950;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+}
+
+.missions-section-heading p,
+.achievements-section__header p {
+  margin: 5px 0 0;
+  color: var(--journey-muted);
+  font-size: 10px;
+}
+
+.missions-section-heading__count {
+  padding: 7px 9px;
+  border: 1px solid var(--journey-line);
+  color: #6d727c;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  white-space: nowrap;
+}
+
+.mission-category-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 15px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.mission-category-tabs button {
+  display: inline-flex;
+  min-height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid #e3e4e8;
+  border-bottom: 2px solid transparent;
+  background: #fff;
+  color: #686e78;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.mission-category-tabs button:hover {
+  border-color: #cfd1d7;
+  color: var(--journey-ink);
+}
+
+.mission-category-tabs button[aria-selected='true'] {
+  border-color: rgb(227 6 19 / 27%);
+  border-bottom-color: var(--journey-red);
+  background: #fff5f5;
+  color: var(--journey-red);
+}
+
+.mission-category-tabs button > svg {
+  width: 14px;
+  height: 14px;
+}
+
+.mission-category-tabs button > span {
+  display: inline-grid;
+  min-width: 19px;
+  height: 19px;
+  place-items: center;
+  padding-inline: 4px;
+  background: #f0f1f3;
+  color: #757a84;
+  font-size: 8px;
+  font-weight: 850;
+}
+
+.mission-category-tabs button[aria-selected='true'] > span {
+  background: rgb(227 6 19 / 11%);
+  color: var(--journey-red);
+}
+
+.mission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.mission-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 58px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--journey-line);
+  background: #fff;
+  box-shadow: 0 6px 18px rgb(25 27 32 / 3%);
+  animation: mission-card-in 260ms ease both;
+  animation-delay: calc(var(--mission-index, 0) * 18ms);
+  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+@keyframes mission-card-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mission-card.is-claimable {
+  border-color: rgb(227 6 19 / 34%);
+  box-shadow: 0 7px 21px rgb(227 6 19 / 7%);
+}
+
+.mission-card.is-claimable::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, transparent 49%, rgb(227 6 19 / 10%) 50%);
+  content: '';
+}
+
+.mission-card.is-special {
+  border-top: 2px solid #d6b958;
+}
+
+.mission-card.is-claimed {
+  background: #fafafb;
+}
+
+.mission-card.just-claimed .mission-card__status {
+  animation: mission-claimed-pop 360ms ease-out both;
+}
+
+@keyframes mission-claimed-pop {
+  0% { opacity: 0; transform: scale(0.9); }
+  72% { opacity: 1; transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.mission-card__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 8px;
+  border-right: 1px solid #ececf0;
+  background:
+    linear-gradient(155deg, #f3f4f6 0%, #fff 85%);
+}
+
+.mission-card.is-claimable .mission-card__rail {
+  background: linear-gradient(155deg, #fff0f1 0%, #fff 88%);
+}
+
+.mission-card.is-special .mission-card__rail {
+  background: linear-gradient(155deg, #fbf6e8 0%, #fff 88%);
+}
+
+.mission-card__index {
+  color: #9ba0a9;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.mission-card__type {
+  display: grid;
+  width: 33px;
+  height: 33px;
+  place-items: center;
+  border: 1px solid #d9dce2;
+  background: #fff;
+  color: #666d78;
+}
+
+.mission-card__type--packs {
+  color: #b17625;
+}
+
+.mission-card__type--collection {
+  color: #4a6f9c;
+}
+
+.mission-card__type--squad {
+  color: #4d8062;
+}
+
+.mission-card__type--special {
+  border-color: #eadbaf;
+  color: #a4801c;
+}
+
+.mission-card__type svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mission-card__body {
+  min-width: 0;
+  padding: 13px 14px 12px;
+}
+
+.mission-card__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #8a8f99;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.mission-card.is-claimable .mission-card__topline {
+  color: var(--journey-red);
+}
+
+.mission-card__special {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  background: #f8f2df;
+  color: #967922;
+  font-size: 6px;
+  letter-spacing: 0.08em;
+}
+
+.mission-card__special svg {
+  width: 10px;
+  height: 10px;
+}
+
+.mission-card__body h3 {
+  margin: 7px 0 3px;
+  overflow: hidden;
+  color: #272a31;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-card.is-claimed .mission-card__body h3 {
+  color: #5e636c;
+}
+
+.mission-card__body > p {
+  min-height: 28px;
+  margin: 0;
+  color: #7a7f89;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.mission-card__progress-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mission-card__progress-copy > span {
+  color: #8a8f99;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: 0.085em;
+}
+
+.mission-card__progress-copy > strong {
+  color: #484c55;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.mission-card__progress-copy small {
+  color: #9a9ea7;
+  font-size: 8px;
+  font-weight: 650;
+}
+
+.mission-progress-track {
+  height: 5px;
+  margin-top: 6px;
+  overflow: hidden;
+  background: #e9eaed;
+}
+
+.mission-progress-track > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #a9adb5, #717782);
+  transition: width 300ms ease;
+}
+
+.mission-card.is-claimable .mission-progress-track > span {
+  background: linear-gradient(90deg, #c4000d, #f33a45);
+}
+
+.mission-card.is-claimed .mission-progress-track > span {
+  background: #8b929c;
+}
+
+.mission-card__footer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.mission-reward {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.mission-reward > span:not(.mission-reward__coin):not(.mission-reward__xp) {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mission-reward > span strong {
+  color: #484c55;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.mission-reward > span small {
+  color: #9398a1;
+  font-size: 6px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.mission-reward__coin,
+.mission-reward__xp {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  background: #fff6d8;
+  color: #ad8420;
+}
+
+.mission-reward__xp {
+  background: #f0f2f8;
+  color: #647297;
+}
+
+.mission-reward__coin svg,
+.mission-reward__xp svg {
+  width: 12px;
+  height: 12px;
+}
+
+.mission-reward > i {
+  width: 1px;
+  height: 21px;
+  margin-inline: 2px;
+  background: #e5e6ea;
+}
+
+.mission-claim-button {
+  display: inline-flex;
+  min-height: 33px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 0;
+  background: var(--journey-red);
+  color: #fff;
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.mission-claim-button:hover:not(:disabled) {
+  background: #c9000c;
+  transform: translateY(-1px);
+}
+
+.mission-claim-button:disabled {
+  opacity: 0.58;
+  cursor: wait;
+}
+
+.mission-claim-button svg {
+  width: 13px;
+  height: 13px;
+}
+
+.mission-card__status {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  color: #858a94;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.mission-card__status.is-claimed {
+  color: #61806a;
+}
+
+.mission-card__status.is-completed {
+  color: #997626;
+}
+
+.mission-card__status svg {
+  width: 13px;
+  height: 13px;
+}
+
+.mission-card__status-dot {
+  width: 6px;
+  height: 6px;
+  background: #b1b5bd;
+  transform: rotate(45deg);
+}
+
+.missions-empty-state {
+  padding: 25px;
+  border: 1px dashed #d9dbe0;
+  background: #fff;
+  color: #777c86;
+  font-size: 11px;
+}
+
+.rewards-recap {
+  padding: clamp(15px, 2vw, 23px);
+  border: 1px solid var(--journey-line);
+  border-top: 3px solid #c9aa4d;
+  background:
+    linear-gradient(120deg, #fff 0%, #fff 73%, #fffdf4 100%);
+}
+
+.missions-section-heading--compact {
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.missions-section-heading--compact h2 {
+  font-size: 17px;
+}
+
+.missions-section-heading--compact > svg {
+  width: 21px;
+  height: 21px;
+  color: #ad8625;
+}
+
+.rewards-recap__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reward-recap-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 13px;
+  border-right: 1px solid #eeece3;
+}
+
+.reward-recap-item:first-child {
+  padding-left: 0;
+}
+
+.reward-recap-item:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.reward-recap-item__check {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #d2bd79;
+  background: #fff9e7;
+  color: #9d7c23;
+}
+
+.reward-recap-item__check svg {
+  width: 13px;
+  height: 13px;
+}
+
+.reward-recap-item__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.reward-recap-item__copy strong {
+  overflow: hidden;
+  color: #49443a;
+  font-size: 9px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reward-recap-item__copy small {
+  color: #938b77;
+  font-size: 8px;
+}
+
+.reward-recap-item__amount {
+  flex: 0 0 auto;
+  color: #8e6e1b;
+  font-size: 10px;
+  font-weight: 900;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.reward-recap-item__amount small {
+  display: block;
+  margin-top: 2px;
+  color: #a19471;
+  font-size: 6px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.rewards-recap__empty {
+  margin: 0;
+  padding: 12px 0 2px;
+  color: #858a94;
+  font-size: 10px;
+}
+
+.achievements-section {
+  position: relative;
+  padding: clamp(18px, 2.5vw, 30px);
+  overflow: hidden;
+  border: 1px solid #2d2e35;
+  background:
+    radial-gradient(ellipse at 85% 4%, rgb(227 6 19 / 14%), transparent 30%),
+    linear-gradient(115deg, #23242b 0%, #2c2d34 55%, #23242b 100%);
+  color: #fff;
+}
+
+.achievements-section::after {
+  position: absolute;
+  top: -65%;
+  right: 21%;
+  width: 1px;
+  height: 220%;
+  background: rgb(255 255 255 / 8%);
+  content: '';
+  pointer-events: none;
+  transform: rotate(28deg);
+}
+
+.achievements-section__header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.achievements-section .missions-section-kicker {
+  color: #c1c3c9;
+}
+
+.achievements-section__header h2 {
+  color: #fff;
+}
+
+.achievements-section__header p {
+  color: #c0c2c9;
+}
+
+.achievements-section__count {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+  gap: 3px;
+}
+
+.achievements-section__count > span {
+  color: #f1d175;
+  font-size: 27px;
+  font-weight: 950;
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.achievements-section__count > small {
+  color: #b7b9c0;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.achievement-gallery {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.achievement-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 13%);
+  background: rgb(255 255 255 / 5%);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.achievement-card:hover {
+  border-color: rgb(245 197 66 / 45%);
+  background: rgb(255 255 255 / 8%);
+  transform: translateY(-3px);
+}
+
+.achievement-card.is-unlocked {
+  border-color: rgb(215 187 101 / 30%);
+}
+
+.achievement-card__plate {
+  position: relative;
+  display: flex;
+  min-height: 137px;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgb(245 197 66 / 11%), transparent 42%),
+    linear-gradient(145deg, rgb(255 255 255 / 4%), transparent 60%);
+}
+
+.achievement-card.is-locked .achievement-card__plate {
+  background:
+    radial-gradient(circle at 50% 45%, rgb(255 255 255 / 6%), transparent 42%),
+    linear-gradient(145deg, rgb(255 255 255 / 3%), transparent 60%);
+}
+
+.achievement-card__plate::after {
+  position: absolute;
+  inset: auto 17% 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 15%), transparent);
+  content: '';
+}
+
+.achievement-card__state {
+  position: absolute;
+  right: 9px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #c6c8ce;
+  font-size: 6px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+}
+
+.achievement-card.is-unlocked .achievement-card__state {
+  color: #f0d47a;
+}
+
+.achievement-card__state svg {
+  width: 11px;
+  height: 11px;
+}
+
+.achievement-card__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 12px 9px;
+}
+
+.achievement-card__copy strong {
+  overflow: hidden;
+  color: #f5f5f7;
+  font-size: 11px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.achievement-card__copy small {
+  display: -webkit-box;
+  min-height: 27px;
+  overflow: hidden;
+  color: #b5b7bf;
+  font-size: 8px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.achievement-card__footer {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: auto;
+  padding: 0 11px;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+  color: #aeb0b8;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+}
+
+.achievement-card.is-unlocked .achievement-card__footer {
+  color: #d2bd78;
+}
+
+.achievement-card__footer > svg:first-child {
+  width: 12px;
+  height: 12px;
+}
+
+.achievement-card__footer > svg:last-child {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.achievement-emblem {
+  position: relative;
+  display: grid;
+  width: 89px;
+  height: 99px;
+  flex: 0 0 auto;
+  place-items: center;
+  isolation: isolate;
+}
+
+.achievement-emblem.is-small {
+  width: 48px;
+  height: 53px;
+}
+
+.achievement-emblem__outer {
+  position: absolute;
+  inset: 3px 5px 7px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #bba256;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 22%), transparent 45%),
+    linear-gradient(155deg, #d6bb61 0%, #92721f 100%);
+  box-shadow: 0 5px 15px rgb(0 0 0 / 29%), inset 0 0 0 3px rgb(255 255 255 / 12%);
+  clip-path: polygon(50% 0, 88% 11%, 100% 43%, 86% 76%, 50% 100%, 14% 76%, 0 43%, 12% 11%);
+  transition: filter 420ms ease, box-shadow 420ms ease;
+}
+
+.achievement-emblem__outer::before {
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgb(255 255 255 / 36%);
+  content: '';
+  clip-path: polygon(50% 0, 88% 11%, 100% 43%, 86% 76%, 50% 100%, 14% 76%, 0 43%, 12% 11%);
+}
+
+.achievement-emblem__inner {
+  z-index: 1;
+  display: grid;
+  width: 57px;
+  height: 57px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 25%, rgb(255 255 255 / 22%), transparent 45%),
+    #332b17;
+  color: #f3d87c;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
+  transition: filter 420ms ease, color 420ms ease, box-shadow 420ms ease;
+}
+
+.achievement-emblem__inner svg {
+  width: 27px;
+  height: 27px;
+  stroke-width: 1.6;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 28%));
+}
+
+.achievement-emblem[data-emblem='a1'] .achievement-emblem__outer {
+  background: linear-gradient(145deg, #b9d1da, #547c8b);
+}
+
+.achievement-emblem[data-emblem='a1'] .achievement-emblem__inner {
+  background: #243d47;
+  color: #b9e7f2;
+}
+
+.achievement-emblem[data-emblem='a2'] .achievement-emblem__outer {
+  background: linear-gradient(145deg, #d3b86e, #7d5c1e);
+}
+
+.achievement-emblem[data-emblem='a2'] .achievement-emblem__inner {
+  background: #473713;
+  color: #f4d36c;
+}
+
+.achievement-emblem[data-emblem='a3'] .achievement-emblem__outer {
+  background: linear-gradient(145deg, #f3dc82, #9a7627);
+}
+
+.achievement-emblem[data-emblem='a3'] .achievement-emblem__inner {
+  background: #584217;
+  color: #ffe28a;
+}
+
+.achievement-emblem[data-emblem='a4'] .achievement-emblem__outer {
+  background: linear-gradient(145deg, #e87b80, #93272e);
+}
+
+.achievement-emblem[data-emblem='a4'] .achievement-emblem__inner {
+  background: #4c171b;
+  color: #ffb5b8;
+}
+
+.achievement-emblem[data-emblem='a5'] .achievement-emblem__outer {
+  background: linear-gradient(145deg, #c1a8e7, #634296);
+}
+
+.achievement-emblem[data-emblem='a5'] .achievement-emblem__inner {
+  background: #33234f;
+  color: #dac3ff;
+}
+
+.achievement-emblem[data-emblem='a6'] .achievement-emblem__outer {
+  background: linear-gradient(145deg, #f1c96b, #9c5c14);
+}
+
+.achievement-emblem[data-emblem='a6'] .achievement-emblem__inner {
+  background: #5a310d;
+  color: #ffe2a0;
+}
+
+.achievement-emblem.is-locked .achievement-emblem__outer,
+.achievement-emblem.is-locked .achievement-emblem__inner {
+  filter: grayscale(1);
+}
+
+.achievement-emblem.is-locked .achievement-emblem__outer {
+  opacity: 0.68;
+}
+
+.achievement-emblem.is-locked .achievement-emblem__inner {
+  color: #d1d2d6;
+}
+
+.achievement-emblem.is-unlocked .achievement-emblem__outer {
+  box-shadow: 0 6px 19px rgb(0 0 0 / 32%), 0 0 20px rgb(245 197 66 / 19%), inset 0 0 0 3px rgb(255 255 255 / 15%);
+}
+
+.achievement-emblem.is-unlocked .achievement-emblem__inner {
+  box-shadow: 0 2px 7px rgb(0 0 0 / 30%), 0 0 10px rgb(245 197 66 / 16%);
+}
+
+.achievement-emblem__check,
+.achievement-emblem__lock {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 40%);
+  border-radius: 50%;
+  background: #24252b;
+  color: #e4cb71;
+  stroke-width: 2.5;
+}
+
+.achievement-emblem__lock {
+  color: #d1d2d6;
+}
+
+.achievement-emblem.is-small .achievement-emblem__outer {
+  inset: 2px 3px 4px;
+}
+
+.achievement-emblem.is-small .achievement-emblem__outer::before {
+  inset: 2px;
+}
+
+.achievement-emblem.is-small .achievement-emblem__inner {
+  width: 30px;
+  height: 30px;
+}
+
+.achievement-emblem.is-small .achievement-emblem__inner svg {
+  width: 16px;
+  height: 16px;
+}
+
+.achievement-emblem.is-small .achievement-emblem__check,
+.achievement-emblem.is-small .achievement-emblem__lock {
+  width: 14px;
+  height: 14px;
+}
+
+.achievement-emblem.is-small .achievement-emblem__check {
+  padding: 2px;
+}
+
+.achievement-dialog-backdrop {
+  position: fixed;
+  z-index: 160;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(11 12 16 / 72%);
+  backdrop-filter: blur(5px);
+  animation: achievement-backdrop-in 150ms ease both;
+}
+
+@keyframes achievement-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.achievement-dialog {
+  position: relative;
+  display: flex;
+  width: min(100%, 420px);
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 30px 26px;
+  border: 1px solid rgb(225 194 99 / 39%);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgb(227 6 19 / 12%), transparent 45%),
+    linear-gradient(145deg, #292a31, #1d1e24);
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 25px 80px rgb(0 0 0 / 43%);
+  animation: achievement-dialog-in 200ms ease-out both;
+}
+
+@keyframes achievement-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.achievement-dialog__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 15%);
+  background: rgb(255 255 255 / 6%);
+  color: #d9dbe0;
+  cursor: pointer;
+}
+
+.achievement-dialog__close:hover {
+  border-color: rgb(255 255 255 / 35%);
+  color: #fff;
+}
+
+.achievement-dialog__close svg {
+  width: 17px;
+  height: 17px;
+}
+
+.achievement-dialog__art {
+  display: grid;
+  width: 134px;
+  height: 146px;
+  place-items: center;
+  margin-bottom: 8px;
+  background: radial-gradient(circle, rgb(245 197 66 / 15%), transparent 65%);
+}
+
+.achievement-dialog__art .achievement-emblem {
+  transform: scale(1.2);
+}
+
+.achievement-dialog .missions-section-kicker {
+  color: #e2d49b;
+}
+
+.achievement-dialog .missions-section-kicker > span {
+  background: #a58427;
+}
+
+.achievement-dialog h2 {
+  margin: 12px 0 5px;
+  color: #fff;
+  font-size: 25px;
+  font-weight: 950;
+  letter-spacing: -0.045em;
+}
+
+.achievement-dialog > p {
+  max-width: 310px;
+  margin: 0;
+  color: #c6c8cf;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.achievement-dialog__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  padding: 8px 11px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  background: rgb(255 255 255 / 5%);
+  color: #d5d7dc;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+}
+
+.achievement-dialog__status.is-unlocked {
+  border-color: rgb(216 189 98 / 35%);
+  background: rgb(216 189 98 / 9%);
+  color: #f0d780;
+}
+
+.achievement-dialog__status svg,
+.achievement-dialog__date svg {
+  width: 15px;
+  height: 15px;
+}
+
+.achievement-dialog__date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 11px;
+  color: #b7bac2;
+  font-size: 9px;
+}
+
+@media (max-width: 980px) {
+  .journey-panel__main {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 1fr);
+    gap: 25px;
+  }
+
+  .mission-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .achievement-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rewards-recap__list {
+    grid-template-columns: 1fr;
+  }
+
+  .reward-recap-item,
+  .reward-recap-item:first-child,
+  .reward-recap-item:last-child {
+    padding: 9px 0;
+    border-right: 0;
+    border-bottom: 1px solid #eeece3;
+  }
+
+  .reward-recap-item:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .missions-page {
+    gap: 16px;
+    padding: 14px;
+  }
+
+  .missions-page__header {
+    min-height: 124px;
+    padding: 18px;
+  }
+
+  .missions-page__header-mark {
+    width: 65px;
+  }
+
+  .missions-page__header-mark span {
+    margin-top: 24px;
+    font-size: 7px;
+  }
+
+  .missions-page__header-mark svg {
+    margin-top: -9px;
+  }
+
+  .journey-panel {
+    gap: 18px;
+    padding: 18px;
+  }
+
+  .journey-panel__main {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .journey-level__seal {
+    width: 88px;
+  }
+
+  .journey-level__seal > strong {
+    font-size: 42px;
+  }
+
+  .journey-level__copy h2 {
+    font-size: 24px;
+  }
+
+  .journey-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .journey-stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 12px 8px 0;
+  }
+
+  .journey-stat__icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .journey-stat strong {
+    font-size: 16px;
+  }
+
+  .journey-stat small {
+    font-size: 6px;
+  }
+
+  .journey-highlights {
+    grid-template-columns: 1fr;
+  }
+
+  .journey-highlight {
+    min-height: 75px;
+    padding: 11px;
+  }
+
+  .mission-card {
+    grid-template-columns: 43px minmax(0, 1fr);
+  }
+
+  .mission-card__rail {
+    padding-inline: 5px;
+  }
+
+  .mission-card__body {
+    padding: 11px;
+  }
+}
+
+@media (max-width: 440px) {
+  .missions-page__header {
+    min-height: 112px;
+    padding: 15px;
+  }
+
+  .missions-page__header h1 {
+    font-size: clamp(21px, 7vw, 29px);
+  }
+
+  .missions-page__header p {
+    max-width: 240px;
+    font-size: 9px;
+  }
+
+  .missions-page__header-mark {
+    width: 48px;
+  }
+
+  .missions-page__header-mark span {
+    margin-top: 20px;
+    font-size: 6px;
+  }
+
+  .missions-page__header-mark svg {
+    width: 45%;
+    height: 45%;
+    margin-top: -7px;
+  }
+
+  .journey-panel__topline {
+    align-items: flex-start;
+  }
+
+  .journey-panel__eyebrow,
+  .journey-panel__season {
+    font-size: 7px;
+  }
+
+  .journey-level {
+    gap: 14px;
+  }
+
+  .journey-level__seal {
+    width: 74px;
+  }
+
+  .journey-level__seal > span {
+    font-size: 6px;
+  }
+
+  .journey-level__seal > strong {
+    font-size: 35px;
+  }
+
+  .journey-level__copy h2 {
+    font-size: 21px;
+  }
+
+  .journey-level__copy p {
+    font-size: 9px;
+  }
+
+  .journey-xp__labels {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .journey-xp__foot {
+    font-size: 6px;
+  }
+
+  .journey-stat {
+    padding-inline: 5px;
+  }
+
+  .journey-stat__icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .journey-stat__icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .journey-stat strong {
+    font-size: 14px;
+  }
+
+  .journey-stat strong em,
+  .journey-stat em {
+    font-size: 7px;
+  }
+
+  .journey-highlight--claim {
+    flex-wrap: wrap;
+  }
+
+  .journey-highlight--claim > button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .mission-card__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mission-claim-button,
+  .mission-card__status {
+    align-self: flex-end;
+  }
+
+  .mission-reward {
+    width: 100%;
+  }
+
+  .achievement-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .achievement-card {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+
+  .achievement-card__plate {
+    grid-row: span 2;
+    min-height: 120px;
+  }
+
+  .achievement-card__copy {
+    padding: 14px 11px 8px;
+  }
+
+  .achievement-card__footer {
+    min-height: 27px;
+  }
+
+  .achievements-section__count > small {
+    font-size: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .missions-page *,
+  .missions-page *::before,
+  .missions-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
