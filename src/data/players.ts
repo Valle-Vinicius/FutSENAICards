@@ -27,6 +27,7 @@ export interface PlayerTemplate {
   attributes: { pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number };
   gkAttributes?: { reflexes: number; positioning: number; handling: number };
   image: string;
+  detailPhoto?: string;
   baseRarity: Rarity;
   baseOverall?: number;
   autoCalculateOverall?: boolean;
@@ -225,6 +226,7 @@ export async function loadDbTemplates() {
     attributes: t.attributes || { pace: 70, shooting: 70, passing: 70, dribbling: 70, defending: 70, physical: 70 },
     gkAttributes: t.gk_attributes || undefined,
     image: t.image || '',
+    detailPhoto: t.detail_image || undefined,
     baseRarity: (t.base_rarity as Rarity) || 'uncommon',
     dbId: t.id,
     baseOverall: t.base_overall ?? undefined,
@@ -255,6 +257,11 @@ export function allTemplates(includeSecret = false): PlayerTemplate[] {
 export function getPlayerImage(name: string): string | undefined {
   const t = allTemplates().find(x => x.name === name);
   return t?.image;
+}
+
+export function getPlayerDetailPhoto(name: string): string | undefined {
+  const t = allTemplates(true).find(x => x.name === name);
+  return t?.detailPhoto;
 }
 
 export function randomTemplate(positionFilter?: Position): PlayerTemplate {

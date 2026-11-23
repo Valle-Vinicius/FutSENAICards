@@ -71,6 +71,15 @@ function applyMod(value: number, mod: number): number {
   return Math.max(0, Math.min(99, Math.round(value * mod)));
 }
 
+async function saveTemplateDetailPhoto(name: string, detailPhotoUrl: string) {
+  if (!supabase) throw new Error('Supabase não está configurado.');
+  const { error } = await supabase.rpc('admin_save_template_detail_image', {
+    p_name: name,
+    p_detail_image: detailPhotoUrl || null,
+  });
+  if (error) throw error;
+}
+
 export default function Admin() {
   const navigate = useNavigate();
   const syncUserData = useGame(s => s.syncUserData);
@@ -108,6 +117,7 @@ export default function Admin() {
       positioning: 0,
       handling: 0,
       imageUrl: '',
+      detailPhotoUrl: '',
       calcOverall: false,
       allowOverallOverride: false,
       destination: 'inventory' as 'inventory' | 'packs' | 'off_sale' | 'secret',
@@ -169,6 +179,7 @@ export default function Admin() {
   const isGK = form.position === 'GK';
   const calcMode = form.calcOverall;
   const isInventory = !editingTemplate && form.destination === 'inventory';
+  const isTemplate = !!editingTemplate || form.destination !== 'inventory';
   const isOffSale = form.destination === 'off_sale';
   const isSecret = form.destination === 'secret';
   const teams = [...new Set(templates.map(template => template.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -291,6 +302,7 @@ export default function Admin() {
       positioning: template.gkAttributes?.positioning ?? 0,
       handling: template.gkAttributes?.handling ?? 0,
       imageUrl: template.image || '',
+      detailPhotoUrl: template.detailPhoto || '',
       calcOverall: autoCalculateOverall,
       allowOverallOverride: false,
       destination: template.packGroup === 'secret' ? 'secret' : template.packGroup === 'off_sale' ? 'off_sale' : 'packs',
@@ -310,6 +322,7 @@ export default function Admin() {
       name: '',
       nationality: DEFAULT_NATIONALITY,
       imageUrl: '',
+      detailPhotoUrl: '',
       club: randomTeam(teams),
       rarity: prev.rarity === 'secret' ? 'uncommon' : prev.rarity,
       baseRarity: prev.baseRarity === 'secret' ? 'uncommon' : prev.baseRarity,
@@ -344,6 +357,11 @@ export default function Admin() {
     const imageUrl = form.imageUrl.trim();
     if (imageUrl && !(/^https?:\/\//i.test(imageUrl) || (imageUrl.startsWith('/') && !imageUrl.startsWith('//')))) {
       toast.error('A imagem deve usar uma URL HTTP(S) ou um caminho local iniciado por /.');
+      return;
+    }
+    const detailPhotoUrl = form.detailPhotoUrl.trim();
+    if (isTemplate && detailPhotoUrl && !(/^https?:\/\//i.test(detailPhotoUrl) || (detailPhotoUrl.startsWith('/') && !detailPhotoUrl.startsWith('//')))) {
+      toast.error('A foto de detalhe deve usar uma URL HTTP(S) ou um caminho local iniciado por /.');
       return;
     }
     const normalizedExtraStats = extraStats.map(stat => ({ label: stat.label.trim(), value: stat.value }));
@@ -412,12 +430,13 @@ export default function Admin() {
           p_max_supply: secretMaxSupply,
         });
         if (error) { toast.error('Erro ao salvar carta secreta: ' + error.message); return; }
+        await saveTemplateDetailPhoto(form.name.trim(), detailPhotoUrl);
         await loadDbTemplates();
         setTemplates(allTemplates(true));
         await refreshSecretSupply();
         toast.success(editingTemplate ? 'Carta secreta atualizada!' : 'Carta secreta adicionada!');
         if (editingTemplate) cancelTemplateEdit();
-        else setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams) }));
+        else setForm(prev => ({ ...prev, name: '', imageUrl: '', detailPhotoUrl: '', club: randomTeam(teams) }));
         return;
       }
 
@@ -445,6 +464,7 @@ export default function Admin() {
           p_auto_calculate_overall: calcMode,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
+        await saveTemplateDetailPhoto(editingTemplate, detailPhotoUrl);
         await loadDbTemplates();
         setTemplates(allTemplates(true));
         toast.success('Template atualizado com sucesso!');
@@ -542,12 +562,13 @@ export default function Admin() {
           p_auto_calculate_overall: calcMode,
         });
         if (error) { toast.error('Erro: ' + error.message); return; }
+        await saveTemplateDetailPhoto(form.name.trim(), detailPhotoUrl);
         await loadDbTemplates();
         setTemplates(allTemplates(true));
         toast.success(isOffSale ? 'Carta adicionada ao Pacote Off-Sale!' : 'Carta adicionada aos pacotes!');
       }
       if (isOffSale) setExtraStats([]);
-      setForm(prev => ({ ...prev, name: '', imageUrl: '', club: randomTeam(teams), allowOverallOverride: false }));
+      setForm(prev => ({ ...prev, name: '', imageUrl: '', detailPhotoUrl: '', club: randomTeam(teams), allowOverallOverride: false }));
     } catch (e: any) {
       toast.error('Erro: ' + (e?.message || 'desconhecido'));
     } finally {
@@ -644,9 +665,24 @@ export default function Admin() {
                   <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} placeholder="Ex: João Marcos" readOnly={!!editingTemplate} />
                 </div>
                 <div>
-                  <label className={labelCls}>URL da Imagem</label>
+                  <label className={labelCls}>URL da arte da carta</label>
                   <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
                 </div>
+                {isTemplate && (
+                  <div>
+                    <label className={labelCls}>URL da foto de detalhe do atleta</label>
+                    <input
+                      value={form.detailPhotoUrl}
+                      onChange={e => setForm(prev => ({ ...prev, detailPhotoUrl: e.target.value }))}
+                      className={inputCls}
+                      placeholder="https://... ou /assets/foto-detalhe.png"
+                      aria-describedby="detail-photo-help"
+                    />
+                    <p id="detail-photo-help" className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">
+                      Usada no hero da página do atleta; não altera a arte da carta. Deixe vazia para usar a imagem padrão.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

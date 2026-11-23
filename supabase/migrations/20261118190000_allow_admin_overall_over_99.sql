@@ -1,6 +1,6 @@
 drop function if exists public.create_card(
   text, text, text, integer, integer, integer, integer, integer, integer, integer,
-  integer, integer, integer, text, text, text, text, integer, text
+  integer, integer, integer, text, text, text, text, integer, text, boolean
 );
 
 create function public.create_card(

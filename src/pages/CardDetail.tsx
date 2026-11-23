@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftRight, Award, Star, Zap } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
+import { getPlayerDetailPhoto } from '../data/players';
 import Card from '../components/Card';
 import CardViewer3D from '../components/CardViewer3D';
 import { RARITY_META } from '../types';
@@ -27,6 +28,7 @@ import thiagoPhoto from '../imagens/fotosdetalhedascarta/thiago.png';
 const DETAIL_PHOTOS: Record<string, string> = {
   'Pietro Guedes': pietroPhoto,
   Muzy: muzyPhoto,
+  'Mateus Lopes': matheusLopesPhoto,
   'Matheus Lopes': matheusLopesPhoto,
   'Thiago Tavares': thiagoPhoto,
   'João Marcos': joaoMarcosPhoto,
@@ -118,7 +120,7 @@ export default function CardDetail() {
   const upgradesUsed = Object.values(card.upgrades ?? {}).reduce((total, count) => total + (count ?? 0), 0);
   const xpProgress = (card.xp ?? 0) % 100;
   const rarity = RARITY_META[card.rarity] ?? RARITY_META.common;
-  const portrait = DETAIL_PHOTOS[card.name] || card.photo || card.image;
+  const portrait = getPlayerDetailPhoto(card.name) || DETAIL_PHOTOS[card.name] || card.photo || card.image;
 
   return (
     <div className="card-detail-page">
