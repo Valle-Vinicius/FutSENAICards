@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { useGame } from '../../src/store/useGame';
 import Shop from '../../src/pages/Shop';
 
@@ -23,7 +24,7 @@ describe('Shop demo coin lock', () => {
     };
     mockedUseGame.mockImplementation(selector => selector(state as unknown as ReturnType<typeof useGame.getState>));
 
-    render(<><Shop /><Shop /></>);
+    render(<MemoryRouter><Shop /><Shop /></MemoryRouter>);
     const [firstButton, secondButton] = screen.getAllByRole('button', { name: /Comprar 10.000 moedas/ });
     fireEvent.click(firstButton);
 
@@ -40,5 +41,27 @@ describe('Shop demo coin lock', () => {
 
     finishClaim(true);
     await waitFor(() => expect(secondButton).toBeEnabled());
+  });
+
+  it('separates active events from expired events using their real end dates', () => {
+    const state = {
+      events: [
+        { id: 'active', name: 'Copa FUT', endsAt: Date.now() + 60_000, reward: 'Pacote Lendário' },
+        { id: 'ended', name: 'Semana do Ícone', endsAt: Date.now() - 60_000, reward: 'Carta Ícone garantida' },
+      ],
+      coins: 0,
+      claimDemoCoins: jest.fn(),
+    };
+    mockedUseGame.mockImplementation(selector => selector(state as unknown as ReturnType<typeof useGame.getState>));
+
+    render(<MemoryRouter><Shop /></MemoryRouter>);
+
+    const activeEvent = screen.getByRole('heading', { name: 'Copa FUT' }).closest('article');
+    const endedEvent = screen.getByRole('heading', { name: 'Semana do Ícone' }).closest('article');
+    expect(activeEvent).not.toBeNull();
+    expect(endedEvent).not.toBeNull();
+    expect(within(activeEvent as HTMLElement).getByText('Em andamento')).toBeInTheDocument();
+    expect(within(endedEvent as HTMLElement).getByText('Evento encerrado')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Eventos encerrados' })).toBeInTheDocument();
   });
 });
