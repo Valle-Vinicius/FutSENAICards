@@ -15,8 +15,8 @@ function LocationDisplay() {
   return <div data-testid="current-location">{location.pathname}{location.search}</div>;
 }
 
-describe('Card detail extra stats', () => {
-  it('shows Off-Sale stats in attributes without changing the saved overall', () => {
+describe('Card detail', () => {
+  it('shows Off-Sale stats without changing the saved overall and keeps the collection card secondary', () => {
     const card: PlayerCard = {
       uid: 'card-1',
       playerId: 'player-1',
@@ -57,12 +57,12 @@ describe('Card detail extra stats', () => {
       </MemoryRouter>
     );
 
-    const previewColumn = container.querySelector('[class~="md:w-60"]');
-    expect(previewColumn).toHaveClass('md:shrink-0');
+    expect(container.querySelector('.card-detail-collection__card')).toBeInTheDocument();
+    expect(container.querySelector('.card-detail-hero__portrait')).not.toBeInTheDocument();
     expect(screen.getByText('Sorte')).toBeInTheDocument();
     expect(screen.getByText('999')).toHaveClass('rgb-text');
     expect(container.querySelector('.rgb-stat')).toBeInTheDocument();
-    expect(screen.getByText('80')).toBeInTheDocument();
+    expect(container.querySelector('.card-detail-overall strong')).toHaveTextContent('80');
     expect(state.markSeen).toHaveBeenCalledWith(['card-1']);
   });
 

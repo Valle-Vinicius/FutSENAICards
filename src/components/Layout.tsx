@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
-import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History, Heart, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History, Heart, ChevronDown, Coins } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -70,7 +70,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isSquadRoute = location.pathname === '/squad';
   const isCompareRoute = location.pathname === '/compare';
   const isOpenPackRoute = location.pathname.startsWith('/open/');
-  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute;
+  const isCardDetailRoute = location.pathname.startsWith('/card/');
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute;
   const isMatchRoute = location.pathname === '/match';
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
@@ -353,6 +354,11 @@ export default function Layout({ children }: { children?: ReactNode }) {
                 <Search aria-hidden="true" />
               </button>
               <div className="home-topbar__changelog"><ChangelogPopover /></div>
+              {isCardDetailRoute && (
+                <span className="card-detail-topbar-coins" aria-label={`${coins.toLocaleString('pt-BR')} moedas`}>
+                  <Coins aria-hidden="true" /> {coins.toLocaleString('pt-BR')}
+                </span>
+              )}
               <div className="home-topbar__notifications">
                 <button
                   type="button"
