@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
-import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, History, Heart, ChevronDown, Coins } from 'lucide-react';
+import { LayoutDashboard, Package, CreditCard, Users, Scale, Trophy, Medal, Store, Target, Flag, ShoppingBag, User, Settings as SettingsIcon, Menu, Bell, UserPlus, Shield, Search, X, Heart, ChevronDown, Coins } from 'lucide-react';
 import { useGame } from '../store/useGame';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
@@ -26,7 +26,6 @@ const NAV = [
   { to: '/settings', label: 'Configurações', icon: SettingsIcon },
   { to: '/friends', label: 'Amizades', icon: UserPlus },
   { to: '/leaderboard', label: 'Leaderboard', icon: Medal },
-  { to: '/changelog', label: 'Changelog', icon: History },
 ];
 
 const HOME_NAV_GROUPS = [
@@ -403,7 +402,6 @@ export default function Layout({ children }: { children?: ReactNode }) {
                 <div className="home-topbar__account-menu">
                   <Link to="/profile"><User aria-hidden="true" />Perfil</Link>
                   <Link to="/settings"><SettingsIcon aria-hidden="true" />Configurações</Link>
-                  <Link to="/changelog"><History aria-hidden="true" />Changelog</Link>
                   {isAdmin && <Link to="/admin"><Shield aria-hidden="true" />Administrador</Link>}
                   <Link to="/about?aba=creditos"><Heart aria-hidden="true" />Créditos</Link>
                 </div>

@@ -115,7 +115,7 @@ export default function ChangelogPopover() {
               {entries.slice(0, 5).map(entry => (
                 <Link
                   key={entry.id}
-                  to="/changelog"
+                  to="/about?aba=novidades"
                   onClick={() => setOpen(false)}
                   className="block rounded-xl outline-none transition-colors hover:bg-[var(--bg)] focus-visible:ring-2 focus-visible:ring-[var(--red)]"
                 >
@@ -131,7 +131,7 @@ export default function ChangelogPopover() {
                   </div>
                 </Link>
               ))}
-              <Link to="/changelog" onClick={() => setOpen(false)} className="block border-t border-[var(--border)] pt-2 text-center text-xs font-semibold text-[var(--red)] hover:underline">
+              <Link to="/about?aba=novidades" onClick={() => setOpen(false)} className="block border-t border-[var(--border)] pt-2 text-center text-xs font-semibold text-[var(--red)] hover:underline">
                 Ver histórico completo
               </Link>
             </div>

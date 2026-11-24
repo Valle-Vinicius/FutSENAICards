@@ -34,7 +34,6 @@ const About = lazy(() => import('./pages/About'));
 const Match = lazy(() => import('./pages/Match'));
 const Pool = lazy(() => import('./pages/Pool'));
 const Admin = lazy(() => import('./pages/Admin'));
-const Changelog = lazy(() => import('./pages/Changelog'));
 
 function RouteLoading() {
   return <div className="flex min-h-[50dvh] items-center justify-center text-[var(--muted)]">Carregando…</div>;
@@ -165,7 +164,7 @@ export default function App() {
       {authReady && authed && <Tutorial />}
       <BrowserRouter basename={typeof window !== 'undefined' && window.location.pathname.startsWith('/FutSENAICards') ? '/FutSENAICards' : undefined}>
         <Routes>
-        <Route path="/changelog" element={<Suspense fallback={<div className="mx-auto max-w-2xl px-4 py-6 text-sm text-[var(--muted)]">Carregando histórico…</div>}><Changelog /></Suspense>} />
+        <Route path="/changelog" element={<Navigate to="/about?aba=novidades" replace />} />
         <Route path="/about" element={authReady ? <AboutRoute authenticated={authed} /> : <AboutLoading />} />
         <Route path="/credits" element={<Navigate to="/about?aba=creditos" replace />} />
         {!authReady ? (

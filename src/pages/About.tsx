@@ -25,8 +25,12 @@ const TAB_ORDER: AboutTab[] = ['creditos', 'novidades'];
 const GITHUB_URL = 'https://github.com/Valle-Vinicius/FutSENAICards';
 
 function NewsPanel() {
-  const { entries, loading, loadingMore, error, hasMore, refresh, loadMore } = useChangelog();
+  const { entries, loading, loadingMore, error, hasMore, refresh, loadMore, markSeen } = useChangelog();
   const animationsEnabled = useGame(state => state.settings.animations);
+
+  useEffect(() => {
+    if (entries[0]) markSeen(entries[0].version);
+  }, [entries, markSeen]);
 
   if (loading && entries.length === 0) {
     return (
