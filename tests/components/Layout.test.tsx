@@ -41,6 +41,7 @@ function renderLayout(path: string) {
           <Route path="/profile" element={<div>Conteúdo do meu perfil</div>} />
           <Route path="/profile/:userId" element={<div>Conteúdo do perfil do jogador</div>} />
           <Route path="/settings" element={<div>Conteúdo das configurações</div>} />
+          <Route path="/about" element={<div>Conteúdo sobre o FUTSENAI</div>} />
           <Route path="/leaderboard" element={<div>Conteúdo do leaderboard</div>} />
           <Route path="/leaderboard/player/:userId" element={<div>Perfil competitivo do jogador</div>} />
         </Route>
@@ -167,6 +168,15 @@ describe('Layout navigation', () => {
     expect(document.querySelector('aside')).not.toBeInTheDocument();
     expect(document.querySelector('.home-layout')).toBeInTheDocument();
     expect(screen.getByText('Conteúdo das configurações')).toBeInTheDocument();
+  });
+
+  it('uses the global topbar and hides the sidebar on the About route', () => {
+    renderLayout('/about?aba=creditos');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(document.querySelector('aside')).not.toBeInTheDocument();
+    expect(document.querySelector('.home-layout')).toBeInTheDocument();
+    expect(screen.getByText('Conteúdo sobre o FUTSENAI')).toBeInTheDocument();
   });
 
   it('uses the global topbar and hides the sidebar on the leaderboard route', () => {

@@ -77,12 +77,13 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isMarketplaceRoute = location.pathname === '/market';
   const isShopRoute = location.pathname === '/shop';
   const isSettingsRoute = location.pathname === '/settings';
+  const isAboutRoute = location.pathname === '/about';
   const isFriendsRoute = location.pathname === '/friends';
   const isOwnProfileRoute = location.pathname === '/profile';
   const isFriendProfileRoute = location.pathname.startsWith('/profile/');
   const isLeaderboardRoute = location.pathname === '/leaderboard';
   const isCompetitiveProfileRoute = location.pathname.startsWith('/leaderboard/player/');
-  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute || isMarketplaceRoute || isShopRoute || isSettingsRoute || isFriendsRoute || isOwnProfileRoute || isFriendProfileRoute || isLeaderboardRoute || isCompetitiveProfileRoute;
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute || isMarketplaceRoute || isShopRoute || isSettingsRoute || isAboutRoute || isFriendsRoute || isOwnProfileRoute || isFriendProfileRoute || isLeaderboardRoute || isCompetitiveProfileRoute;
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
     || (location.pathname.startsWith('/card/') ? 'Carta'

@@ -130,9 +130,9 @@ export default function About({ isAuthenticated = false }: { isAuthenticated?: b
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-3 pb-2 sm:px-6 sm:py-4 sm:pb-2">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
       {!isAuthenticated && (
-        <header className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-2">
+        <header className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
           <Link to="/about?aba=creditos" className="text-sm font-black tracking-tight text-[var(--text)]" aria-label="FUTSENAI Sobre">
             <span className="text-[var(--red)]">FUT</span>SENAI
           </Link>
@@ -140,18 +140,22 @@ export default function About({ isAuthenticated = false }: { isAuthenticated?: b
         </header>
       )}
 
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-[var(--text)]">Sobre</h1>
-          <p className="mt-0.5 text-sm text-[var(--muted)]">Conheça os criadores do FutSENAI Cards.</p>
+      <header className="flex flex-col gap-5 border-b border-[var(--border)] pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-3xl border-l-[3px] border-[var(--red)] pl-4 sm:pl-5">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--red)]">Identidade FUTSENAI</div>
+          <h1 className="mt-1 text-3xl font-black tracking-tight text-[var(--text)] sm:text-4xl">Sobre</h1>
+          <p className="mt-1 text-sm text-[var(--muted)] sm:text-base">Conheça o FUTSENAI Cards e as pessoas por trás do projeto.</p>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--text)]">
+            O FUTSENAI Cards transforma jogadores e partidas em uma experiência de coleção, competição e comunidade.
+          </p>
         </div>
-        <button type="button" onClick={() => void handleCopyLink()} className="btn btn-secondary btn-sm">
+        <button type="button" onClick={() => void handleCopyLink()} className="btn btn-secondary btn-sm w-fit">
           <Copy className="h-4 w-4" aria-hidden="true" />
           Copiar link
         </button>
-      </div>
+      </header>
 
-      <div role="tablist" aria-label="Seções sobre FutSENAI" className="mb-3 flex gap-2 border-b border-[var(--border)]">
+      <div role="tablist" aria-label="Seções sobre FutSENAI" className="flex gap-2 border-b border-[var(--border)]">
         <button
           ref={element => { tabButtons.current.creditos = element; }}
           type="button"
@@ -195,19 +199,28 @@ export default function About({ isAuthenticated = false }: { isAuthenticated?: b
         className="outline-none"
       >
         {activeTab === 'creditos' && (
-          <div className="space-y-4">
-            <div>
-              <h2 className="mb-2 text-base font-bold text-[var(--text)]">Criadores</h2>
-              <section aria-label="Desenvolvedores" className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="space-y-8">
+            <section aria-labelledby="about-creators-title">
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--red)]">Cartas de autoria</div>
+                  <h2 id="about-creators-title" className="mt-1 text-xl font-black uppercase tracking-tight text-[var(--text)] sm:text-2xl">Criadores</h2>
+                  <p className="mt-1 text-sm text-[var(--muted)]">As pessoas por trás do FUTSENAI.</p>
+                </div>
+                <span className="border-b-2 border-[var(--red)] px-1 pb-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted)]">
+                  {credits.length} criadores
+                </span>
+              </div>
+              <section aria-label="Desenvolvedores" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {credits.map((developer, index) => (
                   <motion.article
                     key={developer.card.name}
                     initial={shouldAnimate ? { opacity: 0, y: 12 } : false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: shouldAnimate ? 0.35 : 0, delay: shouldAnimate ? index * 0.08 : 0 }}
-                    className="flex flex-col items-center gap-2"
+                    className="flex flex-col items-center border-t border-[var(--border)] bg-[var(--panel)] px-3 pb-4 pt-5 sm:px-4"
                   >
-                    <div className="w-full max-w-[14rem]">
+                    <div className="w-full max-w-[16rem] sm:max-w-[17rem]">
                       <FlipCredit
                         card={developer.card as unknown as PlayerCard}
                         attributes={developer.attributes}
@@ -221,12 +234,12 @@ export default function About({ isAuthenticated = false }: { isAuthenticated?: b
                       />
                     </div>
                     <div className="w-full text-center">
-                      <p className="text-sm text-[var(--muted)]">{developer.role}</p>
+                      <p className="text-sm font-semibold text-[var(--text)]">{developer.role}</p>
                       <a
                         href={developer.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="btn btn-secondary btn-sm mt-1"
+                        className="btn btn-secondary btn-sm mt-2"
                       >
                         Abrir projeto
                         <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
@@ -235,36 +248,56 @@ export default function About({ isAuthenticated = false }: { isAuthenticated?: b
                   </motion.article>
                 ))}
               </section>
-            </div>
+            </section>
+
+            <section aria-labelledby="about-project-title" className="grid gap-4 border-y border-[var(--border)] bg-[#fbfaf8] px-5 py-5 sm:grid-cols-[minmax(0,1.3fr)_minmax(200px,0.7fr)] sm:items-center sm:px-7">
+              <div className="border-l-[3px] border-[var(--red)] pl-4">
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--red)]">A proposta</div>
+                <h2 id="about-project-title" className="mt-1 text-lg font-black text-[var(--text)] sm:text-xl">Sobre o FUTSENAI Cards</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
+                  Cartas e partidas de futsal da comunidade, reunidas em uma experiência de coleção e competição.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 border-t border-[var(--border)] pt-4 sm:justify-end sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+                <span aria-hidden="true" className="h-9 w-1 bg-[var(--red)]" />
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Projeto</div>
+                  <div className="font-black tracking-tight text-[var(--text)]"><span className="text-[var(--red)]">FUT</span>SENAI Cards</div>
+                </div>
+              </div>
+            </section>
 
             {(projectTechnologies.length > 0 || acknowledgements) && (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-4 lg:grid-cols-2">
                 {projectTechnologies.length > 0 && (
-                  <section aria-labelledby="about-technologies-title" className="card-surface p-3">
-                    <h2 id="about-technologies-title" className="mb-1.5 text-sm font-bold text-[var(--text)]">Tecnologias</h2>
-                    <div className="flex flex-wrap gap-1.5">
+                  <section aria-labelledby="about-technologies-title" className="border-t-2 border-[var(--text)] bg-[var(--panel)] px-5 py-5 sm:px-6">
+                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--red)]">Construção</div>
+                    <h2 id="about-technologies-title" className="mt-1 text-lg font-black text-[var(--text)]">Tecnologias</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">A stack utilizada no aplicativo, nos dados e na publicação do projeto.</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
                       {projectTechnologies.map(technology => (
-                        <span key={technology} className="rounded-full border border-[var(--border)] bg-[var(--bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--text)]">
+                        <span key={technology} className="border border-[var(--border)] bg-[var(--bg)] px-3 py-1.5 text-xs font-semibold text-[var(--text)]">
                           {technology}
                         </span>
                       ))}
                     </div>
-                    <p className="mt-1.5 text-xs leading-4 text-[var(--muted)]">{architectureDescription}</p>
+                    <p className="mt-4 border-t border-[var(--border)] pt-3 text-xs leading-relaxed text-[var(--muted)]">{architectureDescription}</p>
                   </section>
                 )}
                 {acknowledgements && (
-                  <section aria-labelledby="about-thanks-title" className="card-surface flex gap-2 p-3">
-                    <Heart className="mt-0.5 h-4 w-4 shrink-0 text-[var(--red)]" aria-hidden="true" />
+                  <section aria-labelledby="about-thanks-title" className="flex flex-col justify-between border-t-2 border-[var(--red)] bg-[var(--panel)] px-5 py-5 sm:px-6">
                     <div>
-                      <h2 id="about-thanks-title" className="text-sm font-bold text-[var(--text)]">Agradecimentos</h2>
-                      <p className="mt-1 text-xs leading-4 text-[var(--muted)]">{acknowledgements}</p>
+                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--red)]">Comunidade</div>
+                      <h2 id="about-thanks-title" className="mt-1 text-lg font-black text-[var(--text)]">Agradecimentos</h2>
+                      <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{acknowledgements}</p>
                     </div>
+                    <Heart className="mt-5 h-5 w-5 text-[var(--red)]" aria-hidden="true" />
                   </section>
                 )}
               </div>
             )}
 
-            <footer className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+            <footer className="flex flex-col gap-4 border-t border-[var(--border)] bg-[#fbfaf8] px-5 py-4 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <p className="text-xs text-[var(--muted)]">Feito no SENAI · versão {APP_VERSION}</p>
               <nav aria-label="Links sobre FutSENAI" className="flex flex-wrap items-center gap-x-4 gap-y-1 font-semibold">
                 <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[var(--text)] hover:text-[var(--red)]">
