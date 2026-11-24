@@ -71,6 +71,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isOpenPackRoute = location.pathname.startsWith('/open/');
   const isCardDetailRoute = location.pathname.startsWith('/card/');
   const isMatchRoute = location.pathname === '/match';
+  const isPoolRoute = location.pathname.startsWith('/pool/');
   const isSbcRoute = location.pathname === '/sbc';
   const isMissionsRoute = location.pathname === '/missions';
   const isMarketplaceRoute = location.pathname === '/market';
@@ -83,7 +84,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isFriendProfileRoute = location.pathname.startsWith('/profile/');
   const isLeaderboardRoute = location.pathname === '/leaderboard';
   const isCompetitiveProfileRoute = location.pathname.startsWith('/leaderboard/player/');
-  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute || isMarketplaceRoute || isShopRoute || isSettingsRoute || isAboutRoute || isAdminRoute || isFriendsRoute || isOwnProfileRoute || isFriendProfileRoute || isLeaderboardRoute || isCompetitiveProfileRoute;
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isPoolRoute || isSbcRoute || isMissionsRoute || isMarketplaceRoute || isShopRoute || isSettingsRoute || isAboutRoute || isAdminRoute || isFriendsRoute || isOwnProfileRoute || isFriendProfileRoute || isLeaderboardRoute || isCompetitiveProfileRoute;
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
     || (location.pathname.startsWith('/card/') ? 'Carta'
@@ -365,7 +366,7 @@ export default function Layout({ children }: { children?: ReactNode }) {
                 <Search aria-hidden="true" />
               </button>
               <div className="home-topbar__changelog"><ChangelogPopover /></div>
-              {(isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute) && (
+              {(isCardDetailRoute || isMatchRoute || isPoolRoute || isSbcRoute || isMissionsRoute) && (
                 <span className="card-detail-topbar-coins" aria-label={`${coins.toLocaleString('pt-BR')} moedas`}>
                   <Coins aria-hidden="true" /> {coins.toLocaleString('pt-BR')}
                 </span>

@@ -20,7 +20,8 @@ jest.mock('../../src/lib/supabase', () => ({
 
 describe('Auth page', () => {
   it('renders login form by default', () => {
-    render(<MemoryRouter><Auth /></MemoryRouter>);
+    const { container } = render(<MemoryRouter><Auth /></MemoryRouter>);
+    expect(container.querySelector('.auth-screen')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Email')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Senha')).toBeInTheDocument();
   });

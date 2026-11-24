@@ -232,21 +232,21 @@ export default function Auth() {
           {musicMuted ? <VolumeX className="h-5 w-5" aria-hidden="true" /> : <Volume2 className="h-5 w-5" aria-hidden="true" />}
         </button>
       )}
-      <div className="min-h-[100dvh] overflow-y-auto flex">
-        <div className="hidden md:flex md:w-1/2 relative md:min-h-[100dvh] items-end justify-center overflow-hidden" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+      <div className="auth-screen">
+        <div className="auth-screen__visual relative hidden items-end justify-center overflow-hidden md:flex" style={{ backgroundImage: `url(${loginBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
           <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />
           <motion.img src={playerPose} alt="Jogador" className="relative z-10" initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }} style={{ width: '100%', height: '90%', objectFit: 'contain', objectPosition: 'center bottom' }} />
         </div>
-        <div className="w-full md:w-1/2 min-h-[100dvh] flex items-center justify-center p-6 bg-white">
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="w-full max-w-sm space-y-6">
+        <div className="auth-screen__panel">
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.25 }} className="auth-screen__content">
             <div className="text-center">
-              <img src={logo} alt="FutSENAI Cards" className="mx-auto h-64 object-contain" />
+              <img src={logo} alt="FutSENAI Cards" className="auth-screen__logo mx-auto object-contain" />
               <div className="text-sm text-[var(--muted)] mt-1">{recovery ? 'Redefinir senha' : (mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta')}</div>
             </div>
-            <form onSubmit={recovery ? handleResetPassword : submit} className="space-y-4">
+            <form onSubmit={recovery ? handleResetPassword : submit} className="auth-screen__form">
               {recovery ? (
                 <div className="relative">
-                  <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type={passwordVisible ? 'text' : 'password'} autoComplete="new-password" placeholder="Nova senha" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 pr-12 text-sm" />
+                  <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type={passwordVisible ? 'text' : 'password'} autoComplete="new-password" placeholder="Nova senha" className="auth-screen__field w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 pr-12 text-sm" />
                   <button type="button" onClick={() => setPasswordVisible(value => !value)} aria-label={passwordVisible ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={passwordVisible} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--text)]">
                     {passwordVisible ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
                   </button>
@@ -254,11 +254,11 @@ export default function Auth() {
               ) : (
                 <>
                   {mode === 'register' && (
-                  <input value={name} onChange={e => setName(e.target.value)} autoComplete="name" placeholder="Nome" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
+                  <input value={name} onChange={e => setName(e.target.value)} autoComplete="name" placeholder="Nome" className="auth-screen__field w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 text-sm" />
                   )}
-                <input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete={mode === 'login' ? 'username' : 'email'} placeholder="Email" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm" />
+                <input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete={mode === 'login' ? 'username' : 'email'} placeholder="Email" className="auth-screen__field w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 text-sm" />
                 <div className="relative">
-                  <input value={password} onChange={e => setPassword(e.target.value)} type={passwordVisible ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Senha" className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 py-3 pr-12 text-sm" />
+                  <input value={password} onChange={e => setPassword(e.target.value)} type={passwordVisible ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Senha" className="auth-screen__field w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-4 pr-12 text-sm" />
                   <button type="button" onClick={() => setPasswordVisible(value => !value)} aria-label={passwordVisible ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={passwordVisible} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--text)]">
                     {passwordVisible ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
                   </button>
@@ -267,12 +267,12 @@ export default function Auth() {
               )}
               {error && <div role="alert" className="text-xs text-red-600">{error}</div>}
               {audioError && <div role="status" className="text-xs text-[var(--muted)]">{audioError}</div>}
-              <button disabled={loading} className="w-full py-3 rounded-xl bg-[var(--red)] text-white font-black disabled:opacity-60">
+              <button disabled={loading} className="auth-screen__action w-full rounded-xl bg-[var(--red)] text-white font-black disabled:opacity-60">
                 {loading ? 'Aguarde...' : (recovery ? 'REDEFINIR SENHA' : (mode === 'login' ? 'ENTRAR' : 'CADASTRAR'))}
               </button>
               {!recovery && (
                 <>
-                  <button type="button" onClick={handleGoogleLogin} disabled={loading} className="w-full py-3 rounded-xl bg-white border border-[var(--border)] text-[var(--text)] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
+                  <button type="button" onClick={handleGoogleLogin} disabled={loading} className="auth-screen__action w-full rounded-xl bg-white border border-[var(--border)] text-[var(--text)] font-bold disabled:opacity-60 flex items-center justify-center gap-2">
                     <span>Entrar com Google</span>
                   </button>
                   {mode === 'login' && (
@@ -288,7 +288,7 @@ export default function Auth() {
                 {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
               </button>
             )}
-            <div className="border-t border-[var(--border)] pt-3 text-center">
+            <div className="auth-screen__footer border-t border-[var(--border)] text-center">
               <Link to="/about?aba=creditos" className="text-xs font-medium text-[var(--muted)] hover:text-[var(--red)]">
                 Créditos
               </Link>

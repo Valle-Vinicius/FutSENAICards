@@ -45,6 +45,7 @@ function renderLayout(path: string) {
           <Route path="/admin" element={<div>Conteúdo do painel administrador</div>} />
           <Route path="/leaderboard" element={<div>Conteúdo do leaderboard</div>} />
           <Route path="/leaderboard/player/:userId" element={<div>Perfil competitivo do jogador</div>} />
+          <Route path="/pool/:matchId" element={<div>Conteúdo da sinuca</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -187,6 +188,15 @@ describe('Layout navigation', () => {
     expect(document.querySelector('aside')).not.toBeInTheDocument();
     expect(document.querySelector('.home-layout')).toBeInTheDocument();
     expect(screen.getByText('Conteúdo do painel administrador')).toBeInTheDocument();
+  });
+
+  it('uses the global topbar and hides the sidebar on pool matches', () => {
+    renderLayout('/pool/match-1');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(document.querySelector('aside')).not.toBeInTheDocument();
+    expect(document.querySelector('.home-layout')).toBeInTheDocument();
+    expect(screen.getByText('Conteúdo da sinuca')).toBeInTheDocument();
   });
 
   it('uses the global topbar and hides the sidebar on the leaderboard route', () => {
