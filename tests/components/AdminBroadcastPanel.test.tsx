@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const mockRpc = jest.fn();
 const mockToastSuccess = jest.fn();
@@ -50,5 +50,16 @@ describe('AdminBroadcastPanel', () => {
     expect(screen.getByRole('button', { name: 'Enviar para quem está online' })).toBeDisabled();
     expect(mockRpc).not.toHaveBeenCalled();
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it('shows the trimmed message in its preview without sending it', () => {
+    render(<AdminBroadcastPanel />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Mensagem' }), {
+      target: { value: '  Aviso importante  ' },
+    });
+
+    const preview = screen.getByRole('complementary', { name: 'Prévia da mensagem' });
+    expect(within(preview).getByText('Aviso importante')).toBeInTheDocument();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });

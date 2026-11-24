@@ -173,18 +173,18 @@ export default function AdminUsersPanel() {
   const inputClass = 'h-10 w-full rounded-lg border border-[#E2E4EA] bg-white px-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--red)] focus:ring-4 focus:ring-[var(--red)]/10';
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-[var(--border)] bg-white p-4">
+        <div className="rounded-xl border border-[var(--border)] bg-white p-4">
           <div className="flex items-center gap-2 text-sm text-[#687080]"><Users className="size-4" /> Usuários cadastrados</div>
           <div className="mt-2 text-2xl font-bold tabular-nums text-[var(--text)]">{numberFormat.format(users.length)}</div>
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-center gap-2 text-sm text-emerald-800"><span className="size-2.5 rounded-full bg-emerald-500 motion-safe:animate-pulse" /> Ativos agora</div>
           <div className="mt-2 text-2xl font-bold tabular-nums text-emerald-900">{numberFormat.format(activeCount)}</div>
           <div className="mt-1 text-xs text-emerald-800/80">Atividade nos últimos 2 minutos</div>
         </div>
-        <div className="flex flex-col justify-center rounded-2xl border border-[var(--border)] bg-white p-4">
+        <div className="flex flex-col justify-center rounded-xl border border-[var(--border)] bg-white p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
             <ShieldCheck className={`size-4 ${realtimeStatus === 'SUBSCRIBED' ? 'text-emerald-600' : 'text-amber-600'}`} />
             {realtimeStatus === 'SUBSCRIBED'
@@ -197,7 +197,7 @@ export default function AdminUsersPanel() {
         </div>
       </div>
 
-      <div className="grid items-start gap-4">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-white">
           <div className="flex flex-col gap-3 border-b border-[var(--border)] p-4 sm:flex-row sm:items-center">
             <div className="relative min-w-0 flex-1">
@@ -288,7 +288,7 @@ export default function AdminUsersPanel() {
           )}
         </div>
 
-        <aside className="rounded-2xl border border-[var(--border)] bg-white p-4">
+        <aside className="rounded-xl border border-[var(--border)] bg-white p-4 xl:sticky xl:top-6">
           {!selectedUser ? (
             <div className="py-8 text-center text-sm text-[#687080]">Selecione um usuário para ver os detalhes.</div>
           ) : (

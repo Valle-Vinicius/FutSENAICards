@@ -128,10 +128,13 @@ export default function AdminChangelogPanel() {
   const inputClass = 'w-full rounded-xl border border-[var(--border)] bg-[var(--panel)] px-3 py-2 text-sm text-[var(--text)]';
 
   return (
-    <section className="space-y-5">
+    <section className="grid items-start gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
       <form onSubmit={saveEntry} className="card-surface space-y-4 p-4 md:p-5">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-bold text-[var(--text)]">{editingId ? 'Editar atualização' : 'Nova atualização'}</h2>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--red)]">Publicações</div>
+            <h2 className="mt-1 text-lg font-bold text-[var(--text)]">{editingId ? 'Editar atualização' : 'Nova atualização'}</h2>
+          </div>
           {editingId && <button type="button" onClick={resetForm} className="btn btn-secondary btn-sm">Cancelar edição</button>}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -165,8 +168,14 @@ export default function AdminChangelogPanel() {
         </button>
       </form>
 
-      <div className="space-y-3">
-        <h2 className="text-base font-bold text-[var(--text)]">Atualizações publicadas</h2>
+      <div className="space-y-4 rounded-2xl border border-[var(--border)] bg-white p-4 md:p-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Linha do tempo</div>
+            <h2 className="mt-1 text-lg font-bold text-[var(--text)]">Atualizações publicadas</h2>
+          </div>
+          <span className="text-xs tabular-nums text-[var(--muted)]">{entries.length} registros</span>
+        </div>
         {error && (
           <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] p-3 text-sm text-[var(--muted)]">
             <span>{error}</span>
@@ -178,9 +187,10 @@ export default function AdminChangelogPanel() {
         ) : entries.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">Ainda não há registros.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="relative space-y-4 border-l border-[#E2E4EA] pl-5">
             {entries.map(entry => (
-              <div key={entry.id} className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+              <div key={entry.id} className="relative grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <span aria-hidden="true" className="absolute -left-[25px] top-4 size-2.5 rounded-full border-2 border-white bg-[var(--red)] ring-1 ring-[#F2C9CC]" />
                 <ChangelogEntryCard entry={entry} compact />
                 <div className="flex justify-end gap-2 sm:pt-1">
                   <button type="button" onClick={() => startEditing(entry)} aria-label={`Editar ${entry.title}`} className="btn btn-secondary btn-sm">

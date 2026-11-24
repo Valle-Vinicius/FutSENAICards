@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { ChevronDown, History, Megaphone, Trash2, Users } from 'lucide-react';
+import { ChevronDown, History, Megaphone, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
-import type { ExtraStat, PlayerCard, Position, Rarity } from '../types';
+import { RARITY_META, type ExtraStat, type PlayerCard, type Position, type Rarity } from '../types';
 import { RARITY_MODIFIER, RARITY_OVR_BONUS, SPECIAL_OVR_BONUS, calculateOverall, isAutoCalculatedTemplate, allTemplates, loadDbTemplates } from '../data/players';
 import { validateRarityOverall } from '../lib/game';
 import { validateExtraStats } from '../lib/extraStats';
@@ -262,6 +262,25 @@ export default function Admin() {
       seasonStats: { matches: 0, goals: 0, assists: 0 },
     };
   };
+  const previewCard = makePreviewCard(rarityToUse);
+  const previewAttributes = isGK
+    ? [
+      { l: 'REF', v: previewCard.reflexes ?? 0 },
+      { l: 'POS', v: previewCard.positioning ?? 0 },
+      { l: 'HAN', v: previewCard.handling ?? 0 },
+      { l: 'VEL', v: previewCard.pace },
+      { l: 'DEF', v: previewCard.defending },
+      { l: 'FIS', v: previewCard.physical },
+    ]
+    : [
+      { l: 'VEL', v: previewCard.pace },
+      { l: 'CHU', v: previewCard.shooting },
+      { l: 'PAS', v: previewCard.passing },
+      { l: 'DRI', v: previewCard.dribbling },
+      { l: 'DEF', v: previewCard.defending },
+      { l: 'FIS', v: previewCard.physical },
+    ];
+  const previewRarityMeta = RARITY_META[rarityToUse as Rarity] ?? RARITY_META.uncommon;
 
   const startEditingTemplate = (template: ReturnType<typeof allTemplates>[number]) => {
     const supply = template.packGroup === 'secret' ? secretSupply[template.dbId ?? ''] : undefined;
@@ -593,16 +612,30 @@ export default function Admin() {
 
   return (
     <>
-      <div className={`mx-auto w-full ${adminTab === 'users' ? 'max-w-none' : 'max-w-5xl'} p-4 md:p-8 space-y-6`}>
-        <h1 className="text-2xl font-bold text-[var(--text)]">Painel Administrador</h1>
+      <div className="mx-auto w-full max-w-none space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-4 border-b border-[var(--border)] pb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--red)]">
+              <span className="h-px w-6 bg-[var(--red)]" />
+              Estúdio de gerenciamento
+            </div>
+            <h1 className="text-2xl font-black uppercase tracking-tight text-[var(--text)] sm:text-3xl">Painel Administrador</h1>
+            <p className="mt-1.5 max-w-2xl text-sm text-[var(--muted)]">Gerencie jogadores, cartas, usuários e informações do FUTSENAI.</p>
+          </div>
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-xs font-semibold text-[#A20D18]">
+            <ShieldCheck aria-hidden="true" className="size-4" />
+            Acesso administrativo
+          </div>
+        </header>
 
-        <div role="tablist" aria-label="Seções do painel administrador" className="flex flex-wrap gap-2 border-b border-[var(--border)] pb-3">
+        <div className="overflow-x-auto">
+        <div role="tablist" aria-label="Seções do painel administrador" className="flex w-max min-w-full gap-1 border-b border-[var(--border)]">
           <button
             type="button"
             role="tab"
             aria-selected={adminTab === 'cards'}
             onClick={() => setAdminTab('cards')}
-            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'cards' ? 'bg-[var(--red)] text-white' : 'bg-white text-[#555B68] hover:bg-[var(--bg)]'}`}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition ${adminTab === 'cards' ? 'border-[var(--red)] text-[var(--red)]' : 'border-transparent text-[#687080] hover:border-[#D8DCE3] hover:text-[var(--text)]'}`}
           >
             Cartas e templates
           </button>
@@ -611,7 +644,7 @@ export default function Admin() {
             role="tab"
             aria-selected={adminTab === 'users'}
             onClick={() => setAdminTab('users')}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'users' ? 'bg-[var(--red)] text-white' : 'bg-white text-[#555B68] hover:bg-[var(--bg)]'}`}
+            className={`inline-flex whitespace-nowrap items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition ${adminTab === 'users' ? 'border-[var(--red)] text-[var(--red)]' : 'border-transparent text-[#687080] hover:border-[#D8DCE3] hover:text-[var(--text)]'}`}
           >
             <Users className="size-4" /> Usuários
           </button>
@@ -620,7 +653,7 @@ export default function Admin() {
             role="tab"
             aria-selected={adminTab === 'changelog'}
             onClick={() => setAdminTab('changelog')}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'changelog' ? 'bg-[var(--red)] text-white' : 'bg-white text-[#555B68] hover:bg-[var(--bg)]'}`}
+            className={`inline-flex whitespace-nowrap items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition ${adminTab === 'changelog' ? 'border-[var(--red)] text-[var(--red)]' : 'border-transparent text-[#687080] hover:border-[#D8DCE3] hover:text-[var(--text)]'}`}
           >
             <History className="size-4" /> Changelog
           </button>
@@ -629,20 +662,24 @@ export default function Admin() {
             role="tab"
             aria-selected={adminTab === 'broadcast'}
             onClick={() => setAdminTab('broadcast')}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${adminTab === 'broadcast' ? 'bg-[var(--red)] text-white' : 'bg-white text-[#555B68] hover:bg-[var(--bg)]'}`}
+            className={`inline-flex whitespace-nowrap items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition ${adminTab === 'broadcast' ? 'border-[var(--red)] text-[var(--red)]' : 'border-transparent text-[#687080] hover:border-[#D8DCE3] hover:text-[var(--text)]'}`}
           >
             <Megaphone className="size-4" /> Mensagem global
           </button>
         </div>
+        </div>
 
         {adminTab === 'users' ? <AdminUsersPanel /> : adminTab === 'changelog' ? <AdminChangelogPanel /> : adminTab === 'broadcast' ? <AdminBroadcastPanel /> : (
           <>
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-          <div id="card-template-form" className="min-w-0 card-surface p-4 md:p-5 space-y-5">
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div id="card-template-form" className="min-w-0 card-surface space-y-5 p-4 md:p-6">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-[var(--text)]">
-                {editingTemplate ? `Editar template: ${editingTemplate}` : 'Criar Carta'}
-              </h2>
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--red)]">{editingTemplate ? 'Edição de template' : 'Editor de cartas'}</div>
+                <h2 className="mt-1 text-xl font-bold text-[var(--text)]">
+                  {editingTemplate ? `Editar template: ${editingTemplate}` : 'Criar carta'}
+                </h2>
+              </div>
               {editingTemplate && (
                 <button
                   type="button"
@@ -654,7 +691,7 @@ export default function Admin() {
               )}
             </div>
 
-            <section className="rounded-2xl border border-[var(--border)] p-4 md:p-5 space-y-4">
+            <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[#FCFCFD] p-4 md:p-5">
               <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
                 <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[var(--red)]">1</span>
                 Informações básicas
@@ -667,6 +704,7 @@ export default function Admin() {
                 <div>
                   <label className={labelCls}>URL da arte da carta</label>
                   <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputCls} placeholder="https://... ou /assets/imagem.jpg" />
+                  <p className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">Informe a URL ou o caminho da arte; este editor não possui biblioteca de imagens integrada.</p>
                 </div>
                 {isTemplate && (
                   <div>
@@ -705,7 +743,7 @@ export default function Admin() {
             </div>
             </section>
 
-            <section className="rounded-2xl border border-[var(--border)] p-4 md:p-5 space-y-4">
+            <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[#FCFCFD] p-4 md:p-5">
               <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
                 <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[var(--red)]">2</span>
                 Características
@@ -724,17 +762,18 @@ export default function Admin() {
                 <label className={labelCls}>Raridade</label>
                 {isSecret ? (
                   <div className={`${inputCls} flex items-center gap-2 bg-[#111318] font-semibold text-white`}>
-                    <span className="size-3 rounded-full border border-white/60 bg-black" />
+                    <span className="size-3 rounded-full border border-white/60" style={{ backgroundColor: previewRarityMeta.color }} />
                     Secreta
                   </div>
                 ) : (
                   <>
                     <div className="relative">
+                      <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 size-3 -translate-y-1/2 rounded-full ring-1 ring-black/10" style={{ backgroundColor: previewRarityMeta.color }} />
                       <select value={calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity} onChange={e => {
                         const val = e.target.value as typeof form.rarity;
                         if (isInventory) setForm({ ...form, rarity: val });
                         else setForm({ ...form, baseRarity: val });
-                      }} className={`${inputCls} appearance-none pr-10`} disabled={calcMode}>
+                      }} className={`${inputCls} appearance-none pl-9 pr-10`} disabled={calcMode}>
                         {RARITIES.map(r => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
                       </select>
                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
@@ -747,7 +786,7 @@ export default function Admin() {
 
             </section>
 
-            <section className="rounded-2xl border border-[var(--border)] p-4 md:p-5 space-y-4">
+            <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[#FCFCFD] p-4 md:p-5">
               <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
                 <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[var(--red)]">3</span>
                 Atributos
@@ -797,7 +836,7 @@ export default function Admin() {
             )}
             </section>
 
-            <section className="rounded-2xl border border-[var(--border)] p-4 md:p-5 space-y-4">
+            <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[#FCFCFD] p-4 md:p-5">
               <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
                 <span className="grid size-6 place-items-center rounded-lg bg-[#FFF0F1] text-xs text-[var(--red)]">4</span>
                 Configurações
@@ -978,15 +1017,28 @@ export default function Admin() {
             </button>
           </div>
 
-          <div className="flex flex-col items-center justify-start gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 md:p-5 xl:sticky xl:top-6">
-            <h2 className="text-lg font-semibold text-[var(--text)]">Prévia</h2>
-            <div className="w-full max-w-[15rem]">
-              <Card card={makePreviewCard(rarityToUse)} size="fluid" />
+          <aside aria-label="Prévia da carta" className="flex flex-col gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-[0_8px_28px_rgba(27,31,42,0.06)] md:p-5 xl:sticky xl:top-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Visualização ao vivo</div>
+                <h2 className="mt-1 text-lg font-bold text-[var(--text)]">Prévia da carta</h2>
+              </div>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${rarityToUse === 'secret' ? 'text-white' : 'text-[var(--text)]'}`}
+                style={{ backgroundColor: rarityToUse === 'secret' ? previewRarityMeta.color : `${previewRarityMeta.color}18`, borderColor: `${previewRarityMeta.color}70` }}
+              >
+                <span className="size-2 rounded-full" style={{ backgroundColor: previewRarityMeta.color }} />
+                {RARITY_LABELS[rarityToUse]}
+              </span>
             </div>
-            <div className="text-xs text-[var(--muted)] text-center">
-              {RARITY_LABELS[rarityToUse]} · OVR {makePreviewCard(rarityToUse).overall}
+            <div className="mx-auto w-full max-w-[17rem]">
+              <Card card={previewCard} size="fluid" attributes={previewAttributes} animateHover={false} />
             </div>
-          </div>
+            <div className="flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs">
+              <span className="truncate text-[var(--muted)]">{previewCard.position} · {previewCard.club}</span>
+              <span className="ml-3 shrink-0 font-bold tabular-nums text-[var(--text)]">OVR {previewCard.overall}</span>
+            </div>
+          </aside>
         </div>
 
         <div className="card-surface p-4 space-y-4">
