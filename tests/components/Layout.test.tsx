@@ -41,6 +41,7 @@ function renderLayout(path: string) {
           <Route path="/profile" element={<div>Conteúdo do meu perfil</div>} />
           <Route path="/profile/:userId" element={<div>Conteúdo do perfil do jogador</div>} />
           <Route path="/leaderboard" element={<div>Conteúdo do leaderboard</div>} />
+          <Route path="/leaderboard/player/:userId" element={<div>Perfil competitivo do jogador</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -165,6 +166,15 @@ describe('Layout navigation', () => {
     expect(document.querySelector('aside')).not.toBeInTheDocument();
     expect(document.querySelector('.home-layout')).toBeInTheDocument();
     expect(screen.getByText('Conteúdo do leaderboard')).toBeInTheDocument();
+  });
+
+  it('uses the global topbar and hides the sidebar on a competitive player profile', () => {
+    renderLayout('/leaderboard/player/player-1');
+
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(document.querySelector('aside')).not.toBeInTheDocument();
+    expect(document.querySelector('.home-layout')).toBeInTheDocument();
+    expect(screen.getByText('Perfil competitivo do jogador')).toBeInTheDocument();
   });
 
   it('uses the Home topbar on the pack store route', () => {

@@ -80,7 +80,8 @@ export default function Layout({ children }: { children?: ReactNode }) {
   const isOwnProfileRoute = location.pathname === '/profile';
   const isFriendProfileRoute = location.pathname.startsWith('/profile/');
   const isLeaderboardRoute = location.pathname === '/leaderboard';
-  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute || isMarketplaceRoute || isShopRoute || isFriendsRoute || isOwnProfileRoute || isFriendProfileRoute || isLeaderboardRoute;
+  const isCompetitiveProfileRoute = location.pathname.startsWith('/leaderboard/player/');
+  const usesHomeTopbar = isHomeRoute || isPacksRoute || isCollectionRoute || isSquadRoute || isCompareRoute || isOpenPackRoute || isCardDetailRoute || isMatchRoute || isSbcRoute || isMissionsRoute || isMarketplaceRoute || isShopRoute || isFriendsRoute || isOwnProfileRoute || isFriendProfileRoute || isLeaderboardRoute || isCompetitiveProfileRoute;
   const navigate = useNavigate();
   const routeTitle = TITLES[location.pathname]
     || (location.pathname.startsWith('/card/') ? 'Carta'
