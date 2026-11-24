@@ -52,45 +52,63 @@ function Podium({ players, isPool }: { players: CompetitivePlayer[]; isPool: boo
   const reduceMotion = useReducedMotion();
   const order = [players[1], players[0], players[2]];
   return (
-    <section className="card-surface overflow-hidden p-4 md:p-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
+    <section className="relative overflow-hidden rounded-2xl border border-[#e5e1d8] bg-[#f4f3ef] p-4 md:p-6">
+      <div className="mb-5 flex items-end justify-between gap-3 border-b border-[#dedbd2] pb-4">
         <div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
-            <Trophy className="h-4 w-4 text-[var(--red)]" /> Pódio global
-          </div>
-          <p className="mt-1 text-xs text-[var(--muted)]">Os três melhores jogadores da classificação.</p>
+          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--red)]">Disputa pelo topo</div>
+          <h2 className="mt-1 flex items-center gap-2 text-xl font-black uppercase tracking-tight text-[var(--text)] sm:text-2xl">
+            <Trophy className="h-5 w-5 text-[var(--red)]" /> Pódio global
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted)] sm:text-sm">
+            {isPool ? 'Os três melhores do ranking de sinuca.' : 'Os três melhores da competição X1.'}
+          </p>
         </div>
-        {players.length > 0 && <span className="rounded-full bg-[var(--bg)] px-3 py-1 text-xs font-semibold text-[var(--muted)]">TOP 3</span>}
+        {players.length > 0 && (
+          <span className="hidden border-b-2 border-[var(--red)] px-1 pb-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--text)] sm:inline-flex">
+            Top 3
+          </span>
+        )}
       </div>
       {players.length === 0 ? (
-        <div className="empty-state rounded-2xl bg-[var(--bg)] py-10">Ainda não há jogadores classificados.</div>
+        <div className="rounded-xl border border-dashed border-[#d6d2c8] bg-white/70 py-10 text-center text-sm text-[var(--muted)]">
+          Ainda não há jogadores classificados.
+        </div>
       ) : (
         <div className="mx-auto grid max-w-5xl grid-cols-3 items-end gap-2 sm:gap-4 md:gap-6">
           {order.map((player, index) => {
             if (!player) return <div key={`empty-${index}`} />;
             const isFirst = player.position === 1;
+            const placeStyle = isFirst
+              ? 'border-[#c9a754] bg-[#202127] text-white shadow-[0_16px_34px_rgba(30,31,37,0.18)]'
+              : player.position === 2
+                ? 'border-[#c9cdd1] bg-[#fdfdfc] text-[var(--text)]'
+                : 'border-[#c99c7a] bg-[#f8eee7] text-[var(--text)]';
+            const placeAccent = isFirst
+              ? 'text-[#e7c56e]'
+              : player.position === 2 ? 'text-[#7c8792]' : 'text-[#a76d49]';
             return (
               <motion.div
                 key={player.userId}
                 initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: reduceMotion ? 0 : 0.3, delay: reduceMotion ? 0 : index * 0.06 }}
-                className={`flex min-w-0 flex-col items-center rounded-2xl border border-[var(--border)] px-2 py-3 text-center transition-shadow motion-reduce:transition-none sm:px-4 sm:py-5 ${isFirst ? 'min-h-[250px] bg-[var(--soft)] shadow-[0_6px_20px_rgba(37,39,51,0.08)] md:min-h-[280px]' : 'min-h-[220px] bg-white md:min-h-[240px]'}`}
+                className={`relative flex min-w-0 flex-col items-center overflow-hidden rounded-xl border-x border-b border-t-4 px-1.5 py-3 text-center sm:px-4 sm:py-5 ${placeStyle} ${isFirst ? 'min-h-[255px] sm:min-h-[290px]' : 'min-h-[220px] sm:min-h-[245px]'}`}
               >
-                <div className={`mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide ${isFirst ? 'text-[var(--red)]' : 'text-[var(--muted)]'}`}>
+                {isFirst && <div aria-hidden="true" className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#a91f32]/20 blur-2xl" />}
+                <div className={`relative mb-3 flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.12em] sm:text-xs sm:tracking-wide ${placeAccent}`}>
                   {isFirst ? <Crown className="h-4 w-4" /> : <Medal className="h-4 w-4" />}
                   {isFirst ? '1º lugar' : player.position === 2 ? '2º lugar' : '3º lugar'}
                 </div>
-                <Link to={isPool ? `/profile/${player.userId}` : `/leaderboard/player/${player.userId}`} aria-label={`Perfil de ${player.name}`} className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)]">
+                <Link to={isPool ? `/profile/${player.userId}` : `/leaderboard/player/${player.userId}`} aria-label={`Perfil de ${player.name}`} className="relative rounded-full ring-2 ring-white/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--red)]">
                   <Avatar name={player.name} url={player.avatarUrl} size={isFirst ? 'xl' : 'lg'} />
                 </Link>
-                <div className="mt-3 w-full truncate text-sm font-semibold text-[var(--text)]" title={player.name}>{player.name}</div>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className={`font-bold tabular-nums text-[var(--red)] ${isFirst ? 'text-2xl' : 'text-xl'}`}>{player.rating}</span>
-                  <span className="text-[10px] font-medium text-[var(--muted)]">ELO</span>
+                <div className="relative mt-3 w-full truncate text-xs font-bold sm:text-sm" title={player.name}>{player.name}</div>
+                <div className="relative mt-1 flex items-baseline gap-1.5">
+                  <span className={`font-black tabular-nums ${isFirst ? 'text-3xl text-[#f1cf75] sm:text-4xl' : 'text-2xl text-[var(--red)]'}`}>{player.rating}</span>
+                  <span className={`text-[9px] font-bold tracking-wider ${isFirst ? 'text-white/60' : 'text-[var(--muted)]'}`}>ELO</span>
                 </div>
-                <div className="mt-2"><DivisionBadge division={player.division} /></div>
-                <div className={`mt-auto w-full rounded-lg py-1.5 text-xs font-semibold ${isFirst ? 'bg-white/80 text-[var(--red)]' : 'bg-[var(--bg)] text-[var(--muted)]'}`}>
+                <div className="relative mt-2"><DivisionBadge division={player.division} /></div>
+                <div className={`relative mt-auto w-full border-t pt-2 text-[10px] font-bold uppercase tracking-wider sm:text-xs ${isFirst ? 'border-white/15 text-white/70' : 'border-black/10 text-[var(--muted)]'}`}>
                   Posição #{player.position}
                 </div>
               </motion.div>
@@ -106,55 +124,69 @@ function SelfSummary({ profile }: { profile: CompetitiveProfile }) {
   const progress = profile.division && profile.nextDivisionRating && profile.divisionRating
     ? Math.max(0, Math.min(100, ((profile.rating - profile.divisionRating) / (profile.nextDivisionRating - profile.divisionRating)) * 100))
     : profile.division ? 100 : 0;
+  const nextDivisionLabel = profile.nextDivision && profile.nextDivisionRating != null
+    ? `${profile.nextDivisionRating - profile.rating} pts para ${profile.nextDivision}`
+    : profile.division ? 'Divisão máxima' : 'Jogue partidas oficiais para conquistar uma divisão';
   return (
-    <section className="card-surface overflow-hidden p-4 md:p-6">
-      <div className="grid gap-4 lg:grid-cols-[minmax(220px,1fr)_170px_minmax(300px,1.4fr)] lg:items-center lg:gap-6">
+    <section aria-label="Sua classificação competitiva" className="relative isolate overflow-hidden rounded-2xl bg-[#202127] p-4 text-white shadow-[0_12px_30px_rgba(30,31,37,0.12)] sm:p-6 lg:p-7">
+      <div aria-hidden="true" className="absolute -right-14 -top-16 -z-10 h-64 w-64 rounded-full bg-[#a91f32]/20 blur-3xl" />
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ed8790]">Seu status competitivo</div>
+        <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">Temporada oficial</div>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(230px,1fr)_minmax(150px,0.7fr)_minmax(280px,1.3fr)] lg:items-center lg:gap-8">
         <div className="flex min-w-0 items-center gap-4">
-          <Avatar name={profile.name} url={profile.avatarUrl} size="lg" />
+          <div className="rounded-full ring-2 ring-[var(--red)] ring-offset-4 ring-offset-[#202127]">
+            <Avatar name={profile.name} url={profile.avatarUrl} size="lg" />
+          </div>
           <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">Sua classificação</div>
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-              <span className="max-w-full truncate text-xl font-bold text-[var(--text)] md:text-2xl" title={profile.name}>{profile.name}</span>
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/50">Sua classificação</div>
+            <div className="mt-1 truncate text-lg font-black leading-tight sm:text-xl" title={profile.name}>{profile.name}</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <DivisionBadge division={profile.division} />
-            </div>
-            <div className="mt-1 text-sm text-[var(--muted)]">
+              <span className="text-xs font-semibold text-white/65">
               {profile.position ? `Posição global #${profile.position}` : 'Ainda sem posição no ranking'}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--soft)] px-4 py-3 lg:block lg:px-5 lg:py-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">ELO atual</div>
-          <div className="text-3xl font-bold tabular-nums text-[var(--red)] md:text-4xl">{profile.rating}</div>
+        <div className="flex items-end justify-between border-y border-white/10 py-3 lg:block lg:border-y-0 lg:border-l lg:py-1 lg:pl-7">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">ELO atual</div>
+          <div className="text-5xl font-black leading-none tracking-tight tabular-nums text-white sm:text-6xl">{profile.rating}</div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <div className="rounded-xl bg-[var(--bg)] px-2 py-3 text-center sm:px-3">
-            <div className="text-xl font-bold tabular-nums text-[var(--text)] md:text-2xl">{profile.wins}</div>
-            <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">Vitórias</div>
-          </div>
-          <div className="rounded-xl bg-[var(--bg)] px-2 py-3 text-center sm:px-3">
-            <div className="text-xl font-bold tabular-nums text-[var(--text)] md:text-2xl">{profile.losses}</div>
-            <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">Derrotas</div>
-          </div>
-          <div className="rounded-xl bg-[var(--bg)] px-2 py-3 text-center sm:px-3">
-            <div className="text-xl font-bold tabular-nums text-[var(--text)] md:text-2xl">{profile.winRate}%</div>
-            <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">Aproveitamento</div>
-          </div>
+        <div className="grid grid-cols-4 divide-x divide-white/10">
+          {[
+            { label: 'Partidas', value: profile.matchesPlayed },
+            { label: 'Vitórias', value: profile.wins },
+            { label: 'Derrotas', value: profile.losses },
+            { label: 'Aproveit.', value: `${profile.winRate}%` },
+          ].map(stat => (
+            <div key={stat.label} className="min-w-0 px-1.5 text-center first:pl-0 last:pr-0 sm:px-3">
+              <div className="text-lg font-black leading-none tabular-nums sm:text-2xl">{stat.value}</div>
+              <div className="mt-2 truncate text-[8px] font-bold uppercase tracking-wide text-white/50 sm:text-[10px]">{stat.label}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {profile.matchesPlayed > 0 && (
-        <div className="mt-5 border-t border-[var(--border)] pt-4">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
-            <span>Melhor ELO: <strong className="font-semibold text-[var(--text)]">{profile.peakRating}</strong></span>
-            <span>{profile.nextDivision ? `${profile.nextDivisionRating! - profile.rating} pts para ${profile.nextDivision}` : 'Divisão máxima'}</span>
-          </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-[var(--border)]">
-            <div className="h-full rounded-full bg-[var(--red)] transition-all" style={{ width: `${progress}%` }} />
-          </div>
+      <div className="mt-6 border-t border-white/10 pt-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-white/60">Melhor ELO <strong className="ml-1 font-black text-white">{profile.peakRating}</strong></span>
+          <span className="font-semibold text-white/75">{nextDivisionLabel}</span>
         </div>
-      )}
+        <div
+          className="h-2 overflow-hidden rounded-full bg-white/15"
+          role="progressbar"
+          aria-label="Progresso até a próxima divisão"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+        >
+          <div className="h-full rounded-full bg-[var(--red)] transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
     </section>
   );
 }
@@ -244,20 +276,24 @@ export default function Leaderboard() {
   };
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-5 p-3 sm:p-4 lg:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="text-xs font-bold tracking-[0.2em] text-[var(--red)]">COMPETIÇÃO X1</div>
-          <h1 className="mt-1 text-2xl font-semibold leading-tight text-[var(--text)] md:text-3xl">LEADERBOARD</h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">{mode === 'pvp' ? 'Ranking competitivo de partidas PvP oficiais.' : 'Ranking competitivo de partidas oficiais de sinuca.'}</p>
+    <div className="mx-auto max-w-[1440px] space-y-6 p-3 sm:p-4 lg:p-6">
+      <header className="flex flex-col gap-5 border-b border-[var(--border)] pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="border-l-4 border-[var(--red)] pl-4 sm:pl-5">
+          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--red)] sm:text-xs">
+            Competição X1 <span aria-hidden="true" className="h-px w-8 bg-[var(--red)]/50 sm:w-12" />
+          </div>
+          <h1 className="mt-2 text-4xl font-black leading-[0.92] tracking-[-0.045em] text-[var(--text)] sm:text-6xl lg:text-7xl">LEADERBOARD</h1>
+          <p className="mt-3 max-w-xl text-sm text-[var(--muted)] sm:text-base">
+            {mode === 'pvp' ? 'Ranking competitivo de partidas PvP oficiais.' : 'Ranking competitivo de partidas oficiais de sinuca.'}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-xl bg-[var(--bg)] p-1">
-            <button type="button" aria-pressed={mode === 'pvp'} onClick={() => { setMode('pvp'); setDivision(''); setOffset(0); }} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] ${mode === 'pvp' ? 'bg-white text-[var(--red)]' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}>X1 PvP</button>
-            <button type="button" aria-pressed={mode === 'pool'} onClick={() => { setMode('pool'); setDivision(''); setOffset(0); }} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] ${mode === 'pool' ? 'bg-white text-[var(--red)]' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}>Sinuca</button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+          <div className="inline-flex w-fit rounded-lg border border-[#dedbd2] bg-white p-1">
+            <button type="button" aria-pressed={mode === 'pvp'} onClick={() => { setMode('pvp'); setDivision(''); setOffset(0); }} className={`rounded-md px-4 py-2 text-sm font-bold transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] ${mode === 'pvp' ? 'bg-[#202127] text-white' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}>X1 PvP</button>
+            <button type="button" aria-pressed={mode === 'pool'} onClick={() => { setMode('pool'); setDivision(''); setOffset(0); }} className={`rounded-md px-4 py-2 text-sm font-bold transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] ${mode === 'pool' ? 'bg-[#202127] text-white' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}>Sinuca</button>
           </div>
           {mode === 'pvp' && (
-            <Link to="/leaderboard/player/me" className="inline-flex min-h-10 items-center rounded-xl border border-[var(--border)] px-3 text-sm font-medium text-[var(--red)] transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] hover:bg-[var(--soft)]">
+            <Link to="/leaderboard/player/me" className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--red)] px-4 text-sm font-bold text-white transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] hover:bg-[#921b2b]">
               Ver meu perfil competitivo
             </Link>
           )}
@@ -274,10 +310,11 @@ export default function Leaderboard() {
 
       <Podium players={leaders} isPool={mode === 'pool'} />
 
-      <section className="card-surface overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-[var(--border)] p-4 md:p-5 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-xl border border-[var(--border)] bg-white">
+        <div className="flex flex-col gap-4 border-b border-[var(--border)] bg-[#fbfaf8] p-4 md:p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-[var(--text)]">Classificação global</h2>
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--red)]">Ranking completo</div>
+            <h2 className="mt-1 text-xl font-black uppercase tracking-tight text-[var(--text)] sm:text-2xl">Classificação global</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">Somente jogadores com partidas oficiais concluídas.</p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
@@ -305,10 +342,10 @@ export default function Leaderboard() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-[var(--bg)] text-[10px] uppercase tracking-wide text-[var(--muted)]">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[#f4f3ef] text-[10px] font-black uppercase tracking-[0.12em] text-[var(--muted)]">
               <tr>
-                <th className="sticky left-0 z-20 w-20 bg-[var(--bg)] px-4 py-3.5">Pos.</th>
+                <th className="sticky left-0 z-20 w-20 bg-[#f4f3ef] px-4 py-3.5">Pos.</th>
                 <th className="px-4 py-3.5">Jogador</th>
                 <th className="w-28 px-4 py-3.5 text-right">{mode === 'pool' ? 'ELO sinuca' : 'ELO'}</th>
                 {mode === 'pvp' && <th className="w-32 px-4 py-3.5 text-center">Divisão</th>}
@@ -318,7 +355,7 @@ export default function Leaderboard() {
                 <th className="w-32 px-4 py-3.5 text-right">Aproveitamento</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border)]">
+            <tbody className="divide-y divide-[#eeece6]">
               <AnimatePresence mode="wait">
                 {players.map(player => {
                   const winRate = player.matchesPlayed ? Math.round((player.wins / player.matchesPlayed) * 100) : 0;
@@ -329,20 +366,20 @@ export default function Leaderboard() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
                       transition={{ duration: reduceMotion ? 0 : 0.18 }}
-                      className={`transition-colors duration-200 motion-reduce:transition-none ${player.userId === userId ? 'bg-[var(--soft)]/60' : 'hover:bg-[var(--bg)]'}`}
+                      className={`transition-colors duration-200 motion-reduce:transition-none ${player.userId === userId ? 'bg-[#fff2f1] font-semibold' : 'hover:bg-[#faf9f6]'}`}
                     >
                       <td className="sticky left-0 z-10 bg-[inherit] px-4 py-3.5">
-                        <span className={`inline-flex min-w-10 justify-center rounded-lg px-2 py-1 font-bold tabular-nums ${player.position <= 3 ? 'bg-[var(--soft)] text-[var(--red)]' : 'text-[var(--muted)]'}`}>
+                        <span className={`inline-flex min-w-10 justify-center border-l-2 px-2 py-1 font-black tabular-nums ${player.position === 1 ? 'border-[#c9a754] text-[#927121]' : player.position === 2 ? 'border-[#9aa3aa] text-[#68747d]' : player.position === 3 ? 'border-[#a76d49] text-[#a76d49]' : 'border-transparent text-[var(--muted)]'}`}>
                           #{player.position}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
                         <Link to={mode === 'pool' ? `/profile/${player.userId}` : `/leaderboard/player/${player.userId}`} className="flex min-w-0 items-center gap-3 font-medium text-[var(--text)] transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] hover:text-[var(--red)]">
                           <Avatar name={player.name} url={player.avatarUrl} size="sm" />
-                          <span className="max-w-48 truncate" title={player.name}>{player.name}{player.userId === userId ? ' (você)' : ''}</span>
+                          <span className={`max-w-48 truncate ${player.userId === userId ? 'font-black text-[var(--red)]' : 'font-bold'}`} title={player.name}>{player.name}{player.userId === userId ? ' (você)' : ''}</span>
                         </Link>
                       </td>
-                      <td className="px-4 py-3.5 text-right font-bold tabular-nums text-[var(--red)]">{player.rating}</td>
+                      <td className="px-4 py-3.5 text-right text-base font-black tabular-nums text-[var(--red)]">{player.rating}</td>
                       {mode === 'pvp' && <td className="px-4 py-3.5 text-center"><DivisionBadge division={player.division} /></td>}
                       <td className="px-4 py-3.5 text-right tabular-nums text-[var(--text)]">{player.matchesPlayed}</td>
                       <td className="px-4 py-3.5 text-right tabular-nums text-[var(--text)]">{player.wins}</td>
@@ -359,7 +396,7 @@ export default function Leaderboard() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] bg-[var(--bg)]/60 p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] bg-[#fbfaf8] p-3 sm:p-4">
           <button onClick={() => setOffset(value => Math.max(0, value - PAGE_SIZE))} disabled={offset === 0 || loading} className="btn btn-secondary min-w-28 justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] disabled:opacity-40"><ChevronLeft className="h-4 w-4" /> Anterior</button>
           <span className="text-xs font-semibold text-[var(--muted)]">Página {Math.floor(offset / PAGE_SIZE) + 1}</span>
           <button onClick={() => setOffset(value => value + PAGE_SIZE)} disabled={loading || players.length < PAGE_SIZE} className="btn btn-secondary min-w-28 justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--red)] disabled:opacity-40">Próxima <ChevronRight className="h-4 w-4" /></button>
