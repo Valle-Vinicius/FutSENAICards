@@ -37,8 +37,8 @@ export function createAdminExhibitionResult(result: MatchResult): MatchResult {
     })),
     {
       minute: 45,
-      type: 'goal',
-      team: 'away',
+      type: 'goal' as const,
+      team: 'away' as const,
       playerId: awayScorer.id,
       description: `GOL de ${awayScorer.name}! · exibição do admin`,
     },
