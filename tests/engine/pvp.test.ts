@@ -1,5 +1,6 @@
 import { simulateMatch, createPlayersFromCards, MATCH_DURATION_MINUTES } from '../../src/engine/match';
 import type { MatchConfig } from '../../src/engine/match';
+import { createAdminExhibitionResult } from '../../src/engine/pvp-result';
 
 const card = (id: string, position: string, base: number) => ({
   uid: id, name: `P${id}`, position, overall: base,
@@ -100,6 +101,21 @@ describe('PvP challenge simulation', () => {
     expect(b.awayScore).toBe(a.awayScore);
     expect(JSON.stringify(b.frames)).toBe(JSON.stringify(a.frames));
     expect(JSON.stringify(b.playerStats)).toBe(JSON.stringify(a.playerStats));
+  });
+
+  it('creates a consistent 27–1 admin exhibition result regardless of squad ratings', () => {
+    const simulated = runClient(1234);
+    const result = createAdminExhibitionResult(simulated);
+    const goalEvents = result.events.filter(event => event.type === 'goal');
+
+    expect(result).toMatchObject({ homeScore: 27, awayScore: 1, winnerSide: 'home', penalties: null });
+    expect(goalEvents).toHaveLength(28);
+    expect(goalEvents.filter(event => event.team === 'home')).toHaveLength(27);
+    expect(goalEvents.filter(event => event.team === 'away')).toHaveLength(1);
+    expect(result.frames.at(-1)).toMatchObject({ homeScore: 27, awayScore: 1 });
+    expect(result.teamStats.home.goals).toBe(27);
+    expect(result.teamStats.away.goals).toBe(1);
+    expect(simulated.homeScore).not.toBe(27);
   });
 
   it('result survives the jsonb save/load round trip with everything the UI needs', () => {

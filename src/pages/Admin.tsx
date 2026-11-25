@@ -181,7 +181,8 @@ export default function Admin() {
   const isInventory = !editingTemplate && form.destination === 'inventory';
   const isTemplate = !!editingTemplate || form.destination !== 'inventory';
   const isOffSale = form.destination === 'off_sale';
-  const isSecret = form.destination === 'secret';
+  const isSecret = form.destination === 'secret'
+    || (!!editingTemplate && templates.some(template => template.name === editingTemplate && template.packGroup === 'secret'));
   const teams = [...new Set(templates.map(template => template.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   const rarityToUse = isSecret ? 'secret' : calcMode ? 'uncommon' : isInventory ? form.rarity : form.baseRarity;
@@ -846,7 +847,7 @@ export default function Admin() {
                 <div>
                   <label className={labelCls}>Destino da carta</label>
                   <div className="relative">
-                    <select value={form.destination} onChange={e => {
+                    <select value={isSecret ? 'secret' : form.destination} onChange={e => {
                       const destination = e.target.value as typeof form.destination;
                       setForm({
                         ...form,

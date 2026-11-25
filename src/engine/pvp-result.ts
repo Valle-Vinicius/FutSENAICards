@@ -16,7 +16,109 @@ export interface PvpAward {
   detail: string;
 }
 
+export const ADMIN_EXHIBITION_SCORE = { home: 27, away: 1 } as const;
+
 const CARD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function createAdminExhibitionResult(result: MatchResult): MatchResult {
+  const homeScorer = result.config.homePlayers.find(player => !player.isGK);
+  const awayScorer = result.config.awayPlayers.find(player => !player.isGK);
+  if (!homeScorer || !awayScorer || result.frames.length === 0) {
+    throw new Error('Não foi possível montar o resultado de exibição.');
+  }
+
+  const goals: MatchEvent[] = [
+    ...Array.from({ length: ADMIN_EXHIBITION_SCORE.home }, (_, index): MatchEvent => ({
+      minute: 2 + index * 3,
+      type: 'goal',
+      team: 'home',
+      playerId: homeScorer.id,
+      description: `GOL de ${homeScorer.name}! · exibição do admin`,
+    })),
+    {
+      minute: 45,
+      type: 'goal',
+      team: 'away',
+      playerId: awayScorer.id,
+      description: `GOL de ${awayScorer.name}! · exibição do admin`,
+    },
+  ].sort((a, b) => a.minute - b.minute);
+  const nonGoalEvents = result.events.filter(event => event.type !== 'goal' && event.type !== 'fulltime');
+  const events = [...nonGoalEvents, ...goals, {
+    minute: result.durationMinutes,
+    type: 'fulltime' as const,
+    team: 'neutral' as const,
+    description: `Fim de jogo. ${result.config.homeName} 27 x 1 ${result.config.awayName}. Resultado de exibição.`,
+  }].sort((a, b) => a.minute - b.minute);
+
+  let eventCursor = 0;
+  let latestNonGoalEvent: MatchEvent | undefined;
+  let goalCursor = 0;
+  let homeScore = 0;
+  let awayScore = 0;
+  const frames = result.frames.map(frame => {
+    while (eventCursor < nonGoalEvents.length && nonGoalEvents[eventCursor].minute <= frame.minute) {
+      latestNonGoalEvent = nonGoalEvents[eventCursor];
+      eventCursor++;
+    }
+
+    let goalAtFrame: MatchEvent | undefined;
+    while (goalCursor < goals.length && goals[goalCursor].minute <= frame.minute) {
+      const goal = goals[goalCursor];
+      if (goal.team === 'home') homeScore++;
+      else awayScore++;
+      if (goal.minute === frame.minute) goalAtFrame = goal;
+      goalCursor++;
+    }
+
+    return {
+      ...frame,
+      homeScore,
+      awayScore,
+      lastEvent: goalAtFrame ?? (frame.lastEvent?.type === 'goal' ? latestNonGoalEvent : frame.lastEvent),
+    };
+  });
+
+  const playerStats = Object.fromEntries(
+    Object.entries(result.playerStats).map(([playerId, stats]) => [playerId, { ...stats, goals: 0 }]),
+  );
+  const homeScorerStats = playerStats[homeScorer.id];
+  const awayScorerStats = playerStats[awayScorer.id];
+  if (!homeScorerStats || !awayScorerStats) {
+    throw new Error('As estatísticas dos jogadores da exibição estão incompletas.');
+  }
+  homeScorerStats.goals = ADMIN_EXHIBITION_SCORE.home;
+  homeScorerStats.shots = Math.max(homeScorerStats.shots, ADMIN_EXHIBITION_SCORE.home);
+  homeScorerStats.shotsOnTarget = Math.max(homeScorerStats.shotsOnTarget, ADMIN_EXHIBITION_SCORE.home);
+  awayScorerStats.goals = ADMIN_EXHIBITION_SCORE.away;
+  awayScorerStats.shots = Math.max(awayScorerStats.shots, ADMIN_EXHIBITION_SCORE.away);
+  awayScorerStats.shotsOnTarget = Math.max(awayScorerStats.shotsOnTarget, ADMIN_EXHIBITION_SCORE.away);
+
+  return {
+    ...result,
+    homeScore: ADMIN_EXHIBITION_SCORE.home,
+    awayScore: ADMIN_EXHIBITION_SCORE.away,
+    events,
+    frames,
+    playerStats,
+    teamStats: {
+      home: {
+        ...result.teamStats.home,
+        goals: ADMIN_EXHIBITION_SCORE.home,
+        shots: Math.max(result.teamStats.home.shots, ADMIN_EXHIBITION_SCORE.home),
+        shotsOnTarget: Math.max(result.teamStats.home.shotsOnTarget, ADMIN_EXHIBITION_SCORE.home),
+      },
+      away: {
+        ...result.teamStats.away,
+        goals: ADMIN_EXHIBITION_SCORE.away,
+        shots: Math.max(result.teamStats.away.shots, ADMIN_EXHIBITION_SCORE.away),
+        shotsOnTarget: Math.max(result.teamStats.away.shotsOnTarget, ADMIN_EXHIBITION_SCORE.away),
+      },
+    },
+    winnerSide: 'home',
+    penalties: null,
+  };
+}
 
 export function snapshotCardIdForPlayer(playerId: string, side: 'home' | 'away'): string | null {
   const suffix = `_${side}`;

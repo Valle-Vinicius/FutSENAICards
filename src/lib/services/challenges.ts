@@ -6,6 +6,7 @@ export interface Challenge {
   challenger_id: string;
   challenged_id: string;
   status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled' | 'abandoned';
+  admin_entertainment?: boolean;
   challenger_ready?: boolean;
   challenged_ready?: boolean;
   home_formation?: string;
@@ -72,6 +73,16 @@ export async function setReady(id: string, tactic: Tactic): Promise<boolean> {
   if (!supabase) return false;
   const { data, error } = await supabase.rpc('set_challenge_ready', { p_challenge_id: id, p_tactic: tactic });
   if (error) throw new Error(error.message);
+  return data === true;
+}
+
+export async function setAdminEntertainment(id: string, enabled: boolean): Promise<boolean> {
+  if (!supabase) throw new Error('Serviço de partidas indisponível.');
+  const { data, error } = await supabase.rpc('set_admin_challenge_entertainment', {
+    p_challenge_id: id,
+    p_enabled: enabled,
+  });
+  if (error) throw error;
   return data === true;
 }
 

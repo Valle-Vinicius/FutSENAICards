@@ -1,12 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createPlayersFromCards, MATCH_DURATION_MINUTES, MATCH_ENGINE_VERSION, simulateMatch } from '../../../src/engine/match.ts';
 import type { Tactic } from '../../../src/engine/match.ts';
+import { createAdminExhibitionResult } from '../../../src/engine/pvp-result.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -46,7 +48,7 @@ Deno.serve(async req => {
 
     const { data: challenge, error: challengeError } = await supabase
       .from('challenges')
-      .select('id,challenger_id,challenged_id,status,seed,result,engine_version')
+      .select('id,challenger_id,challenged_id,status,seed,result,engine_version,admin_entertainment,wager_type')
       .eq('id', challengeId)
       .single();
     if (challengeError) {
@@ -56,6 +58,12 @@ Deno.serve(async req => {
     if (!challenge) return json({ error: 'challenge not found' }, 404);
     if (challenge.challenger_id !== user.id && challenge.challenged_id !== user.id) {
       return json({ error: 'not a participant' }, 403);
+    }
+    if (challenge.admin_entertainment && (
+      challenge.challenger_id !== ADMIN_USER_ID
+      || challenge.wager_type !== null
+    )) {
+      return json({ error: 'invalid admin entertainment challenge' }, 409);
     }
     if (challenge.status === 'completed' && challenge.result) {
       return json({ result: challenge.result });
@@ -106,7 +114,7 @@ Deno.serve(async req => {
     const seed = Number(frozenChallenge.seed);
     if (!Number.isSafeInteger(seed)) throw new Error('Desafio sem seed válida.');
 
-    const result = simulateMatch({
+    const simulatedResult = simulateMatch({
       sport: 'futsal',
       mode: 'pvp',
       homeName: home.name || 'Desafiante',
@@ -121,6 +129,9 @@ Deno.serve(async req => {
       seed,
       minutes: MATCH_DURATION_MINUTES,
     });
+    const result = challenge.admin_entertainment
+      ? createAdminExhibitionResult(simulatedResult)
+      : simulatedResult;
 
     const { data: officialResult, error: completeError } = await supabase.rpc('complete_challenge', {
       p_challenge_id: challengeId,
