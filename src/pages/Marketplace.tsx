@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { useGame } from '../store/useGame';
 import { toast } from '../store/toast';
 import Card from '../components/Card';
@@ -25,6 +25,7 @@ const EMPTY_TRANSACTION_SUMMARY: MarketplaceTransactionSummary = {
   volume: 0,
   net: 0,
 };
+const SELL_CARD_PAGE_SIZE = 48;
 
 function applyRemoteListings(remoteListings: ListingRecord[]) {
   useGame.setState(state => ({
@@ -129,6 +130,7 @@ export default function Marketplace() {
   const [listUid, setListUid] = useState<string | null>(null);
   const [listPrice, setListPrice] = useState('');
   const [listSearch, setListSearch] = useState('');
+  const [sellCardPage, setSellCardPage] = useState(0);
   const [sellDialogOpen, setSellDialogOpen] = useState(false);
   const [confirmBuy, setConfirmBuy] = useState<string | null>(null);
   const [editingPriceFor, setEditingPriceFor] = useState<string | null>(null);
@@ -138,6 +140,7 @@ export default function Marketplace() {
   const [cancellingListingId, setCancellingListingId] = useState<string | null>(null);
   const [creatingListing, setCreatingListing] = useState(false);
   const { openCard: openCardViewer, viewer: cardViewer } = useCardViewer();
+  const deferredListSearch = useDeferredValue(listSearch);
   useEffect(() => {
     if (!sellDialogOpen && !confirmBuy && !editingPriceFor) return;
     const handleEscape = (event: KeyboardEvent) => {
@@ -245,12 +248,16 @@ export default function Marketplace() {
   const recordTransfer = useGame(s => s.recordTransfer);
   const recordPrice = useGame(s => s.recordPrice);
 
-  const cardOf = (uid: string) => cards.find(c => c.uid === uid);
+  const cardsByUid = useMemo(() => new Map(cards.map(card => [card.uid, card])), [cards]);
+  const cardOf = (uid: string) => cardsByUid.get(uid);
   const listingPrice = (listing: typeof listings[number]) => listing.buyNow > 0 ? listing.buyNow : listing.price;
-  const allActiveListings = listings.filter(listing => listing.status === 'active' && listing.expiresAt > marketNow);
+  const allActiveListings = useMemo(
+    () => listings.filter(listing => listing.status === 'active' && listing.expiresAt > marketNow),
+    [listings, marketNow],
+  );
 
-  const activeListings = allActiveListings.filter(listing => {
-    const card = cardOf(listing.cardUid);
+  const activeListings = useMemo(() => allActiveListings.filter(listing => {
+    const card = cardsByUid.get(listing.cardUid);
     const name = card?.name || listing.cardName || '';
     const position = card?.position || listing.cardPosition;
     const rarity = card?.rarity || listing.cardRarity;
@@ -263,13 +270,13 @@ export default function Marketplace() {
     if (maxPrice && listingPrice(listing) > Number(maxPrice)) return false;
     return true;
   }).sort((a, b) => {
-    const ca = cardOf(a.cardUid), cb = cardOf(b.cardUid);
+    const ca = cardsByUid.get(a.cardUid), cb = cardsByUid.get(b.cardUid);
     if (sort === 'price_asc') return listingPrice(a) - listingPrice(b);
     if (sort === 'price_desc') return listingPrice(b) - listingPrice(a);
     if (sort === 'overall') return (cb?.overall ?? b.cardOverall ?? 0) - (ca?.overall ?? a.cardOverall ?? 0);
     if (sort === 'name') return (ca?.name ?? a.cardName ?? '').localeCompare(cb?.name ?? b.cardName ?? '');
     return 0;
-  });
+  }), [allActiveListings, cardsByUid, q, pos, rar, minOverall, minPrice, maxPrice, sort]);
 
   const prices = activeListings.map(listingPrice);
   const minP = prices.length ? Math.min(...prices) : 0;
@@ -341,11 +348,31 @@ export default function Marketplace() {
     }
   };
 
-  const availableToSell = cards.filter(c => !listings.some(l => l.cardUid === c.uid && l.status === 'active' && l.expiresAt > marketNow));
-  const matchingSellCards = availableToSell
-    .filter(c => c.name.toLowerCase().includes(listSearch.toLowerCase()))
-    .sort((a, b) => b.overall - a.overall);
-  const selectedSellCard = availableToSell.find(c => c.uid === listUid);
+  const activeListingUids = useMemo(
+    () => new Set(allActiveListings.map(listing => listing.cardUid)),
+    [allActiveListings],
+  );
+  const availableToSell = useMemo(
+    () => cards.filter(card => !activeListingUids.has(card.uid)),
+    [cards, activeListingUids],
+  );
+  const sortedSellCards = useMemo(
+    () => sellDialogOpen
+      ? [...availableToSell].sort((a, b) => b.overall - a.overall)
+      : [],
+    [availableToSell, sellDialogOpen],
+  );
+  const matchingSellCards = useMemo(() => {
+    const search = deferredListSearch.trim().toLocaleLowerCase();
+    return sortedSellCards.filter(card => !search || card.name.toLocaleLowerCase().includes(search));
+  }, [sortedSellCards, deferredListSearch]);
+  const totalSellCardPages = Math.max(1, Math.ceil(matchingSellCards.length / SELL_CARD_PAGE_SIZE));
+  const currentSellCardPage = Math.min(sellCardPage, totalSellCardPages - 1);
+  const visibleSellCards = matchingSellCards.slice(
+    currentSellCardPage * SELL_CARD_PAGE_SIZE,
+    (currentSellCardPage + 1) * SELL_CARD_PAGE_SIZE,
+  );
+  const selectedSellCard = listUid && !activeListingUids.has(listUid) ? cardsByUid.get(listUid) : undefined;
   const myListings = listings.filter(l => l.sellerId === userId);
   const myActiveListings = myListings
     .filter(l => l.status === 'active' && l.expiresAt > marketNow)
@@ -582,7 +609,10 @@ export default function Marketplace() {
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
                   <input
                     value={listSearch}
-                    onChange={e => setListSearch(e.target.value)}
+                    onChange={e => {
+                      setListSearch(e.target.value);
+                      setSellCardPage(0);
+                    }}
                     placeholder="Buscar carta pelo nome..."
                     aria-label="Buscar carta para anunciar"
                     className={`${marketControl} pl-10`}
@@ -590,7 +620,7 @@ export default function Marketplace() {
                 </label>
 
                 <div className="grid max-h-[50vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3">
-                  {matchingSellCards.map(c => {
+                  {visibleSellCards.map(c => {
                     const rarity = RARITY_META[c.rarity];
                     const selected = listUid === c.uid;
                     return (
@@ -616,6 +646,33 @@ export default function Marketplace() {
                     </div>
                   )}
                 </div>
+                {matchingSellCards.length > 0 && (
+                  <div className="flex items-center justify-between gap-3 pt-2">
+                    <p className="text-xs text-[var(--muted)]" aria-live="polite">
+                      {currentSellCardPage * SELL_CARD_PAGE_SIZE + 1}–{Math.min((currentSellCardPage + 1) * SELL_CARD_PAGE_SIZE, matchingSellCards.length)} de {matchingSellCards.length} cartas
+                    </p>
+                    {totalSellCardPages > 1 && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSellCardPage(page => Math.max(0, page - 1))}
+                          disabled={currentSellCardPage === 0}
+                          className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold text-[var(--text)] disabled:opacity-40"
+                        >
+                          Anterior
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSellCardPage(page => Math.min(totalSellCardPages - 1, page + 1))}
+                          disabled={currentSellCardPage >= totalSellCardPages - 1}
+                          className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold text-[var(--text)] disabled:opacity-40"
+                        >
+                          Próximas
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="min-w-0 rounded-2xl bg-[var(--bg)] p-4 md:p-5">
