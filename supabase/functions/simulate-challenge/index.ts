@@ -60,7 +60,7 @@ Deno.serve(async req => {
       return json({ error: 'not a participant' }, 403);
     }
     if (challenge.admin_entertainment && (
-      challenge.challenger_id !== ADMIN_USER_ID
+      (challenge.challenger_id !== ADMIN_USER_ID && challenge.challenged_id !== ADMIN_USER_ID)
       || challenge.wager_type !== null
     )) {
       return json({ error: 'invalid admin entertainment challenge' }, 409);
@@ -129,8 +129,9 @@ Deno.serve(async req => {
       seed,
       minutes: MATCH_DURATION_MINUTES,
     });
+    const adminSide = challenge.challenger_id === ADMIN_USER_ID ? 'home' : 'away';
     const result = challenge.admin_entertainment
-      ? createAdminExhibitionResult(simulatedResult)
+      ? createAdminExhibitionResult(simulatedResult, adminSide)
       : simulatedResult;
 
     const { data: officialResult, error: completeError } = await supabase.rpc('complete_challenge', {

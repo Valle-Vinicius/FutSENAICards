@@ -103,19 +103,36 @@ describe('PvP challenge simulation', () => {
     expect(JSON.stringify(b.playerStats)).toBe(JSON.stringify(a.playerStats));
   });
 
-  it('creates a consistent 27–1 admin exhibition result regardless of squad ratings', () => {
+  it('creates a consistent 27–0 admin exhibition result regardless of squad ratings', () => {
     const simulated = runClient(1234);
     const result = createAdminExhibitionResult(simulated);
     const goalEvents = result.events.filter(event => event.type === 'goal');
 
-    expect(result).toMatchObject({ homeScore: 27, awayScore: 1, winnerSide: 'home', penalties: null });
-    expect(goalEvents).toHaveLength(28);
+    expect(result).toMatchObject({ homeScore: 27, awayScore: 0, winnerSide: 'home', penalties: null });
+    expect(goalEvents).toHaveLength(27);
     expect(goalEvents.filter(event => event.team === 'home')).toHaveLength(27);
-    expect(goalEvents.filter(event => event.team === 'away')).toHaveLength(1);
-    expect(result.frames.at(-1)).toMatchObject({ homeScore: 27, awayScore: 1 });
+    expect(goalEvents.filter(event => event.team === 'away')).toHaveLength(0);
+    expect(result.frames[result.frames.length - 1]).toMatchObject({
+      homeScore: 27,
+      awayScore: 0,
+      lastEvent: { description: 'Fim de jogo. Ana 27 x 0 Bia. Resultado de entretenimento.' },
+    });
     expect(result.teamStats.home.goals).toBe(27);
-    expect(result.teamStats.away.goals).toBe(1);
+    expect(result.teamStats.away.goals).toBe(0);
     expect(simulated.homeScore).not.toBe(27);
+  });
+
+  it('places the exhibition win on the away side when the admin is the challenged player', () => {
+    const simulated = runClient(6543);
+    const result = createAdminExhibitionResult(simulated, 'away');
+    const goalEvents = result.events.filter(event => event.type === 'goal');
+
+    expect(result).toMatchObject({ homeScore: 0, awayScore: 27, winnerSide: 'away', penalties: null });
+    expect(goalEvents).toHaveLength(27);
+    expect(goalEvents.every(event => event.team === 'away')).toBe(true);
+    expect(result.frames[result.frames.length - 1]).toMatchObject({ homeScore: 0, awayScore: 27 });
+    expect(result.teamStats.home.goals).toBe(0);
+    expect(result.teamStats.away.goals).toBe(27);
   });
 
   it('result survives the jsonb save/load round trip with everything the UI needs', () => {

@@ -16,40 +16,34 @@ export interface PvpAward {
   detail: string;
 }
 
-export const ADMIN_EXHIBITION_SCORE = { home: 27, away: 1 } as const;
+export const ADMIN_EXHIBITION_GOALS = 27;
 
 const CARD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function createAdminExhibitionResult(result: MatchResult): MatchResult {
-  const homeScorer = result.config.homePlayers.find(player => !player.isGK);
-  const awayScorer = result.config.awayPlayers.find(player => !player.isGK);
-  if (!homeScorer || !awayScorer || result.frames.length === 0) {
+export function createAdminExhibitionResult(result: MatchResult, adminSide: 'home' | 'away' = 'home'): MatchResult {
+  const adminPlayers = adminSide === 'home' ? result.config.homePlayers : result.config.awayPlayers;
+  const adminScorer = adminPlayers.find(player => !player.isGK);
+  if (!adminScorer || result.frames.length === 0) {
     throw new Error('Não foi possível montar o resultado de exibição.');
   }
 
-  const goals: MatchEvent[] = [
-    ...Array.from({ length: ADMIN_EXHIBITION_SCORE.home }, (_, index): MatchEvent => ({
-      minute: 2 + index * 3,
-      type: 'goal',
-      team: 'home',
-      playerId: homeScorer.id,
-      description: `GOL de ${homeScorer.name}! · exibição do admin`,
-    })),
-    {
-      minute: 45,
-      type: 'goal' as const,
-      team: 'away' as const,
-      playerId: awayScorer.id,
-      description: `GOL de ${awayScorer.name}! · exibição do admin`,
-    },
-  ].sort((a, b) => a.minute - b.minute);
-  const nonGoalEvents = result.events.filter(event => event.type !== 'goal' && event.type !== 'fulltime');
-  const events = [...nonGoalEvents, ...goals, {
+  const adminTeamName = adminSide === 'home' ? result.config.homeName : result.config.awayName;
+  const opponentTeamName = adminSide === 'home' ? result.config.awayName : result.config.homeName;
+  const goals: MatchEvent[] = Array.from({ length: ADMIN_EXHIBITION_GOALS }, (_, index) => ({
+    minute: 2 + index * 3,
+    type: 'goal',
+    team: adminSide,
+    playerId: adminScorer.id,
+    description: `GOL de ${adminScorer.name}! · modo entretenimento`,
+  }));
+  const fulltimeEvent: MatchEvent = {
     minute: result.durationMinutes,
-    type: 'fulltime' as const,
-    team: 'neutral' as const,
-    description: `Fim de jogo. ${result.config.homeName} 27 x 1 ${result.config.awayName}. Resultado de exibição.`,
-  }].sort((a, b) => a.minute - b.minute);
+    type: 'fulltime',
+    team: 'neutral',
+    description: `Fim de jogo. ${adminTeamName} 27 x 0 ${opponentTeamName}. Resultado de entretenimento.`,
+  };
+  const nonGoalEvents = result.events.filter(event => event.type !== 'goal' && event.type !== 'fulltime');
+  const events = [...nonGoalEvents, ...goals, fulltimeEvent].sort((a, b) => a.minute - b.minute);
 
   let eventCursor = 0;
   let latestNonGoalEvent: MatchEvent | undefined;
@@ -66,7 +60,7 @@ export function createAdminExhibitionResult(result: MatchResult): MatchResult {
     while (goalCursor < goals.length && goals[goalCursor].minute <= frame.minute) {
       const goal = goals[goalCursor];
       if (goal.team === 'home') homeScore++;
-      else awayScore++;
+      if (goal.team === 'away') awayScore++;
       if (goal.minute === frame.minute) goalAtFrame = goal;
       goalCursor++;
     }
@@ -75,47 +69,55 @@ export function createAdminExhibitionResult(result: MatchResult): MatchResult {
       ...frame,
       homeScore,
       awayScore,
-      lastEvent: goalAtFrame ?? (frame.lastEvent?.type === 'goal' ? latestNonGoalEvent : frame.lastEvent),
+      lastEvent: goalAtFrame
+        ?? (frame.minute === result.durationMinutes
+          ? fulltimeEvent
+          : frame.lastEvent?.type === 'goal'
+            ? latestNonGoalEvent
+            : frame.lastEvent),
     };
   });
 
   const playerStats = Object.fromEntries(
     Object.entries(result.playerStats).map(([playerId, stats]) => [playerId, { ...stats, goals: 0 }]),
   );
-  const homeScorerStats = playerStats[homeScorer.id];
-  const awayScorerStats = playerStats[awayScorer.id];
-  if (!homeScorerStats || !awayScorerStats) {
+  const adminScorerStats = playerStats[adminScorer.id];
+  if (!adminScorerStats) {
     throw new Error('As estatísticas dos jogadores da exibição estão incompletas.');
   }
-  homeScorerStats.goals = ADMIN_EXHIBITION_SCORE.home;
-  homeScorerStats.shots = Math.max(homeScorerStats.shots, ADMIN_EXHIBITION_SCORE.home);
-  homeScorerStats.shotsOnTarget = Math.max(homeScorerStats.shotsOnTarget, ADMIN_EXHIBITION_SCORE.home);
-  awayScorerStats.goals = ADMIN_EXHIBITION_SCORE.away;
-  awayScorerStats.shots = Math.max(awayScorerStats.shots, ADMIN_EXHIBITION_SCORE.away);
-  awayScorerStats.shotsOnTarget = Math.max(awayScorerStats.shotsOnTarget, ADMIN_EXHIBITION_SCORE.away);
+  adminScorerStats.goals = ADMIN_EXHIBITION_GOALS;
+  adminScorerStats.shots = Math.max(adminScorerStats.shots, ADMIN_EXHIBITION_GOALS);
+  adminScorerStats.shotsOnTarget = Math.max(adminScorerStats.shotsOnTarget, ADMIN_EXHIBITION_GOALS);
+
+  const adminTeamStats = {
+    ...(adminSide === 'home' ? result.teamStats.home : result.teamStats.away),
+    goals: ADMIN_EXHIBITION_GOALS,
+    shots: Math.max(
+      adminSide === 'home' ? result.teamStats.home.shots : result.teamStats.away.shots,
+      ADMIN_EXHIBITION_GOALS,
+    ),
+    shotsOnTarget: Math.max(
+      adminSide === 'home' ? result.teamStats.home.shotsOnTarget : result.teamStats.away.shotsOnTarget,
+      ADMIN_EXHIBITION_GOALS,
+    ),
+  };
+  const opponentTeamStats = {
+    ...(adminSide === 'home' ? result.teamStats.away : result.teamStats.home),
+    goals: 0,
+  };
 
   return {
     ...result,
-    homeScore: ADMIN_EXHIBITION_SCORE.home,
-    awayScore: ADMIN_EXHIBITION_SCORE.away,
+    homeScore: adminSide === 'home' ? ADMIN_EXHIBITION_GOALS : 0,
+    awayScore: adminSide === 'away' ? ADMIN_EXHIBITION_GOALS : 0,
     events,
     frames,
     playerStats,
     teamStats: {
-      home: {
-        ...result.teamStats.home,
-        goals: ADMIN_EXHIBITION_SCORE.home,
-        shots: Math.max(result.teamStats.home.shots, ADMIN_EXHIBITION_SCORE.home),
-        shotsOnTarget: Math.max(result.teamStats.home.shotsOnTarget, ADMIN_EXHIBITION_SCORE.home),
-      },
-      away: {
-        ...result.teamStats.away,
-        goals: ADMIN_EXHIBITION_SCORE.away,
-        shots: Math.max(result.teamStats.away.shots, ADMIN_EXHIBITION_SCORE.away),
-        shotsOnTarget: Math.max(result.teamStats.away.shotsOnTarget, ADMIN_EXHIBITION_SCORE.away),
-      },
+      home: adminSide === 'home' ? adminTeamStats : opponentTeamStats,
+      away: adminSide === 'away' ? adminTeamStats : opponentTeamStats,
     },
-    winnerSide: 'home',
+    winnerSide: adminSide,
     penalties: null,
   };
 }

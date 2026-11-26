@@ -152,6 +152,7 @@ function renderScreen(overrides: Partial<React.ComponentProps<typeof PvpResultSc
       mySide="home"
       homeSnapshot={snapshots.home}
       awaySnapshot={snapshots.away}
+      isExhibition={false}
       cardDetailsById={{}}
       rewardsSyncStatus="synced"
       onRematch={jest.fn()}
@@ -181,6 +182,15 @@ describe('PvP result evaluation', () => {
     expect(player?.snapshotCard?.uid).toBe(cardIds.home[1]);
     expect(player?.snapshotCard?.uid).not.toBe(laterSquad[0].uid);
     expect(player?.snapshotCard?.overall).toBe(81);
+  });
+
+  it('clearly marks exhibition results and does not present competitive rewards', () => {
+    renderScreen({ isExhibition: true });
+
+    expect(screen.getByText('Partida de entretenimento')).toBeTruthy();
+    expect(screen.getByText(/Nenhum jogador recebeu ou perdeu Elo, XP ou estatísticas/)).toBeTruthy();
+    expect(screen.getByText(/Sem alterações de Elo competitivo, XP ou estatísticas/)).toBeTruthy();
+    expect(screen.queryByText('Recompensas da sua equipe')).toBeNull();
   });
 
   it('calculates MVP and lowest-rated player deterministically from available stats', () => {

@@ -26,6 +26,7 @@ type ChallengeSquads = {
 };
 
 const MIN_STARTERS = 5;
+const ADMIN_USER_ID = '35a8dc5f-c5db-4b33-9380-a32739ff6c10';
 const OFF_SALE_PVP_MESSAGE = 'Cartas Off-Sale não podem ser usadas no X1. Troque-as no seu elenco e tente novamente.';
 
 const TACTICS: Tactic[] = ['balanced', 'possession', 'highpress', 'counter', 'compact'];
@@ -90,6 +91,7 @@ function MatchInner() {
   } | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [readyLoading, setReadyLoading] = useState(false);
+  const [adminEntertainmentLoading, setAdminEntertainmentLoading] = useState(false);
   const [rematchLoading, setRematchLoading] = useState(false);
   const [rewardsSyncStatus, setRewardsSyncStatus] = useState<'syncing' | 'synced' | 'unavailable'>('syncing');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -767,7 +769,7 @@ function MatchInner() {
   }, [challengeId, resultConfirmed, result, playbackState, finishMatchPlayback]);
 
   useEffect(() => {
-    if (!challengeId || step !== 'result' || !resultConfirmed || !currentUserId || rewardSyncStartedRef.current) return;
+    if (!challengeId || challenge?.admin_entertainment || step !== 'result' || !resultConfirmed || !currentUserId || rewardSyncStartedRef.current) return;
     rewardSyncStartedRef.current = true;
     setRewardsSyncStatus('syncing');
     void syncUserData(currentUserId).then(
@@ -777,7 +779,7 @@ function MatchInner() {
         console.error('challenge reward refresh failed', error);
       },
     );
-  }, [challengeId, currentUserId, resultConfirmed, step, syncUserData]);
+  }, [challengeId, challenge?.admin_entertainment, currentUserId, resultConfirmed, step, syncUserData]);
 
   useEffect(() => {
     if (step !== 'result' || !result || recordedRef.current) return;
@@ -919,6 +921,9 @@ function MatchInner() {
 
   if (challengeId && challenge && challenge.status === 'accepted' && !result && step === 'setup') {
     const isChallenger = currentUserId === challenge.challenger_id;
+    const isAdminParticipant = currentUserId === ADMIN_USER_ID
+      && (challenge.challenger_id === ADMIN_USER_ID || challenge.challenged_id === ADMIN_USER_ID);
+    const canToggleAdminEntertainment = isAdminParticipant && !challengerReady && !challengedReady;
     const myReady = isChallenger ? challengerReady : challengedReady;
     const oppReady = isChallenger ? challengedReady : challengerReady;
     const homeAverage = challengeSquads
@@ -976,6 +981,57 @@ function MatchInner() {
     return (
       <>
         {fade && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-2xl font-bold text-white">Preparando partida...</div>}
+        {challenge.admin_entertainment && (
+          <div role="status" className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-5xl rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+            <div className="font-bold">Modo goleada · entretenimento</div>
+            <p className="mt-1">Esta partida terá placar especial de 27–0. Não haverá alterações de Elo, XP ou estatísticas para nenhum jogador. O modo está visível para os dois participantes.</p>
+          </div>
+        )}
+        {isAdminParticipant && (
+          <section className="mx-auto mt-4 flex w-[calc(100%-2rem)] max-w-5xl flex-col gap-3 rounded-xl border border-[var(--border)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-[var(--text)]">Modo goleada · entretenimento</h2>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--muted)]">
+                Exibe um placar de 27–0. A partida não altera Elo, XP nem estatísticas de nenhum jogador. Seu adversário também verá este aviso.
+              </p>
+              {!canToggleAdminEntertainment && !challengerReady && !challengedReady && challenge.wager_type && (
+                <p className="mt-1 text-xs font-medium text-amber-700">O modo de entretenimento não está disponível em partidas com aposta.</p>
+              )}
+              {(challengerReady || challengedReady) && (
+                <p className="mt-1 text-xs text-[var(--muted)]">A configuração fica bloqueada depois que qualquer jogador confirmar presença.</p>
+              )}
+            </div>
+            <label className="inline-flex shrink-0 cursor-pointer items-center gap-3 self-start rounded-lg border border-[var(--border)] px-3 py-2 sm:self-center">
+              <span className="text-xs font-semibold text-[var(--text)]">{challenge.admin_entertainment ? 'Ativado' : 'Desativado'}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Modo goleada de entretenimento"
+                checked={!!challenge.admin_entertainment}
+                disabled={!canToggleAdminEntertainment || adminEntertainmentLoading}
+                onChange={async event => {
+                  if (!challengeId || adminEntertainmentLoading) return;
+                  setAdminEntertainmentLoading(true);
+                  try {
+                    const updated = await challengesService.setAdminEntertainment(challengeId, event.target.checked);
+                    if (!updated) {
+                      toast.error('Ative ou desative o modo antes que qualquer jogador confirme presença.');
+                      return;
+                    }
+                    const latestChallenge = await challengesService.getChallenge(challengeId);
+                    if (latestChallenge) applyChallengeRow(latestChallenge);
+                  } catch (error) {
+                    console.error('admin entertainment mode update failed', error);
+                    toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar o modo de entretenimento.');
+                  } finally {
+                    setAdminEntertainmentLoading(false);
+                  }
+                }}
+                className="h-5 w-9 cursor-pointer accent-[var(--red)] disabled:cursor-not-allowed"
+              />
+            </label>
+          </section>
+        )}
         <MatchPreparation
           title="Pré-jogo PvP"
           lineup={challengeLineup}
@@ -1399,6 +1455,7 @@ function MatchInner() {
         <PvpResultScreen
           result={result}
           mySide={myMatchSide}
+          isExhibition={!!challenge?.admin_entertainment}
           homeSnapshot={challenge?.home_snapshot ?? null}
           awaySnapshot={challenge?.away_snapshot ?? null}
           cardDetailsById={officialSnapshotCardDetails?.key === snapshotCardDetailsKey ? officialSnapshotCardDetails.byId : {}}

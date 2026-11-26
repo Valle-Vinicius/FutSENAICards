@@ -7,6 +7,7 @@ export interface Challenge {
   challenged_id: string;
   status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled' | 'abandoned';
   admin_entertainment?: boolean;
+  wager_type?: string | null;
   challenger_ready?: boolean;
   challenged_ready?: boolean;
   home_formation?: string;
