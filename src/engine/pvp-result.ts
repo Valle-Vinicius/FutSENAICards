@@ -16,11 +16,25 @@ export interface PvpAward {
   detail: string;
 }
 
-export const ADMIN_EXHIBITION_GOALS = 27;
+export const ADMIN_EXHIBITION_MIN_GOALS = 15;
+export const ADMIN_EXHIBITION_MAX_GOALS = 60;
 
 const CARD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function createAdminExhibitionResult(result: MatchResult, adminSide: 'home' | 'away' = 'home'): MatchResult {
+export function createAdminExhibitionResult(
+  result: MatchResult,
+  adminSide: 'home' | 'away' = 'home',
+  goalCount = ADMIN_EXHIBITION_MIN_GOALS
+    + Math.floor(Math.random() * (ADMIN_EXHIBITION_MAX_GOALS - ADMIN_EXHIBITION_MIN_GOALS + 1)),
+): MatchResult {
+  if (
+    !Number.isInteger(goalCount)
+    || goalCount < ADMIN_EXHIBITION_MIN_GOALS
+    || goalCount > ADMIN_EXHIBITION_MAX_GOALS
+  ) {
+    throw new RangeError(`A quantidade de gols de entretenimento deve estar entre ${ADMIN_EXHIBITION_MIN_GOALS} e ${ADMIN_EXHIBITION_MAX_GOALS}.`);
+  }
+
   const adminPlayers = adminSide === 'home' ? result.config.homePlayers : result.config.awayPlayers;
   const adminScorer = adminPlayers.find(player => !player.isGK);
   if (!adminScorer || result.frames.length === 0) {
@@ -29,8 +43,8 @@ export function createAdminExhibitionResult(result: MatchResult, adminSide: 'hom
 
   const adminTeamName = adminSide === 'home' ? result.config.homeName : result.config.awayName;
   const opponentTeamName = adminSide === 'home' ? result.config.awayName : result.config.homeName;
-  const goals: MatchEvent[] = Array.from({ length: ADMIN_EXHIBITION_GOALS }, (_, index) => ({
-    minute: 2 + index * 3,
+  const goals: MatchEvent[] = Array.from({ length: goalCount }, (_, index) => ({
+    minute: Math.max(1, Math.floor(((index + 1) * result.durationMinutes) / (goalCount + 1))),
     type: 'goal',
     team: adminSide,
     playerId: adminScorer.id,
@@ -40,7 +54,7 @@ export function createAdminExhibitionResult(result: MatchResult, adminSide: 'hom
     minute: result.durationMinutes,
     type: 'fulltime',
     team: 'neutral',
-    description: `Fim de jogo. ${adminTeamName} 27 x 0 ${opponentTeamName}. Resultado de entretenimento.`,
+    description: `Fim de jogo. ${adminTeamName} ${goalCount} x 0 ${opponentTeamName}. Resultado de entretenimento.`,
   };
   const nonGoalEvents = result.events.filter(event => event.type !== 'goal' && event.type !== 'fulltime');
   const events = [...nonGoalEvents, ...goals, fulltimeEvent].sort((a, b) => a.minute - b.minute);
@@ -85,20 +99,20 @@ export function createAdminExhibitionResult(result: MatchResult, adminSide: 'hom
   if (!adminScorerStats) {
     throw new Error('As estatísticas dos jogadores da exibição estão incompletas.');
   }
-  adminScorerStats.goals = ADMIN_EXHIBITION_GOALS;
-  adminScorerStats.shots = Math.max(adminScorerStats.shots, ADMIN_EXHIBITION_GOALS);
-  adminScorerStats.shotsOnTarget = Math.max(adminScorerStats.shotsOnTarget, ADMIN_EXHIBITION_GOALS);
+  adminScorerStats.goals = goalCount;
+  adminScorerStats.shots = Math.max(adminScorerStats.shots, goalCount);
+  adminScorerStats.shotsOnTarget = Math.max(adminScorerStats.shotsOnTarget, goalCount);
 
   const adminTeamStats = {
     ...(adminSide === 'home' ? result.teamStats.home : result.teamStats.away),
-    goals: ADMIN_EXHIBITION_GOALS,
+    goals: goalCount,
     shots: Math.max(
       adminSide === 'home' ? result.teamStats.home.shots : result.teamStats.away.shots,
-      ADMIN_EXHIBITION_GOALS,
+      goalCount,
     ),
     shotsOnTarget: Math.max(
       adminSide === 'home' ? result.teamStats.home.shotsOnTarget : result.teamStats.away.shotsOnTarget,
-      ADMIN_EXHIBITION_GOALS,
+      goalCount,
     ),
   };
   const opponentTeamStats = {
@@ -108,8 +122,8 @@ export function createAdminExhibitionResult(result: MatchResult, adminSide: 'hom
 
   return {
     ...result,
-    homeScore: adminSide === 'home' ? ADMIN_EXHIBITION_GOALS : 0,
-    awayScore: adminSide === 'away' ? ADMIN_EXHIBITION_GOALS : 0,
+    homeScore: adminSide === 'home' ? goalCount : 0,
+    awayScore: adminSide === 'away' ? goalCount : 0,
     events,
     frames,
     playerStats,

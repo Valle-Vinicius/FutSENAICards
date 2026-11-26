@@ -462,20 +462,23 @@ function MatchInner() {
     }
   };
 
-  const startPlay = () => {
+  const startPlay = async () => {
     if (audioEnabled) unlockSound();
     if (challengeId && resultConfirmed) {
-      void challengesService.updateChallengePlayback(challengeId, 'play')
-        .then(state => {
-          receivePlaybackState(state);
-          setFrameIndex(state.currentFrame);
-          if (state.status === 'playing') setStep('play');
-          if (state.status === 'finished') setStep('result');
-        })
-        .catch(error => {
-          console.error('challenge playback start failed', error);
-          toast.error('Não foi possível iniciar o relógio compartilhado.');
-        });
+      try {
+        if (challenge?.admin_entertainment && playbackState?.status === 'waiting' && playbackState.speed !== 4) {
+          const acceleratedState = await challengesService.updateChallengePlayback(challengeId, 'speed', 4);
+          receivePlaybackState(acceleratedState);
+        }
+        const state = await challengesService.updateChallengePlayback(challengeId, 'play');
+        receivePlaybackState(state);
+        setFrameIndex(state.currentFrame);
+        if (state.status === 'playing') setStep('play');
+        if (state.status === 'finished') setStep('result');
+      } catch (error) {
+        console.error('challenge playback start failed', error);
+        toast.error('Não foi possível iniciar o relógio compartilhado.');
+      }
       return;
     }
     if (!challengeId && result) recordMatchResult(result);
@@ -984,7 +987,7 @@ function MatchInner() {
         {challenge.admin_entertainment && (
           <div role="status" className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-5xl rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
             <div className="font-bold">Modo goleada · entretenimento</div>
-            <p className="mt-1">Esta partida terá placar especial de 27–0. Não haverá alterações de Elo, XP ou estatísticas para nenhum jogador. O modo está visível para os dois participantes.</p>
+            <p className="mt-1">A partida terá entre 15 e 60 gols sorteados para o admin, contra 0 do adversário, e será exibida em 4x. Não haverá alterações de Elo, XP ou estatísticas para nenhum jogador. O modo está visível para os dois participantes.</p>
           </div>
         )}
         {isAdminParticipant && (
@@ -992,7 +995,7 @@ function MatchInner() {
             <div>
               <h2 className="text-sm font-bold text-[var(--text)]">Modo goleada · entretenimento</h2>
               <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--muted)]">
-                Exibe um placar de 27–0. A partida não altera Elo, XP nem estatísticas de nenhum jogador. Seu adversário também verá este aviso.
+                Sorteia entre 15 e 60 gols para o admin e acelera a simulação para 4x. A partida não altera Elo, XP nem estatísticas de nenhum jogador. Seu adversário também verá este aviso.
               </p>
               {!canToggleAdminEntertainment && !challengerReady && !challengedReady && challenge.wager_type && (
                 <p className="mt-1 text-xs font-medium text-amber-700">O modo de entretenimento não está disponível em partidas com aposta.</p>

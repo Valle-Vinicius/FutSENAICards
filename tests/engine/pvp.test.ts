@@ -1,6 +1,10 @@
 import { simulateMatch, createPlayersFromCards, MATCH_DURATION_MINUTES } from '../../src/engine/match';
 import type { MatchConfig } from '../../src/engine/match';
-import { createAdminExhibitionResult } from '../../src/engine/pvp-result';
+import {
+  ADMIN_EXHIBITION_MAX_GOALS,
+  ADMIN_EXHIBITION_MIN_GOALS,
+  createAdminExhibitionResult,
+} from '../../src/engine/pvp-result';
 
 const card = (id: string, position: string, base: number) => ({
   uid: id, name: `P${id}`, position, overall: base,
@@ -103,36 +107,49 @@ describe('PvP challenge simulation', () => {
     expect(JSON.stringify(b.playerStats)).toBe(JSON.stringify(a.playerStats));
   });
 
-  it('creates a consistent 27–0 admin exhibition result regardless of squad ratings', () => {
+  it('rolls a bounded admin exhibition score and simulates every goal', () => {
     const simulated = runClient(1234);
     const result = createAdminExhibitionResult(simulated);
     const goalEvents = result.events.filter(event => event.type === 'goal');
+    const goalCount = result.homeScore;
 
-    expect(result).toMatchObject({ homeScore: 27, awayScore: 0, winnerSide: 'home', penalties: null });
-    expect(goalEvents).toHaveLength(27);
-    expect(goalEvents.filter(event => event.team === 'home')).toHaveLength(27);
+    expect(goalCount).toBeGreaterThanOrEqual(ADMIN_EXHIBITION_MIN_GOALS);
+    expect(goalCount).toBeLessThanOrEqual(ADMIN_EXHIBITION_MAX_GOALS);
+    expect(result).toMatchObject({ awayScore: 0, winnerSide: 'home', penalties: null });
+    expect(goalEvents).toHaveLength(goalCount);
+    expect(goalEvents.filter(event => event.team === 'home')).toHaveLength(goalCount);
     expect(goalEvents.filter(event => event.team === 'away')).toHaveLength(0);
     expect(result.frames[result.frames.length - 1]).toMatchObject({
-      homeScore: 27,
+      homeScore: goalCount,
       awayScore: 0,
-      lastEvent: { description: 'Fim de jogo. Ana 27 x 0 Bia. Resultado de entretenimento.' },
+      lastEvent: { description: `Fim de jogo. Ana ${goalCount} x 0 Bia. Resultado de entretenimento.` },
     });
-    expect(result.teamStats.home.goals).toBe(27);
+    expect(result.teamStats.home.goals).toBe(goalCount);
     expect(result.teamStats.away.goals).toBe(0);
-    expect(simulated.homeScore).not.toBe(27);
+    expect(simulated.homeScore).not.toBe(goalCount);
   });
 
   it('places the exhibition win on the away side when the admin is the challenged player', () => {
     const simulated = runClient(6543);
-    const result = createAdminExhibitionResult(simulated, 'away');
+    const result = createAdminExhibitionResult(simulated, 'away', ADMIN_EXHIBITION_MAX_GOALS);
     const goalEvents = result.events.filter(event => event.type === 'goal');
 
-    expect(result).toMatchObject({ homeScore: 0, awayScore: 27, winnerSide: 'away', penalties: null });
-    expect(goalEvents).toHaveLength(27);
+    expect(result).toMatchObject({ homeScore: 0, awayScore: ADMIN_EXHIBITION_MAX_GOALS, winnerSide: 'away', penalties: null });
+    expect(goalEvents).toHaveLength(ADMIN_EXHIBITION_MAX_GOALS);
     expect(goalEvents.every(event => event.team === 'away')).toBe(true);
-    expect(result.frames[result.frames.length - 1]).toMatchObject({ homeScore: 0, awayScore: 27 });
+    expect(result.frames[result.frames.length - 1]).toMatchObject({ homeScore: 0, awayScore: ADMIN_EXHIBITION_MAX_GOALS });
     expect(result.teamStats.home.goals).toBe(0);
-    expect(result.teamStats.away.goals).toBe(27);
+    expect(result.teamStats.away.goals).toBe(ADMIN_EXHIBITION_MAX_GOALS);
+  });
+
+  it('accepts the minimum exhibition score and rejects out-of-range values', () => {
+    const simulated = runClient(9876);
+    const result = createAdminExhibitionResult(simulated, 'home', ADMIN_EXHIBITION_MIN_GOALS);
+
+    expect(result.homeScore).toBe(ADMIN_EXHIBITION_MIN_GOALS);
+    expect(result.events.filter(event => event.type === 'goal')).toHaveLength(ADMIN_EXHIBITION_MIN_GOALS);
+    expect(() => createAdminExhibitionResult(simulated, 'home', ADMIN_EXHIBITION_MIN_GOALS - 1)).toThrow(RangeError);
+    expect(() => createAdminExhibitionResult(simulated, 'home', ADMIN_EXHIBITION_MAX_GOALS + 1)).toThrow(RangeError);
   });
 
   it('result survives the jsonb save/load round trip with everything the UI needs', () => {
