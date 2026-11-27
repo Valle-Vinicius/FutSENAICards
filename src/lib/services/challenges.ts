@@ -116,9 +116,15 @@ export async function getChallengeData(challengeId: string): Promise<ChallengeDa
 
   let { data, error } = await invoke(sessionData.session.access_token);
   if (error && getFunctionHttpContext(error)?.status === 401) {
+    const originalAuthError = await getFunctionErrorMessage(error);
     const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
     if (refreshError || !refreshedData.session) {
-      throw new Error('Sua sessão expirou. Entre novamente.');
+      const refreshReason = refreshError?.message;
+      throw new Error(
+        refreshReason
+          ? `${originalAuthError} (a renovação da sessão também falhou: ${refreshReason})`
+          : originalAuthError,
+      );
     }
     ({ data, error } = await invoke(refreshedData.session.access_token));
   }

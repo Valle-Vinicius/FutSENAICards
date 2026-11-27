@@ -23,13 +23,36 @@ Deno.serve(async req => {
   const authorization = req.headers.get('Authorization');
   if (!authorization) return json({ error: 'unauthorized' }, 401);
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-  const token = authorization.replace(/^Bearer\s+/i, '');
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) return json({ error: 'invalid session' }, 401);
+  const token = authorization.match(/^Bearer\s+([^\s]+)$/i)?.[1];
+  if (!token) return json({ error: 'missing bearer token' }, 401);
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const publishableKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !publishableKey || !serviceRoleKey) {
+    console.error('simulate-challenge is missing Supabase server configuration');
+    return json({ error: 'challenge service configuration error' }, 500);
+  }
+
+  const authClient = createClient(supabaseUrl, publishableKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+  if (authError || !user) {
+    console.error('simulate-challenge session verification failed', {
+      status: authError?.status,
+      code: authError?.code,
+      message: authError?.message,
+    });
+    return json({
+      error: authError?.message || 'invalid session',
+      authCode: authError?.code ?? null,
+      authStatus: authError?.status ?? null,
+    }, 401);
+  }
 
   let challengeId: string | null = null;
   let claimToken: string | null = null;
@@ -46,7 +69,7 @@ Deno.serve(async req => {
     ) return json({ error: 'invalid challengeId' }, 400);
     challengeId = body.challengeId;
 
-    const { data: challenge, error: challengeError } = await supabase
+    const { data: challenge, error: challengeError } = await adminClient
       .from('challenges')
       .select('id,challenger_id,challenged_id,status,seed,result,engine_version,admin_entertainment,wager_type')
       .eq('id', challengeId)
@@ -72,12 +95,12 @@ Deno.serve(async req => {
       return json({ error: 'Este desafio usa uma versão antiga do motor. Crie um novo desafio para continuar.' }, 409);
     }
 
-    const { data: claimed, error: claimError } = await supabase.rpc('claim_challenge_simulation_v2', {
+    const { data: claimed, error: claimError } = await adminClient.rpc('claim_challenge_simulation_v2', {
       p_challenge_id: challengeId,
     });
     if (claimError) throw claimError;
     if (typeof claimed !== 'string') {
-      const { data: latest, error: latestError } = await supabase
+      const { data: latest, error: latestError } = await adminClient
         .from('challenges')
         .select('status,result,challenger_ready,challenged_ready,engine_version')
         .eq('id', challengeId)
@@ -94,7 +117,7 @@ Deno.serve(async req => {
     }
     claimToken = claimed;
 
-    const { data: frozenChallenge, error: frozenError } = await supabase
+    const { data: frozenChallenge, error: frozenError } = await adminClient
       .from('challenges')
       .select('home_snapshot,away_snapshot,challenger_tactic,challenged_tactic,seed')
       .eq('id', challengeId)
@@ -134,7 +157,7 @@ Deno.serve(async req => {
       ? createAdminExhibitionResult(simulatedResult, adminSide)
       : simulatedResult;
 
-    const { data: officialResult, error: completeError } = await supabase.rpc('complete_challenge', {
+    const { data: officialResult, error: completeError } = await adminClient.rpc('complete_challenge', {
       p_challenge_id: challengeId,
       p_claim_token: claimToken,
       p_result: result,
@@ -144,7 +167,7 @@ Deno.serve(async req => {
   } catch (error) {
     console.error('simulate-challenge failed', error);
     if (challengeId && claimToken) {
-      const { error: releaseError } = await supabase.rpc('release_challenge_simulation', {
+      const { error: releaseError } = await adminClient.rpc('release_challenge_simulation', {
         p_challenge_id: challengeId,
         p_claim_token: claimToken,
       });

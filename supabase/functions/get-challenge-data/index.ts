@@ -25,13 +25,36 @@ Deno.serve(async req => {
   const authorization = req.headers.get('Authorization');
   if (!authorization) return json({ error: 'no auth' }, 401);
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-  const token = authorization.replace(/^Bearer\s+/i, '');
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) return json({ error: 'invalid token' }, 401);
+  const token = authorization.match(/^Bearer\s+([^\s]+)$/i)?.[1];
+  if (!token) return json({ error: 'missing bearer token' }, 401);
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const publishableKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !publishableKey || !serviceRoleKey) {
+    console.error('get-challenge-data is missing Supabase server configuration');
+    return json({ error: 'challenge service configuration error' }, 500);
+  }
+
+  const authClient = createClient(supabaseUrl, publishableKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+  if (authError || !user) {
+    console.error('get-challenge-data session verification failed', {
+      status: authError?.status,
+      code: authError?.code,
+      message: authError?.message,
+    });
+    return json({
+      error: authError?.message || 'invalid token',
+      authCode: authError?.code ?? null,
+      authStatus: authError?.status ?? null,
+    }, 401);
+  }
 
   try {
     let body: unknown;
@@ -46,7 +69,7 @@ Deno.serve(async req => {
       throw new RequestError('invalid challengeId', 400);
     }
 
-    const { data: challenge, error: challengeError } = await supabase
+    const { data: challenge, error: challengeError } = await adminClient
       .from('challenges')
       .select('id,challenger_id,challenged_id,status,seed,challenger_ready,challenged_ready,home_formation,away_formation,home_snapshot,away_snapshot,challenger_tactic,challenged_tactic,created_at,updated_at')
       .eq('id', challengeId)
@@ -64,7 +87,7 @@ Deno.serve(async req => {
     }
 
     const loadTeam = async (userId: string) => {
-      const { data: squads, error: squadsError } = await supabase
+      const { data: squads, error: squadsError } = await adminClient
         .from('squads')
         .select('formation,starters,is_primary,updated_at')
         .eq('user_id', userId)
@@ -80,7 +103,7 @@ Deno.serve(async req => {
         throw new RequestError('Cada jogador precisa ter exatamente cinco titulares válidos.', 422);
       }
 
-      const { data: cards, error: cardsError } = await supabase
+      const { data: cards, error: cardsError } = await adminClient
         .from('cards')
         .select('id,name,position,overall,pace,shooting,passing,dribbling,defending,physical,reflexes,positioning,handling,pack_group')
         .eq('user_id', userId)
@@ -141,7 +164,7 @@ Deno.serve(async req => {
       const [homeRoster, awayRoster, profiles] = await Promise.all([
         hasHomeSnapshot ? Promise.resolve(null) : loadTeam(challenge.challenger_id),
         hasAwaySnapshot ? Promise.resolve(null) : loadTeam(challenge.challenged_id),
-        supabase.from('profiles').select('id,name').in('id', [challenge.challenger_id, challenge.challenged_id]),
+        adminClient.from('profiles').select('id,name').in('id', [challenge.challenger_id, challenge.challenged_id]),
       ]);
       if (profiles.error) throw profiles.error;
       const names = new Map((profiles.data ?? []).map((profile: any) => [profile.id, profile.name]));
@@ -161,7 +184,7 @@ Deno.serve(async req => {
       .filter((id: unknown): id is string => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)))];
     const cardDetailsById: Record<string, unknown> = {};
     if (cardIds.length > 0) {
-      const { data: cardDetails, error: cardDetailsError } = await supabase
+      const { data: cardDetails, error: cardDetailsError } = await adminClient
         .from('cards')
         .select('id,nationality,age,club,rarity,edition,special,image,xp,pack_group')
         .in('id', cardIds);
