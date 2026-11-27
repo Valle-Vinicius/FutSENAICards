@@ -44,6 +44,25 @@ export interface ChallengeTeamSnapshot {
   }[];
 }
 
+export interface ChallengeCardDetails {
+  id: string;
+  nationality?: string | null;
+  age?: number | null;
+  club?: string | null;
+  rarity?: string | null;
+  edition?: string | null;
+  special?: string | null;
+  image?: string | null;
+  xp?: number | null;
+}
+
+export interface ChallengeDataResponse {
+  challenge: Challenge;
+  home: ChallengeTeamSnapshot;
+  away: ChallengeTeamSnapshot;
+  cardDetailsById: Record<string, ChallengeCardDetails>;
+}
+
 export interface MatchPlaybackState {
   status: 'waiting' | 'playing' | 'paused' | 'finished';
   currentFrame: number;
@@ -52,6 +71,64 @@ export interface MatchPlaybackState {
   pausedAt: string | null;
   serverNow?: string | null;
   receivedAt?: number;
+}
+
+interface FunctionHttpContext {
+  status: number;
+  clone: () => { json: () => Promise<unknown> };
+}
+
+function getFunctionHttpContext(error: unknown): FunctionHttpContext | null {
+  if (typeof error !== 'object' || error === null || !('context' in error)) return null;
+  const context = error.context;
+  if (typeof context !== 'object' || context === null) return null;
+
+  const candidate = context as { status?: unknown; clone?: unknown };
+  if (typeof candidate.status !== 'number' || typeof candidate.clone !== 'function') return null;
+  return context as FunctionHttpContext;
+}
+
+async function getFunctionErrorMessage(error: unknown): Promise<string> {
+  const context = getFunctionHttpContext(error);
+  if (context) {
+    const body = await context.clone().json();
+    if (
+      typeof body === 'object'
+      && body !== null
+      && 'error' in body
+      && typeof body.error === 'string'
+    ) return body.error;
+  }
+  return error instanceof Error ? error.message : 'Não foi possível carregar os dados do desafio.';
+}
+
+export async function getChallengeData(challengeId: string): Promise<ChallengeDataResponse> {
+  if (!supabase) throw new Error('Serviço de partidas indisponível.');
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw new Error(sessionError.message);
+  if (!sessionData.session) throw new Error('Sua sessão expirou. Entre novamente.');
+
+  const invoke = (accessToken: string) => supabase!.functions.invoke<ChallengeDataResponse>('get-challenge-data', {
+    body: { challengeId },
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  let { data, error } = await invoke(sessionData.session.access_token);
+  if (error && getFunctionHttpContext(error)?.status === 401) {
+    const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshedData.session) {
+      throw new Error('Sua sessão expirou. Entre novamente.');
+    }
+    ({ data, error } = await invoke(refreshedData.session.access_token));
+  }
+
+  if (error) throw new Error(await getFunctionErrorMessage(error));
+  if (!data) throw new Error('A Edge Function não retornou os dados do desafio.');
+
+  const response = data as ChallengeDataResponse & { error?: unknown };
+  if (typeof response.error === 'string') throw new Error(response.error);
+  return response;
 }
 
 export async function createChallenge(challengerId: string, challengedId: string): Promise<Challenge | null> {

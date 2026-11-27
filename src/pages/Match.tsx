@@ -205,14 +205,7 @@ function MatchInner() {
     loadingSquadsRef.current = true;
     setChallengeError(null);
     try {
-      const { data, error } = await supabase.functions.invoke('get-challenge-data', { body: { challengeId } });
-      if (error || !data || data.error) {
-        let msg = data?.error as string | undefined;
-        if (!msg && error) {
-          try { msg = (await (error as any).context?.json?.())?.error; } catch { /* ignore */ }
-        }
-        throw new Error(msg || 'Não foi possível carregar os elencos do desafio.');
-      }
+      const data = await challengesService.getChallengeData(challengeId);
       const home = data.home;
       const away = data.away;
       if (!Array.isArray(home?.cards) || home.cards.length < MIN_STARTERS) {
@@ -234,9 +227,9 @@ function MatchInner() {
         awayName: away.name || 'Desafiado',
       });
       return true;
-    } catch (e: any) {
-      console.error('get-challenge-data failed', e);
-      setChallengeError(e?.message || 'Erro ao carregar os elencos do desafio.');
+    } catch (error) {
+      console.error('get-challenge-data failed', error);
+      setChallengeError(error instanceof Error ? error.message : 'Erro ao carregar os elencos do desafio.');
       return false;
     } finally {
       loadingSquadsRef.current = false;
@@ -642,18 +635,17 @@ function MatchInner() {
     : '';
 
   useEffect(() => {
-    if (!snapshotCardDetailsKey || !supabase || snapshotCardDetailsKeyRef.current === snapshotCardDetailsKey) return;
+    if (!challengeId || !snapshotCardDetailsKey || !supabase || snapshotCardDetailsKeyRef.current === snapshotCardDetailsKey) return;
     snapshotCardDetailsKeyRef.current = snapshotCardDetailsKey;
     let cancelled = false;
-    void supabase.functions.invoke('get-challenge-data', { body: { challengeId } })
-      .then(({ data, error }) => {
-        if (error || !data || data.error) {
-          throw error ?? new Error(data?.error || 'Não foi possível carregar os detalhes das cartas da partida.');
+    void challengesService.getChallengeData(challengeId)
+      .then(data => {
+        if (!cancelled) {
+          setOfficialSnapshotCardDetails({
+            key: snapshotCardDetailsKey,
+            byId: data.cardDetailsById ?? {},
+          });
         }
-        if (!cancelled)         setOfficialSnapshotCardDetails({
-          key: snapshotCardDetailsKey,
-          byId: data.cardDetailsById ?? {},
-        });
       })
       .catch(error => {
         if (!cancelled) console.error('challenge snapshot card details failed', error);
