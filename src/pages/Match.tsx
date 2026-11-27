@@ -976,21 +976,15 @@ function MatchInner() {
     return (
       <>
         {fade && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-2xl font-bold text-white">Preparando partida...</div>}
-        {challenge.admin_entertainment && isAdminParticipant && (
-          <div role="status" className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-5xl rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-            <div className="font-bold">Modo goleada · entretenimento</div>
-            <p className="mt-1">A partida terá entre 15 e 60 gols sorteados para você, contra 0 do adversário, e será exibida em 4x. Não haverá alterações de Elo, XP ou estatísticas para nenhum jogador. Esta informação só aparece para você.</p>
-          </div>
-        )}
         {isAdminParticipant && (
           <section className="mx-auto mt-4 flex w-[calc(100%-2rem)] max-w-5xl flex-col gap-3 rounded-xl border border-[var(--border)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-bold text-[var(--text)]">Modo goleada · entretenimento</h2>
+              <h2 className="text-sm font-bold text-[var(--text)]">Modo goleada</h2>
               <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--muted)]">
-                Sorteia entre 15 e 60 gols para você e acelera a simulação para 4x. A partida não altera Elo, XP nem estatísticas de nenhum jogador. Esta configuração é visível apenas para você.
+                Sorteia entre 15 e 60 gols para você e acelera a simulação para 4x.
               </p>
               {!canToggleAdminEntertainment && !challengerReady && !challengedReady && challenge.wager_type && (
-                <p className="mt-1 text-xs font-medium text-amber-700">O modo de entretenimento não está disponível em partidas com aposta.</p>
+                <p className="mt-1 text-xs font-medium text-amber-700">O modo goleada não está disponível em partidas com aposta.</p>
               )}
               {(challengerReady || challengedReady) && (
                 <p className="mt-1 text-xs text-[var(--muted)]">A configuração fica bloqueada depois que qualquer jogador confirmar presença.</p>
@@ -1001,7 +995,7 @@ function MatchInner() {
               <input
                 type="checkbox"
                 role="switch"
-                aria-label="Modo goleada de entretenimento"
+                aria-label="Modo goleada"
                 checked={!!challenge.admin_entertainment}
                 disabled={!canToggleAdminEntertainment || adminEntertainmentLoading}
                 onChange={async event => {
@@ -1017,7 +1011,7 @@ function MatchInner() {
                     if (latestChallenge) applyChallengeRow(latestChallenge);
                   } catch (error) {
                     console.error('admin entertainment mode update failed', error);
-                    toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar o modo de entretenimento.');
+                    toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar o modo goleada.');
                   } finally {
                     setAdminEntertainmentLoading(false);
                   }

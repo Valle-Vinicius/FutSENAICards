@@ -358,9 +358,9 @@ export default function PvpResultScreen({
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--red)] text-white shadow-sm">FS</span>
             <span className="text-[var(--text)]">FutSENAI</span> <span className="hidden text-[var(--border)] sm:inline">/</span><span className="hidden sm:inline">Pós-partida PvP</span>
           </div>
-          {(!isExhibition || showExhibitionDisclosure) && (
-            <div className={`rounded-full border px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] sm:text-[10px] ${isExhibition ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-700'}`}>
-              {isExhibition ? 'Exibição · sem Elo ou progressão' : 'Resultado oficial do servidor'}
+          {!isExhibition && (
+            <div className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-green-700 sm:text-[10px]">
+              Resultado oficial do servidor
             </div>
           )}
         </motion.header>
@@ -414,13 +414,6 @@ export default function PvpResultScreen({
             </div>
           </div>
         </motion.section>
-
-        {isExhibition && showExhibitionDisclosure && (
-          <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-            <div className="font-bold">Partida de entretenimento</div>
-            <p className="mt-1">O placar foi definido para a exibição. Nenhum jogador recebeu ou perdeu Elo, XP ou estatísticas nesta partida.</p>
-          </div>
-        )}
 
         {(!isExhibition || showExhibitionDisclosure) && (
         <>
@@ -519,7 +512,7 @@ export default function PvpResultScreen({
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <section className={`grid gap-4 ${isExhibition ? '' : 'lg:grid-cols-[1.05fr_0.95fr]'}`}>
           <article className="card-surface p-4 sm:p-5">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -546,20 +539,14 @@ export default function PvpResultScreen({
             </div>
           </article>
 
-          <article className="card-surface p-4 sm:p-5">
+          {!isExhibition && <article className="card-surface p-4 sm:p-5">
             <div className="mb-5 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-[var(--red)]" aria-hidden="true" />
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Pós-jogo</div>
-                <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">{isExhibition ? 'Progressão da partida' : 'Recompensas da sua equipe'}</h2>
+                <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Recompensas da sua equipe</h2>
               </div>
             </div>
-            {isExhibition ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-                Sem alterações de Elo competitivo, XP ou estatísticas. Este resultado não conta para a progressão dos jogadores.
-              </div>
-            ) : (
-              <>
             <div className="rounded-xl border border-green-200 bg-green-50 p-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -626,9 +613,7 @@ export default function PvpResultScreen({
             <p className="mt-3 text-[9px] leading-relaxed text-[var(--muted)]">
               O backend não retorna um recibo com o XP ganho nesta partida. Os valores acima são o XP total atual das mesmas instâncias, após sincronização; não representam o acréscimo desta partida.
             </p>
-              </>
-            )}
-          </article>
+          </article>}
         </section>
         </>
         )}

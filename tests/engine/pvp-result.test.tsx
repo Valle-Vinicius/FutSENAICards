@@ -185,24 +185,25 @@ describe('PvP result evaluation', () => {
     expect(player?.snapshotCard?.overall).toBe(81);
   });
 
-  it('clearly marks exhibition results and does not present competitive rewards', () => {
+  it('does not disclose exhibition mode or show competitive rewards', () => {
     renderScreen({ isExhibition: true, showExhibitionDisclosure: true });
 
-    expect(screen.getByText('Partida de entretenimento')).toBeTruthy();
-    expect(screen.getByText(/Nenhum jogador recebeu ou perdeu Elo, XP ou estatísticas/)).toBeTruthy();
-    expect(screen.getByText(/Sem alterações de Elo competitivo, XP ou estatísticas/)).toBeTruthy();
+    expect(screen.queryByText(/entretenimento|exibição|sem Elo ou progressão/i)).toBeNull();
+    expect(screen.queryByText(/Nenhum jogador recebeu ou perdeu Elo/)).toBeNull();
+    expect(screen.queryByText(/Sem alterações de Elo competitivo/)).toBeNull();
     expect(screen.queryByText('Recompensas da sua equipe')).toBeNull();
+    expect(screen.getByText('Performance da partida')).toBeTruthy();
   });
 
-  it('hides exhibition disclosures and competitive rewards from the opponent', () => {
+  it('does not disclose exhibition mode or competitive rewards to the opponent', () => {
     renderScreen({ isExhibition: true, showExhibitionDisclosure: false });
 
-    expect(screen.queryByText('Partida de entretenimento')).toBeNull();
-    expect(screen.queryByText(/sem Elo ou progressão/i)).toBeNull();
+    expect(screen.queryByText(/entretenimento|exibição|sem Elo ou progressão/i)).toBeNull();
     expect(screen.queryByText(/Nenhum jogador recebeu ou perdeu Elo/)).toBeNull();
     expect(screen.queryByText(/Sem alterações de Elo competitivo/)).toBeNull();
     expect(screen.queryByText('Recompensas da sua equipe')).toBeNull();
     expect(screen.queryByText('Progressão da partida')).toBeNull();
+    expect(screen.queryByText('Performance da partida')).toBeNull();
   });
 
   it('calculates MVP and lowest-rated player deterministically from available stats', () => {
