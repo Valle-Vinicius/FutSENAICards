@@ -122,8 +122,9 @@ describe('PvP challenge simulation', () => {
     expect(result.frames[result.frames.length - 1]).toMatchObject({
       homeScore: goalCount,
       awayScore: 0,
-      lastEvent: { description: `Fim de jogo. Ana ${goalCount} x 0 Bia. Resultado de entretenimento.` },
+      lastEvent: { description: `Fim de jogo. Ana ${goalCount} x 0 Bia.` },
     });
+    expect(goalEvents.every(event => !event.description.includes('entretenimento'))).toBe(true);
     expect(result.teamStats.home.goals).toBe(goalCount);
     expect(result.teamStats.away.goals).toBe(0);
     expect(simulated.homeScore).not.toBe(goalCount);

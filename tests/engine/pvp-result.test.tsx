@@ -153,6 +153,7 @@ function renderScreen(overrides: Partial<React.ComponentProps<typeof PvpResultSc
       homeSnapshot={snapshots.home}
       awaySnapshot={snapshots.away}
       isExhibition={false}
+      showExhibitionDisclosure={false}
       cardDetailsById={{}}
       rewardsSyncStatus="synced"
       onRematch={jest.fn()}
@@ -185,12 +186,23 @@ describe('PvP result evaluation', () => {
   });
 
   it('clearly marks exhibition results and does not present competitive rewards', () => {
-    renderScreen({ isExhibition: true });
+    renderScreen({ isExhibition: true, showExhibitionDisclosure: true });
 
     expect(screen.getByText('Partida de entretenimento')).toBeTruthy();
     expect(screen.getByText(/Nenhum jogador recebeu ou perdeu Elo, XP ou estatísticas/)).toBeTruthy();
     expect(screen.getByText(/Sem alterações de Elo competitivo, XP ou estatísticas/)).toBeTruthy();
     expect(screen.queryByText('Recompensas da sua equipe')).toBeNull();
+  });
+
+  it('hides exhibition disclosures and competitive rewards from the opponent', () => {
+    renderScreen({ isExhibition: true, showExhibitionDisclosure: false });
+
+    expect(screen.queryByText('Partida de entretenimento')).toBeNull();
+    expect(screen.queryByText(/sem Elo ou progressão/i)).toBeNull();
+    expect(screen.queryByText(/Nenhum jogador recebeu ou perdeu Elo/)).toBeNull();
+    expect(screen.queryByText(/Sem alterações de Elo competitivo/)).toBeNull();
+    expect(screen.queryByText('Recompensas da sua equipe')).toBeNull();
+    expect(screen.queryByText('Progressão da partida')).toBeNull();
   });
 
   it('calculates MVP and lowest-rated player deterministically from available stats', () => {

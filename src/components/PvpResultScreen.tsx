@@ -42,6 +42,7 @@ interface PvpResultScreenProps {
   homeSnapshot: ChallengeTeamSnapshot | null;
   awaySnapshot: ChallengeTeamSnapshot | null;
   isExhibition: boolean;
+  showExhibitionDisclosure: boolean;
   cardDetailsById: Record<string, SnapshotCardDetails>;
   rewardsSyncStatus: 'syncing' | 'synced' | 'unavailable';
   onRematch: () => void;
@@ -298,6 +299,7 @@ export default function PvpResultScreen({
   homeSnapshot,
   awaySnapshot,
   isExhibition,
+  showExhibitionDisclosure,
   cardDetailsById,
   rewardsSyncStatus,
   onRematch,
@@ -356,9 +358,11 @@ export default function PvpResultScreen({
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--red)] text-white shadow-sm">FS</span>
             <span className="text-[var(--text)]">FutSENAI</span> <span className="hidden text-[var(--border)] sm:inline">/</span><span className="hidden sm:inline">Pós-partida PvP</span>
           </div>
-          <div className={`rounded-full border px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] sm:text-[10px] ${isExhibition ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-700'}`}>
-            {isExhibition ? 'Exibição · sem Elo ou progressão' : 'Resultado oficial do servidor'}
-          </div>
+          {(!isExhibition || showExhibitionDisclosure) && (
+            <div className={`rounded-full border px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] sm:text-[10px] ${isExhibition ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-700'}`}>
+              {isExhibition ? 'Exibição · sem Elo ou progressão' : 'Resultado oficial do servidor'}
+            </div>
+          )}
         </motion.header>
 
         <motion.section
@@ -411,13 +415,15 @@ export default function PvpResultScreen({
           </div>
         </motion.section>
 
-        {isExhibition && (
+        {isExhibition && showExhibitionDisclosure && (
           <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
             <div className="font-bold">Partida de entretenimento</div>
             <p className="mt-1">O placar foi definido para a exibição. Nenhum jogador recebeu ou perdeu Elo, XP ou estatísticas nesta partida.</p>
           </div>
         )}
 
+        {(!isExhibition || showExhibitionDisclosure) && (
+        <>
         <section className="space-y-4">
           <div className="flex items-end justify-between gap-3">
             <div>
@@ -624,6 +630,8 @@ export default function PvpResultScreen({
             )}
           </article>
         </section>
+        </>
+        )}
 
         <section id="match-details" className="card-surface scroll-mt-6 p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">

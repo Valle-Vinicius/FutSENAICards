@@ -976,10 +976,10 @@ function MatchInner() {
     return (
       <>
         {fade && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-2xl font-bold text-white">Preparando partida...</div>}
-        {challenge.admin_entertainment && (
+        {challenge.admin_entertainment && isAdminParticipant && (
           <div role="status" className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-5xl rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
             <div className="font-bold">Modo goleada · entretenimento</div>
-            <p className="mt-1">A partida terá entre 15 e 60 gols sorteados para o admin, contra 0 do adversário, e será exibida em 4x. Não haverá alterações de Elo, XP ou estatísticas para nenhum jogador. O modo está visível para os dois participantes.</p>
+            <p className="mt-1">A partida terá entre 15 e 60 gols sorteados para você, contra 0 do adversário, e será exibida em 4x. Não haverá alterações de Elo, XP ou estatísticas para nenhum jogador. Esta informação só aparece para você.</p>
           </div>
         )}
         {isAdminParticipant && (
@@ -987,7 +987,7 @@ function MatchInner() {
             <div>
               <h2 className="text-sm font-bold text-[var(--text)]">Modo goleada · entretenimento</h2>
               <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--muted)]">
-                Sorteia entre 15 e 60 gols para o admin e acelera a simulação para 4x. A partida não altera Elo, XP nem estatísticas de nenhum jogador. Seu adversário também verá este aviso.
+                Sorteia entre 15 e 60 gols para você e acelera a simulação para 4x. A partida não altera Elo, XP nem estatísticas de nenhum jogador. Esta configuração é visível apenas para você.
               </p>
               {!canToggleAdminEntertainment && !challengerReady && !challengedReady && challenge.wager_type && (
                 <p className="mt-1 text-xs font-medium text-amber-700">O modo de entretenimento não está disponível em partidas com aposta.</p>
@@ -1451,6 +1451,7 @@ function MatchInner() {
           result={result}
           mySide={myMatchSide}
           isExhibition={!!challenge?.admin_entertainment}
+          showExhibitionDisclosure={!!challenge?.admin_entertainment && currentUserId === ADMIN_USER_ID}
           homeSnapshot={challenge?.home_snapshot ?? null}
           awaySnapshot={challenge?.away_snapshot ?? null}
           cardDetailsById={officialSnapshotCardDetails?.key === snapshotCardDetailsKey ? officialSnapshotCardDetails.byId : {}}

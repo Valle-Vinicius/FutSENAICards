@@ -48,13 +48,13 @@ export function createAdminExhibitionResult(
     type: 'goal',
     team: adminSide,
     playerId: adminScorer.id,
-    description: `GOL de ${adminScorer.name}! · modo entretenimento`,
+    description: `GOL de ${adminScorer.name}!`,
   }));
   const fulltimeEvent: MatchEvent = {
     minute: result.durationMinutes,
     type: 'fulltime',
     team: 'neutral',
-    description: `Fim de jogo. ${adminTeamName} ${goalCount} x 0 ${opponentTeamName}. Resultado de entretenimento.`,
+    description: `Fim de jogo. ${adminTeamName} ${goalCount} x 0 ${opponentTeamName}.`,
   };
   const nonGoalEvents = result.events.filter(event => event.type !== 'goal' && event.type !== 'fulltime');
   const events = [...nonGoalEvents, ...goals, fulltimeEvent].sort((a, b) => a.minute - b.minute);
